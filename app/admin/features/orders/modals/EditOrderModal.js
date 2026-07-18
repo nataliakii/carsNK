@@ -1852,6 +1852,26 @@ const EditOrderModal = ({
                     />
                   )}
                 </Box>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={Boolean(editedOrder?.offline)}
+                      disabled={isPaidAndClosed}
+                      onChange={(e) => {
+                        const offline = e.target.checked;
+                        setEditedOrder((prev) => ({
+                          ...prev,
+                          offline,
+                          confirmed: offline ? true : prev.confirmed,
+                          my_order: offline ? false : prev.my_order,
+                        }));
+                      }}
+                      size="small"
+                    />
+                  }
+                  label="Офлайн (не через сайт)"
+                  sx={{ mt: 1, mb: 0.5 }}
+                />
                 {/* 🔴 BLOCK: показываем сообщение о блокировке подтверждения (только если canConfirm === false) */}
                 {!editedOrder?.confirmed &&
                   confirmationCheck.message &&

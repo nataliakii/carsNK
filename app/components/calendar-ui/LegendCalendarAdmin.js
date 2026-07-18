@@ -9,7 +9,7 @@ import {
   Popover,
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
-import { ORDER_COLORS, getOrderColorsForLegend } from "@/config/orderColors";
+import { ORDER_COLORS, getOrderColorsForLegend, getOfflineHatchBackground } from "@/config/orderColors";
 import { useMainContext } from "@app/Context";
 import dynamic from "next/dynamic";
 
@@ -25,6 +25,7 @@ const TOOLBAR_LEGEND_DETAIL_BY_KEY = {
   PAID_AND_CLOSED: "Заказ завершён, оплачен и закрыт. Только просмотр.",
   CONFIRMED_CLIENT: "Клиентский заказ подтверждён. Приоритетный.",
   CONFIRMED_ADMIN: "Админский заказ (блокировка дат). Подтверждён.",
+  OFFLINE: "Офлайн-бронь вне сайта. Блокирует даты, особая штриховка.",
   PENDING_CLIENT: "Клиентский заказ ожидает подтверждения.",
   PENDING_ADMIN: "Админский заказ (черновик). Ожидает подтверждения.",
 };
@@ -112,7 +113,7 @@ function LegendCalendarAdmin({
     tooltip && String(tooltip).trim() ? `${label}: ${tooltip}` : label;
 
   // Компактный элемент легенды
-  const CompactLegendItem = ({ color, label, tooltip, iconsOnly }) => {
+  const CompactLegendItem = ({ color, label, tooltip, iconsOnly, hatch }) => {
     const title = legendTooltipTitle(label, tooltip);
     const swatch = (
       <Box
@@ -122,7 +123,8 @@ function LegendCalendarAdmin({
           height: iconsOnly ? 11 : 9,
           minWidth: iconsOnly ? 11 : 9,
           borderRadius: iconsOnly ? "3px" : "2px",
-          backgroundColor: color,
+          backgroundColor: hatch ? undefined : color,
+          background: hatch ? getOfflineHatchBackground(color) : undefined,
           boxShadow: iconsOnly ? "0 0 0 1px rgba(255,255,255,0.12) inset" : "none",
         }}
       />
@@ -173,7 +175,7 @@ function LegendCalendarAdmin({
   };
 
   // Полный элемент легенды (inline или внутри popover)
-  const FullLegendItem = ({ color, label, tooltip, wrap = false }) => (
+  const FullLegendItem = ({ color, label, tooltip, wrap = false, hatch = false }) => (
     <Tooltip title={tooltip || ""} arrow>
       <Box
         sx={{
@@ -195,7 +197,8 @@ function LegendCalendarAdmin({
             width: 14,
             height: 14,
             minWidth: 14,
-            backgroundColor: color,
+            backgroundColor: hatch ? undefined : color,
+            background: hatch ? getOfflineHatchBackground(color) : undefined,
             borderRadius: "3px",
             flexShrink: 0,
             mt: wrap ? 0.2 : 0,
@@ -252,6 +255,13 @@ function LegendCalendarAdmin({
           tooltip: "Админский заказ (блокировка дат). Подтверждён.",
         },
         {
+          key: "offline",
+          color: ORDER_COLORS.OFFLINE.main,
+          hatch: true,
+          label: "Offline",
+          tooltip: "Офлайн-бронь вне сайта. Блокирует даты.",
+        },
+        {
           key: "pending-client",
           color: ORDER_COLORS.PENDING_CLIENT.main,
           label: "Pending",
@@ -274,6 +284,7 @@ function LegendCalendarAdmin({
     ? getOrderColorsForLegend().map((oc) => ({
         key: oc.key,
         color: oc.main,
+        hatch: Boolean(oc.hatch),
         hoverTitle: oc.label,
         label: oc.label,
         detailTooltip: TOOLBAR_LEGEND_DETAIL_BY_KEY[oc.key] || "",
@@ -363,7 +374,10 @@ function LegendCalendarAdmin({
                       height: 11,
                       minWidth: 11,
                       borderRadius: "3px",
-                      backgroundColor: item.color,
+                      backgroundColor: item.hatch ? undefined : item.color,
+                      background: item.hatch
+                        ? getOfflineHatchBackground(item.color)
+                        : undefined,
                       boxShadow: "0 0 0 1px rgba(255,255,255,0.12) inset",
                       pointerEvents: coarsePointer ? "none" : "auto",
                     }}
@@ -448,6 +462,7 @@ function LegendCalendarAdmin({
               <CompactLegendItem
                 key={item.key}
                 color={item.color}
+                hatch={item.hatch}
                 label={item.label}
                 tooltip={item.tooltip}
                 iconsOnly={useIconOnlyLegend}
@@ -619,6 +634,13 @@ function LegendCalendarAdmin({
             color={ORDER_COLORS.CONFIRMED_ADMIN.main}
             label={ORDER_COLORS.CONFIRMED_ADMIN.label}
             tooltip="Админский заказ (блокировка дат). Подтверждён."
+            wrap
+          />
+          <FullLegendItem
+            color={ORDER_COLORS.OFFLINE.main}
+            label={ORDER_COLORS.OFFLINE.label}
+            tooltip="Офлайн-бронь вне сайта. Блокирует даты."
+            hatch
             wrap
           />
           <FullLegendItem

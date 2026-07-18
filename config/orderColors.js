@@ -3,13 +3,15 @@
  * 
  * 🎯 ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ для цветов заказов
  * 
- * Colors depend ONLY on:
+ * Colors depend on:
+ * - order.offline (boolean) — off-site booking
  * - order.confirmed (boolean)
  * - order.my_order (boolean)
  * - order.status (terminal PAID_AND_CLOSED)
  * 
  * my_order = true  → клиентский заказ (CLIENT)
  * my_order = false → админский заказ (ADMIN)
+ * offline = true   → офлайн-бронь (штриховка в календаре)
  * 
  * ЦВЕТОВАЯ ЛОГИКА:
  * - Клиентские заказы (my_order=true):
@@ -95,7 +97,31 @@ export const ORDER_COLORS = {
     label: "Ожидает (админ)",
     labelEn: "Pending (admin)",
   },
+
+  // Офлайн-бронь (вне сайта) — slate + hatch in calendar
+  OFFLINE: {
+    key: "OFFLINE",
+    main: "#5C6BC0",
+    light: "#7986CB",
+    dark: "#3949AB",
+    text: "#283593",
+    bg: alpha("#5C6BC0", 0.2),
+    label: "Офлайн (не через сайт)",
+    labelEn: "Offline (off-site)",
+    hatch: true,
+  },
 };
+
+/** CSS repeating gradient for offline calendar cells */
+export function getOfflineHatchBackground(baseColor = ORDER_COLORS.OFFLINE.main) {
+  return `repeating-linear-gradient(
+    -45deg,
+    ${baseColor},
+    ${baseColor} 6px,
+    rgba(255,255,255,0.28) 6px,
+    rgba(255,255,255,0.28) 10px
+  )`;
+}
 
 /**
  * MOVE_MODE_COLORS - цвета для режима перемещения заказов
@@ -170,6 +196,7 @@ export function getOrderColorsForLegend() {
     ORDER_COLORS.PAID_AND_CLOSED,
     ORDER_COLORS.CONFIRMED_CLIENT,
     ORDER_COLORS.CONFIRMED_ADMIN,
+    ORDER_COLORS.OFFLINE,
     ORDER_COLORS.PENDING_CLIENT,
     ORDER_COLORS.PENDING_ADMIN,
   ];

@@ -12,6 +12,8 @@ export {
   getOrderType,
 } from "./getOrderColor";
 
+export { isOrderDateBlocking } from "./isOrderDateBlocking";
+
 export { buildPendingConfirmBlockMap } from "./buildPendingConfirmBlockMap";
 
 // ============================================

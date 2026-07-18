@@ -4,6 +4,7 @@
  * 🎯 ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ для цветов заказов
  * 
  * Возвращает цветовую конфигурацию для заказа на основе:
+ * - offline (офлайн-бронь вне сайта)
  * - confirmed (подтверждён или нет)
  * - my_order (клиентский или админский)
  * 
@@ -20,18 +21,23 @@ import { isOrderPaidAndClosed } from "@/domain/orders/orderStatus";
  * @param {Object} order - заказ
  * @param {boolean} order.confirmed - подтверждён ли заказ
  * @param {boolean} order.my_order - клиентский ли заказ (true = клиент, false = админ)
- * @returns {Object} - цветовая конфигурация { key, main, light, dark, text, bg, label, labelEn }
+ * @param {boolean} [order.offline] - офлайн-бронь
+ * @returns {Object} - цветовая конфигурация { key, main, light, dark, text, bg, label, labelEn, hatch? }
  */
 export function getOrderColor(order) {
   if (!order) {
     return ORDER_COLORS.PENDING_ADMIN;
   }
 
-  const { confirmed, my_order, status } = order;
+  const { confirmed, my_order, status, offline } = order;
 
   // Terminal status has highest visual priority in calendar.
   if (isOrderPaidAndClosed(status)) {
     return ORDER_COLORS.PAID_AND_CLOSED;
+  }
+
+  if (offline === true) {
+    return ORDER_COLORS.OFFLINE;
   }
 
   // Определяем цвет на основе confirmed + my_order
@@ -87,14 +93,15 @@ export function getOrderBgColor(order) {
  */
 export function getOrderType(order) {
   if (!order) return "pendingAdmin";
-  
+
+  if (order.offline === true) return "offline";
+
   const { confirmed, my_order } = order;
-  
+
   if (confirmed) {
     return my_order ? "confirmedClient" : "confirmedAdmin";
-  } else {
-    return my_order ? "pendingClient" : "pendingAdmin";
   }
+  return my_order ? "pendingClient" : "pendingAdmin";
 }
 
 export default getOrderColor;

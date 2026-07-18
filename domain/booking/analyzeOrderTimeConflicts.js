@@ -294,7 +294,8 @@ export function analyzeOrderTimeConflicts({
 
     if (!isSameDay) return;
 
-    const otherConfirmed = order.confirmed === true;
+    const otherConfirmed =
+      order.offline === true || order.confirmed === true;
 
     // Парсим время другого заказа из UTC → Athens
     const otherTimeIn = fromServerUTC(order.timeIn);

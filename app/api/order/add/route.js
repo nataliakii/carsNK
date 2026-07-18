@@ -260,6 +260,7 @@ async function postOrderAddHandler(request) {
       flightNumber,
       confirmed,
       my_order = false,
+      offline = false,
       ChildSeats,
       insurance,
       franchiseOrder,
@@ -291,7 +292,10 @@ async function postOrderAddHandler(request) {
     // Публичный POST /order/add без админ-сессии: всегда клиентский заказ и неподтверждённый.
     // Иначе в JSON default my_order=false / подделка confirmed=true отключали уведомления CREATE.
     const myOrderToSave = isAdminSession ? Boolean(my_order) : true;
-    const confirmedToSave = isAdminSession ? Boolean(confirmed) : false;
+    const offlineToSave = isAdminSession ? Boolean(offline) : false;
+    const confirmedToSave = isAdminSession
+      ? Boolean(confirmed) || offlineToSave
+      : false;
 
     // Явно присваиваем email пустую строку, если он не передан или undefined/null
     const safeEmail = typeof email === "string" ? email : "";
@@ -576,6 +580,7 @@ async function postOrderAddHandler(request) {
       date: dayjs().tz(BUSINESS_TZ).toDate(),
       confirmed: confirmedToSave,
       my_order: myOrderToSave,
+      offline: offlineToSave,
       ChildSeats,
       insurance,
       franchiseOrder,
@@ -615,14 +620,16 @@ async function postOrderAddHandler(request) {
       const user = session?.user || { id: null, role: 0, isAdmin: false };
       const company = await Company.findById(COMPANY_ID);
       try {
-        await notifyOrderAction({
-          order: orderPlain,
-          user,
-          action: "CREATE",
-          source: "BACKEND",
-          companyEmail: company?.email,
-          locale: clientLocale,
-        });
+        if (!offlineToSave) {
+          await notifyOrderAction({
+            order: orderPlain,
+            user,
+            action: "CREATE",
+            source: "BACKEND",
+            companyEmail: company?.email,
+            locale: clientLocale,
+          });
+        }
       } catch (err) {
         notificationError = err?.message || "Notifications failed";
         console.error("[ORDER-ADD] notifyOrderAction failed (order created, 202):", {
@@ -663,14 +670,16 @@ async function postOrderAddHandler(request) {
     const user = session?.user || { id: null, role: 0, isAdmin: false };
     const company = await Company.findById(COMPANY_ID);
     try {
-      await notifyOrderAction({
-        order: orderPlain,
-        user,
-        action: "CREATE",
-        source: "BACKEND",
-        companyEmail: company?.email,
-        locale: clientLocale,
-      });
+      if (!offlineToSave) {
+        await notifyOrderAction({
+          order: orderPlain,
+          user,
+          action: "CREATE",
+          source: "BACKEND",
+          companyEmail: company?.email,
+          locale: clientLocale,
+        });
+      }
     } catch (err) {
       notificationError = err?.message || "Notifications failed";
       console.error("[ORDER-ADD] notifyOrderAction failed (order created, 201):", {

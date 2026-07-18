@@ -6,6 +6,7 @@ import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import { companyData } from "@utils/companyData";
 import { BUSINESS_TZ } from "@utils/businessTime";
+import { isOrderDateBlocking } from "@/domain/orders/isOrderDateBlocking";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -224,7 +225,7 @@ export const processOrders = (orders) => {
     ) {
       const dateStr = currentDate.format("YYYY-MM-DD");
       unavailableDates.push(dateStr);
-      if (order.confirmed) {
+      if (isOrderDateBlocking(order)) {
         confirmedDates.push(dateStr);
       }
       currentDate = currentDate.add(1, "day");
@@ -360,14 +361,14 @@ export function extractArraysOfStartEndConfPending(orders) {
       date: startDate.format("YYYY-MM-DD"),
       type: "start",
       time: timeStart,
-      confirmed: order.confirmed,
+      confirmed: isOrderDateBlocking(order),
       orderId: order._id,
     });
     startEnd.push({
       date: endDate.format("YYYY-MM-DD"),
       type: "end",
       time: timeEnd,
-      confirmed: order.confirmed,
+      confirmed: isOrderDateBlocking(order),
       orderId: order._id,
     });
 
@@ -377,7 +378,7 @@ export function extractArraysOfStartEndConfPending(orders) {
     while (currentDate.isBefore(lastInnerDay, "day")) {
       const dateStr = currentDate.format("YYYY-MM-DD");
 
-      if (order.confirmed) {
+      if (isOrderDateBlocking(order)) {
         confirmed.push(dateStr);
         // Точечный лог: кто положил дату в confirmed
         if (DEBUG_DATE && dateStr === DEBUG_DATE) {
@@ -422,7 +423,7 @@ export function extractArraysOfStartEndConfPending(orders) {
       const endMinute = Number(timeEnd?.slice(-2)) || 0;
       const absDiffEnd = Math.abs(Number(diffEnd) || 0);
       const totalMinutes = endHour * 60 + endMinute + absDiffEnd * 60;
-      const meetsFullRedCondition = order.confirmed && totalMinutes >= 24 * 60;
+      const meetsFullRedCondition = isOrderDateBlocking(order) && totalMinutes >= 24 * 60;
 
       if (meetsFullRedCondition) {
         confirmed.push(endDayStr);
@@ -535,7 +536,7 @@ export function extractArraysOfStartEndConfPending(orders) {
       const totalMinutesStart =
         startHour * 60 + startMinute - (Number(diffStart) || 0) * 60;
       const meetsFullRedStartCondition =
-        order.confirmed && totalMinutesStart <= 0;
+        isOrderDateBlocking(order) && totalMinutesStart <= 0;
 
       if (meetsFullRedStartCondition) {
         confirmed.push(startDayStr);
@@ -754,7 +755,7 @@ export function returnOverlapOrdersObjects(
       };
 
       // Увеличиваем соответствующий счетчик
-      if (order.confirmed) {
+      if (isOrderDateBlocking(order)) {
         counts.confirmed += 1;
       } else {
         counts.pending += 1;

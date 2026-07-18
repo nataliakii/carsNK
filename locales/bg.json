@@ -19,7 +19,9 @@
     "searchCars": "Търсене на коли",
     "searchCarsPlaceholder": "Търсене по модел, клас, гориво…",
     "clearSearch": "Изчисти търсенето",
-    "websiteVisits": "Visits"
+    "websiteVisits": "Visits",
+    "transfer": "Трансфер",
+    "transfers": "Трансфери"
   },
   "catalog": {
     "noCarsMatchFilters": "Няма коли за избраните филтри. Променете търсенето, класа, скоростите или местата."
@@ -321,5 +323,22 @@
       "proof": "Engagement",
       "empty": "No visits for this filter yet."
     }
+  },
+  "transfer": {
+    "title": "Заявка за трансфер",
+    "from": "От",
+    "to": "До",
+    "passengers": "Пътници",
+    "datetime": "Дата и час",
+    "customerName": "Вашето име",
+    "phone": "Телефон",
+    "email": "Имейл",
+    "notes": "Бележки",
+    "submit": "Изпрати",
+    "sending": "Изпращане…",
+    "cancel": "Отказ",
+    "close": "Затвори",
+    "success": "Благодарим! Ще се свържем с вас скоро.",
+    "submitError": "Неуспешно изпращане. Опитайте отново."
   }
 }

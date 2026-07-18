@@ -19,7 +19,9 @@
     "searchCars": "Pretraga auta",
     "searchCarsPlaceholder": "Pretraga po modelu, klasi, gorivu…",
     "clearSearch": "Obriši pretragu",
-    "websiteVisits": "Visits"
+    "websiteVisits": "Visits",
+    "transfer": "Transfer",
+    "transfers": "Transferi"
   },
   "catalog": {
     "noCarsMatchFilters": "Nema auta za izabrane filtere. Promenite pretragu, klasu, menjač ili broj sedišta."
@@ -321,5 +323,22 @@
       "proof": "Engagement",
       "empty": "No visits for this filter yet."
     }
+  },
+  "transfer": {
+    "title": "Zahtev za transfer",
+    "from": "Od",
+    "to": "Do",
+    "passengers": "Putnici",
+    "datetime": "Datum i vreme",
+    "customerName": "Vaše ime",
+    "phone": "Telefon",
+    "email": "Email",
+    "notes": "Napomene",
+    "submit": "Pošalji",
+    "sending": "Slanje…",
+    "cancel": "Otkaži",
+    "close": "Zatvori",
+    "success": "Hvala! Javićemo vam se uskoro.",
+    "submitError": "Zahtev nije poslat. Pokušajte ponovo."
   }
 }

@@ -158,13 +158,14 @@ function Footer() {
           <ContactLink href={`mailto:${email}`}>{email}</ContactLink>
         </ContactItem>
 
-        {/* Address */}
+        {/* Address — hidden for now
         <ContactItem>
           <ContactIcon>
             <LocationOnIcon />
           </ContactIcon>
           <span style={{ color: "#ffffff" }}>{address}</span>
         </ContactItem>
+        */}
       </ContactInfo>
 
       {/* Nea Kallikratia Guide banner */}

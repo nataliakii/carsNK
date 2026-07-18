@@ -52,6 +52,7 @@ import {
   SELECTED_LOCATION_STORAGE_KEY,
 } from "@/domain/orders/locationOptions";
 import { resolveBookingLocationFromPathname } from "@/domain/orders/bookingLocationPathResolver";
+import TransferRequestModal from "@app/components/TransferRequestModal";
 
 const NAVBAR_LOCATIONS_DIVIDER_INDEX = 4;
 
@@ -207,6 +208,7 @@ export default function NavBar({
   const [locationsAnchor, setLocationsAnchor] = useState(null);
   const locationsButtonRef = useRef(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
   const { locationGroups } = useNavLocations();
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
   const [selectedDiscount, setSelectedDiscount] = useState(0);
@@ -545,6 +547,7 @@ export default function NavBar({
   const isAdminOrdersRoute = pathname === "/admin/orders";
   const isAdminZonesRoute = pathname?.startsWith("/admin/delivery-zones");
   const isAdminVisitsRoute = pathname?.startsWith("/admin/website-visits");
+  const isAdminTransfersRoute = pathname?.startsWith("/admin/transfers");
   const adminNavLinkSx = {
     px: { md: 0.8, lg: 1.25 },
     py: 0.2,
@@ -807,6 +810,28 @@ export default function NavBar({
                         {t("header.contacts")}
                       </Typography>
                     </Link>
+                    <Button
+                      type="button"
+                      onClick={() => setTransferModalOpen(true)}
+                      sx={{
+                        minWidth: 0,
+                        px: { md: 0.8, lg: 1.5 },
+                        color: "inherit",
+                        textTransform: "uppercase",
+                        fontStretch: "extra-condensed",
+                        "&:hover": { backgroundColor: "transparent" },
+                      }}
+                    >
+                      <Typography
+                        component="span"
+                        sx={{
+                          fontStretch: "extra-condensed",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {t("header.transfer")}
+                      </Typography>
+                    </Button>
                   </>
                 )}
                 {isAdmin && (
@@ -902,6 +927,22 @@ export default function NavBar({
                         }}
                       >
                         {t("header.websiteVisits")}
+                      </Typography>
+                    </Link>
+                    <Link href="/admin/transfers">
+                      <Typography
+                        sx={{
+                          ...adminNavLinkSx,
+                          ...(isAdminTransfersRoute
+                            ? {
+                                opacity: 1,
+                                fontWeight: 600,
+                                borderBottom: "1px solid rgba(255,255,255,0.75)",
+                              }
+                            : null),
+                        }}
+                      >
+                        {t("header.transfers")}
                       </Typography>
                     </Link>
                   </>
@@ -1340,6 +1381,15 @@ export default function NavBar({
                 <ListItem button component={Link} href={contactsHref}>
                   <ListItemText primary={t("header.contacts")} />
                 </ListItem>
+                <ListItem
+                  button
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    setTransferModalOpen(true);
+                  }}
+                >
+                  <ListItemText primary={t("header.transfer")} />
+                </ListItem>
               </>
             ) : (
               <>
@@ -1369,6 +1419,14 @@ export default function NavBar({
                   onClick={() => setDrawerOpen(false)}
                 >
                   <ListItemText primary={t("header.websiteVisits")} />
+                </ListItem>
+                <ListItem
+                  button
+                  component={Link}
+                  href="/admin/transfers"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  <ListItemText primary={t("header.transfers")} />
                 </ListItem>
                 {isAdmin && (
                   <ListItem
@@ -1444,6 +1502,13 @@ export default function NavBar({
           discountActiveNow={discountActiveNow}
           discountHistory={discountHistory}
           activeDiscount={activeDiscount}
+        />
+      )}
+
+      {!isAdmin && (
+        <TransferRequestModal
+          open={transferModalOpen}
+          onClose={() => setTransferModalOpen(false)}
         />
       )}
     </>

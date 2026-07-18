@@ -189,7 +189,7 @@ export function analyzeConfirmationConflicts({ orderToConfirm, allOrders, buffer
       orderId,
       customerName: safeCustomerName,
       email: order.email || null,
-      isConfirmed: order.confirmed === true,
+      isConfirmed: order.offline === true || order.confirmed === true,
       overlapHours: Math.round(overlapHours * 10) / 10,
       effectiveConflictHours: Math.round((overlapHours + effectiveBufferHours) * 10) / 10,
       gapHours: Math.round(nearestConflict.gapHours * 10) / 10,
@@ -203,7 +203,7 @@ export function analyzeConfirmationConflicts({ orderToConfirm, allOrders, buffer
       otherEndDateFormatted: formatDateReadable(otherEndDate),
     };
 
-    if (order.confirmed) {
+    if (order.offline === true || order.confirmed === true) {
       result.blockedByConfirmed.push(conflictInfo);
     } else {
       result.affectedPendingOrders.push(conflictInfo);
@@ -313,7 +313,7 @@ export function canPendingOrderBeConfirmed({ pendingOrder, allOrders, bufferHour
     const orderId = order._id?.toString?.() || order._id;
     const pendingId = pendingOrder._id?.toString?.() || pendingOrder._id;
     if (orderId === pendingId) continue;
-    if (!order.confirmed) continue;
+    if (!(order.offline === true || order.confirmed === true)) continue;
 
     const otherStart = fromServerUTC(order.timeIn);
     const otherEnd = fromServerUTC(order.timeOut);

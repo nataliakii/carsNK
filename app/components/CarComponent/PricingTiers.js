@@ -224,10 +224,10 @@ const PricingDisplay = ({
                     sx={{
                       lineHeight: { xs: "0.9rem", sm: "0.9rem" },
                       fontSize: { xs: "0.8rem", sm: "0.9rem" },
+                      color: "text.inverse",
                       "@media (max-width:900px) and (orientation: landscape)": {
                         fontSize: "0.7rem",
                         lineHeight: "0.8rem",
-                        color: "text.inverse", // Светлый текст для тёмного фона
                       },
                       mb: 1,
                       "@media (max-width:600px) and (orientation: portrait)": {

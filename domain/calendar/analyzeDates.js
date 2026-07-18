@@ -6,6 +6,7 @@ import timezone from "dayjs/plugin/timezone";
 // import isSame from "dayjs/plugin/isSame";
 import isBetween from "dayjs/plugin/isBetween";
 import { companyData } from "@utils/companyData";
+import { isOrderDateBlocking } from "@/domain/orders/isOrderDateBlocking";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -94,7 +95,7 @@ function analyzeDates(orders) {
         orderId: order._id,
       };
 
-      if (order.confirmed) {
+      if (isOrderDateBlocking(order)) {
         const existingIndex = result.confirmed.findIndex((item) =>
           isSameDay(dayjs(item.date), currentDate)
         );

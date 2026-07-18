@@ -834,6 +834,13 @@ export const PATCH = async (request, { params }) => {
               if (payload.Viber !== undefined) order.Viber = payload.Viber;
               if (payload.Whatsapp !== undefined) order.Whatsapp = payload.Whatsapp;
               if (payload.Telegram !== undefined) order.Telegram = payload.Telegram;
+              if (payload.offline !== undefined) {
+                order.offline = Boolean(payload.offline);
+                if (order.offline) {
+                  order.confirmed = true;
+                  order.my_order = false;
+                }
+              }
               if (payload.flightNumber !== undefined)
                 order.flightNumber = payload.flightNumber;
               if (payload.drivingLicenceUrls !== undefined) {
@@ -965,6 +972,13 @@ export const PATCH = async (request, { params }) => {
         if (payload.Viber !== undefined) order.Viber = payload.Viber;
         if (payload.Whatsapp !== undefined) order.Whatsapp = payload.Whatsapp;
         if (payload.Telegram !== undefined) order.Telegram = payload.Telegram;
+        if (payload.offline !== undefined) {
+          order.offline = Boolean(payload.offline);
+          if (order.offline) {
+            order.confirmed = true;
+            order.my_order = false;
+          }
+        }
         if (payload.flightNumber !== undefined)
           order.flightNumber = payload.flightNumber;
         if (payload.drivingLicenceUrls !== undefined) {
@@ -1056,6 +1070,13 @@ export const PATCH = async (request, { params }) => {
       if (payload.Viber !== undefined) order.Viber = payload.Viber;
       if (payload.Whatsapp !== undefined) order.Whatsapp = payload.Whatsapp;
       if (payload.Telegram !== undefined) order.Telegram = payload.Telegram;
+      if (payload.offline !== undefined) {
+        order.offline = Boolean(payload.offline);
+        if (order.offline) {
+          order.confirmed = true;
+          order.my_order = false;
+        }
+      }
       if (payload.flightNumber !== undefined)
         order.flightNumber = payload.flightNumber;
       if (payload.drivingLicenceUrls !== undefined) {

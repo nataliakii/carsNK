@@ -19,7 +19,9 @@
     "searchCars": "Search cars",
     "searchCarsPlaceholder": "Search by model, class, fuel…",
     "clearSearch": "Clear search",
-    "websiteVisits": "Visits"
+    "websiteVisits": "Visits",
+    "transfer": "Transfer",
+    "transfers": "Transfers"
   },
   "catalog": {
     "noCarsMatchFilters": "No cars match the selected filters. Try changing search, class, transmission, or seats."
@@ -432,5 +434,22 @@
       "proof": "Engagement",
       "empty": "No visits for this filter yet."
     }
+  },
+  "transfer": {
+    "title": "Request a transfer",
+    "from": "From",
+    "to": "To",
+    "passengers": "Passengers",
+    "datetime": "Date & time",
+    "customerName": "Your name",
+    "phone": "Phone",
+    "email": "Email",
+    "notes": "Notes",
+    "submit": "Send request",
+    "sending": "Sending…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "success": "Thank you! We will contact you shortly.",
+    "submitError": "Could not send the request. Please try again."
   }
 }

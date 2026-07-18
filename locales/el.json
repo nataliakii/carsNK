@@ -19,7 +19,9 @@
     "searchCars": "Αναζήτηση αυτοκινήτων",
     "searchCarsPlaceholder": "Αναζήτηση με μοντέλο, κατηγορία…",
     "clearSearch": "Καθαρισμός αναζήτησης",
-    "websiteVisits": "Visits"
+    "websiteVisits": "Visits",
+    "transfer": "Μεταφορά",
+    "transfers": "Μεταφορές"
   },
   "catalog": {
     "noCarsMatchFilters": "Δεν υπάρχουν αυτοκίνητα με αυτά τα φίλτρα. Δοκιμάστε άλλη αναζήτηση ή φίλτρα."
@@ -434,5 +436,22 @@
       "proof": "Engagement",
       "empty": "No visits for this filter yet."
     }
+  },
+  "transfer": {
+    "title": "Αίτημα μεταφοράς",
+    "from": "Από",
+    "to": "Προς",
+    "passengers": "Επιβάτες",
+    "datetime": "Ημερομηνία & ώρα",
+    "customerName": "Το όνομά σας",
+    "phone": "Τηλέφωνο",
+    "email": "Email",
+    "notes": "Σημειώσεις",
+    "submit": "Αποστολή",
+    "sending": "Αποστολή…",
+    "cancel": "Ακύρωση",
+    "close": "Κλείσιμο",
+    "success": "Ευχαριστούμε! Θα επικοινωνήσουμε σύντομα.",
+    "submitError": "Αποτυχία αποστολής. Δοκιμάστε ξανά."
   }
 }

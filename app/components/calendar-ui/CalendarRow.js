@@ -19,6 +19,8 @@ import { useSnackbar } from "notistack";
 // Импорт helpers и hooks
 // ============================================
 import { getOrderColor } from "@/domain/orders/getOrderColor";
+import { isOrderDateBlocking } from "@/domain/orders/isOrderDateBlocking";
+import { MOVE_MODE_COLORS, getOfflineHatchBackground } from "@/config/orderColors";
 import OrderHoverPreview from "./OrderHoverPreview";
 import { getCarAvailability, isOrderOnCar } from "@/domain/calendar";
 import {
@@ -38,8 +40,6 @@ import {
   getMoveDayFlags,
 } from "@/app/admin/features/calendar/helpers";
 import { useCalendarCellGesture, useCalendarOrders } from "@/app/admin/features/calendar/hooks";
-// ⚠️ ЗАФИКСИРОВАНО: Цвета для режима перемещения из централизованного конфига
-import { MOVE_MODE_COLORS } from "@/config/orderColors";
 
 // ============================================
 // Pure helper: cell state flags (no JSX, no side effects)
@@ -754,22 +754,33 @@ export default function CarTableRow({
       // Определяем цвет ячейки на основе заказов используя getOrderColor
       let backgroundColor = "transparent";
       let color = "inherit";
+      let hatchBackground = null;
       
       if (cellState.isConfirmed) {
-        // Для confirmed ячеек берем первый confirmed заказ
-        const confirmedOrder = ordersForDate?.find((order) => order.confirmed);
+        // Blocking = confirmed OR offline
+        const confirmedOrder = ordersForDate?.find((order) =>
+          isOrderDateBlocking(order)
+        );
         if (confirmedOrder) {
           const orderColor = getOrderColor(confirmedOrder);
           backgroundColor = orderColor.main;
           color = "white";
+          if (orderColor.hatch) {
+            hatchBackground = getOfflineHatchBackground(orderColor.main);
+          }
         }
       } else if (cellState.isUnavailable) {
-        // Для pending ячеек берем первый pending заказ
-        const pendingOrder = ordersForDate?.find((order) => !order.confirmed);
+        // Для pending ячеек берем первый non-blocking заказ
+        const pendingOrder = ordersForDate?.find(
+          (order) => !isOrderDateBlocking(order)
+        );
         if (pendingOrder) {
           const orderColor = getOrderColor(pendingOrder);
           backgroundColor = orderColor.main;
           color = "text.primary";
+          if (orderColor.hatch) {
+            hatchBackground = getOfflineHatchBackground(orderColor.main);
+          }
         }
       }
       let borderRadius = "1px";
@@ -1154,8 +1165,8 @@ export default function CarTableRow({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: gradientBackground || undefined,
-              backgroundColor: !gradientBackground
+              background: gradientBackground || hatchBackground || undefined,
+              backgroundColor: !gradientBackground && !hatchBackground
                 ? backgroundColor.startsWith("#")
                   ? backgroundColor
                   : backgroundColor

@@ -308,6 +308,15 @@ const OrderSchema = new mongoose.Schema({
     default: false,
   },
   /**
+   * Offline booking: reserved outside the website (phone / WhatsApp / etc.).
+   * Blocks dates like a confirmed order; shown with a distinct calendar style.
+   */
+  offline: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  /**
    * Role of admin who created this order:
    * 0 = regular admin (default)
    * 1 = superadmin

@@ -83,7 +83,8 @@ export function getOrderOwnership(order) {
   let confirmation = "pending";
   if (order.cancelledAt) {
     confirmation = "cancelled";
-  } else if (order.confirmed === true) {
+  } else if (order.confirmed === true || order.offline === true) {
+    // Offline (off-site) bookings block dates like confirmed orders.
     confirmation = "confirmed";
   }
 

@@ -19,7 +19,9 @@
     "searchCars": "Autos suchen",
     "searchCarsPlaceholder": "Suche nach Modell, Klasse, Kraftstoff…",
     "clearSearch": "Suche löschen",
-    "websiteVisits": "Visits"
+    "websiteVisits": "Visits",
+    "transfer": "Transfer",
+    "transfers": "Transfers"
   },
   "catalog": {
     "noCarsMatchFilters": "Keine Autos passen zu den Filtern. Suche, Klasse, Getriebe oder Sitze ändern."
@@ -321,5 +323,22 @@
       "proof": "Engagement",
       "empty": "No visits for this filter yet."
     }
+  },
+  "transfer": {
+    "title": "Transfer anfragen",
+    "from": "Von",
+    "to": "Nach",
+    "passengers": "Passagiere",
+    "datetime": "Datum & Uhrzeit",
+    "customerName": "Ihr Name",
+    "phone": "Telefon",
+    "email": "E-Mail",
+    "notes": "Notizen",
+    "submit": "Anfrage senden",
+    "sending": "Senden…",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "success": "Danke! Wir melden uns in Kürze.",
+    "submitError": "Anfrage konnte nicht gesendet werden. Bitte erneut versuchen."
   }
 }

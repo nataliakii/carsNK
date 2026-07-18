@@ -19,7 +19,9 @@
     "searchCars": "Szukaj aut",
     "searchCarsPlaceholder": "Szukaj po modelu, klasie, paliwie…",
     "clearSearch": "Wyczyść wyszukiwanie",
-    "websiteVisits": "Visits"
+    "websiteVisits": "Visits",
+    "transfer": "Transfer",
+    "transfers": "Transfery"
   },
   "catalog": {
     "noCarsMatchFilters": "Brak aut dla wybranych filtrów. Zmień wyszukiwanie, klasę, skrzynię lub miejsca."
@@ -427,5 +429,22 @@
       "proof": "Engagement",
       "empty": "No visits for this filter yet."
     }
+  },
+  "transfer": {
+    "title": "Zapytanie o transfer",
+    "from": "Skąd",
+    "to": "Dokąd",
+    "passengers": "Pasażerowie",
+    "datetime": "Data i godzina",
+    "customerName": "Twoje imię",
+    "phone": "Telefon",
+    "email": "Email",
+    "notes": "Uwagi",
+    "submit": "Wyślij",
+    "sending": "Wysyłanie…",
+    "cancel": "Anuluj",
+    "close": "Zamknij",
+    "success": "Dziękujemy! Skontaktujemy się wkrótce.",
+    "submitError": "Nie udało się wysłać. Spróbuj ponownie."
   }
 }

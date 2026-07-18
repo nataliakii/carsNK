@@ -1034,6 +1034,13 @@ export function useEditOrderState({
           : [];
       }
 
+      // Offline (off-site) flag — always send current value for admin edits
+      payload.offline = Boolean(o.offline);
+      if (payload.offline) {
+        payload.confirmed = true;
+        payload.my_order = false;
+      }
+
       if (payload.phone !== undefined) {
         const p = String(payload.phone ?? "").trim();
         if (p && !isValidInternationalPhone(p)) {

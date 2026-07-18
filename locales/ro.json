@@ -19,7 +19,9 @@
     "searchCars": "Caută mașini",
     "searchCarsPlaceholder": "Caută după model, clasă, combustibil…",
     "clearSearch": "Șterge căutarea",
-    "websiteVisits": "Visits"
+    "websiteVisits": "Visits",
+    "transfer": "Transfer",
+    "transfers": "Transferuri"
   },
   "catalog": {
     "noCarsMatchFilters": "Nicio mașină nu se potrivește filtrelor. Schimbă căutarea, clasa, cutia sau locurile."
@@ -321,5 +323,22 @@
       "proof": "Engagement",
       "empty": "No visits for this filter yet."
     }
+  },
+  "transfer": {
+    "title": "Cerere de transfer",
+    "from": "De la",
+    "to": "Către",
+    "passengers": "Pasageri",
+    "datetime": "Data și ora",
+    "customerName": "Numele dvs.",
+    "phone": "Telefon",
+    "email": "Email",
+    "notes": "Note",
+    "submit": "Trimite",
+    "sending": "Se trimite…",
+    "cancel": "Anulează",
+    "close": "Închide",
+    "success": "Mulțumim! Vă contactăm în curând.",
+    "submitError": "Nu s-a putut trimite. Încercați din nou."
   }
 }

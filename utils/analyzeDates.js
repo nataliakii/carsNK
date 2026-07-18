@@ -94,7 +94,7 @@ function analyzeDates(orders) {
         orderId: order._id,
       };
 
-      if (order.confirmed) {
+      if (order.offline === true || order.confirmed === true) {
         const existingIndex = result.confirmed.findIndex((item) =>
           isSameDay(dayjs(item.date), currentDate)
         );

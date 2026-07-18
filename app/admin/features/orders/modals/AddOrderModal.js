@@ -107,6 +107,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
       numberOfDays: 0,
       confirmed: false,
       my_order: false,
+      offline: false,
       ChildSeats: 0,
       insurance: "TPL",
       franchiseOrder: car?.franchise ?? 0,
@@ -397,6 +398,19 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
     }));
   }, []);
 
+  const toggleOfflineStatus = useCallback(() => {
+    setOrderDetails((prev) => {
+      const nextOffline = !prev.offline;
+      return {
+        ...prev,
+        offline: nextOffline,
+        // Offline bookings should block dates like confirmed internal orders.
+        confirmed: nextOffline ? true : prev.confirmed,
+        my_order: nextOffline ? false : prev.my_order,
+      };
+    });
+  }, []);
+
   const parseTimeInput = useCallback((value, baseDate, fallbackTime) => {
     const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value || "");
     if (!match) return fallbackTime;
@@ -534,6 +548,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
       placeOutDetail: String(orderDetails.placeOutDetail || "").trim(),
       confirmed: orderDetails.confirmed,
       my_order: orderDetails.my_order,
+      offline: Boolean(orderDetails.offline),
       ChildSeats: orderDetails.ChildSeats,
       insurance: orderDetails.insurance,
       franchiseOrder: orderDetails.franchiseOrder,
@@ -742,6 +757,17 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
             sx={{ flex: 1 }}
           />
         </Box>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={Boolean(orderDetails.offline)}
+              onChange={toggleOfflineStatus}
+              size="small"
+            />
+          }
+          label="Офлайн (не через сайт)"
+          sx={{ mb: 1, alignSelf: "flex-start" }}
+        />
         {/* Location fields */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1 }}>
           <Box
