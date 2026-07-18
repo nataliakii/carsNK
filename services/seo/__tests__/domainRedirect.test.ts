@@ -1,17 +1,50 @@
-import { buildCanonicalRedirectUrl, shouldRedirectToCanonicalHost } from "../domainRedirect";
+import {
+  buildCanonicalRedirectUrl,
+  shouldRedirectToCanonicalHost,
+} from "../domainRedirect";
 
-describe("domainRedirect", () => {
-  it("redirects configured non-canonical domain and preserves path/query", () => {
-    const shouldRedirect = shouldRedirectToCanonicalHost({
-      hostname: "www.natali-cars.com",
-      pathname: "/en/cars",
-    });
-    expect(shouldRedirect).toBe(true);
+describe("domainRedirect (dual domain)", () => {
+  it("redirects www.carsnk.gr → carsnk.gr and preserves path/query", () => {
+    expect(
+      shouldRedirectToCanonicalHost({
+        hostname: "www.carsnk.gr",
+        pathname: "/en/cars",
+      })
+    ).toBe(true);
 
-    const target = buildCanonicalRedirectUrl(
-      "https://www.natali-cars.com/en/cars?sort=price&currency=eur"
-    );
-    expect(target).toBe("https://natali-cars.com/en/cars?sort=price&currency=eur");
+    expect(
+      buildCanonicalRedirectUrl(
+        "https://www.carsnk.gr/en/cars?sort=price&currency=eur"
+      )
+    ).toBe("https://carsnk.gr/en/cars?sort=price&currency=eur");
+  });
+
+  it("redirects www.cars.bbqr.site → cars.bbqr.site (not carsnk.gr)", () => {
+    expect(
+      shouldRedirectToCanonicalHost({
+        hostname: "www.cars.bbqr.site",
+        pathname: "/en/cars",
+      })
+    ).toBe(true);
+
+    expect(
+      buildCanonicalRedirectUrl("https://www.cars.bbqr.site/ru/contacts")
+    ).toBe("https://cars.bbqr.site/ru/contacts");
+  });
+
+  it("does not redirect peer apex hosts (both serve the app)", () => {
+    expect(
+      shouldRedirectToCanonicalHost({
+        hostname: "carsnk.gr",
+        pathname: "/en/cars",
+      })
+    ).toBe(false);
+    expect(
+      shouldRedirectToCanonicalHost({
+        hostname: "cars.bbqr.site",
+        pathname: "/en/cars",
+      })
+    ).toBe(false);
   });
 
   it("does not redirect localhost", () => {
@@ -26,13 +59,13 @@ describe("domainRedirect", () => {
   it("does not redirect API and Next assets", () => {
     expect(
       shouldRedirectToCanonicalHost({
-        hostname: "www.natali-cars.com",
+        hostname: "www.carsnk.gr",
         pathname: "/api/internal/cars",
       })
     ).toBe(false);
     expect(
       shouldRedirectToCanonicalHost({
-        hostname: "www.natali-cars.com",
+        hostname: "www.cars.bbqr.site",
         pathname: "/_next/static/chunk.js",
       })
     ).toBe(false);
@@ -41,17 +74,8 @@ describe("domainRedirect", () => {
   it("does not redirect static files", () => {
     expect(
       shouldRedirectToCanonicalHost({
-        hostname: "www.natali-cars.com",
+        hostname: "www.carsnk.gr",
         pathname: "/favicon.png",
-      })
-    ).toBe(false);
-  });
-
-  it("does not redirect canonical host (loop guard)", () => {
-    expect(
-      shouldRedirectToCanonicalHost({
-        hostname: "natali-cars.com",
-        pathname: "/en/cars",
       })
     ).toBe(false);
   });

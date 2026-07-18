@@ -36,7 +36,7 @@ export function getApiUrl(path) {
   // Server-side: need absolute URL
   // API_URL comes from NEXT_PUBLIC_API_BASE_URL (set in next.config.mjs)
   // In development: http://localhost:3000
-  // In production: https://natali-cars.com
+  // In production: https://carsnk.gr or https://cars.bbqr.site
   if (!API_URL) {
     console.warn("[getApiUrl] API_URL is not set, using localhost fallback");
   }
