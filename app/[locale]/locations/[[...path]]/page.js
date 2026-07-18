@@ -234,7 +234,7 @@ export default async function LocationHierarchyPage({ params }) {
   let ordersData = null;
   let companyData = null;
   if (isPillar) {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions).catch(() => null);
     const [carsData, orders, company] = await Promise.all([
       getCars({ session }).catch(() => []),
       getActiveOrders({ session }).catch(() => null),
