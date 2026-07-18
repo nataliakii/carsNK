@@ -53,8 +53,8 @@ const CancelButton = forwardRef(
           transition: "all 0.2s ease-in-out",
           // Hover - красноватый акцент
           "&:hover": {
-            borderColor: theme.palette.primary?.main || "#890000",
-            color: theme.palette.primary?.main || "#890000",
+            borderColor: theme.palette.primary?.main || "#00C8D4",
+            color: theme.palette.secondary?.main || "#0B1F3A",
             backgroundColor: "rgba(137, 0, 0, 0.04)",
             borderWidth: "2px",
           },

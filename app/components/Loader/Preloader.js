@@ -51,8 +51,8 @@ export default function Preloader({ loading }) {
             }}
           >
             <Image
-              src="/favicon.png"
-              alt="loading icon"
+              src="/logo-carsnk-icon.png"
+              alt="CarsNK"
               width={90}
               height={90}
               priority

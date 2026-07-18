@@ -62,7 +62,7 @@ const ConfirmButton = forwardRef(
         startIcon={loading ? <CircularProgress size={20} color="inherit" /> : startIcon}
         sx={{
           // Основные стили
-          backgroundColor: theme.palette.secondary?.main || "#008989",
+          backgroundColor: theme.palette.secondary?.main || "#0B1F3A",
           color: "#ffffff",
           lineHeight: "1.2",
           fontWeight: 600,

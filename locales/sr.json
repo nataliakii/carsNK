@@ -15,10 +15,13 @@
     "transmission": "Izaberite menjač",
     "seats": "Sedista",
     "seatsOption": "{{count}} sedišta",
-    "logout": "Odjava"
+    "logout": "Odjava",
+    "searchCars": "Pretraga auta",
+    "searchCarsPlaceholder": "Pretraga po modelu, klasi, gorivu…",
+    "clearSearch": "Obriši pretragu"
   },
   "catalog": {
-    "noCarsMatchFilters": "Nema automobila za izabrane filtere. Pokušajte da promenite klasu, menjač ili broj mesta."
+    "noCarsMatchFilters": "Nema auta za izabrane filtere. Promenite pretragu, klasu, menjač ili broj sedišta."
   },
   "basic": {
     "close": "zatvori",

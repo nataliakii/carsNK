@@ -23,7 +23,7 @@ const CarImageUpload = ({
             <InputAdornment position="start">
               <Box
                 component="img"
-                src={imagePreview || "/images/NO_PHOTO_h2klff.jpg"}
+                src={imagePreview || "/images/carsnk-NO_PHOTO.png"}
                 alt="Uploaded Preview"
                 sx={{
                   width: 34,

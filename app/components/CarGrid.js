@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useCallback,
   useRef,
+  useDeferredValue,
 } from "react";
 import { Grid, Container, Typography } from "@mui/material";
 import { styled } from "@mui/material/styles";
@@ -12,6 +13,7 @@ import { useTranslation } from "react-i18next";
 
 import { useMainContext } from "../Context";
 import CarItemComponent from "./CarComponent/CarItemComponent";
+import { carMatchesSearchQuery } from "@utils/carSearch";
 
 const Section = styled("section")(({ theme }) => ({
   backgroundColor: "transparent",
@@ -21,8 +23,15 @@ const Section = styled("section")(({ theme }) => ({
 import dayjs from "dayjs";
 
 function CarGrid() {
-  const { cars, selectedClass, selectedTransmission, selectedSeats } =
-    useMainContext();
+  const { t } = useTranslation();
+  const {
+    cars,
+    selectedClass,
+    selectedTransmission,
+    selectedSeats,
+    carSearchQuery,
+  } = useMainContext();
+  const deferredSearchQuery = useDeferredValue(carSearchQuery || "");
 
   const skipScrollOnFilterMount = useRef(true);
 
@@ -33,7 +42,7 @@ function CarGrid() {
     }
     if (typeof window === "undefined") return;
     window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
-  }, [selectedClass, selectedTransmission, selectedSeats]);
+  }, [selectedClass, selectedTransmission, selectedSeats, deferredSearchQuery]);
 
   // --- Состояния для скидки ---
   const [discount, setDiscount] = useState(null);
@@ -98,11 +107,18 @@ function CarGrid() {
           (selectedClass === "All" || car.class === selectedClass) &&
           (selectedTransmission === "All" ||
             car.transmission === selectedTransmission) &&
-          seatsOk
+          seatsOk &&
+          carMatchesSearchQuery(car, deferredSearchQuery)
         );
       })
       .sort((a, b) => a.model.localeCompare(b.model));
-  }, [selectedClass, selectedTransmission, selectedSeats, cars]);
+  }, [
+    selectedClass,
+    selectedTransmission,
+    selectedSeats,
+    deferredSearchQuery,
+    cars,
+  ]);
 
   const noCarsMatchFilters =
     Array.isArray(cars) && cars.length > 0 && filteredCars.length === 0;

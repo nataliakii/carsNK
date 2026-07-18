@@ -31,6 +31,8 @@ const MainContext = createContext({
   resubmitCars: () => {},
   scrolled: false,
   company: {},
+  carSearchQuery: "",
+  setCarSearchQuery: () => {},
   pendingConfirmBlockById: {}, // Map pending order ID -> block message
   conflictHighlightById: {}, // Map orderId -> { level: "block"|"warning", message: string, sourceOrderId?: string }
   setConflictHighlightsFromResult: () => {},
@@ -197,6 +199,7 @@ export const MainContextProvider = ({
   const [selectedClass, setSelectedClass] = useState("All");
   const [selectedTransmission, setSelectedTransmission] = useState("All"); // Новый фильтр по коробке передач
   const [selectedSeats, setSelectedSeats] = useState("All");
+  const [carSearchQuery, setCarSearchQuery] = useState("");
   const arrayOfAvailableClasses = useMemo(() => {
     return [...new Set(cars.map((car) => car.class))];
   }, [cars]);
@@ -491,6 +494,8 @@ export const MainContextProvider = ({
       setSelectedSeats,
       selectedSeats,
       arrayOfAvailableSeats,
+      carSearchQuery,
+      setCarSearchQuery,
       lang,
       setLang,
       changeLanguage, // Добавляем функцию смены языка
@@ -518,6 +523,7 @@ export const MainContextProvider = ({
       selectedTransmission,
       selectedSeats,
       arrayOfAvailableSeats,
+      carSearchQuery,
       lang,
       changeLanguage,
       company,

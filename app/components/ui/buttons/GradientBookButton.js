@@ -8,22 +8,22 @@ import { keyframes } from "@mui/system";
 const bookPulse = keyframes`
   0% {
     box-shadow:
-      0 0 10px rgba(0, 137, 137, 0.35),
-      0 0 22px rgba(0, 137, 0, 0.25);
+      0 0 10px rgba(0, 200, 212, 0.4),
+      0 0 22px rgba(11, 31, 58, 0.2);
     transform: scale(1);
   }
 
   50% {
     box-shadow:
-      0 0 22px rgba(0, 137, 137, 0.55),
-      0 0 44px rgba(0, 137, 0, 0.45);
+      0 0 22px rgba(0, 200, 212, 0.6),
+      0 0 44px rgba(77, 219, 228, 0.35);
     transform: scale(1.025);
   }
 
   100% {
     box-shadow:
-      0 0 10px rgba(0, 137, 137, 0.35),
-      0 0 22px rgba(0, 137, 0, 0.25);
+      0 0 10px rgba(0, 200, 212, 0.4),
+      0 0 22px rgba(11, 31, 58, 0.2);
     transform: scale(1);
   }
 `;
@@ -45,8 +45,8 @@ const GradientBookButton = forwardRef(
         onClick={onClick}
         disabled={disabled}
     sx={{
-  background: "linear-gradient(135deg, #008989 0%, #008988 100%)",
-  color: "#ffffff",
+  background: "linear-gradient(135deg, #00C8D4 0%, #009AA3 100%)",
+  color: "#0B1F3A",
   fontWeight: 700,
   fontSize: "1.1rem",
   padding: "12px 28px",

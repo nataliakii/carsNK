@@ -41,24 +41,24 @@ const ActionButton = forwardRef(
     const getColors = () => {
       const colors = {
         primary: {
-          main: theme.palette.primary?.main || "#890000",
-          dark: theme.palette.primary?.dark || "#5c0000",
-          text: "#ffffff",
+          main: theme.palette.primary?.main || "#00C8D4",
+          dark: theme.palette.primary?.dark || "#009AA3",
+          text: theme.palette.secondary?.main || "#0B1F3A",
         },
         secondary: {
-          main: theme.palette.secondary?.main || "#008989",
-          dark: theme.palette.secondary?.dark || "#006b6b",
+          main: theme.palette.secondary?.main || "#0B1F3A",
+          dark: theme.palette.secondary?.dark || "#061222",
           text: "#ffffff",
         },
         success: {
-          main: theme.palette.success?.main || "#008900",
-          dark: theme.palette.success?.dark || "#006b00",
+          main: theme.palette.success?.main || "#1B9E5A",
+          dark: theme.palette.success?.dark || "#0F6E3D",
           text: "#ffffff",
         },
         warning: {
-          main: theme.palette.warning?.main || "#894500",
-          dark: theme.palette.warning?.dark || "#5c2e00",
-          text: "#ffffff",
+          main: theme.palette.warning?.main || "#FFD400",
+          dark: theme.palette.warning?.dark || "#C9A600",
+          text: theme.palette.secondary?.main || "#0B1F3A",
         },
       };
       return colors[color] || colors.primary;

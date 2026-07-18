@@ -111,8 +111,8 @@ function Footer() {
   const currentYear = new Date().getFullYear();
   const { t } = useTranslation();
 
-  const name = company?.name || "NATALI CARS";
-  const slogan = company?.slogan || "best rent car online service in Chalkidiki";
+  const name = company?.name || "CarsNK";
+  const slogan = company?.slogan || "Car rental aggregator in Greece";
   const tel = company?.tel || "+30 6970 034 707";
   const tel2 = company?.tel2 || "+30 6989 922 366";
   const email = company?.email || "natali2015makarova@gmail.com";
@@ -124,10 +124,11 @@ function Footer() {
     <Section>
       {/* Logo */}
       <LogoImg
-        src="/favicon.png"
-        width={130}
-        height={130}
-        alt={name}
+        src="/logo.png"
+        width={120}
+        height={120}
+        alt="CarsNK"
+        style={{ width: 120, height: "auto", borderRadius: 16, objectFit: "contain" }}
       />
 
       {/* Slogan */}

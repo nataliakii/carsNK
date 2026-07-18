@@ -15,10 +15,13 @@
     "transmission": "Choose Transmission",
     "seats": "Seats",
     "seatsOption": "{{count}} seats",
-    "logout": "Logout"
+    "logout": "Logout",
+    "searchCars": "Search cars",
+    "searchCarsPlaceholder": "Search by model, class, fuel…",
+    "clearSearch": "Clear search"
   },
   "catalog": {
-    "noCarsMatchFilters": "No cars match the selected filters. Try changing class, transmission, or number of seats."
+    "noCarsMatchFilters": "No cars match the selected filters. Try changing search, class, transmission, or seats."
   },
   "basic": {
     "close": "close",
@@ -42,8 +45,14 @@
     "perDay": "day",
     "insurance": "Insurance",
     "insuranceOptions": [
-      { "label": "TPL free", "value": "TPL" },
-      { "label": "CDW", "value": "CDW" }
+      {
+        "label": "TPL free",
+        "value": "TPL"
+      },
+      {
+        "label": "CDW",
+        "value": "CDW"
+      }
     ],
     "calculating": "Price calculation",
     "car": "Car",
@@ -232,7 +241,7 @@
     "rentEnd": "Rental End",
     "days": "Days",
     "price": "Total Price",
-    "confirm": "Confirmed",
+    "confirm": "Confirm",
     "ordersTable": "Orders Table",
     "orderNumber": "Order #",
     "status": "Status",
@@ -268,7 +277,6 @@
     "protectedOrderTooltip": "Only superadmin can edit/delete client orders or orders created by superadmin.",
     "delete": "Delete",
     "deleteConfirm": "Delete order?",
-    "confirm": "Confirm",
     "unconfirm": "Unconfirm",
     "customerName": "Customer Name",
     "loading": "Loading..."

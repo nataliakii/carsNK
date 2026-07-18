@@ -15,10 +15,13 @@
     "transmission": "Wybierz opcję Transmisja",
     "seats": "Liczba miejsc",
     "seatsOption": "{{count}} miejsc",
-    "logout": "Wyloguj się"
+    "logout": "Wyloguj się",
+    "searchCars": "Szukaj aut",
+    "searchCarsPlaceholder": "Szukaj po modelu, klasie, paliwie…",
+    "clearSearch": "Wyczyść wyszukiwanie"
   },
   "catalog": {
-    "noCarsMatchFilters": "Brak aut pasujących do wybranych filtrów. Zmień klasę, skrzynię biegów lub liczbę miejsc."
+    "noCarsMatchFilters": "Brak aut dla wybranych filtrów. Zmień wyszukiwanie, klasę, skrzynię lub miejsca."
   },
   "basic": {
     "close": "zamknąć",

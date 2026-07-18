@@ -51,7 +51,7 @@ const DeleteButton = forwardRef(
         }
         sx={{
           // Основные стили
-          backgroundColor: theme.palette.primary?.main || "#890000",
+          backgroundColor: theme.palette.error?.main || "#E53935",
           color: "#ffffff",
           lineHeight: "1.2",
           fontWeight: 600,

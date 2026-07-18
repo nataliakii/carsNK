@@ -46,7 +46,7 @@ const AddCarModal = ({
   setUpdateStatus,
   fetchAndUpdateCars,
 }) => {
-  const DEFAULT_IMAGE = "./NO_PHOTO.png";
+  const DEFAULT_IMAGE = "/images/carsnk-NO_PHOTO.png";
   const { resubmitCars, company } = useMainContext();
 
   const [loading, setLoading] = useState(false);

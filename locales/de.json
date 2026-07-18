@@ -15,10 +15,13 @@
     "transmission": "Getriebe wählen",
     "seats": "Sitzplätze",
     "seatsOption": "{{count}} Sitze",
-    "logout": "Abmelden"
+    "logout": "Abmelden",
+    "searchCars": "Autos suchen",
+    "searchCarsPlaceholder": "Suche nach Modell, Klasse, Kraftstoff…",
+    "clearSearch": "Suche löschen"
   },
   "catalog": {
-    "noCarsMatchFilters": "Keine Fahrzeuge entsprechen den ausgewählten Filtern. Passen Sie Klasse, Getriebe oder Sitzplätze an."
+    "noCarsMatchFilters": "Keine Autos passen zu den Filtern. Suche, Klasse, Getriebe oder Sitze ändern."
   },
   "basic": {
     "close": "schließen",

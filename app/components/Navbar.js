@@ -24,18 +24,21 @@ import {
   TextField,
   Chip,
   Divider,
+  Slider,
+  InputAdornment,
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { useSession, signOut } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";
 
 import LanguageIcon from "@mui/icons-material/Language";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 import { useMainContext } from "@app/Context";
 import { CAR_CLASSES } from "@models/enums";
 import SelectedFieldClass from "@/app/components/ui/inputs/SelectedFieldClass";
 import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
-import { Slider } from "@mui/material";
 import dynamic from "next/dynamic";
 import {
   isSupportedLocale,
@@ -111,7 +114,7 @@ const GradientAppBar = styled(AppBar, {
 const Logo = styled(Typography)(({ theme }) => ({
   fontWeight: theme.typography.h1?.fontWeight || 400,
   fontFamily: theme.typography.h1.fontFamily,
-  color: theme.palette.text.red,
+  color: theme.palette.primary.main,
   display: "inline-block",
   // Prevent logo from pushing navbar items on small landscape touch devices only
   // add (hover: none) and (pointer: coarse) so desktop browsers don't match when window is narrowed
@@ -270,10 +273,11 @@ export default function NavBar({
     setSelectedSeats,
     selectedSeats,
     arrayOfAvailableSeats,
+    carSearchQuery,
+    setCarSearchQuery,
     lang,
     setLang,
     changeLanguage, // Добавляем функцию смены языка
-    company,
   } = useMainContext();
 
   // Локаль из URL имеет приоритет, чтобы отображаемый язык и ссылки всегда совпадали с страницей
@@ -301,9 +305,6 @@ export default function NavBar({
   const contactsHref = localeLink("/contacts");
   const termsAliasHref = localeLink("/terms");
 
-  // Получаем название компании из Context с fallback
-  const companyName = company?.name || "NATALI CARS";
-
   const handleCarClassChange = (event) => {
     const selectedValue = event.target.value;
     setSelectedClass(selectedValue === "" ? "" : selectedValue);
@@ -317,6 +318,14 @@ export default function NavBar({
   const handleSeatsChange = (event) => {
     const selectedValue = event.target.value;
     setSelectedSeats(selectedValue === "" ? "All" : selectedValue);
+  };
+
+  const handleCarSearchChange = (event) => {
+    setCarSearchQuery(event.target.value ?? "");
+  };
+
+  const handleCarSearchClear = () => {
+    setCarSearchQuery("");
   };
 
   const handleLanguageClick = (event) => {
@@ -906,17 +915,32 @@ export default function NavBar({
               </Stack>
             </Stack>
 
-            <Box sx={{ position: "relative", display: "inline-flex" }}>
-              <Link href={homeHref}>
-                <Logo
-                  sx={{
-                    fontSize: "clamp(12px, calc(0.79rem + 1vw), 32px)",
-                    lineHeight: 1,
+            <Box sx={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+              <Link href={homeHref} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Image
+                  src="/logo.png"
+                  alt="CarsNK"
+                  width={56}
+                  height={56}
+                  priority
+                  style={{
+                    width: "clamp(40px, 8vw, 56px)",
+                    height: "auto",
+                    borderRadius: 10,
+                    objectFit: "contain",
                   }}
-                >
-                  {companyName}
-                  {isAdmin && " ADMIN"}
-                </Logo>
+                />
+                {isAdmin && (
+                  <Logo
+                    sx={{
+                      fontSize: "clamp(10px, 2vw, 14px)",
+                      lineHeight: 1,
+                      opacity: 0.85,
+                    }}
+                  >
+                    ADMIN
+                  </Logo>
+                )}
               </Link>
               {/* Chip с ролью - только для админки, в правом верхнем углу логотипа */}
               {isAdmin && adminRole === ROLE.SUPERADMIN && (
@@ -1100,6 +1124,64 @@ export default function NavBar({
                   rowGap: 1,
                 }}
               >
+                <TextField
+                  size="small"
+                  name="carSearch"
+                  value={carSearchQuery || ""}
+                  onChange={handleCarSearchChange}
+                  placeholder={t("header.searchCarsPlaceholder")}
+                  aria-label={t("header.searchCars")}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ color: "inherit", fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: carSearchQuery ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          aria-label={t("header.clearSearch")}
+                          onClick={handleCarSearchClear}
+                          edge="end"
+                          sx={{ color: "inherit" }}
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null,
+                  }}
+                  sx={{
+                    mt: 1,
+                    minWidth: { xs: 180, sm: 220 },
+                    maxWidth: { xs: 280, sm: 320 },
+                    flex: { xs: "1 1 100%", sm: "0 1 280px" },
+                    "& .MuiInputBase-root": {
+                      color: (theme) =>
+                        theme.palette.backgroundDark1?.text || "#ffffff",
+                      fontSize: { xs: "0.85rem", sm: "1rem" },
+                    },
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: (theme) =>
+                        theme.palette.backgroundDark1?.textSecondary ||
+                        "#b0b0b0",
+                    },
+                    "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline":
+                      {
+                        borderColor: (theme) =>
+                          theme.palette.backgroundDark1?.secondary || "#4dd4d4",
+                      },
+                    "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline":
+                      {
+                        borderColor: (theme) =>
+                          theme.palette.backgroundDark1?.secondary || "#4dd4d4",
+                      },
+                    "& .MuiInputAdornment-root": {
+                      color: (theme) =>
+                        theme.palette.backgroundDark1?.text || "#ffffff",
+                    },
+                  }}
+                />
                 <Box
                   sx={{
                     // only override widths for small landscape touch devices; let SelectedFieldClass control desktop sizes
@@ -1188,11 +1270,23 @@ export default function NavBar({
             justifyContent="space-between"
             alignItems="center"
           >
-            <Link href={homeHref}>
-              <Logo>
-                {companyName}
-                {isAdmin && " ADMIN"}
-              </Logo>
+            <Link
+              href={homeHref}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+            >
+              <Image
+                src="/logo.png"
+                alt="CarsNK"
+                width={48}
+                height={48}
+                style={{
+                  width: 48,
+                  height: "auto",
+                  borderRadius: 8,
+                  objectFit: "contain",
+                }}
+              />
+              {isAdmin && <Logo sx={{ fontSize: 12 }}>ADMIN</Logo>}
             </Link>
             <IconButton onClick={() => setDrawerOpen(false)}>
               <CloseIcon />

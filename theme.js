@@ -1,105 +1,111 @@
 "use client";
 import { createTheme, alpha } from "@mui/material/styles";
 /**
- * Цветовая палитра проекта
- * 
- * Primary: #890000 (тёмно-красный)
- * Complementary: #008989 (бирюзовый)
- * Analogous: #890045 (малиновый), #894500 (коричнево-оранжевый)
- * Triadic: #898900 (оливковый), #008900 (зелёный)
+ * CarsNK brand palette (from logo)
+ *
+ * Navy:    #0B1F3A  — logo square background
+ * Cyan:    #00C8D4  — NK letters (primary brand)
+ * Red:     #E53935  — left accent bar
+ * Yellow:  #FFD400  — right accent bar
  */
 // ============================================
 // БАЗОВЫЕ ЦВЕТА ПАЛИТРЫ
 // ============================================
 export const palette = {
+  /** Brand cyan (NK) — links, focus, primary CTAs */
   primary: {
-    main: "#890000",
-    light: "#b33333",
-    dark: "#5c0000",
+    main: "#00C8D4",
+    light: "#4DDBE4",
+    dark: "#009AA3",
+    contrastText: "#0B1F3A",
+  },
+  /** Logo navy — footer, nav, secondary surfaces */
+  secondary: {
+    main: "#0B1F3A",
+    light: "#1A3358",
+    dark: "#061222",
     contrastText: "#ffffff",
   },
-  secondary: {
-    main: "#008989",
-    light: "#33a0a0",
-    dark: "#005c5c",
-    contrastText: "#ffffff",
+  brand: {
+    navy: "#0B1F3A",
+    cyan: "#00C8D4",
+    red: "#E53935",
+    yellow: "#FFD400",
   },
   analogous: {
-    rose: "#890045",
-    roseLight: "#b33370",
-    roseDark: "#5c002e",
-    amber: "#894500",
-    amberLight: "#b36a33",
-    amberDark: "#5c2e00",
+    rose: "#E53935",
+    roseLight: "#EF6A66",
+    roseDark: "#B71C1C",
+    amber: "#FFD400",
+    amberLight: "#FFE04D",
+    amberDark: "#C9A600",
   },
   triadic: {
-    olive: "#898900",
-    oliveLight: "#a0a033",
-    oliveDark: "#5c5c00",
-    green: "#008900",
-    greenLight: "#33a033",
-    greenDark: "#005c00",
-    yellowBright: "#ffc107",
-    yellow: "rgb(247, 220, 112)",
-    yellowLight:"rgb(249, 237, 121)",
-
+    olive: "#5C7A1A",
+    oliveLight: "#7A9E2E",
+    oliveDark: "#3E5410",
+    green: "#1B9E5A",
+    greenLight: "#3DBF78",
+    greenDark: "#0F6E3D",
+    yellowBright: "#FFD400",
+    yellow: "#FFD400",
+    yellowLight: "#FFE566",
   },
   neutral: {
     white: "#ffffff",
     black: "#0a0a0a",
-    gray50: "#fafafa",
-    gray100: "#f5f5f5",
-    gray200: "#eeeeee",
-    gray300: "#e0e0e0",
-    gray400: "#bdbdbd",
-    gray500: "#9e9e9e",
-    gray600: "#757575",
-    gray700: "#616161",
-    gray800: "#424242",
-    gray900: "#212121",
+    gray50: "#F4F8FA",
+    gray100: "#EAF1F5",
+    gray200: "#D5E0E8",
+    gray300: "#B8C7D2",
+    gray400: "#8FA3B3",
+    gray500: "#6B8294",
+    gray600: "#516677",
+    gray700: "#3C4F5C",
+    gray800: "#283843",
+    gray900: "#0B1F3A",
   },
   status: {
-    success: "#008900", // Triadic green
-    warning: "#894500", // Analogous amber
-    error: "#890000", // Primary
-    info: "#008989", // Secondary/Complementary
+    success: "#1B9E5A",
+    warning: "#FFD400",
+    error: "#E53935",
+    info: "#00C8D4",
   },
   // ============================================
   // КОНТРАСТНЫЕ ФОНЫ С ПРЕДОПРЕДЕЛЁННЫМИ ЦВЕТАМИ
   // ============================================
-  // Тёмный фон #1 - для навигации, легенды
+  // Тёмный фон #1 - навбар / фильтры (logo navy)
   backgroundDark1: {
-    bg: "#1a1a1a",
+    bg: "#0B1F3A",
     text: "#ffffff",
-    textSecondary: "#b0b0b0",
-    primary: "#ff6b6b", // Светло-красный на тёмном фоне
-    secondary: "#4dd4d4", // Светло-бирюзовый
-    accent: "#ffb347", // Светло-оранжевый
-    success: "#5cd85c", // Светло-зелёный
-    warning: "#ffd93d", // Жёлтый
-
+    textSecondary: "#A8B8C8",
+    primary: "#FF6B6B",
+    secondary: "#4DDBE4",
+    accent: "#FFD400",
+    success: "#3DBF78",
+    warning: "#FFD400",
   },
-  // Тёмный фон #2 - бирюзовый/тёмный акцентный
+  // Тёмный фон #2 - глубокий navy
   backgroundDark2: {
-    bg: "#005c5c", // Тёмно-бирюзовый
+    bg: "#061222",
     text: "#ffffff",
-    textSecondary: "#a0d4d4",
-    primary: "#ff8a8a", // Светло-красный (контрастный)
-    secondary: "#ffffff",
-    accent: "#ffd700", // Золотой
-    success: "#90ee90", // Светло-зелёный
-    warning: "#ffeb3b",
+    textSecondary: "#8FA3B3",
+    primary: "#FF8A8A",
+    secondary: "#00C8D4",
+    accent: "#FFD400",
+    success: "#3DBF78",
+    warning: "#FFE566",
   },
-  // Светлый фон - для карточек, модалей
+  // Светлый фон - карточки, модали
   backgroundLight: {
     bg: "#ffffff",
-    text: "#1a1a1a",
-    textSecondary: "#616161",
-    primary: "#890000", // Тёмно-красный
-    secondary: "#008989", // Бирюзовый
-    accent: "#894500", // Коричнево-оранжевый
-    success: "#008900", // Зелёный
-    warning: "#894500",
+    text: "#0B1F3A",
+    textSecondary: "#516677",
+    primary: "#00C8D4",
+    secondary: "#0B1F3A",
+    accent: "#E53935",
+    success: "#1B9E5A",
+    warning: "#C9A600",
   },
 };
 
@@ -108,16 +114,19 @@ export const palette = {
 // ============================================
 const lightThemeColors = {
   background: {
-    default: "#ffffff",
+    default: "#F4F8FA",
     paper: "#ffffff",
     subtle: palette.neutral.gray50,
-    accent: alpha(palette.primary.main, 0.04),
+    accent: alpha(palette.primary.main, 0.06),
   },
   text: {
     primary: palette.neutral.gray900,
     secondary: palette.neutral.gray700,
     disabled: palette.neutral.gray500,
     inverse: palette.neutral.white,
+    light: palette.neutral.white,
+    red: palette.brand.red,
+    accent: palette.primary.main,
   },
   divider: palette.neutral.gray200,
   action: {
@@ -160,35 +169,33 @@ const darkThemeColors = {
 // ============================================
 export const businessColors = {
   order: {
-    confirmed: palette.primary.main, // Подтверждённый заказ (красный)
-    confirmedMyOrder: palette.triadic.green, // Заказ от компании (зелёный)
-    pending: palette.analogous.amber, // Ожидающий (оранжевый)
+    confirmed: palette.primary.main, // cyan brand
+    confirmedMyOrder: palette.triadic.green,
+    pending: palette.brand.yellow,
     pendingLight: palette.analogous.amberLight,
-    conflict: "#e7c475", // Конфликт (жёлтый)
+    conflict: alpha(palette.brand.yellow, 0.85),
   },
   calendar: {
-    today: "#ffe082",
-    todayText: palette.neutral.black,
-    sunday: palette.primary.main,
+    today: alpha(palette.brand.yellow, 0.55),
+    todayText: palette.secondary.main,
+    sunday: palette.brand.red,
     headerBg: palette.neutral.white,
     cellBorder: palette.neutral.gray300,
     firstColumnBg: palette.secondary.main,
     firstColumnText: palette.neutral.white,
-    selected: "#1976d2", // Синий для выделения
-    moveHighlight: "#ffeb3b", // Жёлтый для режима перемещения
-    confirmed: palette.triadic.green, // Зелёный для подтвержденных заказов
-    nonConfirmed: alpha(palette.triadic.yellow, 0.95), // Серый для неподтвержденных заказов
-    conflict: alpha(palette.triadic.yellow, 0.95), // Жёлтый для конфликтов
+    selected: palette.primary.main,
+    moveHighlight: palette.brand.yellow,
+    confirmed: palette.triadic.green,
+    nonConfirmed: alpha(palette.brand.yellow, 0.9),
+    conflict: alpha(palette.brand.yellow, 0.9),
   },
   button: {
-    // Мерцающая кнопка "Забронировать"
-    book: palette.triadic.green,
-    bookHover: palette.triadic.greenDark,
-    bookGlow: palette.triadic.greenLight,
-    // Мерцающая кнопка "Отправить заявку"
-    submit: palette.primary.main,
-    submitHover: palette.primary.dark,
-    submitGlow: palette.primary.light,
+    book: palette.primary.main,
+    bookHover: palette.primary.dark,
+    bookGlow: palette.primary.light,
+    submit: palette.brand.red,
+    submitHover: palette.analogous.roseDark,
+    submitGlow: palette.analogous.roseLight,
   },
 };
 
@@ -263,27 +270,31 @@ const buttonStyles = {
       },
       containedPrimary: {
         backgroundColor: palette.primary.main,
+        color: palette.secondary.main,
         "&:hover": {
           backgroundColor: palette.primary.dark,
+          color: palette.neutral.white,
         },
       },
       containedSecondary: {
         backgroundColor: palette.secondary.main,
+        color: palette.neutral.white,
         "&:hover": {
           backgroundColor: palette.secondary.dark,
         },
       },
       containedSuccess: {
         backgroundColor: palette.triadic.green,
+        color: palette.neutral.white,
         "&:hover": {
           backgroundColor: palette.triadic.greenDark,
         },
       },
       outlinedPrimary: {
         borderColor: palette.primary.main,
-        color: palette.primary.main,
+        color: palette.secondary.main,
         "&:hover": {
-          backgroundColor: alpha(palette.primary.main, 0.08),
+          backgroundColor: alpha(palette.primary.main, 0.1),
           borderColor: palette.primary.dark,
         },
       },
@@ -298,7 +309,7 @@ export const customButtonStyles = {
   // Мерцающая кнопка "Забронировать" (зелёная)
   bookButton: {
     backgroundColor: businessColors.button.book,
-    color: palette.neutral.white,
+    color: palette.secondary.main,
     fontWeight: "bold",
     fontSize: "1.1rem",
     minWidth: "180px",
@@ -306,6 +317,7 @@ export const customButtonStyles = {
     animation: "bookButtonPulse 1.5s ease-in-out infinite",
     "&:hover": {
       backgroundColor: businessColors.button.bookHover,
+      color: palette.neutral.white,
       animation: "none",
       boxShadow: `0 4px 12px ${alpha(businessColors.button.book, 0.4)}`,
     },
@@ -470,19 +482,19 @@ export const lightTheme = createTheme({
       main: palette.status.warning,
       light: palette.analogous.amberLight,
       dark: palette.analogous.amberDark,
-      contrastText: palette.neutral.white,
+      contrastText: palette.secondary.main,
     },
     error: {
       main: palette.status.error,
-      light: palette.primary.light,
-      dark: palette.primary.dark,
+      light: palette.analogous.roseLight,
+      dark: palette.analogous.roseDark,
       contrastText: palette.neutral.white,
     },
     info: {
       main: palette.status.info,
-      light: palette.secondary.light,
-      dark: palette.secondary.dark,
-      contrastText: palette.neutral.white,
+      light: palette.primary.light,
+      dark: palette.primary.dark,
+      contrastText: palette.secondary.main,
     },
     background: lightThemeColors.background,
     text: lightThemeColors.text,
@@ -493,6 +505,7 @@ export const lightTheme = createTheme({
     calendar: businessColors.calendar,
     button: businessColors.button,
     // Дополнительные цвета
+    brand: palette.brand,
     analogous: palette.analogous,
     triadic: palette.triadic,
     neutral: palette.neutral,
@@ -515,6 +528,21 @@ export const lightTheme = createTheme({
         },
       },
     },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: "none",
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          boxShadow: "0 2px 8px rgba(11, 31, 58, 0.08)",
+        },
+      },
+    },
     MuiTextField: {
       styleOverrides: {
         root: {
@@ -527,27 +555,6 @@ export const lightTheme = createTheme({
           "& .MuiFormHelperText-root": {
             fontSize: "clamp(0.875rem, 1vw, 1rem)",
           },
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: "none",
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
           "& .MuiOutlinedInput-root": {
             borderRadius: 8,
           },
@@ -625,6 +632,7 @@ export const darkTheme = createTheme({
       headerBg: darkThemeColors.background.paper,
     },
     button: businessColors.button,
+    brand: palette.brand,
     analogous: palette.analogous,
     triadic: palette.triadic,
     neutral: palette.neutral,
@@ -647,21 +655,6 @@ export const darkTheme = createTheme({
         },
       },
     },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiInputBase-root": {
-            fontSize: "clamp(1rem, 1.25vw, 1.125rem)",
-          },
-          "& .MuiInputLabel-root": {
-            fontSize: "clamp(1rem, 1.25vw, 1.125rem)",
-          },
-          "& .MuiFormHelperText-root": {
-            fontSize: "clamp(0.875rem, 1vw, 1rem)",
-          },
-        },
-      },
-    },
     MuiPaper: {
       styleOverrides: {
         root: {
@@ -680,6 +673,15 @@ export const darkTheme = createTheme({
     MuiTextField: {
       styleOverrides: {
         root: {
+          "& .MuiInputBase-root": {
+            fontSize: "clamp(1rem, 1.25vw, 1.125rem)",
+          },
+          "& .MuiInputLabel-root": {
+            fontSize: "clamp(1rem, 1.25vw, 1.125rem)",
+          },
+          "& .MuiFormHelperText-root": {
+            fontSize: "clamp(0.875rem, 1vw, 1rem)",
+          },
           "& .MuiOutlinedInput-root": {
             borderRadius: 8,
           },
@@ -883,8 +885,11 @@ export const colors = {
     primary: palette.primary.main,
     primaryDark: palette.primary.dark,
     secondary: palette.secondary.main,
-    accent: palette.secondary.light,
-    gold: palette.analogous.amber,
+    accent: palette.primary.light,
+    gold: palette.brand.yellow,
+    navy: palette.brand.navy,
+    cyan: palette.brand.cyan,
+    red: palette.brand.red,
   },
   background: lightThemeColors.background,
   text: {
@@ -892,7 +897,8 @@ export const colors = {
     secondary: lightThemeColors.text.secondary,
     light: palette.neutral.white,
     dark: palette.neutral.black,
-    accent: palette.analogous.amber,
+    accent: palette.primary.main,
+    red: palette.brand.red,
   },
   order: businessColors.order,
   calendar: businessColors.calendar,

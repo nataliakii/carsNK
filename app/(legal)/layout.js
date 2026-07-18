@@ -30,7 +30,7 @@ function MinimalFooter() {
   return (
     <footer
       style={{
-        backgroundColor: "#008989",
+        backgroundColor: "#0B1F3A",
         color: "#ffffff",
         padding: "32px 24px",
         marginTop: "auto",

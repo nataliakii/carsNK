@@ -13,8 +13,8 @@
  * 
  * ЦВЕТОВАЯ ЛОГИКА:
  * - Клиентские заказы (my_order=true):
- *   - Confirmed: красный (primary.main)
- *   - Pending: желтый (triadic.yellow)
+ *   - Confirmed: cyan brand (primary.main)
+ *   - Pending: желтый (brand yellow)
  * 
  * - Админские заказы (my_order=false):
  *   - Confirmed: зеленый (triadic.green)
@@ -43,19 +43,14 @@ export const ORDER_COLORS = {
     labelEn: "Paid and closed",
   },
 
-  // Подтверждённый клиентский заказ (confirmed + my_order=true) - КРАСНЫЙ
+  // Подтверждённый клиентский заказ (confirmed + my_order=true) - CYAN brand
   CONFIRMED_CLIENT: {
     key: "CONFIRMED_CLIENT",
-    // main: palette.primary.main,        // "#890000" - красный (до исправления)
-    main: palette.secondary.main,        // "#008989" - синий/бирюзовый как в 1-м столбце
-    // light: palette.primary.light,       // "#b33333"
-    light: palette.secondary.light,      // "#33a0a0"
-    // dark: palette.primary.dark,         // "#5c0000"
-    dark: palette.secondary.dark,        // "#005c5c"
-    // text: palette.primary.main,          // "#890000"
-    text: palette.secondary.main,        // "#008989"
-    // bg: alpha(palette.primary.main, 0.12),
-    bg: alpha(palette.secondary.main, 0.12),
+    main: palette.primary.main,
+    light: palette.primary.light,
+    dark: palette.primary.dark,
+    text: palette.primary.dark,
+    bg: alpha(palette.primary.main, 0.14),
     label: "Подтверждён (клиент)",
     labelEn: "Confirmed (client)",
   },

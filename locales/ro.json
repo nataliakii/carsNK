@@ -15,10 +15,13 @@
     "transmission": "Selectați transmisia",
     "seats": "Locuri",
     "seatsOption": "{{count}} locuri",
-    "logout": "Deconectare"
+    "logout": "Deconectare",
+    "searchCars": "Caută mașini",
+    "searchCarsPlaceholder": "Caută după model, clasă, combustibil…",
+    "clearSearch": "Șterge căutarea"
   },
   "catalog": {
-    "noCarsMatchFilters": "Nu există mașini care să corespundă filtrelor selectate. Modificați clasa, transmisia sau numărul de locuri."
+    "noCarsMatchFilters": "Nicio mașină nu se potrivește filtrelor. Schimbă căutarea, clasa, cutia sau locurile."
   },
   "basic": {
     "close": "închide",
