@@ -3,7 +3,6 @@ export const WEBSITE_VISIT_SESSION_COOKIE = "nc_visit_sid";
 export const WEBSITE_VISIT_AUTH_HEADER = "x-website-visit-token";
 export const WEBSITE_VISIT_DEDUPE_TTL_MS = 10 * 60 * 1000;
 const LOCAL_WEBSITE_VISIT_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-const PRODUCTION_WEBSITE_VISIT_HOSTS = new Set(getAllowedDomainHosts());
 const INTERNAL_WEBSITE_VISIT_QUERY_PARAMS = new Set([
   "_rsc",
   "__flight__",
@@ -37,7 +36,12 @@ export function isLocalWebsiteVisitNotificationsEnabled() {
       ? String(process.env.ALLOW_LOCAL_WEBSITE_VISIT_NOTIFICATIONS || "").trim().toLowerCase()
       : "";
 
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+  if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") {
+    return true;
+  }
+
+  // Local/dev servers should track visits without an extra env flag.
+  return typeof process !== "undefined" && process.env.NODE_ENV !== "production";
 }
 
 export function normalizeComparableIp(value) {
@@ -328,7 +332,10 @@ export function isLikelyHumanWebsiteVisitClientRequest(request) {
 
 export function isProductionWebsiteHost(hostname) {
   const host = typeof hostname === "string" ? hostname.trim().toLowerCase() : "";
-  return PRODUCTION_WEBSITE_VISIT_HOSTS.has(host);
+  if (!host) return false;
+  if (getAllowedDomainHosts().includes(host)) return true;
+  // Preview deployments share the same app; allow Vercel hosts.
+  return host.endsWith(".vercel.app");
 }
 
 export function isAllowedWebsiteVisitHost(hostname) {

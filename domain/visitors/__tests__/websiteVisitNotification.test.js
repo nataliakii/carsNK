@@ -95,7 +95,7 @@ describe("websiteVisitNotification helpers", () => {
         "sec-fetch-dest": "empty",
         "user-agent": "Mozilla/5.0 Safari/537.36",
       }),
-      nextUrl: new URL("https://natali-cars.com/en/cars?_rsc=abc123"),
+      nextUrl: new URL("https://carsnk.gr/en/cars?_rsc=abc123"),
     };
 
     expect(shouldSkipWebsiteVisitRequest(nextDataRequest)).toBe(true);
@@ -127,11 +127,11 @@ describe("websiteVisitNotification helpers", () => {
   });
 
   test("isLikelyHumanWebsiteVisitClientRequest accepts same-origin browser tracker requests", () => {
-    const request = new Request("https://natali-cars.com/api/internal/website-visit", {
+    const request = new Request("https://carsnk.gr/api/internal/website-visit", {
       method: "POST",
       headers: {
-        origin: "https://natali-cars.com",
-        referer: "https://natali-cars.com/en/cars",
+        origin: "https://carsnk.gr",
+        referer: "https://carsnk.gr/en/cars",
         cookie: "nc_visit_sid=session-cookie-2",
         "sec-fetch-site": "same-origin",
         "sec-fetch-mode": "cors",
@@ -145,11 +145,11 @@ describe("websiteVisitNotification helpers", () => {
   });
 
   test("isLikelyHumanWebsiteVisitClientRequest rejects scripted requests without browser proof", () => {
-    const request = new Request("https://natali-cars.com/api/internal/website-visit", {
+    const request = new Request("https://carsnk.gr/api/internal/website-visit", {
       method: "POST",
       headers: {
-        origin: "https://natali-cars.com",
-        referer: "https://natali-cars.com/en/cars",
+        origin: "https://carsnk.gr",
+        referer: "https://carsnk.gr/en/cars",
         cookie: "nc_visit_sid=session-cookie-3",
         "sec-fetch-site": "cross-site",
         "sec-fetch-mode": "cors",
@@ -177,7 +177,7 @@ describe("websiteVisitNotification helpers", () => {
     const cache = new Map();
     const key = buildWebsiteVisitDedupeKey({
       sessionId: "session-1",
-      url: "https://natali-cars.com/en/cars",
+      url: "https://carsnk.gr/en/cars",
       ip: "203.0.113.9",
     });
 
@@ -189,12 +189,12 @@ describe("websiteVisitNotification helpers", () => {
   test("buildWebsiteVisitDedupeKey ignores url changes within the same session", () => {
     const first = buildWebsiteVisitDedupeKey({
       sessionId: "session-2",
-      url: "https://natali-cars.com/",
+      url: "https://carsnk.gr/",
       ip: "203.0.113.10",
     });
     const second = buildWebsiteVisitDedupeKey({
       sessionId: "session-2",
-      url: "https://natali-cars.com/en/locations/thessaloniki-airport",
+      url: "https://carsnk.gr/en/locations/thessaloniki-airport",
       ip: "203.0.113.10",
     });
 
@@ -205,14 +205,14 @@ describe("websiteVisitNotification helpers", () => {
   test("normalizeWebsiteVisitUrl strips internal Next.js visit params", () => {
     expect(
       normalizeWebsiteVisitUrl(
-        "https://natali-cars.com/en/cars?_rsc=abc123&sort=price#details"
+        "https://carsnk.gr/en/cars?_rsc=abc123&sort=price#details"
       )
-    ).toBe("https://natali-cars.com/en/cars?sort=price");
+    ).toBe("https://carsnk.gr/en/cars?sort=price");
   });
 
   test("formatWebsiteVisitTelegramMessage keeps multiline readable output", () => {
     const message = formatWebsiteVisitTelegramMessage({
-      url: "https://natali-cars.com/en/cars/bmw-x5",
+      url: "https://carsnk.gr/en/cars/bmw-x5",
       ip: "203.0.113.9",
       country: "Greece",
       region: "Central Macedonia",
@@ -221,7 +221,7 @@ describe("websiteVisitNotification helpers", () => {
     });
 
     expect(message).toContain("Новый визит на сайт:");
-    expect(message).toContain("Страница: https://natali-cars.com/en/cars/bmw-x5");
+    expect(message).toContain("Страница: https://carsnk.gr/en/cars/bmw-x5");
     expect(message).toContain("Язык: en");
     expect(message).toContain("IP: 203.0.113.9");
     expect(message).toContain("Страна: Greece");

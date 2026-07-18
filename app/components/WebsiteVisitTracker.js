@@ -82,6 +82,13 @@ export default function WebsiteVisitTracker() {
           sentRef.current = true;
           setSessionStorageFlag(SESSION_STORAGE_KEY);
           clearTimer();
+          return;
+        }
+
+        // Auth/config rejections will not succeed on retry — stop spamming the console.
+        if (response.status === 401 || response.status === 403) {
+          sentRef.current = true;
+          clearTimer();
         }
       } catch {
         // Ignore transient client/network errors; a later interaction can retry.

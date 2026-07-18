@@ -76,11 +76,16 @@ export async function POST(request) {
     return json({ success: false, message: "Invalid client IP" }, 400);
   }
 
+  const proof = typeof payload?.proof === "string" ? payload.proof.trim() : "";
+  const userAgent = request.headers.get("user-agent") || "";
+
   const result = await sendWebsiteVisitTelegramNotification({
     url,
     ip,
     language,
     sessionId,
+    proof,
+    userAgent,
   });
 
   return json({

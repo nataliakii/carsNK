@@ -18,7 +18,8 @@
     "logout": "Abmelden",
     "searchCars": "Autos suchen",
     "searchCarsPlaceholder": "Suche nach Modell, Klasse, Kraftstoff…",
-    "clearSearch": "Suche löschen"
+    "clearSearch": "Suche löschen",
+    "websiteVisits": "Visits"
   },
   "catalog": {
     "noCarsMatchFilters": "Keine Autos passen zu den Filtern. Suche, Klasse, Getriebe oder Sitze ändern."
@@ -299,5 +300,26 @@
     "kindRegards": "Mit freundlichen Grüßen,",
     "team": "**Team Natali Cars**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
+  },
+  "admin": {
+    "visits": {
+      "subtitle": "Human visits with geo — saved for study (Telegram still notifies).",
+      "refresh": "Refresh",
+      "period": "Period",
+      "days": "{{count}} days",
+      "country": "Country",
+      "search": "Search",
+      "apply": "Apply",
+      "total": "Total visits: {{count}}",
+      "byDay": "By day",
+      "byCountry": "Top countries",
+      "byPath": "Top pages",
+      "when": "When",
+      "page": "Page",
+      "location": "Location",
+      "lang": "Lang",
+      "proof": "Engagement",
+      "empty": "No visits for this filter yet."
+    }
   }
 }

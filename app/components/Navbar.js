@@ -544,6 +544,7 @@ export default function NavBar({
   const isAdminCalendarRoute = pathname?.startsWith("/admin/orders-calendar");
   const isAdminOrdersRoute = pathname === "/admin/orders";
   const isAdminZonesRoute = pathname?.startsWith("/admin/delivery-zones");
+  const isAdminVisitsRoute = pathname?.startsWith("/admin/website-visits");
   const adminNavLinkSx = {
     px: { md: 0.8, lg: 1.25 },
     py: 0.2,
@@ -885,6 +886,22 @@ export default function NavBar({
                         }}
                       >
                         {t("header.deliveryZones")}
+                      </Typography>
+                    </Link>
+                    <Link href="/admin/website-visits">
+                      <Typography
+                        sx={{
+                          ...adminNavLinkSx,
+                          ...(isAdminVisitsRoute
+                            ? {
+                                opacity: 1,
+                                fontWeight: 600,
+                                borderBottom: "1px solid rgba(255,255,255,0.75)",
+                              }
+                            : null),
+                        }}
+                      >
+                        {t("header.websiteVisits")}
                       </Typography>
                     </Link>
                   </>
@@ -1344,6 +1361,14 @@ export default function NavBar({
                   onClick={() => setDrawerOpen(false)}
                 >
                   <ListItemText primary={t("header.deliveryZones")} />
+                </ListItem>
+                <ListItem
+                  button
+                  component={Link}
+                  href="/admin/website-visits"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  <ListItemText primary={t("header.websiteVisits")} />
                 </ListItem>
                 {isAdmin && (
                   <ListItem

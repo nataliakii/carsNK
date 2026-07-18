@@ -160,7 +160,7 @@ export function middleware(request: NextRequest) {
   const visitSessionId = existingSessionId || crypto.randomUUID();
 
   if (shouldSkip(normalizedPathname)) {
-    return NextResponse.next();
+    return withVisitSessionCookie(NextResponse.next(), visitSessionId);
   }
 
   const cookieLocale = request.cookies.get(LOCALE_COOKIE_NAME)?.value || null;
@@ -170,16 +170,9 @@ export function middleware(request: NextRequest) {
     acceptLanguageHeader: headerLocale,
   });
 
-  // Root URL -> localized Thessaloniki Airport location page.
+  // Root URL -> localized home (catalog hub), not a location landing page.
   if (!isLocalePrefixedPath(normalizedPathname) && normalizedPathname === "/") {
-    const airportLocation = getLocationById(
-      detectedLocale,
-      LOCATION_IDS.THESSALONIKI_AIRPORT
-    );
-    const airportPath = airportLocation
-      ? getLocationPathFromLocation(detectedLocale, airportLocation)
-      : withLocalePrefix(detectedLocale, normalizedPathname);
-    const target = withSearchParams(airportPath, request);
+    const target = withSearchParams(`/${detectedLocale}`, request);
     const url = new URL(target, request.url);
     return withVisitSessionCookie(
       withLocaleCookie(NextResponse.redirect(url, 301), detectedLocale),

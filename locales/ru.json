@@ -18,7 +18,8 @@
     "logout": "Выйти",
     "searchCars": "Поиск машин",
     "searchCarsPlaceholder": "Поиск по модели, классу, топливу…",
-    "clearSearch": "Очистить поиск"
+    "clearSearch": "Очистить поиск",
+    "websiteVisits": "Визиты"
   },
   "catalog": {
     "noCarsMatchFilters": "Нет машин по выбранным фильтрам. Измените поиск, класс, КПП или число мест."
@@ -410,5 +411,26 @@
     "kindRegards": "С уважением,",
     "team": "**Команда Natali Cars**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
+  },
+  "admin": {
+    "visits": {
+      "subtitle": "Визиты с гео — сохраняются для изучения (Telegram по-прежнему уведомляет).",
+      "refresh": "Обновить",
+      "period": "Период",
+      "days": "{{count}} дн.",
+      "country": "Страна",
+      "search": "Поиск",
+      "apply": "Применить",
+      "total": "Всего визитов: {{count}}",
+      "byDay": "По дням",
+      "byCountry": "Топ стран",
+      "byPath": "Топ страниц",
+      "when": "Когда",
+      "page": "Страница",
+      "location": "Локация",
+      "lang": "Язык",
+      "proof": "Сигнал",
+      "empty": "Пока нет визитов по этому фильтру."
+    }
   }
 }

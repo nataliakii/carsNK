@@ -18,7 +18,8 @@
     "logout": "Logout",
     "searchCars": "Search cars",
     "searchCarsPlaceholder": "Search by model, class, fuel…",
-    "clearSearch": "Clear search"
+    "clearSearch": "Clear search",
+    "websiteVisits": "Visits"
   },
   "catalog": {
     "noCarsMatchFilters": "No cars match the selected filters. Try changing search, class, transmission, or seats."
@@ -410,5 +411,26 @@
     "kindRegards": "Kind regards,",
     "team": "**Natali Cars Team**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
+  },
+  "admin": {
+    "visits": {
+      "subtitle": "Human visits with geo — saved for study (Telegram still notifies).",
+      "refresh": "Refresh",
+      "period": "Period",
+      "days": "{{count}} days",
+      "country": "Country",
+      "search": "Search",
+      "apply": "Apply",
+      "total": "Total visits: {{count}}",
+      "byDay": "By day",
+      "byCountry": "Top countries",
+      "byPath": "Top pages",
+      "when": "When",
+      "page": "Page",
+      "location": "Location",
+      "lang": "Lang",
+      "proof": "Engagement",
+      "empty": "No visits for this filter yet."
+    }
   }
 }
