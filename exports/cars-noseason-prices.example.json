@@ -1,0 +1,23 @@
+{
+  "exportedAt": "2026-01-01T00:00:00.000Z",
+  "season": "NoSeason",
+  "note": "Модель, год (registration), трансмиссия; цены за сутки (€) для интервалов 1–4 дн., 5–14 дн., 14+ дн. — ключи 4, 7, 14 в БД (при отсутствии 4 используется ключ 1).",
+  "cars": [
+    {
+      "model": "Toyota Yaris",
+      "registration": 2019,
+      "transmission": "automatic",
+      "4": 120,
+      "7": 100,
+      "14": 85
+    },
+    {
+      "model": "Fiat 500",
+      "registration": 2018,
+      "transmission": "manual",
+      "4": 95,
+      "7": null,
+      "14": 70
+    }
+  ]
+}

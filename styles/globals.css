@@ -1,0 +1,1127 @@
+/**
+ * Глобальные стили
+ * Цвета синхронизированы с theme.js
+ * 
+ * Палитра:
+ * - Primary: #890000 (тёмно-красный)
+ * - Secondary: #008989 (бирюзовый/complementary)
+ * - Analogous: #890045 (rose), #894500 (amber)
+ * - Triadic: #898900 (olive), #008900 (green)
+ */
+
+/* ============================================
+   GOOGLE FONTS - PT Sans
+   ВАЖНО: display=optional вместо swap для CLS
+   - swap вызывает layout shift при загрузке шрифта
+   - optional: если шрифт не загружен за ~100ms, используется fallback
+   ============================================ */
+@import url('https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=optional');
+
+/* ============================================
+   CSS ПЕРЕМЕННЫЕ - Единый источник цветов
+   ============================================ */
+:root {
+  /* Primary */
+  --color-primary: #890000;
+  --color-primary-light: #b33333;
+  --color-primary-dark: #5c0000;
+  
+  /* Secondary (Complementary) */
+  --color-secondary: #008989;
+  --color-secondary-light: #33a0a0;
+  --color-secondary-dark: #005c5c;
+  
+  /* Analogous */
+  --color-rose: #890045;
+  --color-rose-light: #b33370;
+  --color-amber: #894500;
+  --color-amber-light: #b36a33;
+  
+  /* Triadic */
+  --color-olive: #898900;
+  --color-olive-light: #a0a033;
+  --color-green: #008900;
+  --color-green-light: #33a033;
+  
+  /* Neutrals */
+  --color-white: #ffffff;
+  --color-black: #0a0a0a;
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #eeeeee;
+  --color-gray-300: #e0e0e0;
+  --color-gray-400: #bdbdbd;
+  --color-gray-500: #9e9e9e;
+  --color-gray-600: #757575;
+  --color-gray-700: #616161;
+  --color-gray-800: #424242;
+  --color-gray-900: #212121;
+
+  /* Фон */
+  --color-bg-default: #ffffff;
+  --color-bg-paper: #ffffff;
+  --color-bg-subtle: #fafafa;
+
+  /* Текст */
+  --color-text-primary: #212121;
+  --color-text-secondary: #616161;
+  --color-text-inverse: #ffffff;
+
+  /* Статусы */
+  --color-success: #008900;
+  --color-warning: #894500;
+  --color-error: #890000;
+  --color-info: #008989;
+
+  /* Заказы */
+  --color-order-confirmed: #890000;
+  --color-order-confirmed-my: #008900;
+  --color-order-pending: #894500;
+  --color-order-conflict: #e7c475;
+
+  /* Календарь */
+  --color-calendar-today: #ffe082;
+  --color-calendar-today-text: #0a0a0a;
+  --color-calendar-sunday: #890000;
+  --color-calendar-first-col-bg: #008989;
+  --color-calendar-first-col-text: #ffffff;
+  --color-calendar-border: #e0e0e0;
+  --color-calendar-selected: #1976d2;
+  --color-calendar-move: #ffeb3b;
+
+  /* Кнопки */
+  --color-btn-book: #008900;
+  --color-btn-book-light: #33a033;
+  --color-btn-book-dark: #005c00;
+  --color-btn-submit: #890000;
+  --color-btn-submit-light: #b33333;
+  --color-btn-submit-dark: #5c0000;
+
+  /* UI элементы */
+  --color-ui-border: #e0e0e0;
+  --color-ui-divider: #eeeeee;
+  
+  /* Legacy - для обратной совместимости */
+  --foreground-rgb: 33, 33, 33;
+  --background-start-rgb: 255, 255, 255;
+  --background-end-rgb: 250, 250, 250;
+  --foreground-rgb-bright: 137, 0, 0;
+}
+
+/* ============================================
+   БАЗОВЫЕ СТИЛИ
+   ============================================ */
+html {
+  color-scheme: light !important;
+  -webkit-color-scheme: light !important;
+  background-color: var(--color-bg-default) !important;
+}
+
+body,
+#__next,
+#root {
+  background: var(--color-bg-default) !important;
+  color: var(--color-text-primary) !important;
+}
+
+body {
+  font-family: 'PT Sans', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  background-color: var(--color-bg-default) !important;
+  color: var(--color-text-primary) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root-layout {
+  font-family: 'PT Sans', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  text-align: center;
+}
+
+#root-layout h1 {
+  color: var(--color-text-secondary);
+}
+
+/* ============================================
+   ТИПОГРАФИКА
+   ============================================ */
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+p {
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 100;
+  line-height: 2.1rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+}
+
+h3 {
+  font-size: 1.25rem;
+}
+
+h4 {
+  font-size: 1rem;
+}
+
+h5 {
+  font-size: 0.875rem;
+}
+
+p {
+  font-size: 1rem;
+}
+
+a {
+  font-size: 1.5rem;
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.6s, text-decoration 0.4s;
+}
+
+a:hover {
+  color: var(--color-text-accent);
+  margin: 11;
+}
+
+/* ============================================
+   КНОПКИ
+   ============================================ */
+button {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background-color: rgba(var(--background-start-rgb));
+  color: var(--color-text-light);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+button:hover {
+  background-color: rgba(var(--background-end-rgb));
+}
+
+button.nb {
+  background: transparent;
+  color: var(--color-text-light);
+  cursor: pointer;
+}
+
+button.nb:hover {
+  background: var(--color-bg-default);
+  color: var(--color-text-primary);
+}
+
+/* ============================================
+   АНИМАЦИИ КНОПОК
+   ============================================ */
+
+/* Мерцающая кнопка "Забронировать" (зелёная) */
+@keyframes bookButtonPulse {
+  0% {
+    background: linear-gradient(135deg, #008989 0%, #008900 100%);
+    box-shadow: 0 0 20px rgba(0, 137, 137, 0.5), 0 0 40px rgba(0, 137, 0, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    background: linear-gradient(135deg, #4dd4d4 0%, #5cd85c 100%);
+    box-shadow: 0 0 30px rgba(77, 212, 212, 0.7), 0 0 60px rgba(92, 216, 92, 0.5);
+    transform: scale(1.05);
+  }
+  100% {
+    background: linear-gradient(135deg, #008989 0%, #008900 100%);
+    box-shadow: 0 0 20px rgba(0, 137, 137, 0.5), 0 0 40px rgba(0, 137, 0, 0.3);
+    transform: scale(1);
+  }
+}
+
+/* Мерцающая кнопка "Отправить" (красная) */
+@keyframes submitButtonPulse {
+  0% {
+    box-shadow: 0 0 16px var(--color-btn-submit-light);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 24px var(--color-btn-submit-light);
+    transform: scale(1.03);
+  }
+  100% {
+    box-shadow: 0 0 16px var(--color-btn-submit-light);
+    transform: scale(1);
+  }
+}
+
+/* Класс для градиентной мерцающей кнопки "Забронировать" */
+.btn-book-pulse {
+  background: linear-gradient(135deg, #008989 0%, #008900 100%) !important;
+  color: #ffffff !important;
+  font-weight: bold;
+  font-size: 1.1rem;
+  padding: 12px 28px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(0, 137, 137, 0.5), 0 0 40px rgba(0, 137, 0, 0.3);
+  animation: bookButtonPulse 1.8s ease-in-out infinite;
+  transition: all 0.3s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn-book-pulse:hover {
+  background: linear-gradient(135deg, #006b6b 0%, #006b00 100%) !important;
+  animation: none;
+  box-shadow: 0 6px 20px rgba(0, 107, 107, 0.5), 0 0 30px rgba(0, 107, 0, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Класс для красной мерцающей кнопки */
+.btn-submit-pulse {
+  background-color: var(--color-btn-submit) !important;
+  color: var(--color-white) !important;
+  font-weight: bold;
+  box-shadow: 0 0 16px var(--color-btn-submit-light);
+  animation: submitButtonPulse 1.5s ease-in-out infinite;
+  transition: all 0.2s ease;
+}
+
+.btn-submit-pulse:hover {
+  background-color: var(--color-btn-submit-dark) !important;
+  animation: none;
+  box-shadow: 0 4px 12px rgba(137, 0, 0, 0.4);
+}
+
+/* ============================================
+   АНИМАЦИИ ОБЩИЕ
+   ============================================ */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinning-icon {
+  animation: spin 1.3s linear infinite;
+  opacity: 0.9;
+}
+
+.spinning-icon:hover {
+  animation: spin 3s infinite linear;
+}
+
+.loop-spinning {
+  animation: spin 3s infinite linear;
+}
+
+/* ============================================
+   ЗАГРУЗКА
+   ============================================ */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 33vh;
+}
+
+.global-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.3s ease;
+}
+
+/* ============================================
+   PRELOADER
+   ============================================ */
+body.hideX #preloader {
+  display: none !important;
+  z-index: -1111111;
+  height: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+body.hideX .pace {
+  display: none !important;
+  background-color: transparent;
+}
+
+#preloader {
+  top: 0;
+  left: 0;
+}
+
+.pace-done #preloader {
+  visibility: hidden;
+  transition-delay: 1.5s;
+}
+
+.pace-done #preloader:after,
+.pace-done #preloader:before {
+  height: 0;
+  transition: all 0.7s cubic-bezier(1, 0, 0.55, 1);
+  transition-delay: 1s;
+}
+
+.pace-done #preloader:after {
+  bottom: 0;
+}
+
+/* ============================================
+   СЕТКА И LAYOUT
+   ============================================ */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  justify-items: center;
+}
+
+.centered-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 20vh;
+}
+
+.custom-heading {
+  text-align: center;
+}
+
+.pt-10 {
+  padding-top: 220;
+}
+
+/* ============================================
+   СЛАЙДЕР И БЛОГИ
+   ============================================ */
+.blog-crv .item {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.block-sec .testim-box .slick-dots li button {
+  display: block;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider .social-icon a {
+  margin: 0 3px;
+}
+
+.navbar .navbar-nav .nav-link,
+.video .vid .vid-butn .icon,
+.video-wrapper .vid .vid-butn .icon {
+  cursor: pointer;
+}
+
+.block-sec .vid-area {
+  z-index: 99;
+}
+
+.div-tooltip-tit,
+.div-tooltip-sub {
+  display: block;
+  padding: 0;
+}
+
+section.testimonials {
+  overflow: hidden;
+}
+
+.contact-page .pages-header {
+  overflow: hidden;
+}
+
+div#ieatmaps iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.replay {
+  cursor: pointer;
+}
+
+.app-footer .social a {
+  margin-right: 4px;
+}
+
+/* ============================================
+   MASONERY GALLERY
+   ============================================ */
+.main-content {
+  .sec-head h3 {
+    font-size: 60px;
+    font-weight: 700;
+    position: relative;
+  }
+
+  .sec-head .tbg {
+    position: absolute;
+    top: -120px;
+    left: 0;
+    width: 100%;
+    font-size: 15vw;
+    font-weight: 900;
+    line-height: 1;
+    background: linear-gradient(
+      180deg,
+      var(--color-bg-default) 0%,
+      rgba(17, 18, 21, 0.2) 70%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    opacity: 0.1;
+  }
+
+  .sec-head .tbg b {
+    font-weight: 500;
+    font-size: 12vw;
+  }
+
+  .main-content {
+    position: relative;
+    z-index: 999999;
+    background: transparent;
+  }
+
+  .masonery .gallery .items {
+    margin-top: 30px;
+  }
+
+  .masonery .container-fluid {
+    padding: 0 100px;
+  }
+
+  @media (max-width: 768px) {
+    .masonery .container-fluid {
+      padding: 0 20px;
+    }
+    .sec-head h3 {
+      font-size: 34px;
+    }
+    .sec-head {
+      margin: 0 auto 30px;
+    }
+  }
+
+  .masonery .item-img {
+    padding: 5px 15px 20px;
+    border-radius: 10px;
+    background: #18191d;
+    position: relative;
+  }
+
+  .masonery .item-img .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .masonery .item-img .img {
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .masonery .item-img .img img {
+    transition: all 0.4s;
+  }
+
+  .masonery .item-img .img:hover img {
+    transform: scale(1.1);
+  }
+
+  .masonery .item-img .cont {
+    margin-top: 20px;
+    text-align: center;
+    position: relative;
+  }
+
+  .masonery .item-img .cont h6 {
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 1px;
+  }
+
+  .masonery .item-img .cont .sta {
+    position: absolute;
+    top: -47px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 10px;
+    border-radius: 30px;
+    box-shadow: 0px 5px 20px rgba(255, 255, 255, 0.05);
+    font-size: 12px;
+  }
+
+  .masonery .item-img .cont .sta.coming {
+    background: var(--color-ui-success);
+  }
+
+  .masonery .item-img .cont .sta.new {
+    background: var(--color-ui-error);
+  }
+}
+
+/* ============================================
+   ПЕЧАТЬ
+   ============================================ */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .MuiDataGrid-root {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    font-size: 12px !important;
+  }
+  body {
+    background: var(--color-bg-default) !important;
+    color: var(--color-text-primary) !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  #print-orders-modal,
+  #print-orders-modal * {
+    visibility: visible !important;
+  }
+  #print-orders-modal {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: var(--color-bg-default) !important;
+    z-index: 9999 !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #print-orders-modal .MuiTable-root {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  #print-orders-modal .MuiTableHead-root {
+    display: table-header-group !important;
+  }
+  #print-orders-modal .MuiTableBody-root {
+    display: table-row-group !important;
+  }
+  #print-orders-modal .MuiTableRow-root {
+    display: table-row !important;
+    page-break-inside: avoid !important;
+  }
+  #print-orders-modal .MuiTable-root {
+    page-break-inside: auto !important;
+  }
+  #print-orders-modal .MuiTableBody-root .MuiTableRow-root {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+  #print-orders-modal .MuiTableCell-root {
+    display: table-cell !important;
+    padding: 8px !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    text-align: left !important;
+  }
+  #print-orders-modal .MuiPaper-root {
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 16px !important;
+  }
+  #print-orders-modal .MuiGrid-container {
+    display: block !important;
+  }
+  #print-orders-modal .MuiGrid-item {
+    width: 100% !important;
+    margin-bottom: 20px !important;
+  }
+}
+
+/* ============================================
+   AUTOCOMPLETE POPOVERS
+   ============================================ */
+.MuiAutocomplete-popper .MuiPaper-root,
+.MuiPopper-root .MuiPaper-root,
+body .MuiAutocomplete-popper .MuiPaper-root {
+  border: 2px solid var(--color-text-primary) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+  background-color: var(--color-bg-default) !important;
+  z-index: 2000 !important;
+}
+
+.MuiAutocomplete-popper .MuiAutocomplete-listbox,
+.MuiPopper-root .MuiAutocomplete-listbox {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.MuiAutocomplete-popper .MuiPaper-elevation {
+  border: 2px solid var(--color-text-primary) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ============================================
+   DARK MODE ЗАЩИТА
+   ============================================ */
+@media (prefers-color-scheme: dark) {
+  html,
+  body {
+    color-scheme: light !important;
+    -webkit-color-scheme: light !important;
+    background-color: var(--color-bg-default) !important;
+    color: var(--color-text-primary) !important;
+    -webkit-text-fill-color: var(--color-text-primary) !important;
+  }
+}
+
+/* ============================================
+   BIGCALENDAR СТИЛИ
+   ============================================ */
+.today-column-bg {
+  background-color: var(--color-calendar-today) !important;
+}
+
+/* Portrait телефон — отступ сверху */
+@media (max-width: 600px) and (orientation: portrait) {
+  .bigcalendar-root {
+    padding-top: 56px !important;
+  }
+}
+
+/* Landscape телефон — компактные ячейки */
+@media (max-width: 900px) and (orientation: landscape) {
+  .bigcalendar-root {
+    padding-top: 38px !important;
+  }
+  
+  /* Обычные ячейки (не первый столбец) — минимальная высота */
+  .bigcalendar-root tbody .MuiTableCell-root:not(:first-child),
+  .bigcalendar-root thead .MuiTableCell-root:not(:first-child) {
+    padding: 0 !important;
+    min-width: 24px !important;
+    max-width: 32px !important;
+    min-height: 18px !important;
+    max-height: 22px !important;
+    font-size: 10px !important;
+    line-height: 1 !important;
+    border-width: 1px !important;
+    margin: 0 !important;
+  }
+  
+  .bigcalendar-root tbody .MuiTableCell-root:not(:first-child) > div,
+  .bigcalendar-root thead .MuiTableCell-root:not(:first-child) > div {
+    font-size: 12px !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 18px !important;
+    max-height: 22px !important;
+  }
+  
+  /* Первый столбец: компактный размер шрифта */
+  .bigcalendar-root tbody .MuiTableCell-root:first-child {
+    font-size: 11px !important;
+    padding: 2px 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    min-width: 50px !important;
+    max-width: 80px !important;
+  }
+  
+  /* Шапка календаря: компактный размер */
+  .bigcalendar-root thead .MuiTableCell-root {
+    font-size: 11px !important;
+    padding: 2px !important;
+  }
+  
+  .bigcalendar-root thead .MuiTableCell-root > div {
+    font-size: 11px !important;
+  }
+  
+  /* Контейнер ячеек с датами */
+  .bigcalendar-root .bigcalendar-cell-wrapper {
+    height: 17.82px !important;
+    min-height: 17.82px !important;
+    max-height: 17.82px !important;
+  }
+}
+
+/* Первый столбец календаря - белый текст */
+.bigcalendar-root tbody .MuiTableCell-root:first-child,
+.bigcalendar-root tbody .MuiTableCell-root:first-child *,
+.bigcalendar-root .bigcalendar-first-column,
+.bigcalendar-root .bigcalendar-first-column * {
+  color: var(--color-calendar-first-col-text) !important;
+  -webkit-text-fill-color: var(--color-calendar-first-col-text) !important;
+}
+
+/* Селекты месяца/года - тёмный текст */
+.bigcalendar-root .bigcalendar-month-select,
+.bigcalendar-root .bigcalendar-year-select,
+.bigcalendar-root .bigcalendar-month-select *,
+.bigcalendar-root .bigcalendar-year-select * {
+  color: var(--color-text-primary) !important;
+  -webkit-text-fill-color: var(--color-text-primary) !important;
+}
+
+/* ============================================
+   LANDSCAPE PHONE СТИЛИ
+   ============================================ */
+@media (max-width: 900px) and (orientation: landscape) {
+body.hide-navbar-on-landscape-sm .MuiAppBar-root,
+body.hide-navbar-on-landscape-sm .MuiAppBar-root * {
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+}
+
+body.hide-navbar-on-landscape-sm .legend-calendar-admin,
+body.hide-navbar-on-landscape-sm .legend-calendar-admin * {
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+}
+
+body.hide-navbar-on-landscape-sm .bigcalendar-root {
+  padding-top: 0 !important;
+  height: 100vh !important;
+}
+
+body.hide-navbar-on-landscape-sm .bigcalendar-root .MuiTableContainer-root {
+  max-height: 100vh !important;
+  border-top: 0 !important;
+}
+
+body.hide-navbar-on-landscape-sm .bigcalendar-year-select,
+body.hide-navbar-on-landscape-sm .bigcalendar-year-select * {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+body.hide-navbar-on-landscape-sm .admin-logout-box,
+body.hide-navbar-on-landscape-sm .admin-logout-box * {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+body.hide-navbar-on-landscape-sm .bigcalendar-root .MuiTableCell-stickyHeader,
+body.hide-navbar-on-landscape-sm .bigcalendar-root thead .MuiTableCell-root {
+    background-color: var(--color-bg-default) !important;
+    background: var(--color-bg-default) !important;
+  box-shadow: none !important;
+  border-top: 0 !important;
+    z-index: 50 !important;
+}
+
+body.hide-navbar-on-landscape-sm
+  .bigcalendar-root
+  .MuiTableCell-stickyHeader.today-column-bg,
+body.hide-navbar-on-landscape-sm
+  .bigcalendar-root
+  thead
+  .MuiTableCell-root.today-column-bg {
+    background-color: var(--color-calendar-today) !important;
+    background: var(--color-calendar-today) !important;
+    color: var(--color-calendar-today-text) !important;
+  }
+
+body.hide-navbar-on-landscape-sm .bigcalendar-root .MuiTableCell-stickyHeader {
+  top: 0 !important;
+}
+
+body.hide-navbar-on-landscape-sm .admin-topbar,
+body.hide-navbar-on-landscape-sm .admin-topbar * {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+}
+
+body.hide-navbar-on-landscape-sm .bigcalendar-root > .MuiBox-root,
+body.hide-navbar-on-landscape-sm .bigcalendar-root > div {
+  border-top: 0 !important;
+  background: transparent !important;
+}
+
+body.hide-navbar-on-landscape-sm .bigcalendar-root thead .MuiTableCell-root {
+  padding: 4px 6px !important;
+}
+
+body.hide-navbar-on-landscape-sm
+  .bigcalendar-root
+  tbody
+  .MuiTableCell-root:first-child {
+  font-size: 12px !important;
+  padding: 6px 8px !important;
+}
+
+body.hide-navbar-on-landscape-sm .bigcalendar-root .bigcalendar-month-select {
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 60 !important;
+    background: var(--color-bg-default) !important;
+  top: 0 !important;
+}
+
+body.hide-navbar-on-landscape-sm
+  .bigcalendar-root
+  .MuiTableCell-root:first-child,
+body.hide-navbar-on-landscape-sm
+  .bigcalendar-root
+  .MuiTableCell-root:first-child
+  * {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+body.hide-navbar-on-landscape-sm
+  .bigcalendar-root
+  .MuiTableCell-root:first-child {
+  min-width: 160px !important;
+  max-width: 240px !important;
+    background: var(--color-calendar-first-col-bg) !important;
+    color: var(--color-calendar-first-col-text) !important;
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 55 !important;
+}
+
+body.hide-navbar-on-landscape-sm
+  .bigcalendar-root
+  thead
+  .MuiTableCell-root:first-child {
+    background: var(--color-bg-default) !important;
+    color: var(--color-text-primary) !important;
+  z-index: 56 !important;
+}
+}
+
+/* Компактные ячейки на landscape телефоне */
+@media (max-width: 900px) and (orientation: landscape) {
+  body.hide-navbar-on-landscape-sm .bigcalendar-root table,
+  body.hide-navbar-on-landscape-sm .bigcalendar-root .MuiTable-root {
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    table-layout: fixed !important;
+  }
+
+  body.hide-navbar-on-landscape-sm .bigcalendar-root .bigcalendar-cell-wrapper {
+    height: 21.06px !important;
+    min-height: 21.06px !important;
+    max-height: 21.06px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    overflow: hidden !important;
+  }
+
+  body.hide-navbar-on-landscape-sm .bigcalendar-root .MuiTableCell-root > div,
+  body.hide-navbar-on-landscape-sm .bigcalendar-root .MuiTableCell-root > span,
+  body.hide-navbar-on-landscape-sm .bigcalendar-root td > div,
+  body.hide-navbar-on-landscape-sm .bigcalendar-root th > div {
+    height: 21.06px !important;
+    min-height: 21.06px !important;
+    max-height: 21.06px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    overflow: hidden !important;
+  }
+
+  body.hide-navbar-on-landscape-sm
+    .bigcalendar-root
+    thead
+    .MuiTableCell-root:not(:first-child) {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    min-width: 32px !important;
+    max-width: 48px !important;
+  }
+
+  body.hide-navbar-on-landscape-sm
+    .bigcalendar-root
+    thead
+    .MuiTableCell-root:not(:first-child)
+    > div {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+  }
+
+  body.hide-navbar-on-landscape-sm
+    .bigcalendar-root
+    thead
+    .MuiTableCell-root:not(:first-child)
+    > div
+    + div {
+    margin-top: 0 !important;
+    font-size: 11px !important;
+    line-height: 1 !important;
+  }
+
+  body.hide-navbar-on-landscape-sm .bigcalendar-root .today-column-bg {
+    background-color: var(--color-calendar-today) !important;
+    color: var(--color-calendar-today-text) !important;
+  }
+
+  body.hide-navbar-on-landscape-sm
+    .bigcalendar-root
+    .MuiTableCell-root:first-child
+    > div,
+  body.hide-navbar-on-landscape-sm
+    .bigcalendar-root
+    .MuiTableCell-root:first-child {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    height: 21.06px !important;
+    min-height: 21.06px !important;
+  }
+
+  body.hide-navbar-on-landscape-sm .bigcalendar-root tbody tr,
+  body.hide-navbar-on-landscape-sm .bigcalendar-root thead tr {
+    border-bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 21.06px !important;
+  }
+
+  @media (max-width: 420px) {
+    body.hide-navbar-on-landscape-sm
+      .bigcalendar-root
+      .bigcalendar-cell-wrapper,
+    body.hide-navbar-on-landscape-sm .bigcalendar-root .MuiTableCell-root > div,
+    body.hide-navbar-on-landscape-sm .bigcalendar-root td > div {
+      height: 26px !important;
+      min-height: 26px !important;
+      max-height: 26px !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+    body.hide-navbar-on-landscape-sm
+      .bigcalendar-root
+      .MuiTableCell-root:first-child
+      > div {
+      padding-left: 4px !important;
+      padding-right: 4px !important;
+      height: 22px !important;
+    }
+    body.hide-navbar-on-landscape-sm
+      .bigcalendar-root
+      tbody
+      .MuiTableCell-root:first-child {
+      font-size: 10px !important;
+    }
+  }
+}
+
+@media (max-width: 420px) and (orientation: landscape) {
+  body.hide-navbar-on-landscape-sm
+    .bigcalendar-root
+    tbody
+    .MuiTableCell-root:first-child {
+    font-size: 10px !important;
+  }
+}
+
+/* ============================================
+   CALENDAR COLUMN HOVER HIGHLIGHT
+   ============================================ */
+:root {
+  --calendar-col-hover: rgba(0, 0, 0, 0.06);
+}
+
+.bigcalendar-root[data-hover-col] [data-col-index] {
+  transition: background-color 120ms ease;
+}
+
+/* Generate hover rules for columns 0-30 (только tbody, не шапка) */
+.bigcalendar-root[data-hover-col="0"] tbody [data-col-index="0"],
+.bigcalendar-root[data-hover-col="1"] tbody [data-col-index="1"],
+.bigcalendar-root[data-hover-col="2"] tbody [data-col-index="2"],
+.bigcalendar-root[data-hover-col="3"] tbody [data-col-index="3"],
+.bigcalendar-root[data-hover-col="4"] tbody [data-col-index="4"],
+.bigcalendar-root[data-hover-col="5"] tbody [data-col-index="5"],
+.bigcalendar-root[data-hover-col="6"] tbody [data-col-index="6"],
+.bigcalendar-root[data-hover-col="7"] tbody [data-col-index="7"],
+.bigcalendar-root[data-hover-col="8"] tbody [data-col-index="8"],
+.bigcalendar-root[data-hover-col="9"] tbody [data-col-index="9"],
+.bigcalendar-root[data-hover-col="10"] tbody [data-col-index="10"],
+.bigcalendar-root[data-hover-col="11"] tbody [data-col-index="11"],
+.bigcalendar-root[data-hover-col="12"] tbody [data-col-index="12"],
+.bigcalendar-root[data-hover-col="13"] tbody [data-col-index="13"],
+.bigcalendar-root[data-hover-col="14"] tbody [data-col-index="14"],
+.bigcalendar-root[data-hover-col="15"] tbody [data-col-index="15"],
+.bigcalendar-root[data-hover-col="16"] tbody [data-col-index="16"],
+.bigcalendar-root[data-hover-col="17"] tbody [data-col-index="17"],
+.bigcalendar-root[data-hover-col="18"] tbody [data-col-index="18"],
+.bigcalendar-root[data-hover-col="19"] tbody [data-col-index="19"],
+.bigcalendar-root[data-hover-col="20"] tbody [data-col-index="20"],
+.bigcalendar-root[data-hover-col="21"] tbody [data-col-index="21"],
+.bigcalendar-root[data-hover-col="22"] tbody [data-col-index="22"],
+.bigcalendar-root[data-hover-col="23"] tbody [data-col-index="23"],
+.bigcalendar-root[data-hover-col="24"] tbody [data-col-index="24"],
+.bigcalendar-root[data-hover-col="25"] tbody [data-col-index="25"],
+.bigcalendar-root[data-hover-col="26"] tbody [data-col-index="26"],
+.bigcalendar-root[data-hover-col="27"] tbody [data-col-index="27"],
+.bigcalendar-root[data-hover-col="28"] tbody [data-col-index="28"],
+.bigcalendar-root[data-hover-col="29"] tbody [data-col-index="29"],
+.bigcalendar-root[data-hover-col="30"] tbody [data-col-index="30"] {
+  background-color: var(--calendar-col-hover) !important;
+}
+
+/* Hover для шапки — более светлый эффект */
+.bigcalendar-root thead [data-col-index]:hover {
+  filter: brightness(0.95);
+}
