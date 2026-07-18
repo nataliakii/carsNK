@@ -28,11 +28,11 @@ export default async function LocalizedHomePage({ params }) {
   if (!isSupportedLocale(locale)) {
     notFound();
   }
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions).catch(() => null);
   const [carsData, ordersData, companyData] = await Promise.all([
-    getCars({ session }),
-    getActiveOrders({ session }),
-    getCompany(COMPANY_ID),
+    getCars({ session }).catch(() => []),
+    getActiveOrders({ session }).catch(() => []),
+    getCompany(COMPANY_ID).catch(() => null),
   ]);
 
   const hubSeo = getHubSeo(locale);
