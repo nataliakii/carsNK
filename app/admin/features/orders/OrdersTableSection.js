@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Box,
   Paper,
@@ -62,28 +62,18 @@ import { palette } from "@/theme";
 import { useSnackbar } from "notistack";
 import InlineEditCell from "@/app/components/orderFields/InlineEditCell";
 import { downloadOrdersTableXlsx } from "@/app/admin/features/orders/utils/exportOrdersTableXlsx";
+import {
+  getEffectivePrice,
+  getStoredAutoPrice,
+  resolveOrderOwnerId,
+  summarizeFilteredOrders,
+} from "@/domain/orders/ordersTableStats";
 
 // Dayjs plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const ATHENS_TZ = "Europe/Athens";
-
-/**
- * PRICE ARCHITECTURE HELPER
- * 
- * Returns the effective price used by UI, invoices, and payments
- * effectivePrice = OverridePrice !== null ? OverridePrice : totalPrice
- */
-const getEffectivePrice = (order) => {
-  if (!order) return 0;
-  // If OverridePrice is set (not null/undefined), use it
-  if (order.OverridePrice !== null && order.OverridePrice !== undefined) {
-    return Number(order.OverridePrice);
-  }
-  // Otherwise use auto-calculated totalPrice
-  return Number(order.totalPrice) || 0;
-};
 
 /** Возврат уже в прошлом (по timeOut или концу дня rentalEndDate). */
 function isOrderEndedInPast(order) {
@@ -141,7 +131,11 @@ export default function OrdersTableSection() {
   // ─────────────────────────────────────────────────────────────
   const [isSaving, setIsSaving] = useState({}); // Track saving per field: { orderId_field: true }
   const [isTogglingConfirm, setIsTogglingConfirm] = useState({});
-  const [isRecalculatingPrice, setIsRecalculatingPrice] = useState({}); // Track price recalculation: { orderId: true }
+  /** Live auto-price preview only — never writes to DB. { [orderId]: { loading, live, error } } */
+  const [autoPricePreviewById, setAutoPricePreviewById] = useState({});
+  const [companies, setCompanies] = useState([]);
+  const [selectedOwnerId, setSelectedOwnerId] = useState("");
+  const [commissionPercent, setCommissionPercent] = useState(10);
   
   // ─────────────────────────────────────────────────────────────
   // CONFLICT STATE (persistent, per-order)
@@ -274,6 +268,36 @@ export default function OrdersTableSection() {
   /** Если true — не показываем заказы, у которых возврат уже в прошлом. */
   const [hidePastOrders, setHidePastOrders] = useState(false);
 
+  // Companies for owner filter (superadmin API; fallback from cars)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/owners");
+        if (res.ok) {
+          const body = await res.json();
+          if (!cancelled && body?.success && Array.isArray(body.companies)) {
+            setCompanies(body.companies);
+            return;
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+      if (cancelled) return;
+      const map = new Map();
+      for (const c of cars || []) {
+        if (!c?.ownerId) continue;
+        const id = String(c.ownerId);
+        if (!map.has(id)) map.set(id, { _id: id, name: id });
+      }
+      setCompanies(Array.from(map.values()));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cars]);
+
   // ─────────────────────────────────────────────────────────────
   // PAGINATION STATE
   // ─────────────────────────────────────────────────────────────
@@ -311,6 +335,12 @@ export default function OrdersTableSection() {
       if (selectedCar) {
         const orderCarId = order.car?._id || order.car;
         if (orderCarId !== selectedCar._id) return false;
+      }
+
+      // 1b. Company / owner filter
+      if (selectedOwnerId) {
+        const oid = resolveOrderOwnerId(order, cars);
+        if (String(oid || "") !== String(selectedOwnerId)) return false;
       }
 
       // 2. Status filter (confirmed/pending)
@@ -386,7 +416,9 @@ export default function OrdersTableSection() {
     });
   }, [
     orders,
+    cars,
     selectedCar,
+    selectedOwnerId,
     statusFilter,
     originFilter,
     dateFrom,
@@ -395,9 +427,11 @@ export default function OrdersTableSection() {
     hidePastOrders,
   ]);
 
-  const filteredSum = useMemo(() => {
-    return filteredOrders.reduce((acc, o) => acc + getEffectivePrice(o), 0);
-  }, [filteredOrders]);
+  const filteredSummary = useMemo(
+    () => summarizeFilteredOrders(filteredOrders, commissionPercent),
+    [filteredOrders, commissionPercent]
+  );
+  const filteredSum = filteredSummary.sum;
 
   // ─────────────────────────────────────────────────────────────
   // PAGINATED ORDERS
@@ -412,6 +446,7 @@ export default function OrdersTableSection() {
   // ─────────────────────────────────────────────────────────────
   const handleResetFilters = useCallback(() => {
     setSelectedCar(null);
+    setSelectedOwnerId("");
     setDateFrom("");
     setDateTo("");
     setStatusFilter("all");
@@ -592,63 +627,54 @@ export default function OrdersTableSection() {
   ]);
   
   /**
-   * Пересчёт через /api/order/calcTotalPrice (как в модалке): машина, даты, время, страховка,
-   * кресла, второй водитель, placeIn/placeOut → доставка. Сохранение — только при праве на цену.
+   * Preview live auto price from /api/order/calcTotalPrice.
+   * Does NOT write totalPrice / OverridePrice — display only.
    */
-  const handleRecalculatePrice = useCallback(async (order) => {
+  const handlePreviewAutoPrice = useCallback(async (order) => {
     const orderId = order._id;
-    const recalculatingKey = orderId;
-    
-    setIsRecalculatingPrice((prev) => ({ ...prev, [recalculatingKey]: true }));
-    
+
+    setAutoPricePreviewById((prev) => ({
+      ...prev,
+      [orderId]: { loading: true, live: null, error: null },
+    }));
+
     try {
-      // Get carNumber from order
       let carNumber = null;
       if (order.car?.carNumber) {
         carNumber = order.car.carNumber;
       } else if (order.carNumber) {
         carNumber = order.carNumber;
       } else if (order.car?._id || order.car) {
-        // Find car in cars array
         const carId = order.car?._id || order.car;
         const car = cars.find((c) => c._id?.toString() === carId?.toString());
         if (car?.carNumber) {
           carNumber = car.carNumber;
         }
       }
-      
+
       if (!carNumber) {
-        enqueueSnackbar("❌ Не удалось определить номер автомобиля", { variant: "error" });
-        return;
+        throw new Error("Не удалось определить номер автомобиля");
       }
-      
-      // Get dates (format as YYYY-MM-DD for API)
-      const rentalStartDate = order.rentalStartDate 
+
+      const rentalStartDate = order.rentalStartDate
         ? dayjs.utc(order.rentalStartDate).tz(ATHENS_TZ).format("YYYY-MM-DD")
         : null;
       const rentalEndDate = order.rentalEndDate
         ? dayjs.utc(order.rentalEndDate).tz(ATHENS_TZ).format("YYYY-MM-DD")
         : null;
-      
+
       if (!rentalStartDate || !rentalEndDate) {
-        enqueueSnackbar("❌ Не указаны даты аренды", { variant: "error" });
-        return;
+        throw new Error("Не указаны даты аренды");
       }
-      
-      // Get insurance (kacko) and child seats
-      const kacko = order.insurance || "TPL";
-      const childSeats = order.ChildSeats || 0;
-      const secondDriver = Boolean(order.secondDriver);
-      
-      // Call calcTotalPrice via centralized action
+
       const data = await calculateTotalPrice(
         carNumber,
         rentalStartDate,
         rentalEndDate,
-        kacko,
-        childSeats,
+        order.insurance || "TPL",
+        order.ChildSeats || 0,
         {
-          secondDriver,
+          secondDriver: Boolean(order.secondDriver),
           timeIn: order.timeIn,
           timeOut: order.timeOut,
           placeIn: order.placeIn,
@@ -657,23 +683,32 @@ export default function OrdersTableSection() {
       );
 
       if (!data.ok) {
-        throw new Error(data.error || "Ошибка пересчета цены");
+        throw new Error(data.error || "Ошибка расчёта цены");
       }
 
-      // Recalculate → сохраняем totalPrice, сбрасываем override (см. handleFieldUpdate + API)
-      if (data.totalPrice !== undefined) {
-        await handleFieldUpdate(orderId, "totalPrice", data.totalPrice, {
-          source: "recalculate",
-        });
-      }
+      setAutoPricePreviewById((prev) => ({
+        ...prev,
+        [orderId]: {
+          loading: false,
+          live: Number(data.totalPrice) || 0,
+          error: null,
+        },
+      }));
     } catch (error) {
-      console.error("Error recalculating price:", error);
-      enqueueSnackbar(error.message || "Ошибка пересчета цены", { variant: "error" });
-    } finally {
-      setIsRecalculatingPrice((prev) => ({ ...prev, [recalculatingKey]: false }));
+      console.error("Error previewing auto price:", error);
+      setAutoPricePreviewById((prev) => ({
+        ...prev,
+        [orderId]: {
+          loading: false,
+          live: null,
+          error: error.message || "Ошибка расчёта",
+        },
+      }));
+      enqueueSnackbar(error.message || "Ошибка расчёта цены", {
+        variant: "error",
+      });
     }
-  }, [cars, enqueueSnackbar, handleFieldUpdate]);
-  
+  }, [cars, enqueueSnackbar]); 
   const handleToggleConfirm = useCallback(async (orderId) => {
     setIsTogglingConfirm((prev) => ({ ...prev, [orderId]: true }));
     
@@ -925,6 +960,25 @@ export default function OrdersTableSection() {
             alignItems={{ xs: "stretch", sm: "center" }}
             flexWrap="wrap"
           >
+            {/* Company / owner filter */}
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel>Company</InputLabel>
+              <Select
+                value={selectedOwnerId}
+                onChange={(e) =>
+                  handleFilterChange(setSelectedOwnerId)(e.target.value)
+                }
+                label="Company"
+              >
+                <MenuItem value="">All companies</MenuItem>
+                {companies.map((c) => (
+                  <MenuItem key={String(c._id)} value={String(c._id)}>
+                    {c.name || String(c._id)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             {/* Status Filter */}
             <FormControl size="small" sx={{ minWidth: 140 }}>
               <InputLabel>{t("table.filterByStatus")}</InputLabel>
@@ -1028,13 +1082,36 @@ export default function OrdersTableSection() {
         </Stack>
 
         {/* Filter Summary */}
-        <Box sx={{ mt: 2 }} display="flex" flexWrap="wrap" gap={2} alignItems="baseline">
+        <Box
+          sx={{ mt: 2 }}
+          display="flex"
+          flexWrap="wrap"
+          gap={2}
+          alignItems="center"
+        >
           <Typography variant="body2" color="text.secondary">
             {t("table.allOrders")}: {filteredOrders.length} / {orders.length}
           </Typography>
           <Typography variant="body2" fontWeight={600} color="text.primary">
             {t("table.filteredSum")}: €{filteredSum.toFixed(2)}
           </Typography>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <TextField
+              type="number"
+              size="small"
+              label="Commission %"
+              value={commissionPercent}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setCommissionPercent(Number.isFinite(n) ? n : 0);
+              }}
+              inputProps={{ min: 0, max: 100, step: 0.5 }}
+              sx={{ width: 120 }}
+            />
+            <Typography variant="body2" fontWeight={600} color="primary.main">
+              = €{filteredSummary.commission.toFixed(2)}
+            </Typography>
+          </Stack>
         </Box>
       </Paper>
 
@@ -1364,64 +1441,66 @@ export default function OrdersTableSection() {
                         )}
                       </TableCell>
 
-                      {/* Price - Inline Editing with Recalculate Button */}
+                      {/* Price - effective (editable override) + stored auto + live preview (no overwrite) */}
                       <TableCell align="right">
                         <Stack spacing={0.5} alignItems="flex-end">
                           <Stack direction="row" spacing={0.5} alignItems="center">
                             {(() => {
-                              /**
-                               * PRICE FLOW (IMPORTANT)
-                               *
-                               * totalPrice
-                               *   - ALWAYS auto-calculated price
-                               *   - Updated ONLY by backend recalculation
-                               *
-                               * OverridePrice
-                               *   - Manual price set by admin
-                               *   - NEVER changed automatically
-                               *
-                               * effectivePrice =
-                               *   OverridePrice !== null ? OverridePrice : totalPrice
-                               *
-                               * UI rules:
-                               * - Inline edit → sets OverridePrice
-                               * - Recalculate button → updates totalPrice ONLY
-                               * - UI displays effectivePrice
-                               * - Admin can reset OverridePrice explicitly
-                               */
                               const effectivePrice = getEffectivePrice(order);
-                              const hasManualOverride = order.OverridePrice !== null && order.OverridePrice !== undefined;
-                              
+                              const hasManualOverride =
+                                order.OverridePrice !== null &&
+                                order.OverridePrice !== undefined;
+                              const storedAuto = getStoredAutoPrice(order);
+                              const preview = autoPricePreviewById[order._id];
+
                               return (
                                 <>
                                   <InlineEditCell
                                     type="number"
                                     value={effectivePrice?.toString() || "0"}
-                                    disabled={!canEditTotalPrice || isSaving[`${order._id}_totalPrice`]}
+                                    disabled={
+                                      !canEditTotalPrice ||
+                                      isSaving[`${order._id}_totalPrice`]
+                                    }
                                     onDenied={() => {
-                                      const permission = getFieldPermission(order, "totalPrice");
-                                      enqueueSnackbar(permission.reason || "⛔ Нельзя редактировать сумму", { variant: "warning" });
+                                      const permission = getFieldPermission(
+                                        order,
+                                        "totalPrice"
+                                      );
+                                      enqueueSnackbar(
+                                        permission.reason ||
+                                          "⛔ Нельзя редактировать сумму",
+                                        { variant: "warning" }
+                                      );
                                     }}
                                     onCommit={(val) => {
-                                      // Parse numeric value carefully
-                                      const numericValue = val ? parseFloat(val) : null;
-                                      
-                                      // Validate: reject NaN and empty
-                                      if (numericValue === null || isNaN(numericValue) || val.trim() === "") {
-                                        enqueueSnackbar("⛔ Введите корректное число", { variant: "error" });
+                                      const numericValue = val
+                                        ? parseFloat(val)
+                                        : null;
+                                      if (
+                                        numericValue === null ||
+                                        isNaN(numericValue) ||
+                                        val.trim() === ""
+                                      ) {
+                                        enqueueSnackbar(
+                                          "⛔ Введите корректное число",
+                                          { variant: "error" }
+                                        );
                                         return;
                                       }
-                                      
-                                      // Accept positive numbers (allow decimals like "120.50")
                                       if (numericValue < 0) {
-                                        enqueueSnackbar("⛔ Сумма не может быть отрицательной", { variant: "error" });
+                                        enqueueSnackbar(
+                                          "⛔ Сумма не может быть отрицательной",
+                                          { variant: "error" }
+                                        );
                                         return;
                                       }
-                                      
-                                      // 🔧 PRICE ARCHITECTURE: Manual input sets OverridePrice
-                                      handleFieldUpdate(order._id, "totalPrice", numericValue, {
-                                        source: "manual",
-                                      });
+                                      handleFieldUpdate(
+                                        order._id,
+                                        "totalPrice",
+                                        numericValue,
+                                        { source: "manual" }
+                                      );
                                     }}
                                     formatDisplay={(val) => {
                                       if (!val || val === "0") return "€0";
@@ -1434,14 +1513,18 @@ export default function OrdersTableSection() {
                                       min: "0",
                                     }}
                                     sx={{ textAlign: "right" }}
-                                    inputSx={{ textAlign: "right", fontWeight: 600 }}
+                                    inputSx={{
+                                      textAlign: "right",
+                                      fontWeight: 600,
+                                    }}
                                   />
-                                  {/* Visual marker for manual override */}
                                   {hasManualOverride && (
-                                    <Tooltip title={`Автоматическая цена: €${order.totalPrice?.toFixed(2) || "0"}`}>
-                                      <Typography 
-                                        variant="caption" 
-                                        sx={{ 
+                                    <Tooltip
+                                      title={`Stored auto: €${storedAuto.toFixed(2)}`}
+                                    >
+                                      <Typography
+                                        variant="caption"
+                                        sx={{
                                           color: palette.status.warning,
                                           fontSize: "0.65rem",
                                           whiteSpace: "nowrap",
@@ -1455,23 +1538,25 @@ export default function OrdersTableSection() {
                                 </>
                               );
                             })()}
-                            <Tooltip title="Пересчитать цену на основе текущих данных заказа (аренда + доставка)">
+                            <Tooltip title="Показать автоматическую цену (без сохранения в заказ)">
                               <IconButton
                                 size="small"
-                                onClick={() => handleRecalculatePrice(order)}
+                                onClick={() => handlePreviewAutoPrice(order)}
                                 disabled={
-                                  !canEditTotalPrice ||
-                                  isRecalculatingPrice[order._id]
+                                  autoPricePreviewById[order._id]?.loading
                                 }
-                                sx={{ 
+                                sx={{
                                   p: 0.5,
                                   color: palette.primary.main,
                                   "&:hover": {
-                                    backgroundColor: alpha(palette.primary.main, 0.1),
+                                    backgroundColor: alpha(
+                                      palette.primary.main,
+                                      0.1
+                                    ),
                                   },
                                 }}
                               >
-                                {isRecalculatingPrice[order._id] ? (
+                                {autoPricePreviewById[order._id]?.loading ? (
                                   <CircularProgress size={16} />
                                 ) : (
                                   <AutorenewIcon fontSize="small" />
@@ -1479,7 +1564,18 @@ export default function OrdersTableSection() {
                               </IconButton>
                             </Tooltip>
                           </Stack>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ lineHeight: 1.2 }}
+                          >
+                            Auto: €{getStoredAutoPrice(order).toFixed(2)}
+                            {autoPricePreviewById[order._id]?.live != null
+                              ? ` · Live: €${Number(
+                                  autoPricePreviewById[order._id].live
+                                ).toFixed(2)}`
+                              : ""}
+                            {" · "}
                             {getOrderNumberOfDaysOrZero(order)} {t("table.days")}
                           </Typography>
                         </Stack>

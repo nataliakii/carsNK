@@ -3,6 +3,7 @@
 import React from "react";
 import {
   Box,
+  Button,
   IconButton,
   Stack,
   ToggleButton,
@@ -25,6 +26,7 @@ export default function CalendarToolbar({
   showDeliveryInLegend,
   onDayRangeChange,
   onOpenCalendarSettings,
+  onBulkOfflineOrders,
 }) {
   const showInlineLegend =
     Boolean(showLegend) && legendPlacement === "inline";
@@ -169,6 +171,29 @@ export default function CalendarToolbar({
                 inToolbar
               />
             </Box>
+          ) : null}
+
+          {onBulkOfflineOrders ? (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={onBulkOfflineOrders}
+              sx={{
+                color: "rgba(255,255,255,0.92)",
+                borderColor: "rgba(255,255,255,0.22)",
+                textTransform: "none",
+                fontSize: "0.72rem",
+                py: 0.25,
+                px: 1,
+                minHeight: 30,
+                "&:hover": {
+                  borderColor: "rgba(255,255,255,0.45)",
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                },
+              }}
+            >
+              Bulk offline
+            </Button>
           ) : null}
 
           <Tooltip title="Настройки календаря" arrow>

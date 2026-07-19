@@ -104,6 +104,7 @@ function AdminViewContent({ viewType }) {
   // SHARED MODAL STATE (поднят сюда, чтобы AdminTopBar и CarsSection использовали один state)
   // ───────────────────────────────────────────────────────────
   const [isAddCarModalOpen, setIsAddCarModalOpen] = useState(false);
+  const [isBulkCarsModalOpen, setIsBulkCarsModalOpen] = useState(false);
   const [notification, setNotification] = useState(null);
 
   const openAddCarModal = useCallback(() => {
@@ -112,6 +113,14 @@ function AdminViewContent({ viewType }) {
 
   const closeAddCarModal = useCallback(() => {
     setIsAddCarModalOpen(false);
+  }, []);
+
+  const openBulkCarsModal = useCallback(() => {
+    setIsBulkCarsModalOpen(true);
+  }, []);
+
+  const closeBulkCarsModal = useCallback(() => {
+    setIsBulkCarsModalOpen(false);
   }, []);
 
   const closeNotification = useCallback(() => {
@@ -127,11 +136,16 @@ function AdminViewContent({ viewType }) {
   const FeatureComponent = featureConfig.component;
 
   // Props for CarsSection (only when cars feature is active)
-  const carsSectionProps = viewType === "cars" ? {
-    isAddModalOpen: isAddCarModalOpen,
-    closeAddModal: closeAddCarModal,
-    setNotification,
-  } : {};
+  const carsSectionProps =
+    viewType === "cars"
+      ? {
+          isAddModalOpen: isAddCarModalOpen,
+          closeAddModal: closeAddCarModal,
+          isBulkModalOpen: isBulkCarsModalOpen,
+          closeBulkModal: closeBulkCarsModal,
+          setNotification,
+        }
+      : {};
 
   return (
     <>
@@ -139,6 +153,7 @@ function AdminViewContent({ viewType }) {
       <AdminTopBar
         feature={featureConfig.feature}
         onAddClick={viewType === "cars" ? openAddCarModal : undefined}
+        onBulkAddClick={viewType === "cars" ? openBulkCarsModal : undefined}
       />
       
       {/* Feature section — lazy loading handled by dynamic() */}

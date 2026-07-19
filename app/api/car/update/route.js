@@ -3,9 +3,18 @@ import { connectToDB } from "@lib/database";
 import { revalidatePath, revalidateTag } from "next/cache";
 import dayjs from "dayjs";
 import { generateSlugBase, ensureUniqueSlug } from "@utils/slugCar";
+import { requireAdmin } from "@lib/adminAuth";
+import {
+  canAccessOwnedDoc,
+  isSuperAdminUser,
+  normalizeOwnerId,
+} from "@/domain/owners/ownerScope";
 
 export const PUT = async (req) => {
   try {
+    const { session, errorResponse } = await requireAdmin(req);
+    if (errorResponse) return errorResponse;
+
     await connectToDB();
 
     const { _id, ...updateFields } = await req.json();
@@ -14,6 +23,28 @@ export const PUT = async (req) => {
 
     // Auto-generate slug if model/transmission changed or car has no slug yet
     const existingCar = await Car.findById(_id).lean();
+    if (!existingCar) {
+      return new Response(
+        JSON.stringify({ success: false, message: "Car not found" }),
+        { status: 404 }
+      );
+    }
+    if (!canAccessOwnedDoc(session.user, existingCar)) {
+      return new Response(
+        JSON.stringify({ success: false, message: "Forbidden" }),
+        { status: 403 }
+      );
+    }
+    // Only superadmin may reassign ownerId
+    if (
+      updateFields.ownerId !== undefined &&
+      !isSuperAdminUser(session.user)
+    ) {
+      delete updateFields.ownerId;
+    } else if (updateFields.ownerId !== undefined) {
+      updateFields.ownerId = normalizeOwnerId(updateFields.ownerId);
+    }
+
     const needsSlugUpdate =
       !existingCar?.slug ||
       (updateFields.model && updateFields.model !== existingCar.model) ||

@@ -1,17 +1,16 @@
 import React, {
   useState,
   useEffect,
-  useTransition,
   useRef,
   useCallback,
 } from "react";
-import { styled, useTheme } from "@mui/material/styles";
+import { styled } from "@mui/material/styles";
 import {
   Paper,
   Box,
   Typography,
   Stack,
-  CircularProgress,
+  Chip,
 } from "@mui/material";
 import { ConfirmButton, CancelButton, ActionButton } from "@/app/components/ui";
 import EditCarModal from "./modals/EditCarModal";
@@ -56,55 +55,41 @@ function restoreAdminCarsScrollPosition() {
 }
 
 const StyledCarItem = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2),
+  padding: theme.spacing(1.25),
   width: "100%",
   zIndex: 22,
   display: "flex",
-  flexDirection: "column",
-  justifyContent: "space-evenly",
-  bgColor: "black",
-  boxShadow: theme.shadows[4],
-  transition: "transform 0.3s",
-  "&:hover": {
-    transform: "scale(1.02)",
-    boxShadow: theme.shadows[5],
-  },
-  [theme.breakpoints.up("sm")]: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: theme.spacing(5),
-    minWidth: 950,
-  },
-}));
-
-const Wrapper = styled(Box)(({ theme }) => ({
-  justifyContent: "center",
+  flexDirection: "row",
   alignItems: "center",
-  alignContent: "center",
-  width: "100%",
-  margin: theme.spacing(1),
-  [theme.breakpoints.up("sm")]: {
-    width: "50%",
-    margin: 5,
+  gap: theme.spacing(1.5),
+  backgroundColor: theme.palette.background.paper,
+  boxShadow: theme.shadows[1],
+  borderRadius: 10,
+  border: `1px solid ${theme.palette.divider}`,
+  overflow: "hidden",
+  [theme.breakpoints.down("sm")]: {
+    flexDirection: "column",
+    alignItems: "stretch",
   },
 }));
 
 const CarImage = styled(Box)(({ theme }) => ({
   position: "relative",
-  width: "100%",
-  height: "auto",
-  borderRadius: theme.shape.borderRadius,
+  width: 148,
+  flexShrink: 0,
+  aspectRatio: "3 / 2",
+  borderRadius: 8,
   overflow: "hidden",
-  marginBottom: theme.spacing(2),
+  backgroundColor: theme.palette.grey[100],
   "& img": {
     width: "100%",
-    height: "auto",
-    objectFit: "contain",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
   },
-  [theme.breakpoints.up("sm")]: {
-    marginBottom: 0,
-    width: 450,
-    height: 300,
+  [theme.breakpoints.down("sm")]: {
+    width: "100%",
+    maxHeight: 160,
   },
 }));
 
@@ -112,42 +97,48 @@ const CarDetails = styled(Box)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
   flexGrow: 1,
-  margin: 11,
-  textAlign: "center",
+  minWidth: 0,
+  textAlign: "left",
+  gap: theme.spacing(0.35),
 }));
 
-const CarTitle = styled(Typography)(({ theme }) => ({
-  fontSize: "1.5rem",
+const CarTitle = styled(Typography)(() => ({
+  fontSize: "1rem",
   fontWeight: 700,
-  marginBottom: theme.spacing(1),
-  marginTop: theme.spacing(1),
+  lineHeight: 1.25,
 }));
 
 const CarReg = styled(Typography)(({ theme }) => ({
-  fontSize: "1.5rem",
-  fontWeight: 700,
-  marginBottom: theme.spacing(1),
-  marginTop: theme.spacing(1),
-  border: "1px solid black",
+  fontSize: "0.8rem",
+  fontWeight: 600,
+  letterSpacing: "0.04em",
+  display: "inline-block",
+  alignSelf: "flex-start",
+  padding: theme.spacing(0.2, 0.75),
+  borderRadius: 4,
+  border: `1px solid ${theme.palette.text.primary}`,
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
 }));
 
 const ImageOverlay = styled(Box)(({ theme }) => ({
   position: "absolute",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  bgcolor: "rgba(0, 0, 0, 0.6)",
+  inset: 0,
+  backgroundColor: "rgba(11, 31, 58, 0.55)",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
   flexDirection: "column",
+  gap: theme.spacing(0.5),
+  backdropFilter: "blur(1px)",
 }));
 
-function CarItem({ car, onCarDelete, setUpdateStatus }) {
-  // Диагностика: выводим объект car в консоль при каждом рендере
-  //console.log('CarItem car:', car);
-
+function CarItem({
+  car,
+  onCarDelete,
+  setUpdateStatus,
+  companyName,
+  companies = [],
+}) {
   const { updateCarInContext, setIsLoading, resubmitCars } = useMainContext();
   const [modalOpen, setModalOpen] = useState(false);
   const [updatedCar, setUpdatedCar] = useState({
@@ -157,6 +148,10 @@ function CarItem({ car, onCarDelete, setUpdateStatus }) {
   const [previewImage, setPreviewImage] = useState(null);
   const [hovered, setHovered] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    setUpdatedCar({ ...car, deposit: car.deposit });
+  }, [car]);
 
   const handleImageSelect = useCallback((event) => {
     const file = event.target.files[0];
@@ -200,10 +195,8 @@ function CarItem({ car, onCarDelete, setUpdateStatus }) {
 
   const handleCarsUpdate = async () => {
     try {
-      // Reset any previous status
       setUpdateStatus(null);
 
-      // Attempt to update car in context
       const response = await updateCarInContext(updatedCar);
       if (!response?.data) {
         return;
@@ -211,10 +204,8 @@ function CarItem({ car, onCarDelete, setUpdateStatus }) {
 
       setUpdatedCar(response.data);
 
-      // Resubmit cars after successful update (полноэкранный Loading сбрасывает прокрутку — восстанавливаем ниже)
       await resubmitCars();
 
-      // Set success status
       setUpdateStatus({
         type: Number(response.type),
         message: response.message || "Car updated successfully",
@@ -223,17 +214,12 @@ function CarItem({ car, onCarDelete, setUpdateStatus }) {
       setModalOpen(false);
       restoreAdminCarsScrollPosition();
     } catch (error) {
-      // Log the error for debugging
       console.error("Car update error:", error);
 
-      // Set error status
       setUpdateStatus({
         type: 404,
         message: error.message || "An unexpected error occurred",
       });
-    } finally {
-      // Optional: Any cleanup or final actions
-      // For example, clearing form or resetting some state
     }
   };
   const handleEditToggle = () => {
@@ -253,15 +239,13 @@ function CarItem({ car, onCarDelete, setUpdateStatus }) {
       onCarDelete(car._id);
     }
   };
-  //const handleDelete = () => {
-  //  if (window.confirm(`Вы уверены что хотите удалить ${car.model}?`)) {
-  //    onCarDelete(car._id);
-  //  }
-  //};
-  /* const { t } = useTranslation(); */
+
+  const displayCompany =
+    companyName ||
+    (car.ownerId ? String(car.ownerId).slice(-6) : "—");
+
   return (
-    <StyledCarItem elevation={3}>
-      {/* {car?.photoUrl && ( */}
+    <StyledCarItem elevation={1}>
       <CarImage
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -272,12 +256,13 @@ function CarItem({ car, onCarDelete, setUpdateStatus }) {
         ) : (
           <CldImage
             src={car.photoUrl || CLOUDINARY_PLACEHOLDER_PUBLIC_ID}
-            alt={`Natali-Cars-${car.model}`}
-            width="450"
-            height="300"
+            alt={`CarsNK-${car.model}`}
+            width="300"
+            height="200"
             crop="fill"
-            priority
-            sizes="(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            gravity="auto"
+            sizes="148px"
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         )}
         {hovered && (
@@ -287,10 +272,9 @@ function CarItem({ car, onCarDelete, setUpdateStatus }) {
               size="small"
               onClick={() => fileInputRef.current.click()}
               label={t("carPark.carNewPhoto")}
-              sx={{ mb: 1 }}
             />
             {previewImage && (
-              <Stack spacing={1}>
+              <Stack spacing={0.5} direction="row">
                 <ConfirmButton
                   size="small"
                   onClick={handleImageUpload}
@@ -312,39 +296,65 @@ function CarItem({ car, onCarDelete, setUpdateStatus }) {
           style={{ display: "none" }}
         />
       </CarImage>
-      {/* )} */}
-      <Wrapper>
-        <Stack sx={{ flexDirection: "column", width: "100%" }}>
-          <CarDetails>
-            <CarTitle>{car.model}</CarTitle>
-            <CarReg>{car.regNumber}</CarReg>
-          </CarDetails>
-          <DefaultButton
-            onClick={handleDelete}
-            relative
-            sx={{
-              backgroundColor: "primary.main",
-              color: "white",
-              width: "100%",
-              marginBottom: 1,
-            }}
-          >
-            {t("carPark.delCar")}
-          </DefaultButton>
-          <DefaultButton
-            relative
-            onClick={handleEditToggle}
-            sx={{ width: "100%" }}
-          >
-            {t("carPark.editCar")}
-          </DefaultButton>
-        </Stack>
-      </Wrapper>
+
+      <CarDetails>
+        <CarTitle noWrap>{car.model}</CarTitle>
+        <CarReg>{car.regNumber}</CarReg>
+        <Chip
+          size="small"
+          label={displayCompany}
+          sx={{
+            alignSelf: "flex-start",
+            mt: 0.25,
+            height: 22,
+            fontSize: "0.7rem",
+            fontWeight: 600,
+            bgcolor: (theme) => theme.palette.grey[100],
+          }}
+        />
+      </CarDetails>
+
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1}
+        sx={{
+          flexShrink: 0,
+          width: { xs: "100%", sm: "auto" },
+          minWidth: { sm: 200 },
+        }}
+      >
+        <DefaultButton
+          relative
+          onClick={handleEditToggle}
+          sx={{
+            width: { xs: "100%", sm: 100 },
+            py: 0.75,
+            fontSize: "0.8rem",
+          }}
+        >
+          {t("carPark.editCar")}
+        </DefaultButton>
+        <DefaultButton
+          onClick={handleDelete}
+          relative
+          sx={{
+            backgroundColor: "primary.main",
+            color: "white",
+            width: { xs: "100%", sm: 100 },
+            py: 0.75,
+            fontSize: "0.8rem",
+          }}
+        >
+          {t("carPark.delCar")}
+        </DefaultButton>
+      </Stack>
+
       <EditCarModal
         open={modalOpen}
         onClose={handleModalClose}
         updatedCar={updatedCar}
         setUpdatedCar={setUpdatedCar}
+        companies={companies}
         handleChange={(e) =>
           setUpdatedCar((prev) => ({
             ...prev,

@@ -4,21 +4,18 @@ import React from "react";
 import { Box } from "@mui/material";
 import Cars from "./Cars";
 import AddCarModal from "./modals/AddCarModal";
+import BulkAddCarsModal from "./modals/BulkAddCarsModal";
 import { useCars } from "./useCars";
 
 /**
  * CarsSection - секция управления автомобилями
- * Feature component - lazy-loaded
- * 
- * @param {object} props
- * @param {boolean} props.isAddModalOpen - управляется из AdminViewContent
- * @param {function} props.closeAddModal - callback для закрытия модала
- * @param {function} props.setNotification - callback для уведомлений
  */
-export default function CarsSection({ 
-  isAddModalOpen = false, 
-  closeAddModal, 
-  setNotification: externalSetNotification 
+export default function CarsSection({
+  isAddModalOpen = false,
+  closeAddModal,
+  isBulkModalOpen = false,
+  closeBulkModal,
+  setNotification: externalSetNotification,
 }) {
   const {
     cars,
@@ -27,19 +24,14 @@ export default function CarsSection({
     resubmitCars,
   } = useCars();
 
-  // Используем внешний setNotification если передан, иначе локальный
   const setNotification = externalSetNotification || localSetNotification;
-  
-  // Безопасный callback для закрытия (на случай если не передан)
   const handleCloseModal = closeAddModal || (() => {});
+  const handleCloseBulk = closeBulkModal || (() => {});
 
   return (
     <Box sx={{ px: { xs: 1, md: 2 }, pb: 6 }}>
-      <Cars
-        onCarDelete={deleteCar}
-        setUpdateStatus={setNotification}
-      />
-      
+      <Cars onCarDelete={deleteCar} setUpdateStatus={setNotification} />
+
       <AddCarModal
         open={isAddModalOpen}
         onClose={handleCloseModal}
@@ -47,7 +39,12 @@ export default function CarsSection({
         setUpdateStatus={setNotification}
         fetchAndUpdateCars={resubmitCars}
       />
+
+      <BulkAddCarsModal
+        open={isBulkModalOpen}
+        onClose={handleCloseBulk}
+        setUpdateStatus={setNotification}
+      />
     </Box>
   );
 }
-

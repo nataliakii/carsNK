@@ -299,6 +299,13 @@ const OrderSchema = new mongoose.Schema({
     ref: "Car",
     required: true,
   },
+  /** Partner firm (Company._id) — denormalized from car.ownerId for admin scoping. */
+  ownerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Company",
+    default: null,
+    index: true,
+  },
   date: {
     type: Date,
     default: dayjs().tz("Europe/Athens").toDate(),

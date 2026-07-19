@@ -21,6 +21,10 @@ NEXT_PUBLIC_SITE_URL=https://carsnk.gr
 # Leave NEXTAUTH_URL unset in production (or set per-request via Host).
 # Do NOT set NEXTAUTH_URL to *.vercel.app — authOptions strips that.
 NEXTAUTH_SECRET=<secret>
+AUTH_ADMIN_EMAIL=
+AUTH_ADMIN_PASSWORD=
+AUTH_SUPERADMIN_EMAIL=
+AUTH_SUPERADMIN_PASSWORD=
 MONGODB_URI=<same for both hosts>
 # SMTP_*, TELEGRAM_* — same project
 ```
@@ -30,7 +34,12 @@ Local:
 ```bash
 NEXTAUTH_URL=http://localhost:3026
 NEXT_PUBLIC_SITE_URL=https://carsnk.gr
+AUTH_ADMIN_EMAIL=cars@bbqr.site
+AUTH_ADMIN_PASSWORD=…
+AUTH_SUPERADMIN_EMAIL=admin@bbqr.site
+AUTH_SUPERADMIN_PASSWORD=…
 ```
+
 
 ## Domains in Vercel
 

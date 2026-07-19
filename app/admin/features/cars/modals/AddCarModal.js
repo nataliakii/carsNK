@@ -38,6 +38,9 @@ import {
 } from "@/app/components/ui/inputs/Fields";
 import CarImageUpload from "@/app/components/ui/media/AddImageComponent";
 import { useTranslation } from "react-i18next";
+import { getCarModelSuggestions } from "@config/carCatalog";
+import { useSession } from "next-auth/react";
+import { ROLE } from "@/domain/orders/admin-rbac";
 
 const AddCarModal = ({
   open,
@@ -48,9 +51,13 @@ const AddCarModal = ({
 }) => {
   const DEFAULT_IMAGE = "/images/carsnk-NO_PHOTO.png";
   const { resubmitCars, company } = useMainContext();
+  const { data: session } = useSession();
+  const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
 
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState(DEFAULT_IMAGE);
+  const [companies, setCompanies] = useState([]);
+  const [ownerId, setOwnerId] = useState("");
   const [carData, setCarData] = useState({
     carNumber: "",
     model: "Toyota",
@@ -110,7 +117,10 @@ const AddCarModal = ({
       }
       formData.append("pricingTiers", JSON.stringify(carData.pricingTiers));
 
-      console.log("?? FORMDATA", formData);
+      // Admin: server forces session.ownerId. Superadmin: optional company pick.
+      if (isSuperAdmin && ownerId) {
+        formData.append("ownerId", ownerId);
+      }
 
       if (selectedImage) {
         formData.append("image", selectedImage);
@@ -202,54 +212,31 @@ const AddCarModal = ({
     };
   }, [open]);
 
-  const autoCompleteOptions = useMemo(() => {
-    const fallbackModels = [
-      "Audi",
-      "BMW",
-      "BYD",
-      "Chevrolet",
-      "Citroën",
-      "Dacia",
-      "Dodge",
-      "Fiat",
-      "Ford",
-      "Honda",
-      "Hyundai",
-      "Isuzu",
-      "Kia",
-      "Mazda",
-      "Mercedes-Benz",
-      "MG",
-      "Mini",
-      "Mitsubishi",
-      "Nissan",
-      "Opel",
-      "Peugeot",
-      "Renault",
-      "Seat",
-      "Škoda",
-      "Smart",
-      "Suzuki",
-      "Tesla",
-      "Toyota",
-      "Volkswagen",
-      "Volvo",
-    ];
-    // Объединяем статический список и БД, убираем повторы (без учёта регистра), сортируем A→Z
-    const lowerSeen = new Set();
-    const merged = [];
-    const add = (val) => {
-      if (typeof val !== "string") return;
-      const v = val.trim();
-      if (!v) return;
-      const key = v.toLowerCase();
-      if (lowerSeen.has(key)) return;
-      lowerSeen.add(key);
-      merged.push(v);
+  useEffect(() => {
+    if (!open || !isSuperAdmin) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/owners");
+        if (!res.ok) return;
+        const body = await res.json();
+        if (!cancelled && body?.success && Array.isArray(body.companies)) {
+          setCompanies(body.companies);
+          if (!ownerId && body.companies[0]?._id) {
+            setOwnerId(String(body.companies[0]._id));
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
-    fallbackModels.forEach(add);
-    dbCarModels.forEach(add);
-    return merged.sort((a, b) => a.localeCompare(b));
+  }, [open, isSuperAdmin]);
+
+  const autoCompleteOptions = useMemo(() => {
+    return getCarModelSuggestions(dbCarModels);
   }, [dbCarModels]);
   
   // Actions buttons for DialogLayout
@@ -309,6 +296,32 @@ const AddCarModal = ({
         )}
         <form id="add-car-form" onSubmit={handleSubmit}>
               <Grid container spacing={2}>
+                {isSuperAdmin && (
+                  <Grid item xs={12}>
+                    <FormControl fullWidth required size="small">
+                      <InputLabel id="add-car-company">Company</InputLabel>
+                      <Select
+                        labelId="add-car-company"
+                        label="Company"
+                        value={ownerId}
+                        onChange={(e) => setOwnerId(e.target.value)}
+                      >
+                        {companies.map((c) => (
+                          <MenuItem key={String(c._id)} value={String(c._id)}>
+                            {c.name || String(c._id)}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 0.5, display: "block" }}
+                    >
+                      Company admins get their company assigned automatically.
+                    </Typography>
+                  </Grid>
+                )}
                 <Grid item xs={12} sm={3}>
                   <Stack spacing={3}>
                     <Autocomplete

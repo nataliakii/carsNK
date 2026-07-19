@@ -54,6 +54,16 @@ const userSchema = new mongoose.Schema(
       enum: [ROLE.ADMIN, ROLE.SUPERADMIN],
       default: ROLE.ADMIN,
     },
+    /**
+     * Partner firm (Company._id). Required for ADMIN — scopes cars/orders.
+     * SUPERADMIN may leave null (sees all fleets).
+     */
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );

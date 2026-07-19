@@ -34,6 +34,8 @@ import {
 } from "@/app/components/ui/inputs/Fields";
 import CarImageUpload from "@/app/components/ui/media/AddImageComponent";
 import { useTranslation } from "react-i18next";
+import { useSession } from "next-auth/react";
+import { ROLE } from "@/domain/orders/admin-rbac";
 
 const EditCarModal = ({
   open,
@@ -43,16 +45,19 @@ const EditCarModal = ({
   handleUpdate,
   handleCheckboxChange,
   setUpdatedCar,
-  //updateCarInContext,
+  companies = [],
 }) => {
 
   const { updateCarInContext, setUpdateStatus, updateStatus, company } =
     useMainContext();
+  const { data: session } = useSession();
+  const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
 
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
   const [imagePreview, setImagePreview] = useState(updatedCar.photoUrl || "");
   const [photoUrl, setPhotoUrl] = useState(updatedCar.photoUrl || "");
+  const [localCompanies, setLocalCompanies] = useState(companies);
 
   const handleImageUpload = async () => {
     const file = fileInputRef.current.files[0];
@@ -132,6 +137,30 @@ const EditCarModal = ({
       cancelled = true;
     };
   }, [open]);
+
+  useEffect(() => {
+    setLocalCompanies(companies);
+  }, [companies]);
+
+  useEffect(() => {
+    if (!open || !isSuperAdmin || localCompanies.length > 0) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/owners");
+        if (!res.ok) return;
+        const body = await res.json();
+        if (!cancelled && body?.success && Array.isArray(body.companies)) {
+          setLocalCompanies(body.companies);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isSuperAdmin, localCompanies.length]);
 
   const autoCompleteOptions = useMemo(() => {
     const fallbackModels = [
@@ -220,6 +249,31 @@ const EditCarModal = ({
       contentSx={{ opacity: isLoading ? 0.3 : 1, transition: "opacity 0.2s" }}
       >
         <Grid container spacing={3} sx={{ flexGrow: 1, pt: 4 }}>
+          {isSuperAdmin && (
+            <Grid item xs={12}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="edit-car-company">Company</InputLabel>
+                <Select
+                  labelId="edit-car-company"
+                  label="Company"
+                  name="ownerId"
+                  value={
+                    updatedCar.ownerId
+                      ? String(updatedCar.ownerId)
+                      : ""
+                  }
+                  onChange={handleChange}
+                  disabled={isLoading}
+                >
+                  {localCompanies.map((c) => (
+                    <MenuItem key={String(c._id)} value={String(c._id)}>
+                      {c.name || String(c._id)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
           {/* Column 1 */}
           <Grid item xs={12} sm={3}>
             <Stack spacing={3} >

@@ -592,6 +592,8 @@ async function postOrderAddHandler(request) {
       // Permission tracking: store who created this order
       createdByRole,
       createdByAdminId,
+      // Multi-tenant: denormalize from car (fallback CarsNK company)
+      ownerId: existingCar.ownerId || COMPANY_ID,
       fromLocalhost,
       drivingLicenceUrls,
     });

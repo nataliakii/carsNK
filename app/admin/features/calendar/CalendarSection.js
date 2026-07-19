@@ -8,6 +8,7 @@ import { useCalendar } from "./useCalendar";
 import { useCalendarViewSettings } from "./hooks/useCalendarViewSettings";
 import CalendarToolbar from "./CalendarToolbar";
 import CalendarSettingsPanel from "./CalendarSettingsPanel";
+import BulkAddOfflineOrdersModal from "@app/admin/features/orders/modals/BulkAddOfflineOrdersModal";
 
 /**
  * CalendarSection - секция большого календаря
@@ -16,6 +17,7 @@ import CalendarSettingsPanel from "./CalendarSettingsPanel";
 export default function CalendarSection() {
   const { cars, hasCars } = useCalendar();
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
+  const [bulkOfflineOpen, setBulkOfflineOpen] = useState(false);
   const {
     settings,
     setDayRange,
@@ -51,6 +53,7 @@ export default function CalendarSection() {
         showDeliveryInLegend={settings.showDeliveryInLegend}
         onDayRangeChange={setDayRange}
         onOpenCalendarSettings={() => setSettingsPanelOpen(true)}
+        onBulkOfflineOrders={() => setBulkOfflineOpen(true)}
       />
       <CalendarSettingsPanel
         open={settingsPanelOpen}
@@ -62,6 +65,10 @@ export default function CalendarSection() {
         setShowConflictBadges={setShowConflictBadges}
         setHighlightToday={setHighlightToday}
         setAutoScrollToToday={setAutoScrollToToday}
+      />
+      <BulkAddOfflineOrdersModal
+        open={bulkOfflineOpen}
+        onClose={() => setBulkOfflineOpen(false)}
       />
       <Box
         sx={{

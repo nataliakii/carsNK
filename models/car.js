@@ -104,6 +104,13 @@ const CarSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  /** Partner firm (Company._id) that owns this car in the multi-tenant fleet. */
+  ownerId: {
+    type: Schema.Types.ObjectId,
+    ref: "Company",
+    default: null,
+    index: true,
+  },
   photoUrl: {
     type: String,
   },

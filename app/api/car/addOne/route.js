@@ -13,12 +13,17 @@ import {
 } from "@config/cloudinary";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { generateSlugBase, ensureUniqueSlug } from "@utils/slugCar";
+import { requireAdmin } from "@lib/adminAuth";
+import { resolveOwnerIdForCreate } from "@/domain/owners/ownerScope";
 
 dayjs.extend(isBetween);
 
 // Main handler function
 export async function POST(req) {
   try {
+    const { session, errorResponse } = await requireAdmin(req);
+    if (errorResponse) return errorResponse;
+
     const cfg = ensureCloudinaryConfigured();
     if (!cfg.ok) {
       return NextResponse.json(
@@ -32,6 +37,11 @@ export async function POST(req) {
 
     const formData = await req.formData();
     const carData = extractCarData(formData);
+    const requestedOwnerId = formData.get("ownerId");
+    carData.ownerId = resolveOwnerIdForCreate(
+      session.user,
+      requestedOwnerId
+    );
 
     // Generate carNumber by fetching the highest current car number and incrementing it
     carData.carNumber = await generateCarNumber();

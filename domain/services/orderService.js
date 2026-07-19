@@ -7,6 +7,7 @@
 import { connectToDB } from "@lib/database";
 import { Order } from "@models/order";
 import { applyVisibilityToOrders } from "@/domain/orders/orderVisibility";
+import { buildOrdersOwnerFilter } from "@/domain/owners/ownerScope";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -17,7 +18,7 @@ dayjs.extend(timezone);
 const ATHENS_TZ = "Europe/Athens";
 // Align with admin table + calendar: same fields as getAllOrders → applyVisibilityToOrders
 const ORDER_SELECT =
-  "rentalStartDate rentalEndDate timeIn timeOut car carNumber regNumber confirmed status customerName phone email secondDriver Viber Whatsapp Telegram numberOfDays totalPrice OverridePrice pricingDrift carModel date my_order placeIn placeOut placeInDetail placeOutDetail flightNumber ChildSeats insurance franchiseOrder orderNumber clientLang clientIP clientCountry clientRegion clientCity IsConfirmedEmailSent hasConflictDates createdByRole createdByAdminId";
+  "rentalStartDate rentalEndDate timeIn timeOut car carNumber regNumber confirmed status customerName phone email secondDriver Viber Whatsapp Telegram numberOfDays totalPrice OverridePrice pricingDrift carModel date my_order offline placeIn placeOut placeInDetail placeOutDetail flightNumber ChildSeats insurance franchiseOrder orderNumber clientLang clientIP clientCountry clientRegion clientCity IsConfirmedEmailSent hasConflictDates createdByRole createdByAdminId ownerId";
 
 function getTodayAthensStartUTC() {
   const nowAthens = dayjs().tz(ATHENS_TZ);
@@ -33,8 +34,10 @@ function getTodayAthensStartUTC() {
 export async function getActiveOrders(options = {}) {
   await connectToDB();
   const todayStartUTC = getTodayAthensStartUTC();
+  const ownerFilter = buildOrdersOwnerFilter(options?.session ?? null);
   const orders = await Order.find({
     rentalEndDate: { $gte: todayStartUTC },
+    ...ownerFilter,
   })
     .select(ORDER_SELECT)
     .lean();
@@ -49,7 +52,8 @@ export async function getActiveOrders(options = {}) {
  */
 export async function getAllOrders(options = {}) {
   await connectToDB();
-  const orders = await Order.find().select(ORDER_SELECT).lean();
+  const ownerFilter = buildOrdersOwnerFilter(options?.session ?? null);
+  const orders = await Order.find(ownerFilter).select(ORDER_SELECT).lean();
   const user = options?.session?.user ?? null;
   return applyVisibilityToOrders(orders ?? [], user);
 }

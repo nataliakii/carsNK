@@ -548,6 +548,7 @@ export default function NavBar({
   const isAdminZonesRoute = pathname?.startsWith("/admin/delivery-zones");
   const isAdminVisitsRoute = pathname?.startsWith("/admin/website-visits");
   const isAdminTransfersRoute = pathname?.startsWith("/admin/transfers");
+  const isAdminOwnersRoute = pathname?.startsWith("/admin/owners");
   const adminNavLinkSx = {
     px: { md: 0.8, lg: 1.25 },
     py: 0.2,
@@ -945,6 +946,25 @@ export default function NavBar({
                         {t("header.transfers")}
                       </Typography>
                     </Link>
+                    {isSuperAdmin && (
+                      <Link href="/admin/owners">
+                        <Typography
+                          sx={{
+                            ...adminNavLinkSx,
+                            ...(isAdminOwnersRoute
+                              ? {
+                                  opacity: 1,
+                                  fontWeight: 600,
+                                  borderBottom:
+                                    "1px solid rgba(255,255,255,0.75)",
+                                }
+                              : null),
+                          }}
+                        >
+                          Owners
+                        </Typography>
+                      </Link>
+                    )}
                   </>
                 )}
 
@@ -1426,6 +1446,16 @@ export default function NavBar({
                 >
                   <ListItemText primary={t("header.transfers")} />
                 </ListItem>
+                {isSuperAdmin && (
+                  <ListItem
+                    button
+                    component={Link}
+                    href="/admin/owners"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    <ListItemText primary="Owners" />
+                  </ListItem>
+                )}
                 {isAdmin && (
                   <ListItem
                     button
