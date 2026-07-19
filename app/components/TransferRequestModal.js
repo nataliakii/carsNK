@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  Autocomplete,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -15,6 +17,8 @@ import { useTranslation } from "react-i18next";
 
 export default function TransferRequestModal({ open, onClose }) {
   const { t, i18n } = useTranslation();
+  const [locations, setLocations] = useState([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [passengers, setPassengers] = useState("1");
@@ -23,9 +27,31 @@ export default function TransferRequestModal({ open, onClose }) {
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [distanceKm, setDistanceKm] = useState(null);
+  const [durationMinutes, setDurationMinutes] = useState(null);
+  const [distanceLoading, setDistanceLoading] = useState(false);
+  const [distanceError, setDistanceError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [successQuote, setSuccessQuote] = useState({
+    god: "Hermes",
+    greek: "Καλή οδό!",
+    line: "Safe travels!",
+  });
+
+  const pickSuccessQuote = useCallback(() => {
+    const quotes = t("transfer.successQuotes", { returnObjects: true });
+    const list = Array.isArray(quotes) ? quotes : [];
+    if (list.length === 0) {
+      return {
+        god: "Hermes",
+        greek: "Καλή οδό!",
+        line: t("transfer.success"),
+      };
+    }
+    return list[Math.floor(Math.random() * list.length)];
+  }, [t]);
 
   const reset = () => {
     setFrom("");
@@ -36,6 +62,9 @@ export default function TransferRequestModal({ open, onClose }) {
     setCustomerName("");
     setPhone("");
     setEmail("");
+    setDistanceKm(null);
+    setDurationMinutes(null);
+    setDistanceError("");
     setError("");
     setSuccess(false);
   };
@@ -45,6 +74,69 @@ export default function TransferRequestModal({ open, onClose }) {
     reset();
     onClose?.();
   };
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      setLocationsLoading(true);
+      try {
+        const res = await fetch("/api/transfers/locations");
+        const body = await res.json();
+        if (!cancelled && body.success) {
+          setLocations((body.items || []).map((item) => item.name));
+        }
+      } catch {
+        /* keep empty — freeSolo still works */
+      } finally {
+        if (!cancelled) setLocationsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const fetchDistance = useCallback(async (origin, destination) => {
+    if (!origin || !destination) {
+      setDistanceKm(null);
+      setDurationMinutes(null);
+      setDistanceError("");
+      return;
+    }
+    setDistanceLoading(true);
+    setDistanceError("");
+    try {
+      const res = await fetch("/api/transfers/distance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: origin, to: destination }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.success) {
+        setDistanceKm(null);
+        setDurationMinutes(null);
+        setDistanceError(body.message || t("transfer.distanceError"));
+        return;
+      }
+      setDistanceKm(body.distanceKm);
+      setDurationMinutes(body.durationMinutes ?? null);
+    } catch {
+      setDistanceKm(null);
+      setDurationMinutes(null);
+      setDistanceError(t("transfer.distanceError"));
+    } finally {
+      setDistanceLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (!open || !from || !to) return;
+    const timer = setTimeout(() => {
+      fetchDistance(from, to);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [open, from, to, fetchDistance]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,12 +156,15 @@ export default function TransferRequestModal({ open, onClose }) {
           phone,
           email,
           locale: i18n.language || "",
+          distanceKm,
+          durationMinutes,
         }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body.success) {
         throw new Error(body.message || t("transfer.submitError"));
       }
+      setSuccessQuote(pickSuccessQuote());
       setSuccess(true);
     } catch (err) {
       setError(err.message || t("transfer.submitError"));
@@ -80,10 +175,97 @@ export default function TransferRequestModal({ open, onClose }) {
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-      <DialogTitle>{t("transfer.title")}</DialogTitle>
+      <DialogTitle>
+        {success ? t("transfer.successTitle") : t("transfer.title")}
+      </DialogTitle>
       <DialogContent>
         {success ? (
-          <Typography sx={{ py: 2 }}>{t("transfer.success")}</Typography>
+          <Box
+            sx={{
+              py: 2,
+              px: { xs: 0.5, sm: 1 },
+              textAlign: "center",
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: "2rem",
+                lineHeight: 1,
+                mb: 1.5,
+                letterSpacing: "0.08em",
+                color: "primary.main",
+              }}
+              aria-hidden
+            >
+              ✦
+            </Typography>
+            <Typography
+              sx={{
+                color: "text.secondary",
+                mb: 2.5,
+                maxWidth: 420,
+                mx: "auto",
+              }}
+            >
+              {t("transfer.success")}
+            </Typography>
+            <Box
+              sx={{
+                mx: "auto",
+                maxWidth: 440,
+                px: 2.5,
+                py: 2,
+                borderRadius: 2,
+                background:
+                  "linear-gradient(160deg, rgba(0,137,137,0.08) 0%, rgba(11,31,58,0.06) 100%)",
+                border: "1px solid",
+                borderColor: "rgba(0,137,137,0.22)",
+              }}
+            >
+              <Typography
+                sx={{
+                  fontFamily: "Georgia, 'Times New Roman', serif",
+                  fontStyle: "italic",
+                  fontSize: { xs: "1.05rem", sm: "1.15rem" },
+                  color: "text.primary",
+                  lineHeight: 1.5,
+                  mb: 1,
+                }}
+              >
+                «{successQuote.greek}»
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: "0.95rem",
+                  color: "text.secondary",
+                  mb: 1.25,
+                  lineHeight: 1.45,
+                }}
+              >
+                {successQuote.line}
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: "0.75rem",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "primary.main",
+                  fontWeight: 600,
+                }}
+              >
+                — {successQuote.god}
+              </Typography>
+            </Box>
+            <Typography
+              sx={{
+                mt: 2,
+                fontSize: "0.85rem",
+                color: "text.secondary",
+              }}
+            >
+              {t("transfer.successBlessing")}
+            </Typography>
+          </Box>
         ) : (
           <Box
             component="form"
@@ -91,20 +273,85 @@ export default function TransferRequestModal({ open, onClose }) {
             onSubmit={handleSubmit}
             sx={{ display: "flex", flexDirection: "column", gap: 1.5, pt: 1 }}
           >
-            <TextField
-              required
-              label={t("transfer.from")}
+            <Autocomplete
+              freeSolo
+              options={locations}
+              loading={locationsLoading}
               value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              fullWidth
+              onChange={(_e, value) => setFrom(value || "")}
+              onInputChange={(_e, value) => setFrom(value || "")}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  required
+                  label={t("transfer.from")}
+                  placeholder={t("transfer.cityPlaceholder")}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {locationsLoading ? (
+                          <CircularProgress color="inherit" size={18} />
+                        ) : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
             />
-            <TextField
-              required
-              label={t("transfer.to")}
+            <Autocomplete
+              freeSolo
+              options={locations}
+              loading={locationsLoading}
               value={to}
-              onChange={(e) => setTo(e.target.value)}
-              fullWidth
+              onChange={(_e, value) => setTo(value || "")}
+              onInputChange={(_e, value) => setTo(value || "")}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  required
+                  label={t("transfer.to")}
+                  placeholder={t("transfer.cityPlaceholder")}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {locationsLoading ? (
+                          <CircularProgress color="inherit" size={18} />
+                        ) : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
             />
+
+            <Box
+              sx={{
+                minHeight: 28,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+              }}
+            >
+              {distanceLoading && <CircularProgress size={18} />}
+              {!distanceLoading && distanceKm != null && (
+                <Typography variant="body2" color="text.secondary">
+                  {t("transfer.distance", {
+                    km: distanceKm,
+                    minutes: durationMinutes ?? "—",
+                  })}
+                </Typography>
+              )}
+              {!distanceLoading && distanceError && (
+                <Typography variant="body2" color="warning.main">
+                  {t("transfer.distanceUnavailable")}
+                </Typography>
+              )}
+            </Box>
+
             <TextField
               required
               type="number"
@@ -136,6 +383,7 @@ export default function TransferRequestModal({ open, onClose }) {
               fullWidth
             />
             <TextField
+              required
               type="email"
               label={t("transfer.email")}
               value={email}

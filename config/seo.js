@@ -15,9 +15,10 @@
 
 // Hardcoded fallback values for SSG/SSR when DB is unavailable
 const fallbackCompanyData = {
-  name: "NATALI CARS",
-  tel: "+30 6970 034 707",
-  email: "natali2015makarova@gmail.com",
+  name: "CarsNK",
+  tel: "+380 68 100 3771",
+  tel2: "+353 85 270 96 05",
+  email: "admin@bbqr.site",
   address: "Antonioy Kelesi 12, Nea Kallikratia 630 80",
   coords: { lat: "40.311273589340836", lon: "23.06426516796098" },
 };
@@ -85,8 +86,8 @@ export function getSeoConfig(dbCompanyData = null) {
     },
     // Contact info - prefer DB data
     contact: {
-      email: companyData?.email || fallbackCompanyData.email || "cars-support@bbqr.site",
-      phone: companyData?.tel || fallbackCompanyData.tel || "+30 6970 034 707",
+      email: companyData?.email || fallbackCompanyData.email || "admin@bbqr.site",
+      phone: companyData?.tel || fallbackCompanyData.tel || "+380 68 100 3771",
       address: companyData?.address || fallbackCompanyData.address || "Antonioy Kelesi 12, Nea Kallikratia 630 80",
     },
     // Business location coordinates - prefer DB data

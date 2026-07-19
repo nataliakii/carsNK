@@ -113,9 +113,9 @@ function Footer() {
 
   const name = company?.name || "CarsNK";
   const slogan = company?.slogan || "Car rental aggregator in Greece";
-  const tel = company?.tel || "+30 6970 034 707";
-  const tel2 = company?.tel2 || "+30 6989 922 366";
-  const email = company?.email || "natali2015makarova@gmail.com";
+  const tel = company?.tel || "+380 68 100 3771";
+  const tel2 = company?.tel2 || "+353 85 270 96 05";
+  const email = company?.email || "admin@bbqr.site";
   const address = company?.address || "Antonioy Kelesi 12, Nea Kallikratia 630 80";
 
   const localeLink = (path) => withLocalePrefix(lang || "en", path);
@@ -124,11 +124,16 @@ function Footer() {
     <Section>
       {/* Logo */}
       <LogoImg
-        src="/logo.png"
-        width={120}
-        height={120}
+        src="/logo-hor-transparent-l.png"
+        width={320}
+        height={144}
         alt="CarsNK"
-        style={{ width: 120, height: "auto", borderRadius: 16, objectFit: "contain" }}
+        style={{
+          width: "min(320px, 80vw)",
+          height: "auto",
+          borderRadius: 0,
+          objectFit: "contain",
+        }}
       />
 
       {/* Slogan */}

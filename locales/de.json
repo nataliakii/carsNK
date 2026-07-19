@@ -338,7 +338,35 @@
     "sending": "Senden…",
     "cancel": "Abbrechen",
     "close": "Schließen",
-    "success": "Danke! Wir melden uns in Kürze.",
-    "submitError": "Anfrage konnte nicht gesendet werden. Bitte erneut versuchen."
+    "success": "Danke! Wir haben Ihre Transferanfrage erhalten und melden uns bald.",
+    "submitError": "Anfrage konnte nicht gesendet werden. Bitte erneut versuchen.",
+    "cityPlaceholder": "Ort in Chalkidiki wählen",
+    "distance": "Entfernung: {{km}} km · ~{{minutes}} Min.",
+    "distanceError": "Entfernung konnte nicht berechnet werden",
+    "distanceUnavailable": "Entfernung nicht verfügbar (Google Maps API key)",
+    "successTitle": "Die Reise beginnt",
+    "successBlessing": "Mögen die Götter des Weges Sie begleiten.",
+    "successQuotes": [
+      {
+        "god": "Hermes",
+        "greek": "Καλή οδό!",
+        "line": "Gute Reise — Hermes geht mit den Wandernden."
+      },
+      {
+        "god": "Poseidon",
+        "greek": "Ευνοϊκοί άνεμοι!",
+        "line": "Günstige Winde — Poseidon öffnet den Weg."
+      },
+      {
+        "god": "Athene",
+        "greek": "Με σοφία και τύχη!",
+        "line": "Mit Weisheit und Glück — Athene führt jede Überfahrt."
+      },
+      {
+        "god": "Apollon",
+        "greek": "Φως στη διαδρομή σου!",
+        "line": "Licht auf Ihrem Weg — Apollon erhellt die Straße."
+      }
+    ]
   }
 }

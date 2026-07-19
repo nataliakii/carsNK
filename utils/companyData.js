@@ -29,12 +29,12 @@ export const seasons = {
  */
 export const companyData = {
   companyId: COMPANY_ID,
-  name: "NATALI CARS",
-  tel: "+30 6970 034 707",
-  tel2: "+30 6989 922 366",
-  email: "natali2015makarova@gmail.com",
+  name: "CarsNK",
+  tel: "+380 68 100 3771",
+  tel2: "+353 85 270 96 05",
+  email: "admin@bbqr.site",
   address: "Antonioy Kelesi 12, Nea Kallikratia 630 80",
-  slogan: "best rent car online service in Chalkidiki",
+  slogan: "Car rental aggregator in Greece",
   coords: { lat: "40.311273589340836", lon: "23.06426516796098" },
   defaultStart: "14:00",
   defaultEnd: "12:00",

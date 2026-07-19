@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Box } from "@mui/material";
+import Link from "next/link";
+import { Box, Button, Typography } from "@mui/material";
 import BigCalendar from "@/app/components/calendar-ui/BigCalendar";
 import { useCalendar } from "./useCalendar";
 import { useCalendarViewSettings } from "./hooks/useCalendarViewSettings";
@@ -13,7 +14,7 @@ import CalendarSettingsPanel from "./CalendarSettingsPanel";
  * Feature component - lazy-loaded
  */
 export default function CalendarSection() {
-  const { cars } = useCalendar();
+  const { cars, hasCars } = useCalendar();
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const {
     settings,
@@ -37,7 +38,8 @@ export default function CalendarSection() {
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
+        height: "calc(100dvh - 0px)",
+        minHeight: 420,
         overflow: "hidden",
       }}
     >
@@ -69,19 +71,57 @@ export default function CalendarSection() {
           flexDirection: "column",
         }}
       >
-        <BigCalendar
-          cars={cars}
-          showLegend={false}
-          legendPlacement={settings.legendPlacement}
-          showBufferInLegend={settings.showBufferInLegend}
-          showDeliveryInLegend={settings.showDeliveryInLegend}
-          showConflictBadges={settings.showConflictBadges}
-          highlightToday={settings.highlightToday}
-          autoScrollToToday={settings.autoScrollToToday}
-          viewMode={viewModeForCalendar}
-          onViewModeChange={applyViewModeFromCalendar}
-          dayRange={settings.dayRange}
-        />
+        {!hasCars ? (
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 280,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 2,
+              px: 3,
+              py: 4,
+              textAlign: "center",
+              borderRadius: 2,
+              border: "1px dashed",
+              borderColor: "divider",
+              bgcolor: "background.paper",
+              m: { xs: 1, md: 2 },
+            }}
+          >
+            <Typography variant="h6" component="h2">
+              No cars in the database yet
+            </Typography>
+            <Typography color="text.secondary" sx={{ maxWidth: 420 }}>
+              The calendar shows one row per car. Add vehicles first, then
+              bookings will appear here.
+            </Typography>
+            <Button
+              component={Link}
+              href="/admin/cars"
+              variant="contained"
+              color="primary"
+            >
+              Go to Cars
+            </Button>
+          </Box>
+        ) : (
+          <BigCalendar
+            cars={cars}
+            showLegend={false}
+            legendPlacement={settings.legendPlacement}
+            showBufferInLegend={settings.showBufferInLegend}
+            showDeliveryInLegend={settings.showDeliveryInLegend}
+            showConflictBadges={settings.showConflictBadges}
+            highlightToday={settings.highlightToday}
+            autoScrollToToday={settings.autoScrollToToday}
+            viewMode={viewModeForCalendar}
+            onViewModeChange={applyViewModeFromCalendar}
+            dayRange={settings.dayRange}
+          />
+        )}
       </Box>
     </Box>
   );

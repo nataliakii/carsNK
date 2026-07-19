@@ -338,7 +338,35 @@
     "sending": "Slanje…",
     "cancel": "Otkaži",
     "close": "Zatvori",
-    "success": "Hvala! Javićemo vam se uskoro.",
-    "submitError": "Zahtev nije poslat. Pokušajte ponovo."
+    "success": "Hvala! Primili smo zahtev za transfer i uskoro ćemo vas kontaktirati.",
+    "submitError": "Zahtev nije poslat. Pokušajte ponovo.",
+    "cityPlaceholder": "Izaberite mesto na Halkidikiju",
+    "distance": "Udaljenost: {{km}} km · ~{{minutes}} min",
+    "distanceError": "Nije moguće izračunati udaljenost",
+    "distanceUnavailable": "Udaljenost nije dostupna",
+    "successTitle": "Putovanje počinje",
+    "successBlessing": "Neka vas bogovi puta čuvaju.",
+    "successQuotes": [
+      {
+        "god": "Hermes",
+        "greek": "Καλή οδό!",
+        "line": "Srećan put — Hermes ide uz putnike."
+      },
+      {
+        "god": "Posejdon",
+        "greek": "Ευνοϊκοί άνεμοι!",
+        "line": "Povoljan vetar — Posejdon otvara put."
+      },
+      {
+        "god": "Atina",
+        "greek": "Με σοφία και τύχη!",
+        "line": "Sa mudrošću i srećom — Atina vodi svaki prelaz."
+      },
+      {
+        "god": "Apolon",
+        "greek": "Φως στη διαδρομή σου!",
+        "line": "Svetlost na putu — Apolon osvetljava stazu."
+      }
+    ]
   }
 }

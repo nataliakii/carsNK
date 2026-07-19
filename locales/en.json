@@ -449,7 +449,35 @@
     "sending": "Sending…",
     "cancel": "Cancel",
     "close": "Close",
-    "success": "Thank you! We will contact you shortly.",
-    "submitError": "Could not send the request. Please try again."
+    "success": "Thank you! We received your transfer request and will contact you shortly.",
+    "submitError": "Could not send the request. Please try again.",
+    "cityPlaceholder": "Select a town in Halkidiki",
+    "distance": "Distance: {{km}} km · ~{{minutes}} min",
+    "distanceError": "Could not calculate distance",
+    "distanceUnavailable": "Distance unavailable (check Google Maps API key)",
+    "successTitle": "Your journey begins",
+    "successBlessing": "May the gods of the road watch over you on the way.",
+    "successQuotes": [
+      {
+        "god": "Hermes",
+        "greek": "Καλή οδό!",
+        "line": "Safe travels — Hermes walks with those who journey."
+      },
+      {
+        "god": "Poseidon",
+        "greek": "Ευνοϊκοί άνεμοι!",
+        "line": "Fair winds — Poseidon clears the path ahead."
+      },
+      {
+        "god": "Athena",
+        "greek": "Με σοφία και τύχη!",
+        "line": "With wisdom and luck — Athena guides every crossing."
+      },
+      {
+        "god": "Apollo",
+        "greek": "Φως στη διαδρομή σου!",
+        "line": "Light on your road — Apollo brightens the way."
+      }
+    ]
   }
 }

@@ -117,6 +117,7 @@ export default function TransfersSection() {
               <TableCell>Created</TableCell>
               <TableCell>When</TableCell>
               <TableCell>From → To</TableCell>
+              <TableCell>Km</TableCell>
               <TableCell>Pax</TableCell>
               <TableCell>Contact</TableCell>
               <TableCell>Notes</TableCell>
@@ -134,6 +135,9 @@ export default function TransfersSection() {
                 </TableCell>
                 <TableCell>
                   {item.from} → {item.to}
+                </TableCell>
+                <TableCell>
+                  {item.distanceKm != null ? `${item.distanceKm} km` : "—"}
                 </TableCell>
                 <TableCell>{item.passengers}</TableCell>
                 <TableCell>

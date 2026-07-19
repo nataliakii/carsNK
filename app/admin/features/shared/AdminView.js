@@ -145,7 +145,7 @@ function AdminViewContent({ viewType }) {
       <Box
         sx={
           featureConfig.feature === "calendar"
-            ? { my: 0, overflow: "hidden" }
+            ? { my: 0, overflow: "visible", minHeight: "calc(100dvh - 60px)" }
             : { my: 3 }
         }
       >

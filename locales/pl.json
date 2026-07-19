@@ -444,7 +444,35 @@
     "sending": "Wysyłanie…",
     "cancel": "Anuluj",
     "close": "Zamknij",
-    "success": "Dziękujemy! Skontaktujemy się wkrótce.",
-    "submitError": "Nie udało się wysłać. Spróbuj ponownie."
+    "success": "Dziękujemy! Otrzymaliśmy prośbę o transfer i wkrótce się odezwiemy.",
+    "submitError": "Nie udało się wysłać. Spróbuj ponownie.",
+    "cityPlaceholder": "Wybierz miejscowość na Chalkidiki",
+    "distance": "Dystans: {{km}} km · ~{{minutes}} min",
+    "distanceError": "Nie udało się obliczyć dystansu",
+    "distanceUnavailable": "Dystans niedostępny",
+    "successTitle": "Podróż się zaczyna",
+    "successBlessing": "Niech bogowie drogi czuwają nad Wami.",
+    "successQuotes": [
+      {
+        "god": "Hermes",
+        "greek": "Καλή οδό!",
+        "line": "Szczęśliwej drogi — Hermes idzie z podróżnymi."
+      },
+      {
+        "god": "Posejdon",
+        "greek": "Ευνοϊκοί άνεμοι!",
+        "line": "Pomyślnych wiatrów — Posejdon otwiera drogę."
+      },
+      {
+        "god": "Atena",
+        "greek": "Με σοφία και τύχη!",
+        "line": "Z mądrością i szczęściem — Atena prowadzi każdą przeprawę."
+      },
+      {
+        "god": "Apollo",
+        "greek": "Φως στη διαδρομή σου!",
+        "line": "Światła na drodze — Apollo rozjaśnia szlak."
+      }
+    ]
   }
 }

@@ -11,6 +11,8 @@ const TransferSchema = new mongoose.Schema(
   {
     from: { type: String, required: true, trim: true },
     to: { type: String, required: true, trim: true },
+    distanceKm: { type: Number, default: null, min: 0 },
+    durationMinutes: { type: Number, default: null, min: 0 },
     passengers: { type: Number, required: true, min: 1, max: 50 },
     datetime: { type: Date, required: true, index: true },
     notes: { type: String, default: "", trim: true },

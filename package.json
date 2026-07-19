@@ -16,6 +16,7 @@
     "seed:testing-car": "node scripts/seedTestingCarField.js",
     "seed:company-not-send-ips": "node scripts/seedCompanyNotSendIps.js",
     "seed:delivery-zones": "node scripts/seedDeliveryZones.js",
+    "seed:carsnk-company": "node scripts/seedCarsNkCompany.js",
     "export:cars-noseason": "node scripts/exportCarsNoSeasonPrices.js",
     "test": "jest",
     "test:timezone": "jest athensTime.roundtrip --verbose",

@@ -23,11 +23,16 @@ export function useCalendar() {
   
   // Sorted cars for calendar rows
   const sortedCars = useMemo(
-    () => [...cars].sort((a, b) => a.model.localeCompare(b.model)),
+    () => [...(Array.isArray(cars) ? cars : [])].sort((a, b) =>
+      String(a?.model || "").localeCompare(String(b?.model || ""))
+    ),
     [cars]
   );
 
-  const hasCars = useMemo(() => cars.length > 0, [cars]);
+  const hasCars = useMemo(
+    () => Array.isArray(cars) && cars.length > 0,
+    [cars]
+  );
   const hasOrders = useMemo(() => allOrders.length > 0, [allOrders]);
 
   // ─────────────────────────────────────────────────────────────

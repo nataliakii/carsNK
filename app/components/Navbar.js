@@ -976,15 +976,14 @@ export default function NavBar({
             <Box sx={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
               <Link href={homeHref} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                 <Image
-                  src="/logo.png"
+                  src="/logo-hor-transparent.png"
                   alt="CarsNK"
-                  width={56}
-                  height={56}
+                  width={160}
+                  height={72}
                   priority
                   style={{
-                    width: "clamp(40px, 8vw, 56px)",
+                    width: "clamp(110px, 22vw, 160px)",
                     height: "auto",
-                    borderRadius: 10,
                     objectFit: "contain",
                   }}
                 />
@@ -1333,14 +1332,13 @@ export default function NavBar({
               style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
             >
               <Image
-                src="/logo.png"
+                src="/logo-hor-dark.png"
                 alt="CarsNK"
-                width={48}
-                height={48}
+                width={140}
+                height={63}
                 style={{
-                  width: 48,
+                  width: 140,
                   height: "auto",
-                  borderRadius: 8,
                   objectFit: "contain",
                 }}
               />

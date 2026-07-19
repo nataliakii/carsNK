@@ -338,7 +338,35 @@
     "sending": "Se trimite…",
     "cancel": "Anulează",
     "close": "Închide",
-    "success": "Mulțumim! Vă contactăm în curând.",
-    "submitError": "Nu s-a putut trimite. Încercați din nou."
+    "success": "Mulțumim! Am primit cererea de transfer și vă contactăm curând.",
+    "submitError": "Nu s-a putut trimite. Încercați din nou.",
+    "cityPlaceholder": "Alegeți un oraș din Halkidiki",
+    "distance": "Distanță: {{km}} km · ~{{minutes}} min",
+    "distanceError": "Nu s-a putut calcula distanța",
+    "distanceUnavailable": "Distanța nu este disponibilă",
+    "successTitle": "Călătoria începe",
+    "successBlessing": "Fie ca zeii drumului să vă ocrotească.",
+    "successQuotes": [
+      {
+        "god": "Hermes",
+        "greek": "Καλή οδό!",
+        "line": "Drum bun — Hermes merge alături de călători."
+      },
+      {
+        "god": "Poseidon",
+        "greek": "Ευνοϊκοί άνεμοι!",
+        "line": "Vânturi prielnice — Poseidon deschide calea."
+      },
+      {
+        "god": "Athena",
+        "greek": "Με σοφία και τύχη!",
+        "line": "Cu înțelepciune și noroc — Athena ghidează fiecare trecere."
+      },
+      {
+        "god": "Apollo",
+        "greek": "Φως στη διαδρομή σου!",
+        "line": "Lumină pe drum — Apollo luminează calea."
+      }
+    ]
   }
 }
