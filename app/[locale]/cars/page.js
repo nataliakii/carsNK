@@ -35,8 +35,8 @@ const CARS_INDEX_ALTERNATES = Object.fromEntries(
 export async function generateMetadata({ params }) {
   const locale = normalizeLocale(params.locale);
   const dictionary = getLocaleDictionary(locale);
-  const title = `${dictionary.links.carsListTitle} | Natali Cars`;
-  const description = "Browse all rental cars available in Halkidiki and Thessaloniki. Compare models, prices and book online with Natali Cars.";
+  const title = `${dictionary.links.carsListTitle} | CarsNK`;
+  const description = "Browse all rental cars available in Halkidiki and Thessaloniki. Compare models, prices and book online with CarsNK.";
   const path = `/${locale}/cars`;
   return {
     title,

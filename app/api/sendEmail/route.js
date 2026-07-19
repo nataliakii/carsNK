@@ -184,7 +184,7 @@ export async function POST(request) {
     const emailSubject = isTestingMode ? `[TEST] ${title}` : title;
 
     const mailOptions = {
-      from: `Natali Cars <${SMTP_USER}>`,
+      from: `CarsNK <${SMTP_USER}>`,
       to: toRecipients,
       cc: ccRecipients.length > 0 ? ccRecipients : undefined,
       replyTo: bodyReplyTo || SMTP_USER,

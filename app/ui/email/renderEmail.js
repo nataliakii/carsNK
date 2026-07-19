@@ -373,7 +373,7 @@ export function renderCustomerOfficialConfirmationEmail(payload) {
   const title = withTestOrderEmailSubject(baseOfficialTitle, fromLocalhost);
   const intro =
     t.officialIntro ||
-    "Your reservation has been officially confirmed by Natali Cars.";
+    "Your reservation has been officially confirmed by CarsNK.";
   const pdfNote =
     t.officialPdfNote ||
     "The official confirmation PDF is attached to this email.";

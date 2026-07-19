@@ -22,7 +22,7 @@ function formatTransferTelegram(doc) {
         }`
       : null;
   return [
-    "🚕 Новая заявка на трансфер",
+    "🚕 CarsNK — новая заявка на трансфер",
     `Откуда: ${doc.from}`,
     `Куда: ${doc.to}`,
     distanceLine,
@@ -32,6 +32,7 @@ function formatTransferTelegram(doc) {
     doc.phone ? `Телефон: ${doc.phone}` : null,
     doc.email ? `Email: ${doc.email}` : null,
     doc.notes ? `Заметки: ${doc.notes}` : null,
+    "https://carsnk.gr",
   ]
     .filter(Boolean)
     .join("\n");

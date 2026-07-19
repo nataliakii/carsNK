@@ -31,7 +31,7 @@ Example shape (English only; others fallback):
   en: {
     shortName: "Nea Kallikratia",
     h1: "Car Rental in Nea Kallikratia",
-    seoTitle: "Car Rental in Nea Kallikratia | Natali Cars",
+    seoTitle: "Car Rental in Nea Kallikratia | CarsNK",
     seoDescription: "Rent a car in Nea Kallikratia with...",
     introText: "...",
     areaServed: ["Nea Kallikratia", "..."],

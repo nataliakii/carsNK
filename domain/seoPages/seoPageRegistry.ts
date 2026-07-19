@@ -155,11 +155,11 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
     content: expandContent({
       en: {
         h1: "Automatic Car Rental in {location}",
-        seoTitle: "Automatic Car Rental in {location} | Natali Cars",
-        seoDescription: "Rent an automatic car in {location} with Natali Cars. Wide selection of automatic transmission vehicles. Free pickup at {location}. Book online today.",
-        introText: "Looking for an automatic car rental in {location}? Natali Cars offers a great selection of vehicles with automatic transmission — perfect for comfortable driving on Greek roads. Whether you're arriving at Thessaloniki Airport or staying in Halkidiki, our automatic cars are easy to drive and fuel-efficient. All vehicles come with full insurance, air conditioning, and free cancellation. We provide convenient pickup and return in {location} and across the Halkidiki peninsula. Our fleet includes economy automatics like Toyota Yaris, compact crossovers, and premium sedans. Enjoy a stress-free holiday — no clutch, no gear shifting, just smooth driving along the beautiful coastline. Book your automatic rental car online and secure the best rates for your trip to {location}.",
+        seoTitle: "Automatic Car Rental in {location} | CarsNK",
+        seoDescription: "Rent an automatic car in {location} with CarsNK. Wide selection of automatic transmission vehicles. Free pickup at {location}. Book online today.",
+        introText: "Looking for an automatic car rental in {location}? CarsNK offers a great selection of vehicles with automatic transmission — perfect for comfortable driving on Greek roads. Whether you're arriving at Thessaloniki Airport or staying in Halkidiki, our automatic cars are easy to drive and fuel-efficient. All vehicles come with full insurance, air conditioning, and free cancellation. We provide convenient pickup and return in {location} and across the Halkidiki peninsula. Our fleet includes economy automatics like Toyota Yaris, compact crossovers, and premium sedans. Enjoy a stress-free holiday — no clutch, no gear shifting, just smooth driving along the beautiful coastline. Book your automatic rental car online and secure the best rates for your trip to {location}.",
         faq: [
-          { question: "Do you have automatic cars available in {location}?", answer: "Yes, Natali Cars offers a wide range of automatic transmission vehicles available for pickup in {location} and surrounding areas." },
+          { question: "Do you have automatic cars available in {location}?", answer: "Yes, CarsNK offers a wide range of automatic transmission vehicles available for pickup in {location} and surrounding areas." },
           { question: "Is an automatic car more expensive to rent?", answer: "Automatic cars may have a small premium over manual options, but we offer competitive rates starting from €20/day depending on the season." },
           { question: "Can I pick up an automatic car at Thessaloniki Airport?", answer: "Absolutely! We offer free airport pickup and delivery for all our automatic rental cars." },
           { question: "Do I need an international driving license?", answer: "EU driving licenses are accepted. Non-EU visitors should carry an International Driving Permit along with their national license." },
@@ -168,11 +168,11 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       ru: {
         h1: "Аренда автомата в {location}",
-        seoTitle: "Аренда авто с автоматом в {location} | Natali Cars",
+        seoTitle: "Аренда авто с автоматом в {location} | CarsNK",
         seoDescription: "Арендуйте авто с автоматической коробкой в {location}. Широкий выбор автомобилей АКПП. Бесплатная подача в {location}. Бронируйте онлайн.",
-        introText: "Ищете автомобиль с автоматической коробкой передач в {location}? Natali Cars предлагает отличный выбор авто с АКПП — идеальный вариант для комфортного вождения по греческим дорогам. Будь то прилёт в аэропорт Салоники или отдых на Халкидиках, наши машины с автоматом просты в управлении и экономичны. Все автомобили застрахованы, оснащены кондиционером, с возможностью бесплатной отмены. Мы предоставляем удобную подачу и возврат в {location} и по всему полуострову Халкидики. Наш автопарк включает экономичные автоматы Toyota Yaris, компактные кроссоверы и премиальные седаны. Наслаждайтесь отдыхом без забот — без сцепления, без переключения передач, только плавная езда вдоль красивого побережья. Забронируйте авто с автоматом онлайн и получите лучшие цены для поездки в {location}.",
+        introText: "Ищете автомобиль с автоматической коробкой передач в {location}? CarsNK предлагает отличный выбор авто с АКПП — идеальный вариант для комфортного вождения по греческим дорогам. Будь то прилёт в аэропорт Салоники или отдых на Халкидиках, наши машины с автоматом просты в управлении и экономичны. Все автомобили застрахованы, оснащены кондиционером, с возможностью бесплатной отмены. Мы предоставляем удобную подачу и возврат в {location} и по всему полуострову Халкидики. Наш автопарк включает экономичные автоматы Toyota Yaris, компактные кроссоверы и премиальные седаны. Наслаждайтесь отдыхом без забот — без сцепления, без переключения передач, только плавная езда вдоль красивого побережья. Забронируйте авто с автоматом онлайн и получите лучшие цены для поездки в {location}.",
         faq: [
-          { question: "Есть ли у вас автомобили с автоматом в {location}?", answer: "Да, Natali Cars предлагает широкий выбор автомобилей с АКПП для подачи в {location} и окрестностях." },
+          { question: "Есть ли у вас автомобили с автоматом в {location}?", answer: "Да, CarsNK предлагает широкий выбор автомобилей с АКПП для подачи в {location} и окрестностях." },
           { question: "Автомат дороже в аренду?", answer: "Автомобили с АКПП могут стоить немного дороже механики, но мы предлагаем конкурентные цены от €20/день в зависимости от сезона." },
           { question: "Можно забрать авто с автоматом в аэропорту Салоники?", answer: "Конечно! Мы бесплатно доставляем все арендованные автомобили в аэропорт и обратно." },
           { question: "Нужны ли международные права?", answer: "Водительские удостоверения ЕС принимаются. Гражданам других стран рекомендуется международное водительское удостоверение." },
@@ -181,11 +181,11 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       uk: {
         h1: "Оренда авто з автоматом у {location}",
-        seoTitle: "Оренда авто з автоматом у {location} | Natali Cars",
+        seoTitle: "Оренда авто з автоматом у {location} | CarsNK",
         seoDescription: "Орендуйте авто з автоматичною коробкою у {location}. Широкий вибір автомобілів АКПП. Безкоштовна подача в {location}. Бронюйте онлайн.",
-        introText: "Шукаєте авто з автоматичною коробкою передач у {location}? Natali Cars пропонує чудовий вибір автомобілів з АКПП — ідеальний варіант для комфортного водіння по грецьких дорогах. Чи то приліт в аеропорт Салоніки, чи відпочинок на Халкідіках — наші авто з автоматом прості в управлінні та економічні. Усі авто застраховані, з кондиціонером та можливістю безкоштовного скасування. Ми пропонуємо зручну подачу та повернення в {location} та по всьому Халкідіках. Наш автопарк включає економічні автомати Toyota Yaris, кросовери та преміальні седани. Насолоджуйтесь відпочинком без турбот — без зчеплення, без перемикання передач, лише плавна їзда вздовж красивого узбережжя.",
+        introText: "Шукаєте авто з автоматичною коробкою передач у {location}? CarsNK пропонує чудовий вибір автомобілів з АКПП — ідеальний варіант для комфортного водіння по грецьких дорогах. Чи то приліт в аеропорт Салоніки, чи відпочинок на Халкідіках — наші авто з автоматом прості в управлінні та економічні. Усі авто застраховані, з кондиціонером та можливістю безкоштовного скасування. Ми пропонуємо зручну подачу та повернення в {location} та по всьому Халкідіках. Наш автопарк включає економічні автомати Toyota Yaris, кросовери та преміальні седани. Насолоджуйтесь відпочинком без турбот — без зчеплення, без перемикання передач, лише плавна їзда вздовж красивого узбережжя.",
         faq: [
-          { question: "Чи є у вас авто з автоматом у {location}?", answer: "Так, Natali Cars пропонує широкий вибір авто з АКПП для подачі в {location} та околицях." },
+          { question: "Чи є у вас авто з автоматом у {location}?", answer: "Так, CarsNK пропонує широкий вибір авто з АКПП для подачі в {location} та околицях." },
           { question: "Авто з автоматом дорожче?", answer: "Авто з АКПП можуть коштувати трохи більше за механіку, але ми пропонуємо конкурентні ціни від €20/день залежно від сезону." },
           { question: "Чи можна забрати авто з автоматом в аеропорту Салоніки?", answer: "Звичайно! Ми безкоштовно доставляємо всі орендовані авто в аеропорт." },
           { question: "Чи потрібні міжнародні права?", answer: "Посвідчення водія ЄС приймаються. Громадянам інших країн рекомендується міжнародне посвідчення." },
@@ -194,11 +194,11 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       el: {
         h1: "Ενοικίαση αυτόματου αυτοκινήτου στη {location}",
-        seoTitle: "Ενοικίαση αυτόματου αυτοκινήτου στη {location} | Natali Cars",
-        seoDescription: "Νοικιάστε αυτόματο αυτοκίνητο στη {location} με την Natali Cars. Μεγάλη ποικιλία αυτοκινήτων με αυτόματο κιβώτιο. Δωρεάν παραλαβή στη {location}.",
-        introText: "Ψάχνετε ενοικίαση αυτοκινήτου με αυτόματο κιβώτιο στη {location}; Η Natali Cars προσφέρει μια εξαιρετική γκάμα αυτοκινήτων με αυτόματο κιβώτιο ταχυτήτων — ιδανικά για άνετη οδήγηση στους ελληνικούς δρόμους. Είτε φτάνετε στο Αεροδρόμιο Θεσσαλονίκης είτε μένετε στη Χαλκιδική, τα αυτόματα αυτοκίνητά μας είναι εύκολα στην οδήγηση και οικονομικά. Όλα τα οχήματα περιλαμβάνουν πλήρη ασφάλεια, κλιματισμό και δωρεάν ακύρωση. Παρέχουμε άνετη παραλαβή και επιστροφή στη {location} και σε ολόκληρη τη χερσόνησο της Χαλκιδικής.",
+        seoTitle: "Ενοικίαση αυτόματου αυτοκινήτου στη {location} | CarsNK",
+        seoDescription: "Νοικιάστε αυτόματο αυτοκίνητο στη {location} με την CarsNK. Μεγάλη ποικιλία αυτοκινήτων με αυτόματο κιβώτιο. Δωρεάν παραλαβή στη {location}.",
+        introText: "Ψάχνετε ενοικίαση αυτοκινήτου με αυτόματο κιβώτιο στη {location}; Η CarsNK προσφέρει μια εξαιρετική γκάμα αυτοκινήτων με αυτόματο κιβώτιο ταχυτήτων — ιδανικά για άνετη οδήγηση στους ελληνικούς δρόμους. Είτε φτάνετε στο Αεροδρόμιο Θεσσαλονίκης είτε μένετε στη Χαλκιδική, τα αυτόματα αυτοκίνητά μας είναι εύκολα στην οδήγηση και οικονομικά. Όλα τα οχήματα περιλαμβάνουν πλήρη ασφάλεια, κλιματισμό και δωρεάν ακύρωση. Παρέχουμε άνετη παραλαβή και επιστροφή στη {location} και σε ολόκληρη τη χερσόνησο της Χαλκιδικής.",
         faq: [
-          { question: "Έχετε αυτόματα αυτοκίνητα στη {location};", answer: "Ναι, η Natali Cars προσφέρει μεγάλη ποικιλία αυτοκινήτων με αυτόματο κιβώτιο για παραλαβή στη {location}." },
+          { question: "Έχετε αυτόματα αυτοκίνητα στη {location};", answer: "Ναι, η CarsNK προσφέρει μεγάλη ποικιλία αυτοκινήτων με αυτόματο κιβώτιο για παραλαβή στη {location}." },
           { question: "Είναι πιο ακριβό το αυτόματο;", answer: "Τα αυτόματα αυτοκίνητα μπορεί να κοστίζουν ελαφρώς περισσότερο, αλλά προσφέρουμε ανταγωνιστικές τιμές από €20/ημέρα." },
           { question: "Μπορώ να παραλάβω στο αεροδρόμιο;", answer: "Φυσικά! Προσφέρουμε δωρεάν παραλαβή και παράδοση στο αεροδρόμιο Θεσσαλονίκης." },
           { question: "Χρειάζομαι διεθνές δίπλωμα;", answer: "Τα ευρωπαϊκά διπλώματα οδήγησης γίνονται αποδεκτά. Οι υπόλοιποι επισκέπτες χρειάζονται διεθνές δίπλωμα." },
@@ -215,9 +215,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
     content: expandContent({
       en: {
         h1: "Cheap Car Rental in {location}",
-        seoTitle: "Cheap Car Rental in {location} — From €15/day | Natali Cars",
+        seoTitle: "Cheap Car Rental in {location} — From €15/day | CarsNK",
         seoDescription: "Affordable car rental in {location} starting from €15/day. Economy and compact cars with full insurance. Free pickup in {location}. Book the cheapest rental car online.",
-        introText: "Looking for a cheap car rental in {location}? Natali Cars offers some of the best rates in the region with economy and compact cars starting from just €15 per day. Our affordable fleet is perfect for budget-conscious travelers who still want reliable, well-maintained vehicles. Every rental includes comprehensive insurance, air conditioning, and free cancellation — no hidden fees, no surprises. Whether you need a small city car for exploring Halkidiki or a compact hatchback for airport transfers, we have affordable options waiting for you. Pick up your car in {location} or at Thessaloniki Airport with zero extra delivery charges. Our economy range includes popular models like Fiat Panda, Hyundai i10, and Toyota Yaris — small on price, big on value. Save money on your Greek holiday without sacrificing comfort. Book online and lock in the lowest available rate for your dates.",
+        introText: "Looking for a cheap car rental in {location}? CarsNK offers some of the best rates in the region with economy and compact cars starting from just €15 per day. Our affordable fleet is perfect for budget-conscious travelers who still want reliable, well-maintained vehicles. Every rental includes comprehensive insurance, air conditioning, and free cancellation — no hidden fees, no surprises. Whether you need a small city car for exploring Halkidiki or a compact hatchback for airport transfers, we have affordable options waiting for you. Pick up your car in {location} or at Thessaloniki Airport with zero extra delivery charges. Our economy range includes popular models like Fiat Panda, Hyundai i10, and Toyota Yaris — small on price, big on value. Save money on your Greek holiday without sacrificing comfort. Book online and lock in the lowest available rate for your dates.",
         faq: [
           { question: "What is the cheapest car you can rent in {location}?", answer: "Our most affordable cars start from €15/day in low season. Economy models like Fiat Panda and Hyundai i10 are the cheapest options." },
           { question: "Are there hidden fees with cheap car rental?", answer: "No. Our prices include full insurance, taxes, and unlimited mileage. No hidden charges." },
@@ -228,9 +228,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       ru: {
         h1: "Дешёвая аренда авто в {location}",
-        seoTitle: "Дешёвая аренда авто в {location} — от €15/день | Natali Cars",
+        seoTitle: "Дешёвая аренда авто в {location} — от €15/день | CarsNK",
         seoDescription: "Бюджетная аренда авто в {location} от €15/день. Эконом и компакт-класс с полной страховкой. Бесплатная подача в {location}. Бронируйте онлайн.",
-        introText: "Ищете недорогую аренду авто в {location}? Natali Cars предлагает одни из лучших цен в регионе — от €15 в день за автомобили эконом- и компакт-класса. Наш автопарк идеально подходит бюджетным путешественникам, которые хотят надёжные и ухоженные машины. Каждая аренда включает полную страховку, кондиционер и бесплатную отмену — без скрытых платежей. Нужен маленький городской авто для Халкидиков или компактный хэтчбек для трансфера из аэропорта? У нас есть доступные варианты. Получите автомобиль в {location} или в аэропорту Салоники без дополнительной платы за доставку. В нашем эконом-сегменте — Fiat Panda, Hyundai i10, Toyota Yaris. Экономьте на отдыхе в Греции без потери комфорта.",
+        introText: "Ищете недорогую аренду авто в {location}? CarsNK предлагает одни из лучших цен в регионе — от €15 в день за автомобили эконом- и компакт-класса. Наш автопарк идеально подходит бюджетным путешественникам, которые хотят надёжные и ухоженные машины. Каждая аренда включает полную страховку, кондиционер и бесплатную отмену — без скрытых платежей. Нужен маленький городской авто для Халкидиков или компактный хэтчбек для трансфера из аэропорта? У нас есть доступные варианты. Получите автомобиль в {location} или в аэропорту Салоники без дополнительной платы за доставку. В нашем эконом-сегменте — Fiat Panda, Hyundai i10, Toyota Yaris. Экономьте на отдыхе в Греции без потери комфорта.",
         faq: [
           { question: "Какой самый дешёвый авто в {location}?", answer: "Самые доступные авто — от €15/день в низкий сезон. Эконом-модели Fiat Panda и Hyundai i10 — самые бюджетные." },
           { question: "Есть ли скрытые платежи?", answer: "Нет. Цены включают полную страховку, налоги и безлимитный пробег. Никаких скрытых доплат." },
@@ -241,9 +241,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       uk: {
         h1: "Дешева оренда авто у {location}",
-        seoTitle: "Дешева оренда авто у {location} — від €15/день | Natali Cars",
+        seoTitle: "Дешева оренда авто у {location} — від €15/день | CarsNK",
         seoDescription: "Бюджетна оренда авто у {location} від €15/день. Економ та компакт-клас з повним страхуванням. Безкоштовна подача у {location}.",
-        introText: "Шукаєте недорогу оренду авто у {location}? Natali Cars пропонує одні з найкращих цін у регіоні — від €15 на день за авто економ- та компакт-класу. Наш автопарк ідеально підходить бюджетним мандрівникам, які хочуть надійні та доглянуті машини. Кожна оренда включає повне страхування, кондиціонер та безкоштовне скасування. Потрібен маленький міський авто для Халкідіків або компактний хетчбек? У нас є доступні варіанти. Отримайте авто у {location} або в аеропорту Салоніки без додаткової плати за доставку.",
+        introText: "Шукаєте недорогу оренду авто у {location}? CarsNK пропонує одні з найкращих цін у регіоні — від €15 на день за авто економ- та компакт-класу. Наш автопарк ідеально підходить бюджетним мандрівникам, які хочуть надійні та доглянуті машини. Кожна оренда включає повне страхування, кондиціонер та безкоштовне скасування. Потрібен маленький міський авто для Халкідіків або компактний хетчбек? У нас є доступні варіанти. Отримайте авто у {location} або в аеропорту Салоніки без додаткової плати за доставку.",
         faq: [
           { question: "Яке найдешевше авто у {location}?", answer: "Найдоступніші авто — від €15/день у низький сезон. Економ-моделі Fiat Panda та Hyundai i10 — найбюджетніші." },
           { question: "Чи є приховані платежі?", answer: "Ні. Ціни включають повне страхування, податки та безлімітний пробіг." },
@@ -254,9 +254,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       el: {
         h1: "Φθηνή ενοικίαση αυτοκινήτου στη {location}",
-        seoTitle: "Φθηνή ενοικίαση αυτοκινήτου στη {location} — από €15/ημέρα | Natali Cars",
+        seoTitle: "Φθηνή ενοικίαση αυτοκινήτου στη {location} — από €15/ημέρα | CarsNK",
         seoDescription: "Οικονομική ενοικίαση αυτοκινήτου στη {location} από €15/ημέρα. Αυτοκίνητα κατηγορίας economy και compact με πλήρη ασφάλεια. Δωρεάν παραλαβή.",
-        introText: "Ψάχνετε φθηνή ενοικίαση αυτοκινήτου στη {location}; Η Natali Cars προσφέρει εξαιρετικές τιμές με αυτοκίνητα economy και compact από μόλις €15 την ημέρα. Ο στόλος μας είναι ιδανικός για ταξιδιώτες με περιορισμένο προϋπολογισμό που θέλουν αξιόπιστα, καλοσυντηρημένα οχήματα. Κάθε ενοικίαση περιλαμβάνει πλήρη ασφάλεια, κλιματισμό και δωρεάν ακύρωση — χωρίς κρυφές χρεώσεις. Παραλάβετε το αυτοκίνητό σας στη {location} ή στο Αεροδρόμιο Θεσσαλονίκης χωρίς επιπλέον κόστος παράδοσης.",
+        introText: "Ψάχνετε φθηνή ενοικίαση αυτοκινήτου στη {location}; Η CarsNK προσφέρει εξαιρετικές τιμές με αυτοκίνητα economy και compact από μόλις €15 την ημέρα. Ο στόλος μας είναι ιδανικός για ταξιδιώτες με περιορισμένο προϋπολογισμό που θέλουν αξιόπιστα, καλοσυντηρημένα οχήματα. Κάθε ενοικίαση περιλαμβάνει πλήρη ασφάλεια, κλιματισμό και δωρεάν ακύρωση — χωρίς κρυφές χρεώσεις. Παραλάβετε το αυτοκίνητό σας στη {location} ή στο Αεροδρόμιο Θεσσαλονίκης χωρίς επιπλέον κόστος παράδοσης.",
         faq: [
           { question: "Ποιο είναι το φθηνότερο αυτοκίνητο στη {location};", answer: "Τα πιο οικονομικά μας αυτοκίνητα ξεκινούν από €15/ημέρα. Μοντέλα economy όπως Fiat Panda είναι τα πιο φθηνά." },
           { question: "Υπάρχουν κρυφές χρεώσεις;", answer: "Όχι. Οι τιμές μας περιλαμβάνουν πλήρη ασφάλεια, φόρους και απεριόριστα χιλιόμετρα." },
@@ -275,9 +275,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
     content: expandContent({
       en: {
         h1: "Cabrio Car Rental in {location}",
-        seoTitle: "Convertible Car Rental in {location} | Natali Cars",
-        seoDescription: "Rent a convertible in {location} with Natali Cars. Enjoy the Greek sunshine with a cabrio. Free pickup in {location}. Book your cabriolet online.",
-        introText: "There's no better way to experience {location} than behind the wheel of a convertible. Feel the warm Mediterranean breeze, enjoy panoramic views of the turquoise sea, and make every drive an unforgettable experience. Natali Cars offers stylish cabriolets perfect for the Greek summer. Our convertible fleet includes popular models like the Fiat 500 Cabrio — compact enough for village streets yet fun enough for coastal highways. Every cabrio rental includes comprehensive insurance, air conditioning (for when you want it), and free cancellation. Pick up your convertible in {location} or at Thessaloniki Airport and cruise along the stunning Halkidiki coastline. Whether it's a romantic getaway, a beach-hopping adventure, or simply the joy of open-top driving under the Greek sun — our cabrios deliver the ultimate holiday experience. Book online and secure your dream car today.",
+        seoTitle: "Convertible Car Rental in {location} | CarsNK",
+        seoDescription: "Rent a convertible in {location} with CarsNK. Enjoy the Greek sunshine with a cabrio. Free pickup in {location}. Book your cabriolet online.",
+        introText: "There's no better way to experience {location} than behind the wheel of a convertible. Feel the warm Mediterranean breeze, enjoy panoramic views of the turquoise sea, and make every drive an unforgettable experience. CarsNK offers stylish cabriolets perfect for the Greek summer. Our convertible fleet includes popular models like the Fiat 500 Cabrio — compact enough for village streets yet fun enough for coastal highways. Every cabrio rental includes comprehensive insurance, air conditioning (for when you want it), and free cancellation. Pick up your convertible in {location} or at Thessaloniki Airport and cruise along the stunning Halkidiki coastline. Whether it's a romantic getaway, a beach-hopping adventure, or simply the joy of open-top driving under the Greek sun — our cabrios deliver the ultimate holiday experience. Book online and secure your dream car today.",
         faq: [
           { question: "Do you have convertibles available in {location}?", answer: "Yes! We offer convertible models like the Fiat 500 Cabrio for rent in {location} and across Halkidiki." },
           { question: "Is renting a convertible more expensive?", answer: "Convertibles are slightly above economy rates, but offer a unique driving experience. Contact us for current pricing." },
@@ -288,9 +288,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       ru: {
         h1: "Аренда кабриолета в {location}",
-        seoTitle: "Аренда кабриолета в {location} | Natali Cars",
-        seoDescription: "Арендуйте кабриолет в {location} с Natali Cars. Наслаждайтесь греческим солнцем с открытым верхом. Бесплатная подача. Бронируйте онлайн.",
-        introText: "Нет лучшего способа познакомиться с {location}, чем за рулём кабриолета. Почувствуйте тёплый средиземноморский бриз, наслаждайтесь панорамными видами на бирюзовое море. Natali Cars предлагает стильные кабриолеты для греческого лета. В нашем автопарке — Fiat 500 Cabrio — компактные для узких улочек и достаточно весёлые для прибрежных шоссе. Каждая аренда включает полную страховку, кондиционер и бесплатную отмену. Получите кабриолет в {location} или в аэропорту Салоники. Романтическое путешествие, пляжные приключения или просто удовольствие от езды с открытым верхом — наши кабриолеты подарят незабываемый отпуск.",
+        seoTitle: "Аренда кабриолета в {location} | CarsNK",
+        seoDescription: "Арендуйте кабриолет в {location} с CarsNK. Наслаждайтесь греческим солнцем с открытым верхом. Бесплатная подача. Бронируйте онлайн.",
+        introText: "Нет лучшего способа познакомиться с {location}, чем за рулём кабриолета. Почувствуйте тёплый средиземноморский бриз, наслаждайтесь панорамными видами на бирюзовое море. CarsNK предлагает стильные кабриолеты для греческого лета. В нашем автопарке — Fiat 500 Cabrio — компактные для узких улочек и достаточно весёлые для прибрежных шоссе. Каждая аренда включает полную страховку, кондиционер и бесплатную отмену. Получите кабриолет в {location} или в аэропорту Салоники. Романтическое путешествие, пляжные приключения или просто удовольствие от езды с открытым верхом — наши кабриолеты подарят незабываемый отпуск.",
         faq: [
           { question: "Есть ли у вас кабриолеты в {location}?", answer: "Да! Мы предлагаем кабриолеты, включая Fiat 500 Cabrio, для аренды в {location} и по всему Халкидики." },
           { question: "Кабриолет дороже в аренде?", answer: "Кабриолеты стоят немного выше эконом-класса, но дарят уникальный опыт. Свяжитесь с нами для актуальных цен." },
@@ -301,9 +301,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       uk: {
         h1: "Оренда кабріолета у {location}",
-        seoTitle: "Оренда кабріолета у {location} | Natali Cars",
-        seoDescription: "Орендуйте кабріолет у {location} з Natali Cars. Насолоджуйтесь грецьким сонцем з відкритим верхом. Безкоштовна подача. Бронюйте онлайн.",
-        introText: "Немає кращого способу пізнати {location}, ніж за кермом кабріолета. Відчуйте теплий середземноморський бриз та панорамні краєвиди. Natali Cars пропонує стильні кабріолети для грецького літа. Наш автопарк включає Fiat 500 Cabrio — компактний для вузьких вуличок та достатньо веселий для прибережних шосе. Кожна оренда включає повне страхування, кондиціонер та безкоштовне скасування.",
+        seoTitle: "Оренда кабріолета у {location} | CarsNK",
+        seoDescription: "Орендуйте кабріолет у {location} з CarsNK. Насолоджуйтесь грецьким сонцем з відкритим верхом. Безкоштовна подача. Бронюйте онлайн.",
+        introText: "Немає кращого способу пізнати {location}, ніж за кермом кабріолета. Відчуйте теплий середземноморський бриз та панорамні краєвиди. CarsNK пропонує стильні кабріолети для грецького літа. Наш автопарк включає Fiat 500 Cabrio — компактний для вузьких вуличок та достатньо веселий для прибережних шосе. Кожна оренда включає повне страхування, кондиціонер та безкоштовне скасування.",
         faq: [
           { question: "Чи є у вас кабріолети у {location}?", answer: "Так! Ми пропонуємо Fiat 500 Cabrio для оренди у {location}." },
           { question: "Кабріолет дорожче?", answer: "Трохи вище економ-класу, але дарує унікальний досвід." },
@@ -314,9 +314,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       el: {
         h1: "Ενοικίαση κάμπριο στη {location}",
-        seoTitle: "Ενοικίαση κάμπριο στη {location} | Natali Cars",
-        seoDescription: "Νοικιάστε κάμπριο στη {location} με την Natali Cars. Απολαύστε τον ελληνικό ήλιο. Δωρεάν παραλαβή. Κλείστε online.",
-        introText: "Δεν υπάρχει καλύτερος τρόπος να ζήσετε τη {location} από πίσω από το τιμόνι ενός κάμπριο. Νιώστε τη ζεστή μεσογειακή αύρα και απολαύστε τη θέα. Η Natali Cars προσφέρει κομψά κάμπριο για το ελληνικό καλοκαίρι. Κάθε ενοικίαση περιλαμβάνει πλήρη ασφάλεια, κλιματισμό και δωρεάν ακύρωση. Παραλάβετε στη {location} ή στο αεροδρόμιο.",
+        seoTitle: "Ενοικίαση κάμπριο στη {location} | CarsNK",
+        seoDescription: "Νοικιάστε κάμπριο στη {location} με την CarsNK. Απολαύστε τον ελληνικό ήλιο. Δωρεάν παραλαβή. Κλείστε online.",
+        introText: "Δεν υπάρχει καλύτερος τρόπος να ζήσετε τη {location} από πίσω από το τιμόνι ενός κάμπριο. Νιώστε τη ζεστή μεσογειακή αύρα και απολαύστε τη θέα. Η CarsNK προσφέρει κομψά κάμπριο για το ελληνικό καλοκαίρι. Κάθε ενοικίαση περιλαμβάνει πλήρη ασφάλεια, κλιματισμό και δωρεάν ακύρωση. Παραλάβετε στη {location} ή στο αεροδρόμιο.",
         faq: [
           { question: "Έχετε κάμπριο στη {location};", answer: "Ναι! Προσφέρουμε κάμπριο μοντέλα στη {location}." },
           { question: "Είναι πιο ακριβό;", answer: "Ελαφρώς υψηλότερες τιμές, αλλά μοναδική εμπειρία." },
@@ -335,9 +335,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
     content: expandContent({
       en: {
         h1: "Family Car Rental in {location}",
-        seoTitle: "Family Car Rental in {location} | Natali Cars",
-        seoDescription: "Rent a family car in {location} with Natali Cars. Spacious vehicles with 5+ seats, ideal for family holidays. Free pickup in {location}. Book online.",
-        introText: "Planning a family holiday in {location}? Natali Cars offers spacious, comfortable vehicles perfect for families. Our family car fleet includes crossovers, minivans, and large sedans — all with 5 or more seats, plenty of luggage space, and child-friendly features. Every family rental comes with comprehensive insurance, air conditioning, and free cancellation. Whether you're exploring the beaches of Kassandra, visiting the natural beauty of Sithonia, or touring the villages of Halkidiki — our family cars provide the space, safety, and comfort your family deserves. Pick up your car in {location} or at Thessaloniki Airport with free delivery. Our family range includes roomy models perfect for car seats, strollers, and all the essentials for a relaxing Greek getaway. Book your family car online and enjoy stress-free travel across northern Greece.",
+        seoTitle: "Family Car Rental in {location} | CarsNK",
+        seoDescription: "Rent a family car in {location} with CarsNK. Spacious vehicles with 5+ seats, ideal for family holidays. Free pickup in {location}. Book online.",
+        introText: "Planning a family holiday in {location}? CarsNK offers spacious, comfortable vehicles perfect for families. Our family car fleet includes crossovers, minivans, and large sedans — all with 5 or more seats, plenty of luggage space, and child-friendly features. Every family rental comes with comprehensive insurance, air conditioning, and free cancellation. Whether you're exploring the beaches of Kassandra, visiting the natural beauty of Sithonia, or touring the villages of Halkidiki — our family cars provide the space, safety, and comfort your family deserves. Pick up your car in {location} or at Thessaloniki Airport with free delivery. Our family range includes roomy models perfect for car seats, strollers, and all the essentials for a relaxing Greek getaway. Book your family car online and enjoy stress-free travel across northern Greece.",
         faq: [
           { question: "What family cars do you have in {location}?", answer: "We offer crossovers, minivans, and spacious sedans with 5+ seats, perfect for families traveling with children." },
           { question: "Can I add a child car seat?", answer: "Yes, child seats and booster seats are available on request. Please mention this when booking." },
@@ -348,9 +348,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       ru: {
         h1: "Аренда семейного авто в {location}",
-        seoTitle: "Аренда семейного авто в {location} | Natali Cars",
+        seoTitle: "Аренда семейного авто в {location} | CarsNK",
         seoDescription: "Арендуйте семейный автомобиль в {location}. Просторные авто от 5 мест для семейного отдыха. Бесплатная подача в {location}. Бронируйте онлайн.",
-        introText: "Планируете семейный отпуск в {location}? Natali Cars предлагает просторные и комфортные автомобили для семей. Наш семейный автопарк включает кроссоверы, минивэны и большие седаны — от 5 мест, много места для багажа, идеальные для путешествия с детьми. Каждая аренда включает полную страховку, кондиционер и бесплатную отмену. Исследуйте пляжи Кассандры, красоту Ситонии или деревни Халкидиков. Получите авто в {location} или в аэропорту Салоники бесплатно. Забронируйте онлайн и наслаждайтесь комфортным путешествием по северной Греции.",
+        introText: "Планируете семейный отпуск в {location}? CarsNK предлагает просторные и комфортные автомобили для семей. Наш семейный автопарк включает кроссоверы, минивэны и большие седаны — от 5 мест, много места для багажа, идеальные для путешествия с детьми. Каждая аренда включает полную страховку, кондиционер и бесплатную отмену. Исследуйте пляжи Кассандры, красоту Ситонии или деревни Халкидиков. Получите авто в {location} или в аэропорту Салоники бесплатно. Забронируйте онлайн и наслаждайтесь комфортным путешествием по северной Греции.",
         faq: [
           { question: "Какие семейные авто есть в {location}?", answer: "Кроссоверы, минивэны и просторные седаны от 5 мест — идеальны для семей с детьми." },
           { question: "Можно ли добавить детское кресло?", answer: "Да, детские кресла доступны по запросу. Укажите при бронировании." },
@@ -361,9 +361,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       uk: {
         h1: "Оренда сімейного авто у {location}",
-        seoTitle: "Оренда сімейного авто у {location} | Natali Cars",
+        seoTitle: "Оренда сімейного авто у {location} | CarsNK",
         seoDescription: "Орендуйте сімейне авто у {location}. Просторні автомобілі від 5 місць для сімейного відпочинку. Безкоштовна подача. Бронюйте онлайн.",
-        introText: "Плануєте сімейну відпустку у {location}? Natali Cars пропонує просторні та комфортні авто для сімей. Наш сімейний автопарк включає кросовери, мінівени та великі седани — від 5 місць, багато місця для багажу. Кожна оренда включає повне страхування, кондиціонер та безкоштовне скасування. Отримайте авто у {location} або в аеропорту Салоніки безкоштовно.",
+        introText: "Плануєте сімейну відпустку у {location}? CarsNK пропонує просторні та комфортні авто для сімей. Наш сімейний автопарк включає кросовери, мінівени та великі седани — від 5 місць, багато місця для багажу. Кожна оренда включає повне страхування, кондиціонер та безкоштовне скасування. Отримайте авто у {location} або в аеропорту Салоніки безкоштовно.",
         faq: [
           { question: "Які сімейні авто є у {location}?", answer: "Кросовери, мінівени та просторні седани від 5 місць." },
           { question: "Чи можна додати дитяче крісло?", answer: "Так, дитячі крісла доступні за запитом." },
@@ -374,9 +374,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       el: {
         h1: "Ενοικίαση οικογενειακού αυτοκινήτου στη {location}",
-        seoTitle: "Ενοικίαση οικογενειακού αυτοκινήτου στη {location} | Natali Cars",
+        seoTitle: "Ενοικίαση οικογενειακού αυτοκινήτου στη {location} | CarsNK",
         seoDescription: "Νοικιάστε οικογενειακό αυτοκίνητο στη {location}. Ευρύχωρα οχήματα 5+ θέσεων. Δωρεάν παραλαβή στη {location}.",
-        introText: "Σχεδιάζετε οικογενειακές διακοπές στη {location}; Η Natali Cars προσφέρει ευρύχωρα, άνετα οχήματα για οικογένειες. Ο στόλος μας περιλαμβάνει crossover, minivan και μεγάλα σεντάν — 5+ θέσεις, μεγάλο χώρο αποσκευών. Κάθε ενοικίαση περιλαμβάνει ασφάλεια, κλιματισμό και δωρεάν ακύρωση.",
+        introText: "Σχεδιάζετε οικογενειακές διακοπές στη {location}; Η CarsNK προσφέρει ευρύχωρα, άνετα οχήματα για οικογένειες. Ο στόλος μας περιλαμβάνει crossover, minivan και μεγάλα σεντάν — 5+ θέσεις, μεγάλο χώρο αποσκευών. Κάθε ενοικίαση περιλαμβάνει ασφάλεια, κλιματισμό και δωρεάν ακύρωση.",
         faq: [
           { question: "Τι οικογενειακά αυτοκίνητα έχετε;", answer: "Crossover, minivan και ευρύχωρα σεντάν με 5+ θέσεις." },
           { question: "Μπορώ να προσθέσω παιδικό κάθισμα;", answer: "Ναι, παιδικά καθίσματα διατίθενται κατόπιν αιτήματος." },
@@ -395,9 +395,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
     content: expandContent({
       en: {
         h1: "Luxury Car Rental in {location}",
-        seoTitle: "Luxury Car Rental in {location} | Natali Cars",
-        seoDescription: "Rent a luxury car in {location} with Natali Cars. Premium and executive vehicles for a sophisticated driving experience. Free delivery in {location}.",
-        introText: "Elevate your {location} experience with a luxury car from Natali Cars. Our premium fleet features sophisticated sedans and executive vehicles that combine power, comfort, and style. Whether you're attending a special event, impressing business partners, or simply treating yourself to the best — our luxury cars deliver an unparalleled driving experience on the scenic roads of Halkidiki. Every premium rental includes comprehensive insurance, premium road assistance, and free delivery anywhere in {location}. Enjoy leather interiors, advanced technology, and the prestige of arriving in style. From Thessaloniki Airport to the exclusive resorts of Sani and Kassandra — make your journey as memorable as the destination. Book your luxury rental online and experience the finest driving in northern Greece.",
+        seoTitle: "Luxury Car Rental in {location} | CarsNK",
+        seoDescription: "Rent a luxury car in {location} with CarsNK. Premium and executive vehicles for a sophisticated driving experience. Free delivery in {location}.",
+        introText: "Elevate your {location} experience with a luxury car from CarsNK. Our premium fleet features sophisticated sedans and executive vehicles that combine power, comfort, and style. Whether you're attending a special event, impressing business partners, or simply treating yourself to the best — our luxury cars deliver an unparalleled driving experience on the scenic roads of Halkidiki. Every premium rental includes comprehensive insurance, premium road assistance, and free delivery anywhere in {location}. Enjoy leather interiors, advanced technology, and the prestige of arriving in style. From Thessaloniki Airport to the exclusive resorts of Sani and Kassandra — make your journey as memorable as the destination. Book your luxury rental online and experience the finest driving in northern Greece.",
         faq: [
           { question: "What luxury cars are available in {location}?", answer: "Our premium fleet includes executive sedans and luxury vehicles. Contact us for current availability." },
           { question: "Is airport delivery included for luxury cars?", answer: "Yes, free pickup and delivery at Thessaloniki Airport is included for all luxury rentals." },
@@ -408,9 +408,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       ru: {
         h1: "Аренда премиум авто в {location}",
-        seoTitle: "Аренда люкс автомобиля в {location} | Natali Cars",
+        seoTitle: "Аренда люкс автомобиля в {location} | CarsNK",
         seoDescription: "Арендуйте премиум автомобиль в {location}. Люкс и бизнес-класс для изысканного вождения. Бесплатная доставка в {location}.",
-        introText: "Поднимите ваш отдых в {location} на новый уровень с премиальным авто от Natali Cars. Наш люкс-автопарк включает изысканные седаны и бизнес-автомобили. Будь то особое мероприятие, деловая встреча или желание побаловать себя — наши премиум-авто обеспечат непревзойдённый опыт вождения по живописным дорогам Халкидиков. Каждая аренда включает полную страховку, премиум помощь на дороге и бесплатную доставку по {location}. Кожаный салон, передовые технологии и престиж. Забронируйте онлайн.",
+        introText: "Поднимите ваш отдых в {location} на новый уровень с премиальным авто от CarsNK. Наш люкс-автопарк включает изысканные седаны и бизнес-автомобили. Будь то особое мероприятие, деловая встреча или желание побаловать себя — наши премиум-авто обеспечат непревзойдённый опыт вождения по живописным дорогам Халкидиков. Каждая аренда включает полную страховку, премиум помощь на дороге и бесплатную доставку по {location}. Кожаный салон, передовые технологии и престиж. Забронируйте онлайн.",
         faq: [
           { question: "Какие премиум авто есть в {location}?", answer: "Бизнес-седаны и люкс-автомобили. Свяжитесь с нами для актуального наличия." },
           { question: "Доставка в аэропорт включена?", answer: "Да, бесплатная подача и возврат в аэропорту Салоники." },
@@ -421,9 +421,9 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       uk: {
         h1: "Оренда преміум авто у {location}",
-        seoTitle: "Оренда люкс автомобіля у {location} | Natali Cars",
+        seoTitle: "Оренда люкс автомобіля у {location} | CarsNK",
         seoDescription: "Орендуйте преміум автомобіль у {location}. Люкс та бізнес-клас для вишуканого водіння. Безкоштовна доставка у {location}.",
-        introText: "Підніміть ваш відпочинок у {location} на новий рівень з преміальним авто від Natali Cars. Наш люкс-автопарк включає вишукані седани та бізнес-автомобілі. Кожна оренда включає повне страхування, преміум допомогу на дорозі та безкоштовну доставку.",
+        introText: "Підніміть ваш відпочинок у {location} на новий рівень з преміальним авто від CarsNK. Наш люкс-автопарк включає вишукані седани та бізнес-автомобілі. Кожна оренда включає повне страхування, преміум допомогу на дорозі та безкоштовну доставку.",
         faq: [
           { question: "Які преміум авто є у {location}?", answer: "Бізнес-седани та люкс-авто. Зверніться для актуальної наявності." },
           { question: "Доставка в аеропорт включена?", answer: "Так, безкоштовна подача в аеропорт Салоніки." },
@@ -434,7 +434,7 @@ export const CAR_CATEGORIES: CarCategoryDefinition[] = [
       },
       el: {
         h1: "Ενοικίαση πολυτελούς αυτοκινήτου στη {location}",
-        seoTitle: "Ενοικίαση πολυτελούς αυτοκινήτου στη {location} | Natali Cars",
+        seoTitle: "Ενοικίαση πολυτελούς αυτοκινήτου στη {location} | CarsNK",
         seoDescription: "Νοικιάστε πολυτελές αυτοκίνητο στη {location}. Premium και executive οχήματα. Δωρεάν παράδοση στη {location}.",
         introText: "Αναβαθμίστε την εμπειρία σας στη {location} με ένα πολυτελές αυτοκίνητο. Ο premium στόλος μας περιλαμβάνει κομψά σεντάν και executive οχήματα. Κάθε ενοικίαση περιλαμβάνει πλήρη ασφάλεια και δωρεάν παράδοση.",
         faq: [
@@ -809,27 +809,27 @@ const BRAND_SEO_TEMPLATES: Record<
 > = {
   en: {
     h1: "{brand} Car Rental in {location}",
-    seoTitle: "{brand} Car Rental in {location} | Natali Cars",
-    seoDescription: "Rent a {brand} car in {location} with Natali Cars. Browse all available {brand} models with free pickup. Book your {brand} rental online.",
-    introText: "Looking for a {brand} rental car in {location}? Natali Cars offers a range of {brand} vehicles available for hire in {location} and across Halkidiki. {brand} cars are known for reliability, comfort, and great value — perfect for your Greek holiday. All rentals include comprehensive insurance, air conditioning, and free cancellation. Pick up your {brand} at Thessaloniki Airport or in {location} with free delivery. Whether you need a compact city car or a spacious family vehicle, we have {brand} options to suit every need. Our {brand} fleet is well-maintained and ready for the beautiful roads of northern Greece. Book online and secure the best rate for your trip.",
+    seoTitle: "{brand} Car Rental in {location} | CarsNK",
+    seoDescription: "Rent a {brand} car in {location} with CarsNK. Browse all available {brand} models with free pickup. Book your {brand} rental online.",
+    introText: "Looking for a {brand} rental car in {location}? CarsNK offers a range of {brand} vehicles available for hire in {location} and across Halkidiki. {brand} cars are known for reliability, comfort, and great value — perfect for your Greek holiday. All rentals include comprehensive insurance, air conditioning, and free cancellation. Pick up your {brand} at Thessaloniki Airport or in {location} with free delivery. Whether you need a compact city car or a spacious family vehicle, we have {brand} options to suit every need. Our {brand} fleet is well-maintained and ready for the beautiful roads of northern Greece. Book online and secure the best rate for your trip.",
   },
   ru: {
     h1: "Аренда {brand} в {location}",
-    seoTitle: "Аренда {brand} в {location} | Natali Cars",
-    seoDescription: "Арендуйте {brand} в {location} с Natali Cars. Все доступные модели {brand} с бесплатной подачей. Бронируйте онлайн.",
-    introText: "Ищете {brand} в аренду в {location}? Natali Cars предлагает автомобили {brand} для аренды в {location} и по всему Халкидики. Автомобили {brand} известны надёжностью, комфортом и отличным соотношением цены и качества — идеальный выбор для отпуска в Греции. Все аренды включают полную страховку, кондиционер и бесплатную отмену. Получите {brand} в аэропорту Салоники или в {location} с бесплатной доставкой. Забронируйте онлайн и получите лучшую цену.",
+    seoTitle: "Аренда {brand} в {location} | CarsNK",
+    seoDescription: "Арендуйте {brand} в {location} с CarsNK. Все доступные модели {brand} с бесплатной подачей. Бронируйте онлайн.",
+    introText: "Ищете {brand} в аренду в {location}? CarsNK предлагает автомобили {brand} для аренды в {location} и по всему Халкидики. Автомобили {brand} известны надёжностью, комфортом и отличным соотношением цены и качества — идеальный выбор для отпуска в Греции. Все аренды включают полную страховку, кондиционер и бесплатную отмену. Получите {brand} в аэропорту Салоники или в {location} с бесплатной доставкой. Забронируйте онлайн и получите лучшую цену.",
   },
   uk: {
     h1: "Оренда {brand} у {location}",
-    seoTitle: "Оренда {brand} у {location} | Natali Cars",
-    seoDescription: "Орендуйте {brand} у {location} з Natali Cars. Усі доступні моделі {brand} з безкоштовною подачею. Бронюйте онлайн.",
-    introText: "Шукаєте {brand} в оренду у {location}? Natali Cars пропонує автомобілі {brand} для оренди у {location} та по всьому Халкідіках. Автомобілі {brand} відомі надійністю та комфортом. Усі оренди включають повне страхування, кондиціонер та безкоштовне скасування. Отримайте {brand} в аеропорту Салоніки або у {location} з безкоштовною доставкою.",
+    seoTitle: "Оренда {brand} у {location} | CarsNK",
+    seoDescription: "Орендуйте {brand} у {location} з CarsNK. Усі доступні моделі {brand} з безкоштовною подачею. Бронюйте онлайн.",
+    introText: "Шукаєте {brand} в оренду у {location}? CarsNK пропонує автомобілі {brand} для оренди у {location} та по всьому Халкідіках. Автомобілі {brand} відомі надійністю та комфортом. Усі оренди включають повне страхування, кондиціонер та безкоштовне скасування. Отримайте {brand} в аеропорту Салоніки або у {location} з безкоштовною доставкою.",
   },
   el: {
     h1: "Ενοικίαση {brand} στη {location}",
-    seoTitle: "Ενοικίαση {brand} στη {location} | Natali Cars",
-    seoDescription: "Νοικιάστε {brand} στη {location} με Natali Cars. Όλα τα διαθέσιμα μοντέλα {brand}. Δωρεάν παραλαβή. Κλείστε online.",
-    introText: "Ψάχνετε {brand} για ενοικίαση στη {location}; Η Natali Cars προσφέρει οχήματα {brand} στη {location} και στη Χαλκιδική. Τα αυτοκίνητα {brand} είναι γνωστά για αξιοπιστία και άνεση. Όλες οι ενοικιάσεις περιλαμβάνουν πλήρη ασφάλεια, κλιματισμό και δωρεάν ακύρωση. Παραλάβετε στο αεροδρόμιο ή στη {location}.",
+    seoTitle: "Ενοικίαση {brand} στη {location} | CarsNK",
+    seoDescription: "Νοικιάστε {brand} στη {location} με CarsNK. Όλα τα διαθέσιμα μοντέλα {brand}. Δωρεάν παραλαβή. Κλείστε online.",
+    introText: "Ψάχνετε {brand} για ενοικίαση στη {location}; Η CarsNK προσφέρει οχήματα {brand} στη {location} και στη Χαλκιδική. Τα αυτοκίνητα {brand} είναι γνωστά για αξιοπιστία και άνεση. Όλες οι ενοικιάσεις περιλαμβάνουν πλήρη ασφάλεια, κλιματισμό και δωρεάν ακύρωση. Παραλάβετε στο αεροδρόμιο ή στη {location}.",
   },
 };
 

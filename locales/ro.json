@@ -231,8 +231,8 @@
     "adminLogin": "Autentificare admin"
   },
   "seo": {
-    "title": "Natali Cars - Închirieri auto Halkidiki, Grecia",
-    "description": "Închirieri auto în Halkidiki, Grecia — Natali Cars. Rent a car ieftin fără depozit. Condiții flexibile de preluare și returnare. Cel mai bun serviciu de închiriere auto în Halkidiki, Nea Kallikratia, Kassandra, Sithonia.",
+    "title": "CarsNK - Închirieri auto Halkidiki, Grecia",
+    "description": "Închirieri auto în Halkidiki, Grecia — CarsNK. Rent a car ieftin fără depozit. Condiții flexibile de preluare și returnare. Cel mai bun serviciu de închiriere auto în Halkidiki, Nea Kallikratia, Kassandra, Sithonia.",
     "keywords": "închirieri auto Halkidiki, rent a car Grecia, mașină de închiriat Halkidiki, rent a car ieftin, fără depozit"
   },
   "orderNotification": {
@@ -254,9 +254,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Vă mulțumim pentru rezervare – Natali Cars",
+    "title": "Vă mulțumim pentru rezervare – CarsNK",
     "greeting": "Stimate/Stimată {{CustomerName}},",
-    "thankYouChoose": "Vă mulțumim că ați ales **Natali Cars**.",
+    "thankYouChoose": "Vă mulțumim că ați ales **CarsNK**.",
     "weReceived": "Am primit solicitarea dvs. de rezervare și apreciem încrederea acordată. Echipa noastră analizează detaliile și vă va contacta în curând pentru a confirma rezervarea și a stabili totul conform așteptărilor dvs.",
     "reservationDetails": "**Detalii rezervare:**",
     "orderNumber": "Număr comandă: **#{{orderNumber}}**",
@@ -280,7 +280,7 @@
     "totalAmountLabel": "Sumă totală",
     "excludeCityDeliveryNote": "Fără livrare în oraș.",
     "officialTitle": "Confirmare oficială a rezervării",
-    "officialIntro": "Rezervarea dvs. a fost confirmată oficial de Natali Cars.",
+    "officialIntro": "Rezervarea dvs. a fost confirmată oficial de CarsNK.",
     "officialPdfNote": "Confirmarea oficială în format PDF este atașată acestui e-mail. Păstrați-o pentru preluarea autovehiculului.",
     "generatedAtLabel": "Generat la",
     "customerLabel": "Client",
@@ -300,7 +300,7 @@
     "step3": "3. După confirmare veți primi un mesaj final cu toate informațiile necesare.",
     "questionsParagraph": "Dacă aveți întrebări, răspundeți la acest e-mail — vă ajutăm cu plăcere.",
     "kindRegards": "Cu stimă,",
-    "team": "**Echipa Natali Cars**",
+    "team": "**Echipa CarsNK**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {

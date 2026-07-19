@@ -44,7 +44,7 @@ function MinimalFooter() {
         }}
       >
         <p style={{ margin: "0 0 16px 0", fontSize: "14px" }}>
-          © {new Date().getFullYear()} Natali Cars. All rights reserved.
+          © {new Date().getFullYear()} CarsNK. All rights reserved. · carsnk.gr
         </p>
         <div style={{ display: "flex", justifyContent: "center", gap: "24px", flexWrap: "wrap" }}>
           <a

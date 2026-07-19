@@ -1,4 +1,4 @@
-# Vehicle page SEO structure — Natali Cars
+# Vehicle page SEO structure — CarsNK
 
 The vehicle page is implemented at **`app/[locale]/cars/[slug]/page.js`** (localized route, e.g. `/en/cars/toyota-yaris`, `/bg/cars/toyota-yaris`). Existing UI and behaviour are unchanged; only SEO-related content and structure are documented and aligned with the requested checklist.
 
@@ -34,7 +34,7 @@ No changes were made to SingleCarDisplay, Feed, or booking/gallery/price behavio
 
 **Implementation:** Next.js Metadata API via **`generateMetadata`** and **`buildCarMetadata`** in `services/seo/metadataBuilder.ts`.
 
-- **Title:** e.g. “Rent Toyota Yaris Automatic in Halkidiki | Natali Cars” (from `buildCarSeoText` → `seoTitle`).
+- **Title:** e.g. “Rent Toyota Yaris Automatic in Halkidiki | CarsNK” (from `buildCarSeoText` → `seoTitle`).
 - **Description:** e.g. “Rent Toyota Yaris Automatic with pickup at Thessaloniki Airport (SKG) or Halkidiki. Automatic transmission, fuel efficient and comfortable.” (from `carSeo.seoDescription`).
 - **Canonical:** Absolute URL: `https://natali-cars.com/{locale}/cars/{carSlug}` (from `toAbsoluteUrl(canonicalPath)`; `canonicalPath = \`/${locale}/cars/${encodeURIComponent(carSlug)}\``).
 - **Hreflang:** Set in `buildBaseMetadata` via `getCarAlternates(slug)` and `buildHreflangAlternates` (all locales + x-default).

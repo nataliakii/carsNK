@@ -256,7 +256,7 @@ async function sendTelegramNotification(target, payload, reason, priority, messa
   if (target === "SUPERADMIN") {
     body += formatSuperadminClientContextFooter(payload, messageLocale);
   }
-  let text = `${emoji} ${translatedReason}\n\n${body}`;
+  let text = `${emoji} ${translatedReason}\n\n${body}\n\nCarsNK · https://carsnk.gr`;
   text = withTestOrderTelegramMessage(text, Boolean(payload.fromLocalhost));
   const sent = await sendTelegramDirect(text);
   if (!sent) {

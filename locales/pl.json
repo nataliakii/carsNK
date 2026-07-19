@@ -360,9 +360,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Dziękujemy za rezerwację – Natali Cars",
+    "title": "Dziękujemy za rezerwację – CarsNK",
     "greeting": "Drogi {{CustomerName}},",
-    "thankYouChoose": "Dziękujemy za wybranie **Natali Cars**.",
+    "thankYouChoose": "Dziękujemy za wybranie **CarsNK**.",
     "weReceived": "Otrzymaliśmy Twoją prośbę o rezerwację i naprawdę doceniamy Twoje zaufanie do naszych usług. Nasz zespół sprawdza obecnie szczegóły i wkrótce skontaktuje się z Tobą, aby potwierdzić rezerwację i upewnić się, że wszystko jest zorganizowane zgodnie z Twoimi oczekiwaniami.",
     "reservationDetails": "**Szczegóły rezerwacji:**",
     "orderNumber": "Numer zamówienia: **#{{orderNumber}}**",
@@ -386,7 +386,7 @@
     "totalAmountLabel": "Całkowita kwota",
     "excludeCityDeliveryNote": "Nie obejmuje dostawy do miasta.",
     "officialTitle": "Oficjalne potwierdzenie rezerwacji",
-    "officialIntro": "Twoja rezerwacja została oficjalnie potwierdzona przez Natali Cars.",
+    "officialIntro": "Twoja rezerwacja została oficjalnie potwierdzona przez CarsNK.",
     "officialPdfNote": "Oficjalne potwierdzenie w formacie PDF jest dołączone do tego e-maila. Proszę zachować go do odbioru pojazdu.",
     "generatedAtLabel": "Wygenerowano o godz",
     "customerLabel": "Klient",
@@ -406,7 +406,7 @@
     "step3": "3. Po potwierdzeniu otrzymasz ostateczne potwierdzenie ze wszystkimi niezbędnymi informacjami.",
     "questionsParagraph": "Jeśli w międzyczasie będziesz mieć jakieś pytania, odpowiedz na tego e-maila – chętnie pomożemy Ci osobiście.",
     "kindRegards": "Serdeczne pozdrowienia,",
-    "team": "**Zespół Natali Cars**",
+    "team": "**Zespół CarsNK**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {

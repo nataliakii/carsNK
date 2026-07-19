@@ -36,21 +36,21 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
   en: {
     hub: {
       h1: "Car Rental in Halkidiki and Thessaloniki",
-      seoTitle: "Car Rental in Halkidiki, Thessaloniki and Airport | Natali Cars",
+      seoTitle: "Car Rental in Halkidiki, Thessaloniki and Airport | CarsNK",
       seoDescription:
         "Book a rental car in Halkidiki, Thessaloniki city, and Thessaloniki Airport with localized pickup options, transparent pricing, and direct support.",
       introText:
-        "Natali Cars provides car rental coverage across Halkidiki sub-regions and Thessaloniki access points with one booking flow and location-specific pickup guidance.",
+        "CarsNK provides car rental coverage across Halkidiki sub-regions and Thessaloniki access points with one booking flow and location-specific pickup guidance.",
     },
     car: {
-      seoTitleTemplate: "Rent {carModel} in Halkidiki | Natali Cars",
+      seoTitleTemplate: "Rent {carModel} in Halkidiki | CarsNK",
       seoDescriptionTemplate:
         "Book {carModel} car rental in Halkidiki with pickup at Thessaloniki Airport (SKG) or {locationName}. {transmission} transmission, air conditioning, fuel efficient. Comfortable and easy to drive.",
       carH1Template: "Rent {carModel} in {locationName}",
       introTemplate:
         "The {carModel} is available for rent in {locationName} with flexible pickup and return options. {transmission} transmission, {fuelType} fuel, {seats} seats — a great choice for your trip to Halkidiki.",
       introLongTemplate:
-        "The {carModel} is one of the most convenient cars to rent in {locationName}. This compact and fuel-efficient vehicle is ideal for exploring beaches, villages and scenic coastal roads. With {transmission} transmission and air conditioning, the {carModel} offers comfortable driving both in Thessaloniki city traffic and along the Halkidiki peninsula. Natali Cars offers pickup at Thessaloniki Airport (SKG) and Nea Kallikratia, making it easy to start your trip immediately after arrival. All rentals include comprehensive insurance and free cancellation. Book online to secure the best rate for your dates.",
+        "The {carModel} is one of the most convenient cars to rent in {locationName}. This compact and fuel-efficient vehicle is ideal for exploring beaches, villages and scenic coastal roads. With {transmission} transmission and air conditioning, the {carModel} offers comfortable driving both in Thessaloniki city traffic and along the Halkidiki peninsula. CarsNK offers pickup at Thessaloniki Airport (SKG) and Nea Kallikratia, making it easy to start your trip immediately after arrival. All rentals include comprehensive insurance and free cancellation. Book online to secure the best rate for your dates.",
       specsTitle: "Vehicle Specifications",
       quickSpecsTitle: "At a glance",
       featuresTitle: "Features of {carModel}",
@@ -99,50 +99,50 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
     },
     staticPages: {
       [STATIC_PAGE_KEYS.CONTACTS]: {
-        seoTitle: "Contact Natali Cars | Car Rental Support",
+        seoTitle: "Contact CarsNK | Car Rental Support",
         seoDescription:
-          "Contact Natali Cars for booking questions, pickup planning, and support for Halkidiki and Thessaloniki car rental.",
+          "Contact CarsNK for booking questions, pickup planning, and support for Halkidiki and Thessaloniki car rental.",
       },
       [STATIC_PAGE_KEYS.PRIVACY_POLICY]: {
-        seoTitle: "Privacy Policy | Natali Cars",
+        seoTitle: "Privacy Policy | CarsNK",
         seoDescription:
-          "Read how Natali Cars processes and protects personal data for bookings and customer communication.",
+          "Read how CarsNK processes and protects personal data for bookings and customer communication.",
       },
       [STATIC_PAGE_KEYS.TERMS_OF_SERVICE]: {
-        seoTitle: "Terms of Service | Natali Cars",
+        seoTitle: "Terms of Service | CarsNK",
         seoDescription:
-          "Review Natali Cars service terms, booking obligations, and responsibilities for rental agreements.",
+          "Review CarsNK service terms, booking obligations, and responsibilities for rental agreements.",
       },
       [STATIC_PAGE_KEYS.COOKIE_POLICY]: {
-        seoTitle: "Cookie Policy | Natali Cars",
+        seoTitle: "Cookie Policy | CarsNK",
         seoDescription:
-          "Learn which cookies Natali Cars uses and how they support booking flow, analytics, and website performance.",
+          "Learn which cookies CarsNK uses and how they support booking flow, analytics, and website performance.",
       },
       [STATIC_PAGE_KEYS.RENTAL_TERMS]: {
-        seoTitle: "Rental Terms and Conditions | Natali Cars",
+        seoTitle: "Rental Terms and Conditions | CarsNK",
         seoDescription:
-          "Review Natali Cars rental conditions, insurance scope, and vehicle handover rules before booking.",
+          "Review CarsNK rental conditions, insurance scope, and vehicle handover rules before booking.",
       },
     },
   },
   ru: {
     hub: {
       h1: "Прокат авто в Халкидиках и Салониках",
-      seoTitle: "Прокат авто в Халкидиках, Салониках и аэропорту | Natali Cars",
+      seoTitle: "Прокат авто в Халкидиках, Салониках и аэропорту | CarsNK",
       seoDescription:
         "Арендуйте автомобиль в Халкидиках, Салониках и аэропорту Салоники с локальными точками выдачи и прозрачными условиями.",
       introText:
-        "Natali Cars покрывает основные зоны Халкидик и Салоник через единую систему бронирования и локальные SEO-страницы.",
+        "CarsNK покрывает основные зоны Халкидик и Салоник через единую систему бронирования и локальные SEO-страницы.",
     },
     car: {
-      seoTitleTemplate: "Аренда {carModel} в Халкидиках | Natali Cars",
+      seoTitleTemplate: "Аренда {carModel} в Халкидиках | CarsNK",
       seoDescriptionTemplate:
         "Забронируйте аренду {carModel} в Халкидиках с подачей в аэропорту Салоников (SKG) или {locationName}. {transmission}, кондиционер, экономичный расход.",
       carH1Template: "Аренда {carModel} в {locationName}",
       introTemplate:
         "{carModel} доступен для аренды в {locationName} с гибкими условиями выдачи и возврата. КПП {transmission}, топливо {fuelType}, {seats} мест — отличный выбор для поездки в Халкидики.",
       introLongTemplate:
-        "{carModel} — один из самых удобных автомобилей для аренды в {locationName}. Компактный и экономичный, он идеален для поездок по пляжам, деревням и живописным дорогам побережья. С {transmission} и кондиционером {carModel} обеспечивает комфортную езду и в городе Салоники, и по полуострову Халкидики. Natali Cars предлагает подачу в аэропорту Салоников (SKG) и в Неа Каликратии. В стоимость входят страховка и бесплатная отмена. Забронируйте онлайн по лучшей цене.",
+        "{carModel} — один из самых удобных автомобилей для аренды в {locationName}. Компактный и экономичный, он идеален для поездок по пляжам, деревням и живописным дорогам побережья. С {transmission} и кондиционером {carModel} обеспечивает комфортную езду и в городе Салоники, и по полуострову Халкидики. CarsNK предлагает подачу в аэропорту Салоников (SKG) и в Неа Каликратии. В стоимость входят страховка и бесплатная отмена. Забронируйте онлайн по лучшей цене.",
       specsTitle: "Характеристики автомобиля",
       quickSpecsTitle: "Кратко",
       featuresTitle: "Особенности {carModel}",
@@ -191,50 +191,50 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
     },
     staticPages: {
       [STATIC_PAGE_KEYS.CONTACTS]: {
-        seoTitle: "Контакты Natali Cars | Поддержка проката авто",
+        seoTitle: "Контакты CarsNK | Поддержка проката авто",
         seoDescription:
-          "Свяжитесь с Natali Cars по вопросам бронирования, выдачи автомобиля и поддержки по Халкидикам и Салоникам.",
+          "Свяжитесь с CarsNK по вопросам бронирования, выдачи автомобиля и поддержки по Халкидикам и Салоникам.",
       },
       [STATIC_PAGE_KEYS.PRIVACY_POLICY]: {
-        seoTitle: "Политика конфиденциальности | Natali Cars",
+        seoTitle: "Политика конфиденциальности | CarsNK",
         seoDescription:
-          "Узнайте, как Natali Cars обрабатывает персональные данные при бронировании и клиентской коммуникации.",
+          "Узнайте, как CarsNK обрабатывает персональные данные при бронировании и клиентской коммуникации.",
       },
       [STATIC_PAGE_KEYS.TERMS_OF_SERVICE]: {
-        seoTitle: "Условия сервиса | Natali Cars",
+        seoTitle: "Условия сервиса | CarsNK",
         seoDescription:
-          "Ознакомьтесь с условиями сервиса Natali Cars и обязанностями сторон при аренде автомобиля.",
+          "Ознакомьтесь с условиями сервиса CarsNK и обязанностями сторон при аренде автомобиля.",
       },
       [STATIC_PAGE_KEYS.COOKIE_POLICY]: {
-        seoTitle: "Политика cookies | Natali Cars",
+        seoTitle: "Политика cookies | CarsNK",
         seoDescription:
-          "Узнайте, какие cookies используются на сайте Natali Cars и для каких задач они нужны.",
+          "Узнайте, какие cookies используются на сайте CarsNK и для каких задач они нужны.",
       },
       [STATIC_PAGE_KEYS.RENTAL_TERMS]: {
-        seoTitle: "Условия аренды | Natali Cars",
+        seoTitle: "Условия аренды | CarsNK",
         seoDescription:
-          "Проверьте правила аренды, страховки и передачи автомобиля перед бронированием в Natali Cars.",
+          "Проверьте правила аренды, страховки и передачи автомобиля перед бронированием в CarsNK.",
       },
     },
   },
   uk: {
     hub: {
       h1: "Оренда авто в Халкідіках і Салоніках",
-      seoTitle: "Оренда авто в Халкідіках, Салоніках і аеропорту | Natali Cars",
+      seoTitle: "Оренда авто в Халкідіках, Салоніках і аеропорту | CarsNK",
       seoDescription:
         "Орендуйте авто в Халкідіках, Салоніках і аеропорту Салоніки з локальними точками отримання та прозорими умовами.",
       introText:
-        "Natali Cars покриває ключові локації Халкідік та Салонік через єдину систему бронювання і локальні SEO-сторінки.",
+        "CarsNK покриває ключові локації Халкідік та Салонік через єдину систему бронювання і локальні SEO-сторінки.",
     },
     car: {
-      seoTitleTemplate: "Оренда {carModel} в Халкідіках | Natali Cars",
+      seoTitleTemplate: "Оренда {carModel} в Халкідіках | CarsNK",
       seoDescriptionTemplate:
         "Забронюйте оренду {carModel} в Халкідіках з подачею в аеропорту Салонік (SKG) або {locationName}. {transmission}, кондиціонер, економний витрата.",
       carH1Template: "Оренда {carModel} у {locationName}",
       introTemplate:
         "{carModel} доступний для оренди в {locationName} з гнучкими умовами видачі та повернення. КПП {transmission}, паливо {fuelType}, {seats} місць — чудовий вибір для подорожі до Халкідік.",
       introLongTemplate:
-        "{carModel} — один із найзручніших автомобілів для оренди у {locationName}. Компактний та економний, він ідеальний для поїздок узбережжям, селами та мальовничими дорогами. З {transmission} та кондиціонером {carModel} забезпечує комфортну їзду в місті Салоніки та по Халкідіках. Natali Cars пропонує подачу в аеропорту Салонік (SKG) та в Неа Калікратії. У вартість входить страховка та безкоштовне скасування.",
+        "{carModel} — один із найзручніших автомобілів для оренди у {locationName}. Компактний та економний, він ідеальний для поїздок узбережжям, селами та мальовничими дорогами. З {transmission} та кондиціонером {carModel} забезпечує комфортну їзду в місті Салоніки та по Халкідіках. CarsNK пропонує подачу в аеропорту Салонік (SKG) та в Неа Калікратії. У вартість входить страховка та безкоштовне скасування.",
       specsTitle: "Характеристики автомобіля",
       quickSpecsTitle: "Коротко",
       featuresTitle: "Особливості {carModel}",
@@ -283,50 +283,50 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
     },
     staticPages: {
       [STATIC_PAGE_KEYS.CONTACTS]: {
-        seoTitle: "Контакти Natali Cars | Підтримка оренди авто",
+        seoTitle: "Контакти CarsNK | Підтримка оренди авто",
         seoDescription:
-          "Звертайтесь до Natali Cars щодо бронювання, отримання авто та підтримки у Халкідіках і Салоніках.",
+          "Звертайтесь до CarsNK щодо бронювання, отримання авто та підтримки у Халкідіках і Салоніках.",
       },
       [STATIC_PAGE_KEYS.PRIVACY_POLICY]: {
-        seoTitle: "Політика конфіденційності | Natali Cars",
+        seoTitle: "Політика конфіденційності | CarsNK",
         seoDescription:
-          "Дізнайтеся, як Natali Cars обробляє персональні дані під час бронювання і взаємодії з клієнтами.",
+          "Дізнайтеся, як CarsNK обробляє персональні дані під час бронювання і взаємодії з клієнтами.",
       },
       [STATIC_PAGE_KEYS.TERMS_OF_SERVICE]: {
-        seoTitle: "Умови сервісу | Natali Cars",
+        seoTitle: "Умови сервісу | CarsNK",
         seoDescription:
-          "Ознайомтесь з умовами сервісу Natali Cars та відповідальністю сторін під час оренди авто.",
+          "Ознайомтесь з умовами сервісу CarsNK та відповідальністю сторін під час оренди авто.",
       },
       [STATIC_PAGE_KEYS.COOKIE_POLICY]: {
-        seoTitle: "Політика cookies | Natali Cars",
+        seoTitle: "Політика cookies | CarsNK",
         seoDescription:
-          "Дізнайтеся, які cookies використовує Natali Cars і як вони впливають на роботу сайту.",
+          "Дізнайтеся, які cookies використовує CarsNK і як вони впливають на роботу сайту.",
       },
       [STATIC_PAGE_KEYS.RENTAL_TERMS]: {
-        seoTitle: "Умови оренди | Natali Cars",
+        seoTitle: "Умови оренди | CarsNK",
         seoDescription:
-          "Перегляньте умови оренди, страхування та передачі авто перед бронюванням у Natali Cars.",
+          "Перегляньте умови оренди, страхування та передачі авто перед бронюванням у CarsNK.",
       },
     },
   },
   el: {
     hub: {
       h1: "Ενοικίαση αυτοκινήτου σε Χαλκιδική και Θεσσαλονίκη",
-      seoTitle: "Ενοικίαση αυτοκινήτου σε Χαλκιδική, Θεσσαλονίκη και αεροδρόμιο | Natali Cars",
+      seoTitle: "Ενοικίαση αυτοκινήτου σε Χαλκιδική, Θεσσαλονίκη και αεροδρόμιο | CarsNK",
       seoDescription:
         "Κλείστε αυτοκίνητο στη Χαλκιδική, στη Θεσσαλονίκη και στο αεροδρόμιο με τοπικά σημεία παραλαβής και διαφανείς όρους.",
       introText:
-        "Η Natali Cars καλύπτει βασικές τοποθεσίες Χαλκιδικής και Θεσσαλονίκης με ενιαία ροή κράτησης και τοπικές SEO σελίδες.",
+        "Η CarsNK καλύπτει βασικές τοποθεσίες Χαλκιδικής και Θεσσαλονίκης με ενιαία ροή κράτησης και τοπικές SEO σελίδες.",
     },
     car: {
-      seoTitleTemplate: "Ενοικίαση {carModel} στη Χαλκιδική | Natali Cars",
+      seoTitleTemplate: "Ενοικίαση {carModel} στη Χαλκιδική | CarsNK",
       seoDescriptionTemplate:
         "Κλείστε ενοικίαση {carModel} στη Χαλκιδική με παραλαβή στο αεροδρόμιο Θεσσαλονίκης (SKG) ή στη {locationName}. {transmission}, κλιματισμός, οικονομία καυσίμου.",
       carH1Template: "Ενοικίαση {carModel} στη {locationName}",
       introTemplate:
         "Το {carModel} είναι διαθέσιμο προς ενοικίαση στη {locationName} με ευέλικτες επιλογές παραλαβής και επιστροφής. Κιβώτιο {transmission}, καύσιμο {fuelType}, {seats} θέσεις — ιδανική επιλογή για τη Χαλκιδική.",
       introLongTemplate:
-        "Το {carModel} είναι ένα από τα πιο βολικά αυτοκίνητα για ενοικίαση στη {locationName}. Κομψό και οικονομικό, ιδανικό για παραλίες, χωριά και πανοραμικούς δρόμους. Με κιβώτιο {transmission} και κλιματισμό, το {carModel} προσφέρει άνετη οδήγηση τόσο στην πόλη της Θεσσαλονίκης όσο και στη Χαλκιδική. Η Natali Cars προσφέρει παραλαβή στο αεροδρόμιο Θεσσαλονίκης (SKG) και στη Νέα Καλλικράτεια. Όλες οι ενοικιάσεις περιλαμβάνουν ασφάλιση και δωρεάν ακύρωση.",
+        "Το {carModel} είναι ένα από τα πιο βολικά αυτοκίνητα για ενοικίαση στη {locationName}. Κομψό και οικονομικό, ιδανικό για παραλίες, χωριά και πανοραμικούς δρόμους. Με κιβώτιο {transmission} και κλιματισμό, το {carModel} προσφέρει άνετη οδήγηση τόσο στην πόλη της Θεσσαλονίκης όσο και στη Χαλκιδική. Η CarsNK προσφέρει παραλαβή στο αεροδρόμιο Θεσσαλονίκης (SKG) και στη Νέα Καλλικράτεια. Όλες οι ενοικιάσεις περιλαμβάνουν ασφάλιση και δωρεάν ακύρωση.",
       specsTitle: "Προδιαγραφές οχήματος",
       quickSpecsTitle: "Σύντομα",
       featuresTitle: "Χαρακτηριστικά του {carModel}",
@@ -375,27 +375,27 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
     },
     staticPages: {
       [STATIC_PAGE_KEYS.CONTACTS]: {
-        seoTitle: "Επικοινωνία Natali Cars | Υποστήριξη ενοικίασης",
+        seoTitle: "Επικοινωνία CarsNK | Υποστήριξη ενοικίασης",
         seoDescription:
-          "Επικοινωνήστε με τη Natali Cars για κρατήσεις, παραλαβή οχήματος και υποστήριξη σε Χαλκιδική και Θεσσαλονίκη.",
+          "Επικοινωνήστε με τη CarsNK για κρατήσεις, παραλαβή οχήματος και υποστήριξη σε Χαλκιδική και Θεσσαλονίκη.",
       },
       [STATIC_PAGE_KEYS.PRIVACY_POLICY]: {
-        seoTitle: "Πολιτική Απορρήτου | Natali Cars",
+        seoTitle: "Πολιτική Απορρήτου | CarsNK",
         seoDescription:
-          "Μάθετε πώς η Natali Cars διαχειρίζεται προσωπικά δεδομένα για κρατήσεις και επικοινωνία πελατών.",
+          "Μάθετε πώς η CarsNK διαχειρίζεται προσωπικά δεδομένα για κρατήσεις και επικοινωνία πελατών.",
       },
       [STATIC_PAGE_KEYS.TERMS_OF_SERVICE]: {
-        seoTitle: "Όροι Υπηρεσίας | Natali Cars",
+        seoTitle: "Όροι Υπηρεσίας | CarsNK",
         seoDescription:
-          "Διαβάστε τους όρους υπηρεσίας της Natali Cars και τις ευθύνες των μερών στις μισθώσεις.",
+          "Διαβάστε τους όρους υπηρεσίας της CarsNK και τις ευθύνες των μερών στις μισθώσεις.",
       },
       [STATIC_PAGE_KEYS.COOKIE_POLICY]: {
-        seoTitle: "Πολιτική Cookies | Natali Cars",
+        seoTitle: "Πολιτική Cookies | CarsNK",
         seoDescription:
-          "Μάθετε ποια cookies χρησιμοποιεί η Natali Cars και γιατί είναι απαραίτητα για τη λειτουργία του site.",
+          "Μάθετε ποια cookies χρησιμοποιεί η CarsNK και γιατί είναι απαραίτητα για τη λειτουργία του site.",
       },
       [STATIC_PAGE_KEYS.RENTAL_TERMS]: {
-        seoTitle: "Όροι Ενοικίασης | Natali Cars",
+        seoTitle: "Όροι Ενοικίασης | CarsNK",
         seoDescription:
           "Διαβάστε όρους ενοικίασης, κάλυψη ασφάλισης και διαδικασία παράδοσης οχήματος πριν την κράτηση.",
       },
@@ -404,21 +404,21 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
   bg: {
     hub: {
       h1: "Коли под наем в Халкидики и Солун",
-      seoTitle: "Коли под наем в Халкидики, Солун и летището | Natali Cars",
+      seoTitle: "Коли под наем в Халкидики, Солун и летището | CarsNK",
       seoDescription:
         "Резервирайте кола под наем в Халкидики, град Солун и летище Солун с удобни места за получаване, прозрачни цени и директна поддръжка.",
       introText:
-        "Natali Cars предлага коли под наем в основните райони на Халкидики и Солун чрез една система за резервации и локализирани SEO страници.",
+        "CarsNK предлага коли под наем в основните райони на Халкидики и Солун чрез една система за резервации и локализирани SEO страници.",
     },
     car: {
-      seoTitleTemplate: "Наем на {carModel} в Халкидики | Natali Cars",
+      seoTitleTemplate: "Наем на {carModel} в Халкидики | CarsNK",
       seoDescriptionTemplate:
         "Резервирайте {carModel} в Халкидики с получаване на летище Солун (SKG) или {locationName}. {transmission}, климатик, икономичен разход.",
       carH1Template: "Наем на {carModel} в {locationName}",
       introTemplate:
         "{carModel} е на разположение за наем в {locationName} с гъвкави опции за получаване и връщане. Скоростна кутия {transmission}, гориво {fuelType}, {seats} места — отличен избор за Халкидики.",
       introLongTemplate:
-        "{carModel} е един от най-удобните автомобили за наем в {locationName}. Компактен и икономичен, идеален за плажове, села и сценични пътища. С {transmission} и климатик {carModel} предлага комфортно шофиране в Солун и по полуостров Халкидики. Natali Cars предлага получаване на летище Солун (SKG) и в Неа Каликратия. Всички наеми включват застраховка и безплатна отмяна.",
+        "{carModel} е един от най-удобните автомобили за наем в {locationName}. Компактен и икономичен, идеален за плажове, села и сценични пътища. С {transmission} и климатик {carModel} предлага комфортно шофиране в Солун и по полуостров Халкидики. CarsNK предлага получаване на летище Солун (SKG) и в Неа Каликратия. Всички наеми включват застраховка и безплатна отмяна.",
       specsTitle: "Спецификации на автомобила",
       quickSpecsTitle: "Накратко",
       featuresTitle: "Характеристики на {carModel}",
@@ -467,29 +467,29 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
     },
     staticPages: {
       [STATIC_PAGE_KEYS.CONTACTS]: {
-        seoTitle: "Контакти Natali Cars | Поддръжка за коли под наем",
+        seoTitle: "Контакти CarsNK | Поддръжка за коли под наем",
         seoDescription:
-          "Свържете се с Natali Cars за въпроси относно резервации, получаване на автомобил и поддръжка за коли под наем в Халкидики и Солун.",
+          "Свържете се с CarsNK за въпроси относно резервации, получаване на автомобил и поддръжка за коли под наем в Халкидики и Солун.",
       },
       [STATIC_PAGE_KEYS.PRIVACY_POLICY]: {
-        seoTitle: "Политика за поверителност | Natali Cars",
+        seoTitle: "Политика за поверителност | CarsNK",
         seoDescription:
-          "Вижте как Natali Cars обработва и защитава личните данни при резервации и комуникация с клиенти.",
+          "Вижте как CarsNK обработва и защитава личните данни при резервации и комуникация с клиенти.",
       },
       [STATIC_PAGE_KEYS.TERMS_OF_SERVICE]: {
-        seoTitle: "Условия за ползване | Natali Cars",
+        seoTitle: "Условия за ползване | CarsNK",
         seoDescription:
-          "Прегледайте условията за ползване на Natali Cars, задълженията при резервация и отговорностите по договора за наем.",
+          "Прегледайте условията за ползване на CarsNK, задълженията при резервация и отговорностите по договора за наем.",
       },
       [STATIC_PAGE_KEYS.COOKIE_POLICY]: {
-        seoTitle: "Политика за бисквитки | Natali Cars",
+        seoTitle: "Политика за бисквитки | CarsNK",
         seoDescription:
-          "Научете какви бисквитки използва Natali Cars и как те подпомагат резервациите, анализа и работата на сайта.",
+          "Научете какви бисквитки използва CarsNK и как те подпомагат резервациите, анализа и работата на сайта.",
       },
       [STATIC_PAGE_KEYS.RENTAL_TERMS]: {
-        seoTitle: "Условия за наем | Natali Cars",
+        seoTitle: "Условия за наем | CarsNK",
         seoDescription:
-          "Прегледайте условията за наем на Natali Cars, застрахователното покритие и правилата за предаване на автомобила преди резервация.",
+          "Прегледайте условията за наем на CarsNK, застрахователното покритие и правилата за предаване на автомобила преди резервация.",
       },
     },
   },
@@ -597,9 +597,9 @@ const locationContentFallbackTemplates: Partial<
   ru: {
     h1: "\u041F\u0440\u043E\u043A\u0430\u0442 \u0430\u0432\u0442\u043E \u0432 {locationName}",
     seoTitle:
-      "\u041F\u0440\u043E\u043A\u0430\u0442 \u0430\u0432\u0442\u043E \u0432 {locationName} | Natali Cars",
+      "\u041F\u0440\u043E\u043A\u0430\u0442 \u0430\u0432\u0442\u043E \u0432 {locationName} | CarsNK",
     seoDescription:
-      "\u0410\u0440\u0435\u043D\u0434\u0443\u0439\u0442\u0435 \u0430\u0432\u0442\u043E\u043C\u043E\u0431\u0438\u043B\u044C \u0432 {locationName} \u0441 \u0443\u0434\u043E\u0431\u043D\u043E\u0439 \u0432\u044B\u0434\u0430\u0447\u0435\u0439 \u0438 \u043F\u0440\u044F\u043C\u043E\u0439 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u043E\u0439 Natali Cars.",
+      "\u0410\u0440\u0435\u043D\u0434\u0443\u0439\u0442\u0435 \u0430\u0432\u0442\u043E\u043C\u043E\u0431\u0438\u043B\u044C \u0432 {locationName} \u0441 \u0443\u0434\u043E\u0431\u043D\u043E\u0439 \u0432\u044B\u0434\u0430\u0447\u0435\u0439 \u0438 \u043F\u0440\u044F\u043C\u043E\u0439 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u043E\u0439 CarsNK.",
     introText:
       "\u0421\u0442\u0440\u0430\u043D\u0438\u0446\u0430 {locationName} \u043F\u043E\u043C\u043E\u0433\u0430\u0435\u0442 \u043E\u0440\u0433\u0430\u043D\u0438\u0437\u043E\u0432\u0430\u0442\u044C \u043F\u0440\u043E\u043A\u0430\u0442 \u0430\u0432\u0442\u043E \u0441 \u0432\u044B\u0434\u0430\u0447\u0435\u0439 \u0443 \u043C\u0435\u0441\u0442\u0430 \u043F\u0440\u043E\u0436\u0438\u0432\u0430\u043D\u0438\u044F \u0438\u043B\u0438 \u0432 \u0433\u043E\u0440\u043E\u0434\u0435.",
     pickupLocation:
@@ -613,9 +613,9 @@ const locationContentFallbackTemplates: Partial<
   },
   uk: {
     h1: "Оренда авто у {locationName}",
-    seoTitle: "Оренда авто у {locationName} | Natali Cars",
+    seoTitle: "Оренда авто у {locationName} | CarsNK",
     seoDescription:
-      "Орендуйте авто у {locationName} зі зручною видачею та прямою підтримкою від Natali Cars.",
+      "Орендуйте авто у {locationName} зі зручною видачею та прямою підтримкою від CarsNK.",
     introText:
       "Сторінка {locationName} допомагає організувати оренду авто з отриманням біля місця проживання або у місті.",
     pickupLocation: "Точка отримання у {locationName}",
@@ -627,9 +627,9 @@ const locationContentFallbackTemplates: Partial<
   },
   el: {
     h1: "Ενοικίαση αυτοκινήτου στο {locationName}",
-    seoTitle: "Ενοικίαση αυτοκινήτου στο {locationName} | Natali Cars",
+    seoTitle: "Ενοικίαση αυτοκινήτου στο {locationName} | CarsNK",
     seoDescription:
-      "Νοικιάστε αυτοκίνητο στο {locationName} με εύκολη παραλαβή και άμεση υποστήριξη από τη Natali Cars.",
+      "Νοικιάστε αυτοκίνητο στο {locationName} με εύκολη παραλαβή και άμεση υποστήριξη από τη CarsNK.",
     introText:
       "Η σελίδα του {locationName} σας βοηθά να οργανώσετε ενοικίαση αυτοκινήτου με παραλαβή στο κατάλυμα ή μέσα στην περιοχή.",
     pickupLocation: "Σημείο παραλαβής στο {locationName}",
@@ -641,9 +641,9 @@ const locationContentFallbackTemplates: Partial<
   },
   de: {
     h1: "Mietwagen in {locationName}",
-    seoTitle: "Mietwagen in {locationName} | Natali Cars",
+    seoTitle: "Mietwagen in {locationName} | CarsNK",
     seoDescription:
-      "Mieten Sie ein Auto in {locationName} mit bequemer Uebergabe und direktem Support von Natali Cars.",
+      "Mieten Sie ein Auto in {locationName} mit bequemer Uebergabe und direktem Support von CarsNK.",
     introText:
       "Die Seite fuer {locationName} hilft Ihnen, einen Mietwagen mit Uebergabe an Ihrer Unterkunft oder im Ort zu organisieren.",
     pickupLocation: "Abholpunkt in {locationName}",
@@ -655,9 +655,9 @@ const locationContentFallbackTemplates: Partial<
   },
   bg: {
     h1: "Коли под наем в {locationName}",
-    seoTitle: "Коли под наем в {locationName} | Natali Cars",
+    seoTitle: "Коли под наем в {locationName} | CarsNK",
     seoDescription:
-      "Наемете автомобил в {locationName} с удобно получаване и директна поддръжка от Natali Cars.",
+      "Наемете автомобил в {locationName} с удобно получаване и директна поддръжка от CarsNK.",
     introText:
       "Страницата за {locationName} ви помага да организирате кола под наем с получаване до мястото за настаняване или в населеното място.",
     pickupLocation: "Точка за получаване в {locationName}",
@@ -669,9 +669,9 @@ const locationContentFallbackTemplates: Partial<
   },
   ro: {
     h1: "Inchirieri auto in {locationName}",
-    seoTitle: "Inchirieri auto in {locationName} | Natali Cars",
+    seoTitle: "Inchirieri auto in {locationName} | CarsNK",
     seoDescription:
-      "Inchiriati o masina in {locationName} cu predare convenabila si suport direct de la Natali Cars.",
+      "Inchiriati o masina in {locationName} cu predare convenabila si suport direct de la CarsNK.",
     introText:
       "Pagina pentru {locationName} va ajuta sa organizati inchirierea unei masini cu predare la cazare sau in localitate.",
     pickupLocation: "Punct de preluare in {locationName}",
@@ -683,9 +683,9 @@ const locationContentFallbackTemplates: Partial<
   },
   sr: {
     h1: "Rent a car u {locationName}",
-    seoTitle: "Rent a car u {locationName} | Natali Cars",
+    seoTitle: "Rent a car u {locationName} | CarsNK",
     seoDescription:
-      "Iznajmite automobil u {locationName} uz lako preuzimanje i direktnu podrsku kompanije Natali Cars.",
+      "Iznajmite automobil u {locationName} uz lako preuzimanje i direktnu podrsku kompanije CarsNK.",
     introText:
       "Stranica za {locationName} pomaze da organizujete rent a car sa preuzimanjem kod smestaja ili u mestu.",
     pickupLocation: "Mesto preuzimanja u {locationName}",
@@ -704,7 +704,7 @@ const locationIntroTranslationTemplates: Partial<
     [LOCATION_CONTENT_KEYS.THESSALONIKI]:
       "Эта страница локации ориентирована на спрос в Thessaloniki и помогает быстро организовать выдачу автомобиля для поездок по городу, деловых визитов и трансферов в Halkidiki.",
     [LOCATION_CONTENT_KEYS.HALKIDIKI]:
-      "Халкидики — один из самых популярных курортных регионов Греции, где аренда авто особенно удобна для поездок между пляжами, поселками и полуостровами Кассандра и Ситония. Natali Cars поможет быстро организовать прокат авто в Халкидиках для комфортного отдыха и удобного передвижения по региону.",
+      "Халкидики — один из самых популярных курортных регионов Греции, где аренда авто особенно удобна для поездок между пляжами, поселками и полуостровами Кассандра и Ситония. CarsNK поможет быстро организовать прокат авто в Халкидиках для комфортного отдыха и удобного передвижения по региону.",
     [LOCATION_CONTENT_KEYS.NEA_KALLIKRATIA]:
       "Неа Калликратия — популярный прибрежный город на пути в Халкидики.",
     [LOCATION_CONTENT_KEYS.SITHONIA]:
@@ -754,7 +754,7 @@ const locationIntroTranslationTemplates: Partial<
     [LOCATION_CONTENT_KEYS.THESSALONIKI]:
       "Ця сторінка локації орієнтована на попит у Thessaloniki та допомагає швидко організувати видачу авто для міських поїздок, ділових візитів і трансферів до Halkidiki.",
     [LOCATION_CONTENT_KEYS.HALKIDIKI]:
-      "Халкідіки — один із найпопулярніших курортних регіонів Греції, де оренда авто особливо зручна для поїздок між пляжами, селищами та півостровами Кассандра і Ситонія. Natali Cars допоможе швидко організувати прокат авто в Халкідіках для комфортного відпочинку та зручного пересування регіоном.",
+      "Халкідіки — один із найпопулярніших курортних регіонів Греції, де оренда авто особливо зручна для поїздок між пляжами, селищами та півостровами Кассандра і Ситонія. CarsNK допоможе швидко організувати прокат авто в Халкідіках для комфортного відпочинку та зручного пересування регіоном.",
     [LOCATION_CONTENT_KEYS.NEA_KALLIKRATIA]:
       "Неа Каллікратія — популярне прибережне місто на шляху в Халкідіки.",
     [LOCATION_CONTENT_KEYS.SITHONIA]:
@@ -804,7 +804,7 @@ const locationIntroTranslationTemplates: Partial<
     [LOCATION_CONTENT_KEYS.THESSALONIKI]:
       "Αυτή η σελίδα τοποθεσίας απευθύνεται στη ζήτηση για Thessaloniki και συνδέει τους ταξιδιώτες με γρήγορη παραλαβή αυτοκινήτου για διαμονή στην πόλη, επαγγελματικά ταξίδια και μεταφορές προς Halkidiki.",
     [LOCATION_CONTENT_KEYS.HALKIDIKI]:
-      "Η Χαλκιδική είναι μία από τις πιο δημοφιλείς τουριστικές περιοχές της Ελλάδας, όπου η ενοικίαση αυτοκινήτου είναι ιδιαίτερα βολική για διαδρομές ανάμεσα σε παραλίες, οικισμούς και τις χερσονήσους Κασσάνδρα και Σιθωνία. Η Natali Cars σας βοηθά να οργανώσετε γρήγορα ενοικίαση αυτοκινήτου στη Χαλκιδική για άνετες διακοπές και εύκολες μετακινήσεις σε όλη την περιοχή.",
+      "Η Χαλκιδική είναι μία από τις πιο δημοφιλείς τουριστικές περιοχές της Ελλάδας, όπου η ενοικίαση αυτοκινήτου είναι ιδιαίτερα βολική για διαδρομές ανάμεσα σε παραλίες, οικισμούς και τις χερσονήσους Κασσάνδρα και Σιθωνία. Η CarsNK σας βοηθά να οργανώσετε γρήγορα ενοικίαση αυτοκινήτου στη Χαλκιδική για άνετες διακοπές και εύκολες μετακινήσεις σε όλη την περιοχή.",
     [LOCATION_CONTENT_KEYS.NEA_KALLIKRATIA]:
       "Η Νέα Καλλικράτεια είναι δημοφιλής παραθαλάσσια πόλη στο δρόμο προς τη Χαλκιδική.",
     [LOCATION_CONTENT_KEYS.SITHONIA]:
@@ -854,7 +854,7 @@ const locationIntroTranslationTemplates: Partial<
     [LOCATION_CONTENT_KEYS.THESSALONIKI]:
       "Diese Standortseite richtet sich an die Nachfrage in Thessaloniki und verbindet Reisende mit schneller Fahrzeuguebergabe fuer Stadtaufenthalte, Geschaeftsreisen und Transfers nach Halkidiki.",
     [LOCATION_CONTENT_KEYS.HALKIDIKI]:
-      "Die Chalkidiki ist eine der beliebtesten Ferienregionen Griechenlands, in der ein Mietwagen besonders praktisch fuer Fahrten zwischen Straenden, Orten und den Halbinseln Kassandra und Sithonia ist. Natali Cars hilft Ihnen, die Autovermietung in Chalkidiki schnell fuer einen komfortablen Urlaub und bequeme Fahrten in der Region zu organisieren.",
+      "Die Chalkidiki ist eine der beliebtesten Ferienregionen Griechenlands, in der ein Mietwagen besonders praktisch fuer Fahrten zwischen Straenden, Orten und den Halbinseln Kassandra und Sithonia ist. CarsNK hilft Ihnen, die Autovermietung in Chalkidiki schnell fuer einen komfortablen Urlaub und bequeme Fahrten in der Region zu organisieren.",
     [LOCATION_CONTENT_KEYS.NEA_KALLIKRATIA]:
       "Nea Kallikratia ist ein beliebter Küstenort auf dem Weg in die Chalkidiki.",
     [LOCATION_CONTENT_KEYS.SITHONIA]:
@@ -904,7 +904,7 @@ const locationIntroTranslationTemplates: Partial<
     [LOCATION_CONTENT_KEYS.THESSALONIKI]:
       "Тази страница за локацията е насочена към търсенето в Thessaloniki и помага за бързо получаване на автомобил за престой в града, бизнес пътувания и трансфери до Halkidiki.",
     [LOCATION_CONTENT_KEYS.HALKIDIKI]:
-      "Халкидики е един от най-популярните курортни региони в Гърция, където кола под наем е особено удобна за пътувания между плажове, селища и полуостровите Касандра и Ситония. Natali Cars ще ви помогне бързо да организирате наем на кола в Халкидики за комфортна почивка и удобно придвижване из региона.",
+      "Халкидики е един от най-популярните курортни региони в Гърция, където кола под наем е особено удобна за пътувания между плажове, селища и полуостровите Касандра и Ситония. CarsNK ще ви помогне бързо да организирате наем на кола в Халкидики за комфортна почивка и удобно придвижване из региона.",
     [LOCATION_CONTENT_KEYS.NEA_KALLIKRATIA]:
       "Неа Каликратия е популярен крайбрежен град по пътя към Халкидики.",
     [LOCATION_CONTENT_KEYS.SITHONIA]:
@@ -954,7 +954,7 @@ const locationIntroTranslationTemplates: Partial<
     [LOCATION_CONTENT_KEYS.THESSALONIKI]:
       "Aceasta pagina de locatie vizeaza cererea din Thessaloniki si ii conecteaza pe calatori cu preluare rapida pentru sejururi in oras, calatorii de afaceri si transferuri spre Halkidiki.",
     [LOCATION_CONTENT_KEYS.HALKIDIKI]:
-      "Halkidiki este una dintre cele mai populare regiuni de vacanta din Grecia, unde inchirierea unei masini este deosebit de convenabila pentru drumuri intre plaje, localitati si peninsulele Kassandra si Sithonia. Natali Cars va ajuta sa organizati rapid inchiriere auto in Halkidiki pentru un sejur confortabil si deplasari usoare prin regiune.",
+      "Halkidiki este una dintre cele mai populare regiuni de vacanta din Grecia, unde inchirierea unei masini este deosebit de convenabila pentru drumuri intre plaje, localitati si peninsulele Kassandra si Sithonia. CarsNK va ajuta sa organizati rapid inchiriere auto in Halkidiki pentru un sejur confortabil si deplasari usoare prin regiune.",
     [LOCATION_CONTENT_KEYS.NEA_KALLIKRATIA]:
       "Nea Kallikratia este un oras litoral popular pe drumul spre Halkidiki.",
     [LOCATION_CONTENT_KEYS.SITHONIA]:
@@ -1004,7 +1004,7 @@ const locationIntroTranslationTemplates: Partial<
     [LOCATION_CONTENT_KEYS.THESSALONIKI]:
       "Ova stranica lokacije cilja potraznju u Thessaloniki i povezuje putnike sa brzim preuzimanjem automobila za boravak u gradu, poslovna putovanja i transfere ka Halkidiki.",
     [LOCATION_CONTENT_KEYS.HALKIDIKI]:
-      "Халкидики је један од најпопуларнијих летовалишних региона у Грчкој, где је изнајмљивање аута посебно практично за вожњу између плажа, места и полуострва Касандра и Ситонија. Natali Cars вам помаже да брзо организујете изнајмљивање аута у Халкидикију за удобан одмор и лако кретање по региону.",
+      "Халкидики је један од најпопуларнијих летовалишних региона у Грчкој, где је изнајмљивање аута посебно практично за вожњу између плажа, места и полуострва Касандра и Ситонија. CarsNK вам помаже да брзо организујете изнајмљивање аута у Халкидикију за удобан одмор и лако кретање по региону.",
     [LOCATION_CONTENT_KEYS.NEA_KALLIKRATIA]:
       "Неа Каликратија је популарно приобално место на путу ка Халкидикију.",
     [LOCATION_CONTENT_KEYS.SITHONIA]:
@@ -1718,11 +1718,11 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Thessaloniki",
       h1: "Car Rental in Thessaloniki",
-      seoTitle: "Car Rental in Thessaloniki City | Natali Cars",
+      seoTitle: "Car Rental in Thessaloniki City | CarsNK",
       seoDescription:
         "Rent a car in Thessaloniki city with hotel-area pickup, direct communication, and transfer-ready scheduling to Halkidiki.",
       introText:
-        "Thessaloniki is the second-largest city in Greece and the main center of Northern Greece. Natali Cars helps you quickly arrange car pickup for city trips, business visits, and transfers to Halkidiki. Book your rental car online in Thessaloniki with no deposit, with pickup at your accommodation or in the city, and 24/7 support.",
+        "Thessaloniki is the second-largest city in Greece and the main center of Northern Greece. CarsNK helps you quickly arrange car pickup for city trips, business visits, and transfers to Halkidiki. Book your rental car online in Thessaloniki with no deposit, with pickup at your accommodation or in the city, and 24/7 support.",
       areaServed: ["Thessaloniki Center", "Perea", "Kalamaria"],
       pickupLocation: "Thessaloniki City Pickup Point",
       offerName: "Thessaloniki City Car Hire Offer",
@@ -1754,11 +1754,11 @@ const locationContentByKeyRaw: Record<
     ru: {
       shortName: "Салоники",
       h1: "Прокат авто в Салониках",
-      seoTitle: "Прокат авто в Салониках | Natali Cars",
+      seoTitle: "Прокат авто в Салониках | CarsNK",
       seoDescription:
         "Аренда автомобиля в Салониках с выдачей в городе, поддержкой напрямую и удобной передачей авто для поездок в Халкидики.",
       introText:
-        "Салоники — второй по величине город Греции и главный центр Северной Греции. Natali Cars поможет вам быстро организовать выдачу автомобиля для поездок по городу, деловых визитов и трансферов в Халкидики. Бронируйте онлайн авто в Салониках без депозита с выдачей у места проживания или в городе и поддержкой 24/7.",
+        "Салоники — второй по величине город Греции и главный центр Северной Греции. CarsNK поможет вам быстро организовать выдачу автомобиля для поездок по городу, деловых визитов и трансферов в Халкидики. Бронируйте онлайн авто в Салониках без депозита с выдачей у места проживания или в городе и поддержкой 24/7.",
       areaServed: ["Центр Салоник", "Перея", "Каламария"],
       pickupLocation: "Точка выдачи в Салониках",
       offerName: "Предложение проката в Салониках",
@@ -1788,11 +1788,11 @@ const locationContentByKeyRaw: Record<
     uk: {
       shortName: "Салоніки",
       h1: "Оренда авто в Салоніках",
-      seoTitle: "Оренда авто в Салоніках | Natali Cars",
+      seoTitle: "Оренда авто в Салоніках | CarsNK",
       seoDescription:
         "Орендуйте авто в Салоніках з отриманням у місті, прямою підтримкою та зручною передачею авто для поїздок у Халкідіки.",
       introText:
-        "Салоніки — друге за величиною місто Греції та головний центр Північної Греції. Natali Cars допоможе вам швидко організувати видачу автомобіля для поїздок містом, ділових візитів і трансферів до Халкідікі. Бронюйте онлайн авто в Салоніках без депозиту з видачею біля місця проживання або в місті та з підтримкою 24/7.",
+        "Салоніки — друге за величиною місто Греції та головний центр Північної Греції. CarsNK допоможе вам швидко організувати видачу автомобіля для поїздок містом, ділових візитів і трансферів до Халкідікі. Бронюйте онлайн авто в Салоніках без депозиту з видачею біля місця проживання або в місті та з підтримкою 24/7.",
       areaServed: ["Центр Салонік", "Перея", "Каламарія"],
       pickupLocation: "Точка отримання в Салоніках",
       offerName: "Пропозиція оренди в Салоніках",
@@ -1822,11 +1822,11 @@ const locationContentByKeyRaw: Record<
     el: {
       shortName: "Θεσσαλονίκη",
       h1: "Ενοικίαση αυτοκινήτου στη Θεσσαλονίκη",
-      seoTitle: "Ενοικίαση αυτοκινήτου στη Θεσσαλονίκη | Natali Cars",
+      seoTitle: "Ενοικίαση αυτοκινήτου στη Θεσσαλονίκη | CarsNK",
       seoDescription:
         "Ενοικιάστε αυτοκίνητο στη Θεσσαλονίκη με παραλαβή στην πόλη, άμεση υποστήριξη και εύκολη μετακίνηση προς Χαλκιδική.",
       introText:
-        "Η Θεσσαλονίκη είναι η δεύτερη μεγαλύτερη πόλη της Ελλάδας και το κύριο κέντρο της Βόρειας Ελλάδας. Η Natali Cars σας βοηθά να οργανώσετε γρήγορα την παραλαβή αυτοκινήτου για μετακινήσεις στην πόλη, επαγγελματικά ταξίδια και μεταφορές προς τη Χαλκιδική. Κάντε online κράτηση αυτοκινήτου στη Θεσσαλονίκη χωρίς εγγύηση, με παραλαβή στο κατάλυμά σας ή στην πόλη και με υποστήριξη 24/7.",
+        "Η Θεσσαλονίκη είναι η δεύτερη μεγαλύτερη πόλη της Ελλάδας και το κύριο κέντρο της Βόρειας Ελλάδας. Η CarsNK σας βοηθά να οργανώσετε γρήγορα την παραλαβή αυτοκινήτου για μετακινήσεις στην πόλη, επαγγελματικά ταξίδια και μεταφορές προς τη Χαλκιδική. Κάντε online κράτηση αυτοκινήτου στη Θεσσαλονίκη χωρίς εγγύηση, με παραλαβή στο κατάλυμά σας ή στην πόλη και με υποστήριξη 24/7.",
       areaServed: ["Κέντρο Θεσσαλονίκης", "Περαία", "Καλαμαριά"],
       pickupLocation: "Σημείο παραλαβής Θεσσαλονίκης",
       offerName: "Προσφορά ενοικίασης Θεσσαλονίκης",
@@ -1856,11 +1856,11 @@ const locationContentByKeyRaw: Record<
     de: {
       shortName: "Thessaloniki",
       h1: "Mietwagen in Thessaloniki",
-      seoTitle: "Mietwagen Thessaloniki | Natali Cars",
+      seoTitle: "Mietwagen Thessaloniki | CarsNK",
       seoDescription:
         "Mieten Sie ein Auto in Thessaloniki mit Abholung in der Stadt, direkter Unterstützung und einfacher Weiterfahrt nach Chalkidiki.",
       introText:
-        "Thessaloniki ist die zweitgroesste Stadt Griechenlands und das wichtigste Zentrum Nordgriechenlands. Natali Cars hilft Ihnen, die Fahrzeuguebergabe fuer Stadtfahrten, Geschaeftsreisen und Transfers nach Chalkidiki schnell zu organisieren. Buchen Sie Ihren Mietwagen online in Thessaloniki ohne Kaution, mit Uebergabe an Ihrer Unterkunft oder in der Stadt und mit 24/7-Support.",
+        "Thessaloniki ist die zweitgroesste Stadt Griechenlands und das wichtigste Zentrum Nordgriechenlands. CarsNK hilft Ihnen, die Fahrzeuguebergabe fuer Stadtfahrten, Geschaeftsreisen und Transfers nach Chalkidiki schnell zu organisieren. Buchen Sie Ihren Mietwagen online in Thessaloniki ohne Kaution, mit Uebergabe an Ihrer Unterkunft oder in der Stadt und mit 24/7-Support.",
       areaServed: ["Zentrum Thessaloniki", "Perea", "Kalamaria"],
       pickupLocation: "Abholpunkt Thessaloniki",
       offerName: "Mietwagen-Angebot Thessaloniki",
@@ -1890,11 +1890,11 @@ const locationContentByKeyRaw: Record<
     bg: {
       shortName: "Солун",
       h1: "Кола под наем в Солун",
-      seoTitle: "Кола под наем Солун | Natali Cars",
+      seoTitle: "Кола под наем Солун | CarsNK",
       seoDescription:
         "Наемете кола в Солун с получаване в града, директна поддръжка и удобен трансфер до Халкидики.",
       introText:
-        "Солун е вторият по големина град в Гърция и основният център на Северна Гърция. Natali Cars ще ви помогне бързо да организирате получаването на автомобил за пътувания в града, бизнес посещения и трансфери до Халкидики. Резервирайте онлайн кола в Солун без депозит с получаване при мястото ви за настаняване или в града и с поддръжка 24/7.",
+        "Солун е вторият по големина град в Гърция и основният център на Северна Гърция. CarsNK ще ви помогне бързо да организирате получаването на автомобил за пътувания в града, бизнес посещения и трансфери до Халкидики. Резервирайте онлайн кола в Солун без депозит с получаване при мястото ви за настаняване или в града и с поддръжка 24/7.",
       areaServed: ["Център Солун", "Перея", "Каламария"],
       pickupLocation: "Точка за получаване Солун",
       offerName: "Оферта за наем в Солун",
@@ -1924,11 +1924,11 @@ const locationContentByKeyRaw: Record<
     ro: {
       shortName: "Salonic",
       h1: "Închirieri auto în Salonic",
-      seoTitle: "Închirieri auto Salonic | Natali Cars",
+      seoTitle: "Închirieri auto Salonic | CarsNK",
       seoDescription:
         "Închiriați mașină în Salonic cu preluare în oraș, asistență directă și transfer ușor spre Halkidiki.",
       introText:
-        "Salonic este al doilea oraș ca mărime din Grecia și principalul centru al Greciei de Nord. Natali Cars vă ajută să organizați rapid preluarea mașinii pentru deplasări în oraș, vizite de afaceri și transferuri spre Halkidiki. Rezervați online mașina în Salonic fără depozit, cu preluare la cazare sau în oraș și cu asistență 24/7.",
+        "Salonic este al doilea oraș ca mărime din Grecia și principalul centru al Greciei de Nord. CarsNK vă ajută să organizați rapid preluarea mașinii pentru deplasări în oraș, vizite de afaceri și transferuri spre Halkidiki. Rezervați online mașina în Salonic fără depozit, cu preluare la cazare sau în oraș și cu asistență 24/7.",
       areaServed: ["Centrul Salonicului", "Perea", "Kalamaria"],
       pickupLocation: "Punct de preluare Salonic",
       offerName: "Ofertă închirieri Salonic",
@@ -1958,11 +1958,11 @@ const locationContentByKeyRaw: Record<
     sr: {
       shortName: "Solun",
       h1: "Rent a car u Solunu",
-      seoTitle: "Rent a car Solun | Natali Cars",
+      seoTitle: "Rent a car Solun | CarsNK",
       seoDescription:
         "Iznajmite auto u Solunu sa preuzimanjem u gradu, direktnom podrškom i transferom ka Halkidikiju.",
       introText:
-        "Solun je drugi najveći grad u Grčkoj i glavni centar severne Grčke. Natali Cars vam pomaže da brzo organizujete preuzimanje automobila za vožnju po gradu, poslovne posete i transfere ka Halkidikiju. Rezervišite online auto u Solunu bez depozita, uz preuzimanje kod smeštaja ili u gradu i uz podršku 24/7.",
+        "Solun je drugi najveći grad u Grčkoj i glavni centar severne Grčke. CarsNK vam pomaže da brzo organizujete preuzimanje automobila za vožnju po gradu, poslovne posete i transfere ka Halkidikiju. Rezervišite online auto u Solunu bez depozita, uz preuzimanje kod smeštaja ili u gradu i uz podršku 24/7.",
       areaServed: ["Centar Soluna", "Perea", "Kalamaria"],
       pickupLocation: "Tačka preuzimanja Solun",
       offerName: "Ponuda iznajmljivanja Solun",
@@ -1994,7 +1994,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Thessaloniki Airport",
       h1: "Car Rental at Thessaloniki Airport (SKG)",
-      seoTitle: "Car Rental at Thessaloniki Airport (SKG) | Natali Cars",
+      seoTitle: "Car Rental at Thessaloniki Airport (SKG) | CarsNK",
       seoDescription:
         "Book airport car rental at Thessaloniki (SKG) with handover-ready pickup, direct customer support, and coastal transfer coverage.",
       introText:
@@ -2010,7 +2010,7 @@ const locationContentByKeyRaw: Record<
     ru: {
       shortName: "Аэропорт Салоники",
       h1: "Прокат авто в аэропорту Салоники (SKG)",
-      seoTitle: "Прокат авто в аэропорту Салоники (SKG) | Natali Cars",
+      seoTitle: "Прокат авто в аэропорту Салоники (SKG) | CarsNK",
       seoDescription:
         "Арендуйте авто в аэропорту Салоники (SKG) с быстрой выдачей, прямой поддержкой и удобным выездом в Халкидики.",
       introText:
@@ -2024,7 +2024,7 @@ const locationContentByKeyRaw: Record<
     uk: {
       shortName: "Аеропорт Салоніки",
       h1: "Оренда авто в аеропорту Салоніки (SKG)",
-      seoTitle: "Оренда авто в аеропорту Салоніки (SKG) | Natali Cars",
+      seoTitle: "Оренда авто в аеропорту Салоніки (SKG) | CarsNK",
       seoDescription:
         "Орендуйте авто в аеропорту Салоніки (SKG) з швидкою передачею, прямою підтримкою та зручним виїздом до Халкідік.",
       introText:
@@ -2038,7 +2038,7 @@ const locationContentByKeyRaw: Record<
     el: {
       shortName: "Αεροδρόμιο Θεσσαλονίκης",
       h1: "Ενοικίαση αυτοκινήτου στο αεροδρόμιο Θεσσαλονίκης (SKG)",
-      seoTitle: "Ενοικίαση αυτοκινήτου στο αεροδρόμιο Θεσσαλονίκης (SKG) | Natali Cars",
+      seoTitle: "Ενοικίαση αυτοκινήτου στο αεροδρόμιο Θεσσαλονίκης (SKG) | CarsNK",
       seoDescription:
         "Κλείστε αυτοκίνητο στο αεροδρόμιο Θεσσαλονίκης (SKG) με γρήγορη παράδοση, άμεση υποστήριξη και εύκολη μετάβαση στη Χαλκιδική.",
       introText:
@@ -2052,7 +2052,7 @@ const locationContentByKeyRaw: Record<
     de: {
       shortName: "Flughafen Thessaloniki",
       h1: "Mietwagen am Flughafen Thessaloniki (SKG)",
-      seoTitle: "Mietwagen am Flughafen Thessaloniki (SKG) | Natali Cars",
+      seoTitle: "Mietwagen am Flughafen Thessaloniki (SKG) | CarsNK",
       seoDescription:
         "Buchen Sie einen Mietwagen am Flughafen Thessaloniki (SKG) mit Abholung, direktem Kundenservice und Transfer an die Küste.",
       introText:
@@ -2066,7 +2066,7 @@ const locationContentByKeyRaw: Record<
     bg: {
       shortName: "Летище Солун",
       h1: "Под наем на кола на летище Солун (SKG)",
-      seoTitle: "Под наем на кола на летище Солун (SKG) | Natali Cars",
+      seoTitle: "Под наем на кола на летище Солун (SKG) | CarsNK",
       seoDescription:
         "Наем на кола на летище Солун (SKG) с бърза получаване, пряка поддръжка и удобен трансфер до Халкидики.",
       introText:
@@ -2080,7 +2080,7 @@ const locationContentByKeyRaw: Record<
     ro: {
       shortName: "Aeroport Salonic",
       h1: "Închirieri auto la aeroportul Salonic (SKG)",
-      seoTitle: "Închirieri auto la aeroportul Salonic (SKG) | Natali Cars",
+      seoTitle: "Închirieri auto la aeroportul Salonic (SKG) | CarsNK",
       seoDescription:
         "Închiriați mașină la aeroportul Salonic (SKG) cu preluare rapidă, suport direct și transfer la coastă.",
       introText:
@@ -2094,7 +2094,7 @@ const locationContentByKeyRaw: Record<
     sr: {
       shortName: "Аеродром Солун",
       h1: "Изнајмљивање аута на аеродрому Солун (SKG)",
-      seoTitle: "Изнајмљивање аута на аеродрому Солун (SKG) | Natali Cars",
+      seoTitle: "Изнајмљивање аута на аеродрому Солун (SKG) | CarsNK",
       seoDescription:
         "Изнајмите ауто на аеродрому Солун (SKG) са брзим преузимањем, директном подршком и трансфером до обале.",
       introText:
@@ -2110,11 +2110,11 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Halkidiki",
       h1: "Car Rental in Halkidiki",
-      seoTitle: "Car Rental in Halkidiki Region | Natali Cars",
+      seoTitle: "Car Rental in Halkidiki Region | CarsNK",
       seoDescription:
         "Rent a car in Halkidiki with localized pickup coverage across regional hubs, beach zones, and major transfer routes.",
       introText:
-        "Halkidiki is one of Greece's most popular resort regions, where car rental is especially convenient for trips between beaches, villages, and the Kassandra and Sithonia peninsulas. Natali Cars helps you quickly arrange car rental in Halkidiki for a comfortable holiday and convenient travel around the region.",
+        "Halkidiki is one of Greece's most popular resort regions, where car rental is especially convenient for trips between beaches, villages, and the Kassandra and Sithonia peninsulas. CarsNK helps you quickly arrange car rental in Halkidiki for a comfortable holiday and convenient travel around the region.",
       areaServed: ["Nea Kallikratia", "Sithonia", "Kassandra"],
       pickupLocation: "Halkidiki Regional Pickup",
       offerName: "Halkidiki Regional Rental Offer",
@@ -2146,11 +2146,11 @@ const locationContentByKeyRaw: Record<
     ru: {
       shortName: "Халкидики",
       h1: "Прокат авто в Халкидиках",
-      seoTitle: "Прокат авто в регионе Халкидики | Natali Cars",
+      seoTitle: "Прокат авто в регионе Халкидики | CarsNK",
       seoDescription:
         "Арендуйте авто в Халкидиках с покрытием по региону, пляжным зонам и ключевым маршрутам к курортам.",
       introText:
-        "Халкидики — один из самых популярных курортных регионов Греции, где аренда авто особенно удобна для поездок между пляжами, поселками и полуостровами Кассандра и Ситония. Natali Cars поможет быстро организовать прокат авто в Халкидиках для комфортного отдыха и удобного передвижения по региону.",
+        "Халкидики — один из самых популярных курортных регионов Греции, где аренда авто особенно удобна для поездок между пляжами, поселками и полуостровами Кассандра и Ситония. CarsNK поможет быстро организовать прокат авто в Халкидиках для комфортного отдыха и удобного передвижения по региону.",
       areaServed: ["Неа Каликратия", "Ситония", "Кассандра"],
       pickupLocation: "Региональная точка выдачи Халкидики",
       offerName: "Региональное предложение Халкидики",
@@ -2180,11 +2180,11 @@ const locationContentByKeyRaw: Record<
     uk: {
       shortName: "Халкідіки",
       h1: "Оренда авто в Халкідіках",
-      seoTitle: "Оренда авто в регіоні Халкідіки | Natali Cars",
+      seoTitle: "Оренда авто в регіоні Халкідіки | CarsNK",
       seoDescription:
         "Орендуйте авто в Халкідіках з покриттям по регіону, пляжних зонах і ключових маршрутах до курортів.",
       introText:
-        "Халкідіки — один із найпопулярніших курортних регіонів Греції, де оренда авто особливо зручна для поїздок між пляжами, селищами та півостровами Кассандра і Ситонія. Natali Cars допоможе швидко організувати прокат авто в Халкідіках для комфортного відпочинку та зручного пересування регіоном.",
+        "Халкідіки — один із найпопулярніших курортних регіонів Греції, де оренда авто особливо зручна для поїздок між пляжами, селищами та півостровами Кассандра і Ситонія. CarsNK допоможе швидко організувати прокат авто в Халкідіках для комфортного відпочинку та зручного пересування регіоном.",
       areaServed: ["Неа Каллікратія", "Ситонія", "Кассандра"],
       pickupLocation: "Регіональна точка отримання Халкідіки",
       offerName: "Регіональна пропозиція Халкідіки",
@@ -2214,11 +2214,11 @@ const locationContentByKeyRaw: Record<
     el: {
       shortName: "Χαλκιδική",
       h1: "Ενοικίαση αυτοκινήτου στη Χαλκιδική",
-      seoTitle: "Ενοικίαση αυτοκινήτου στη Χαλκιδική | Natali Cars",
+      seoTitle: "Ενοικίαση αυτοκινήτου στη Χαλκιδική | CarsNK",
       seoDescription:
         "Ενοικιάστε αυτοκίνητο στη Χαλκιδική με κάλυψη σε παραλιακές περιοχές, υπο-περιοχές και βασικές διαδρομές μεταφοράς.",
       introText:
-        "Η Χαλκιδική είναι μία από τις πιο δημοφιλείς τουριστικές περιοχές της Ελλάδας, όπου η ενοικίαση αυτοκινήτου είναι ιδιαίτερα βολική για διαδρομές ανάμεσα σε παραλίες, οικισμούς και τις χερσονήσους Κασσάνδρα και Σιθωνία. Η Natali Cars σας βοηθά να οργανώσετε γρήγορα ενοικίαση αυτοκινήτου στη Χαλκιδική για άνετες διακοπές και εύκολες μετακινήσεις σε όλη την περιοχή.",
+        "Η Χαλκιδική είναι μία από τις πιο δημοφιλείς τουριστικές περιοχές της Ελλάδας, όπου η ενοικίαση αυτοκινήτου είναι ιδιαίτερα βολική για διαδρομές ανάμεσα σε παραλίες, οικισμούς και τις χερσονήσους Κασσάνδρα και Σιθωνία. Η CarsNK σας βοηθά να οργανώσετε γρήγορα ενοικίαση αυτοκινήτου στη Χαλκιδική για άνετες διακοπές και εύκολες μετακινήσεις σε όλη την περιοχή.",
       areaServed: ["Νέα Καλλικράτεια", "Σιθωνία", "Κασσάνδρα"],
       pickupLocation: "Περιφερειακό σημείο παραλαβής Χαλκιδικής",
       offerName: "Περιφερειακή προσφορά Χαλκιδικής",
@@ -2248,11 +2248,11 @@ const locationContentByKeyRaw: Record<
     de: {
       shortName: "Chalkidiki",
       h1: "Mietwagen in Chalkidiki",
-      seoTitle: "Mietwagen Chalkidiki Region | Natali Cars",
+      seoTitle: "Mietwagen Chalkidiki Region | CarsNK",
       seoDescription:
         "Mieten Sie ein Auto in Chalkidiki mit Abdeckung für regionale Zentren, Strandzonen und wichtige Transferrouten.",
       introText:
-        "Chalkidiki ist eine der beliebtesten Ferienregionen Griechenlands, wo Autovermietung besonders praktisch für Fahrten zwischen Stränden, Dörfern und den Halbinseln Kassandra und Sithonia ist. Natali Cars hilft Ihnen, schnell einen Mietwagen in Chalkidiki für einen komfortablen Urlaub zu organisieren.",
+        "Chalkidiki ist eine der beliebtesten Ferienregionen Griechenlands, wo Autovermietung besonders praktisch für Fahrten zwischen Stränden, Dörfern und den Halbinseln Kassandra und Sithonia ist. CarsNK hilft Ihnen, schnell einen Mietwagen in Chalkidiki für einen komfortablen Urlaub zu organisieren.",
       areaServed: ["Nea Kallikratia", "Sithonia", "Kassandra"],
       pickupLocation: "Regionale Abholung Chalkidiki",
       offerName: "Regionales Mietwagen-Angebot Chalkidiki",
@@ -2282,11 +2282,11 @@ const locationContentByKeyRaw: Record<
     bg: {
       shortName: "Халкидики",
       h1: "Кола под наем в Халкидики",
-      seoTitle: "Кола под наем регион Халкидики | Natali Cars",
+      seoTitle: "Кола под наем регион Халкидики | CarsNK",
       seoDescription:
         "Наемете кола в Халкидики с покритие за регионални центрове, плажни зони и основни маршрути.",
       introText:
-        "Халкидики е един от най-популярните курортни региони на Гърция, където наемът на кола е особено удобен за пътувания между плажове, села и полуостровите Касандра и Ситония. Natali Cars ви помага бързо да организирате наем на кола в Халкидики за комфортен отпуск.",
+        "Халкидики е един от най-популярните курортни региони на Гърция, където наемът на кола е особено удобен за пътувания между плажове, села и полуостровите Касандра и Ситония. CarsNK ви помага бързо да организирате наем на кола в Халкидики за комфортен отпуск.",
       areaServed: ["Неа Каликратия", "Ситония", "Касандра"],
       pickupLocation: "Регионална точка за получаване Халкидики",
       offerName: "Регионална оферта за наем Халкидики",
@@ -2316,11 +2316,11 @@ const locationContentByKeyRaw: Record<
     ro: {
       shortName: "Halkidiki",
       h1: "Închirieri auto în Halkidiki",
-      seoTitle: "Închirieri auto regiunea Halkidiki | Natali Cars",
+      seoTitle: "Închirieri auto regiunea Halkidiki | CarsNK",
       seoDescription:
         "Închiriați mașină în Halkidiki cu acoperire pentru centre regionale, zone de plajă și rute principale de transfer.",
       introText:
-        "Halkidiki este una dintre cele mai populare regiuni de vacanță din Grecia, unde închirierea auto este deosebit de convenabilă pentru deplasări între plaje, sate și peninsulele Kassandra și Sithonia. Natali Cars vă ajută să organizați rapid închirierea auto în Halkidiki pentru o vacanță confortabilă.",
+        "Halkidiki este una dintre cele mai populare regiuni de vacanță din Grecia, unde închirierea auto este deosebit de convenabilă pentru deplasări între plaje, sate și peninsulele Kassandra și Sithonia. CarsNK vă ajută să organizați rapid închirierea auto în Halkidiki pentru o vacanță confortabilă.",
       areaServed: ["Nea Kallikratia", "Sithonia", "Kassandra"],
       pickupLocation: "Punct de preluare regional Halkidiki",
       offerName: "Ofertă închirieri regională Halkidiki",
@@ -2350,11 +2350,11 @@ const locationContentByKeyRaw: Record<
     sr: {
       shortName: "Halkidiki",
       h1: "Rent a car u Halkidikiju",
-      seoTitle: "Rent a car region Halkidiki | Natali Cars",
+      seoTitle: "Rent a car region Halkidiki | CarsNK",
       seoDescription:
         "Iznajmite auto u Halkidikiju sa pokrivanjem regionalnih centara, plažnih zona i glavnih transfer ruta.",
       introText:
-        "Halkidiki je jedan od najpopularnijih turističkih regiona Grčke, gde je iznajmljivanje auta posebno praktično za putovanja između plaža, sela i poluostrva Kassandra i Sithonia. Natali Cars vam pomaže da brzo organizujete iznajmljivanje auta u Halkidikiju za udoban odmor.",
+        "Halkidiki je jedan od najpopularnijih turističkih regiona Grčke, gde je iznajmljivanje auta posebno praktično za putovanja između plaža, sela i poluostrva Kassandra i Sithonia. CarsNK vam pomaže da brzo organizujete iznajmljivanje auta u Halkidikiju za udoban odmor.",
       areaServed: ["Nea Kallikratia", "Sithonia", "Kassandra"],
       pickupLocation: "Regionalna tačka preuzimanja Halkidiki",
       offerName: "Regionalna ponuda iznajmljivanja Halkidiki",
@@ -2386,7 +2386,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Sithonia",
       h1: "Car Rental in Sithonia",
-      seoTitle: "Car Rental in Sithonia, Halkidiki | Natali Cars",
+      seoTitle: "Car Rental in Sithonia, Halkidiki | CarsNK",
       seoDescription:
         "Book a rental car in Sithonia with pickup options for Nikiti, Neos Marmaras, and long-stay coastal accommodations.",
       introText:
@@ -2400,7 +2400,7 @@ const locationContentByKeyRaw: Record<
     ru: {
       shortName: "Ситония",
       h1: "Прокат авто в Ситонии",
-      seoTitle: "Прокат авто в Ситонии, Халкидики | Natali Cars",
+      seoTitle: "Прокат авто в Ситонии, Халкидики | CarsNK",
       seoDescription:
         "Забронируйте автомобиль в Ситонии с выдачей для Никити, Неос Мармараса и длительного отдыха на побережье.",
       introText:
@@ -2414,7 +2414,7 @@ const locationContentByKeyRaw: Record<
     uk: {
       shortName: "Ситонія",
       h1: "Оренда авто в Ситонії",
-      seoTitle: "Оренда авто в Ситонії, Халкідіки | Natali Cars",
+      seoTitle: "Оренда авто в Ситонії, Халкідіки | CarsNK",
       seoDescription:
         "Забронюйте авто в Ситонії з отриманням для Нікіті, Неос Мармарас і тривалого відпочинку на узбережжі.",
       introText:
@@ -2428,7 +2428,7 @@ const locationContentByKeyRaw: Record<
     el: {
       shortName: "Σιθωνία",
       h1: "Ενοικίαση αυτοκινήτου στη Σιθωνία",
-      seoTitle: "Ενοικίαση αυτοκινήτου στη Σιθωνία, Χαλκιδική | Natali Cars",
+      seoTitle: "Ενοικίαση αυτοκινήτου στη Σιθωνία, Χαλκιδική | CarsNK",
       seoDescription:
         "Κλείστε αυτοκίνητο στη Σιθωνία με παραλαβή για Νικήτη, Νέο Μαρμαρά και παραθαλάσσιες διαμονές μεγάλης διάρκειας.",
       introText:
@@ -2444,7 +2444,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Kassandra",
       h1: "Car Rental in Kassandra",
-      seoTitle: "Car Rental in Kassandra, Halkidiki | Natali Cars",
+      seoTitle: "Car Rental in Kassandra, Halkidiki | CarsNK",
       seoDescription:
         "Rent a car in Kassandra with pickup support for resort zones, family stays, and high-season coastal traffic.",
       introText:
@@ -2458,7 +2458,7 @@ const locationContentByKeyRaw: Record<
     ru: {
       shortName: "Кассандра",
       h1: "Прокат авто в Кассандре",
-      seoTitle: "Прокат авто в Кассандре, Халкидики | Natali Cars",
+      seoTitle: "Прокат авто в Кассандре, Халкидики | CarsNK",
       seoDescription:
         "Аренда авто в Кассандре с выдачей в курортных зонах, для семейного отдыха и поездок в высокий сезон.",
       introText:
@@ -2472,7 +2472,7 @@ const locationContentByKeyRaw: Record<
     uk: {
       shortName: "Кассандра",
       h1: "Оренда авто в Кассандрі",
-      seoTitle: "Оренда авто в Кассандрі, Халкідіки | Natali Cars",
+      seoTitle: "Оренда авто в Кассандрі, Халкідіки | CarsNK",
       seoDescription:
         "Орендуйте авто в Кассандрі з отриманням у курортних зонах для сімейного відпочинку і поїздок у високий сезон.",
       introText:
@@ -2486,7 +2486,7 @@ const locationContentByKeyRaw: Record<
     el: {
       shortName: "Κασσάνδρα",
       h1: "Ενοικίαση αυτοκινήτου στην Κασσάνδρα",
-      seoTitle: "Ενοικίαση αυτοκινήτου στην Κασσάνδρα, Χαλκιδική | Natali Cars",
+      seoTitle: "Ενοικίαση αυτοκινήτου στην Κασσάνδρα, Χαλκιδική | CarsNK",
       seoDescription:
         "Ενοικιάστε αυτοκίνητο στην Κασσάνδρα με παραλαβή σε τουριστικές ζώνες, οικογενειακές διαμονές και εποχική ζήτηση.",
       introText:
@@ -2503,7 +2503,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Nea Kallikratia",
       h1: "Car Rental in Nea Kallikratia",
-      seoTitle: "Car Rental in Nea Kallikratia, Halkidiki | Natali Cars",
+      seoTitle: "Car Rental in Nea Kallikratia, Halkidiki | CarsNK",
       seoDescription:
         "Rent a car in Nea Kallikratia with convenient pickup near the beach and main road. Ideal for coastal stays and day trips across Halkidiki.",
       introText:
@@ -2531,7 +2531,7 @@ const locationContentByKeyRaw: Record<
     ru: {
       shortName: "Неа Калликратия",
       h1: "Прокат авто в Неа Калликратии",
-      seoTitle: "Прокат авто в Неа Калликратии, Халкидики | Natali Cars",
+      seoTitle: "Прокат авто в Неа Калликратии, Халкидики | CarsNK",
       seoDescription:
         "Аренда авто в Неа Калликратии с удобной выдачей у пляжа и главной дороги. Идеально для отдыха на побережье и поездок по Халкидикам.",
       introText:
@@ -2554,7 +2554,7 @@ const locationContentByKeyRaw: Record<
     uk: {
       shortName: "Неа Каллікратія",
       h1: "Оренда авто в Неа Каллікратії",
-      seoTitle: "Оренда авто в Неа Каллікратії, Халкідіки | Natali Cars",
+      seoTitle: "Оренда авто в Неа Каллікратії, Халкідіки | CarsNK",
       seoDescription:
         "Оренда авто в Неа Каллікратії з зручною видачею біля пляжу та головної дороги. Ідеально для відпочинку на узбережжі та поїздок по Халкідіках.",
       introText:
@@ -2577,7 +2577,7 @@ const locationContentByKeyRaw: Record<
     el: {
       shortName: "Νέα Καλλικράτεια",
       h1: "Ενοικίαση αυτοκινήτου στη Νέα Καλλικράτεια",
-      seoTitle: "Ενοικίαση αυτοκινήτου στη Νέα Καλλικράτεια, Χαλκιδική | Natali Cars",
+      seoTitle: "Ενοικίαση αυτοκινήτου στη Νέα Καλλικράτεια, Χαλκιδική | CarsNK",
       seoDescription:
         "Ενοικιάστε αυτοκίνητο στη Νέα Καλλικράτεια με βολική παραλαβή κοντά στην παραλία και τον κεντρικό δρόμο. Ιδανικό για παραθαλάσσια διαμονή και εκδρομές στη Χαλκιδική.",
       introText:
@@ -2600,7 +2600,7 @@ const locationContentByKeyRaw: Record<
     de: {
       shortName: "Nea Kallikratia",
       h1: "Mietwagen in Nea Kallikratia",
-      seoTitle: "Mietwagen in Nea Kallikratia, Chalkidiki | Natali Cars",
+      seoTitle: "Mietwagen in Nea Kallikratia, Chalkidiki | CarsNK",
       seoDescription:
         "Mieten Sie ein Auto in Nea Kallikratia mit Abholung am Strand und an der Hauptstraße. Ideal für den Küstenurlaub und Ausflüge in die Chalkidiki.",
       introText:
@@ -2623,7 +2623,7 @@ const locationContentByKeyRaw: Record<
     bg: {
       shortName: "Неа Каликратия",
       h1: "Под наем на кола в Неа Каликратия",
-      seoTitle: "Под наем на кола в Неа Каликратия, Халкидики | Natali Cars",
+      seoTitle: "Под наем на кола в Неа Каликратия, Халкидики | CarsNK",
       seoDescription:
         "Наем на кола в Неа Каликратия с удобна получаване до плажа и главния път. Идеално за престой на брега и разходки из Халкидики.",
       introText:
@@ -2646,7 +2646,7 @@ const locationContentByKeyRaw: Record<
     ro: {
       shortName: "Nea Kallikratia",
       h1: "Închirieri auto în Nea Kallikratia",
-      seoTitle: "Închirieri auto în Nea Kallikratia, Halkidiki | Natali Cars",
+      seoTitle: "Închirieri auto în Nea Kallikratia, Halkidiki | CarsNK",
       seoDescription:
         "Închiriați mașină în Nea Kallikratia cu preluare convenabilă lângă plajă și drumul principal. Ideal pentru sejur la mare și excursii în Halkidiki.",
       introText:
@@ -2669,7 +2669,7 @@ const locationContentByKeyRaw: Record<
     sr: {
       shortName: "Неа Каликратија",
       h1: "Изнајмљивање аута у Неа Каликратији",
-      seoTitle: "Изнајмљивање аута у Неа Каликратији, Халкидики | Natali Cars",
+      seoTitle: "Изнајмљивање аута у Неа Каликратији, Халкидики | CarsNK",
       seoDescription:
         "Изнајмите ауто у Неа Каликратији са погодном преузимањем код плаже и главног пута. Идеално за одмор на обали и излете по Халкидикију.",
       introText:
@@ -2694,7 +2694,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Nea Moudania",
       h1: "Car Rental in Nea Moudania",
-      seoTitle: "Car Rental in Nea Moudania, Halkidiki | Natali Cars",
+      seoTitle: "Car Rental in Nea Moudania, Halkidiki | CarsNK",
       seoDescription:
         "Book a rental car in Nea Moudania with pickup near the port or town. Convenient for ferry arrivals and trips across Halkidiki.",
       introText:
@@ -2717,7 +2717,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Nikiti",
       h1: "Car Rental in Nikiti",
-      seoTitle: "Car Rental in Nikiti, Sithonia | Natali Cars",
+      seoTitle: "Car Rental in Nikiti, Sithonia | CarsNK",
       seoDescription:
         "Rent a car in Nikiti with pickup for hotels and villas. Explore Sithonia beaches and villages with flexible handover options.",
       introText:
@@ -2740,7 +2740,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Neos Marmaras",
       h1: "Car Rental in Neos Marmaras",
-      seoTitle: "Car Rental in Neos Marmaras, Sithonia | Natali Cars",
+      seoTitle: "Car Rental in Neos Marmaras, Sithonia | CarsNK",
       seoDescription:
         "Book a car in Neos Marmaras with pickup for the harbour and resorts. Ideal for exploring Sithonia and nearby beaches.",
       introText:
@@ -2763,7 +2763,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Sarti",
       h1: "Car Rental in Sarti",
-      seoTitle: "Car Rental in Sarti, Sithonia | Natali Cars",
+      seoTitle: "Car Rental in Sarti, Sithonia | CarsNK",
       seoDescription:
         "Rent a car in Sarti with pickup for beach and villa stays. Discover the eastern coast of Sithonia and nearby bays.",
       introText:
@@ -2786,7 +2786,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Kallithea",
       h1: "Car Rental in Kallithea",
-      seoTitle: "Car Rental in Kallithea, Kassandra | Natali Cars",
+      seoTitle: "Car Rental in Kallithea, Kassandra | CarsNK",
       seoDescription:
         "Book a car in Kallithea with pickup for resorts and beaches. Explore Kassandra and the west coast with flexible rental.",
       introText:
@@ -2809,7 +2809,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Pefkohori",
       h1: "Car Rental in Pefkohori",
-      seoTitle: "Car Rental in Pefkohori, Kassandra | Natali Cars",
+      seoTitle: "Car Rental in Pefkohori, Kassandra | CarsNK",
       seoDescription:
         "Rent a car in Pefkohori with pickup for hotels and villas. Ideal for exploring Kassandra and nearby beaches.",
       introText:
@@ -2832,7 +2832,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Hanioti",
       h1: "Car Rental in Hanioti",
-      seoTitle: "Car Rental in Hanioti, Kassandra | Natali Cars",
+      seoTitle: "Car Rental in Hanioti, Kassandra | CarsNK",
       seoDescription:
         "Book a car in Hanioti with pickup for the centre and beaches. Explore Kassandra and nearby villages with ease.",
       introText:
@@ -2855,7 +2855,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Polichrono",
       h1: "Car Rental in Polichrono",
-      seoTitle: "Car Rental in Polichrono, Kassandra | Natali Cars",
+      seoTitle: "Car Rental in Polichrono, Kassandra | CarsNK",
       seoDescription:
         "Rent a car in Polichrono with pickup for hotels and the beach. Discover Kassandra and nearby resorts.",
       introText:
@@ -2878,7 +2878,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Afitos",
       h1: "Car Rental in Afitos",
-      seoTitle: "Car Rental in Afitos, Kassandra | Natali Cars",
+      seoTitle: "Car Rental in Afitos, Kassandra | CarsNK",
       seoDescription:
         "Book a car in Afitos with pickup for the old village and beach. Explore traditional Kassandra and the coast.",
       introText:
@@ -2901,7 +2901,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Kriopigi",
       h1: "Car Rental in Kriopigi",
-      seoTitle: "Car Rental in Kriopigi, Kassandra | Natali Cars",
+      seoTitle: "Car Rental in Kriopigi, Kassandra | CarsNK",
       seoDescription:
         "Rent a car in Kriopigi with pickup for hotels and villas. Explore the middle of Kassandra and nearby beaches.",
       introText:
@@ -2924,7 +2924,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Sani",
       h1: "Car Rental in Sani",
-      seoTitle: "Car Rental in Sani, Kassandra | Natali Cars",
+      seoTitle: "Car Rental in Sani, Kassandra | CarsNK",
       seoDescription:
         "Book a car in Sani with pickup for the resort and marina. Ideal for Sani Resort guests and exploring Kassandra.",
       introText:
@@ -2947,7 +2947,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Kassandria",
       h1: "Car Rental in Kassandria",
-      seoTitle: "Car Rental in Kassandria, Kassandra | Natali Cars",
+      seoTitle: "Car Rental in Kassandria, Kassandra | CarsNK",
       seoDescription:
         "Rent a car in Kassandria town with pickup for the centre and nearby resorts. Explore the peninsula from a central base.",
       introText:
@@ -2970,7 +2970,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Fourka",
       h1: "Car Rental in Fourka",
-      seoTitle: "Car Rental in Fourka, Sithonia | Natali Cars",
+      seoTitle: "Car Rental in Fourka, Sithonia | CarsNK",
       seoDescription:
         "Book a car in Fourka with pickup for the beach and village. Explore western Sithonia and nearby bays.",
       introText:
@@ -2993,7 +2993,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Metamorfosi",
       h1: "Car Rental in Metamorfosi",
-      seoTitle: "Car Rental in Metamorfosi, Sithonia | Natali Cars",
+      seoTitle: "Car Rental in Metamorfosi, Sithonia | CarsNK",
       seoDescription:
         "Rent a car in Metamorfosi with pickup for the village and coast. Discover western Sithonia and nearby beaches.",
       introText:
@@ -3016,7 +3016,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Agios Nikolaos",
       h1: "Car Rental in Agios Nikolaos (Halkidiki)",
-      seoTitle: "Car Rental in Agios Nikolaos, Sithonia | Natali Cars",
+      seoTitle: "Car Rental in Agios Nikolaos, Sithonia | CarsNK",
       seoDescription:
         "Book a car in Agios Nikolaos with pickup for the village and beach. Explore eastern Sithonia and nearby bays.",
       introText:
@@ -3039,7 +3039,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Ormilia",
       h1: "Car Rental in Ormilia",
-      seoTitle: "Car Rental in Ormilia, Halkidiki | Natali Cars",
+      seoTitle: "Car Rental in Ormilia, Halkidiki | CarsNK",
       seoDescription:
         "Rent a car in Ormilia with pickup for the village and nearby areas. Convenient for the western approach to Halkidiki.",
       introText:
@@ -3062,7 +3062,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Petralona",
       h1: "Car Rental in Petralona",
-      seoTitle: "Car Rental in Petralona, Halkidiki | Natali Cars",
+      seoTitle: "Car Rental in Petralona, Halkidiki | CarsNK",
       seoDescription:
         "Book a car in Petralona with pickup for the village and cave area. Ideal for combining culture and beach trips in Halkidiki.",
       introText:
@@ -3085,7 +3085,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Vrasna",
       h1: "Car Rental in Vrasna",
-      seoTitle: "Car Rental in Vrasna, Halkidiki | Natali Cars",
+      seoTitle: "Car Rental in Vrasna, Halkidiki | CarsNK",
       seoDescription:
         "Rent a car in Vrasna with pickup for the beach and village. Explore the eastern coast and Strymon Gulf area.",
       introText:
@@ -3108,7 +3108,7 @@ const locationContentByKeyRaw: Record<
     en: {
       shortName: "Olympiada",
       h1: "Car Rental in Olympiada",
-      seoTitle: "Car Rental in Olympiada, Halkidiki | Natali Cars",
+      seoTitle: "Car Rental in Olympiada, Halkidiki | CarsNK",
       seoDescription:
         "Book a car in Olympiada with pickup for the village and beach. Discover ancient Stageira and the eastern Halkidiki coast.",
       introText:

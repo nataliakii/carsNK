@@ -41,15 +41,15 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
     h1: "Car Rental at Thessaloniki Airport (SKG)",
     heroSubtitle:
       "Pick up your rental car directly at Thessaloniki Airport and start your Halkidiki trip without delays.",
-    seoTitle: "Car Rental at Thessaloniki Airport (SKG) | Natali Cars",
+    seoTitle: "Car Rental at Thessaloniki Airport (SKG) | CarsNK",
     seoDescription:
       "Rent a car at Thessaloniki Airport (SKG) with pickup on arrival. Affordable car rental for Halkidiki trips. Automatic and economy cars available.",
     introText:
       "Thessaloniki Airport (SKG) is the main international airport serving Thessaloniki and the wider region of Greece. Book your rental car online with pickup at the Thessaloniki Airport (SKG) terminal, with no deposit and 24/7 support.",
     seoLongText:
-      "Renting a car at Thessaloniki Airport (SKG) is the easiest way to start your trip to Halkidiki. The airport is located only about 30 minutes from Nea Kallikratia and around one hour from many popular resorts in Halkidiki. With a rental car you can explore beautiful beaches, traditional villages and coastal roads without relying on public transport. Natali Cars offers pickup directly at the airport terminal, so you can collect your vehicle as soon as you land and drive straight to your accommodation. No need for taxis or shuttle buses — your car is ready when you are. The drive from Thessaloniki Airport to Halkidiki takes you along scenic routes with views of the Gulf of Thessaloniki. Nea Kallikratia is approximately 35 km away, while the main Halkidiki peninsula resorts are within 60–90 km. Thessaloniki city center is only 15 km from the airport if you need to make a stop. We offer flexible pickup times to match your flight schedule, competitive prices and a range of vehicles from economy to automatic and family cars. All rentals include comprehensive insurance and 24/7 support. Book your car rental at Thessaloniki Airport online and enjoy a stress-free start to your Halkidiki holiday.",
+      "Renting a car at Thessaloniki Airport (SKG) is the easiest way to start your trip to Halkidiki. The airport is located only about 30 minutes from Nea Kallikratia and around one hour from many popular resorts in Halkidiki. With a rental car you can explore beautiful beaches, traditional villages and coastal roads without relying on public transport. CarsNK offers pickup directly at the airport terminal, so you can collect your vehicle as soon as you land and drive straight to your accommodation. No need for taxis or shuttle buses — your car is ready when you are. The drive from Thessaloniki Airport to Halkidiki takes you along scenic routes with views of the Gulf of Thessaloniki. Nea Kallikratia is approximately 35 km away, while the main Halkidiki peninsula resorts are within 60–90 km. Thessaloniki city center is only 15 km from the airport if you need to make a stop. We offer flexible pickup times to match your flight schedule, competitive prices and a range of vehicles from economy to automatic and family cars. All rentals include comprehensive insurance and 24/7 support. Book your car rental at Thessaloniki Airport online and enjoy a stress-free start to your Halkidiki holiday.",
     benefitBlockTitle:
-      "Why choose Natali Cars for car rental at Thessaloniki Airport",
+      "Why choose CarsNK for car rental at Thessaloniki Airport",
     quickBenefits: [
       "Free booking",
       "No deposit",
@@ -58,7 +58,7 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
       "24/7 support",
       "Competitive prices",
     ],
-    rentalProcessTitle: "How car rental works with Natali Cars:",
+    rentalProcessTitle: "How car rental works with CarsNK:",
     rentalProcessSteps: [
       "You book your car online",
       "We meet you at Thessaloniki Airport",
@@ -97,15 +97,15 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
     h1: "Аренда авто в аэропорту Салоники (SKG)",
     heroSubtitle:
       "Получите авто прямо в аэропорту Салоники и начните поездку в Халкидики без задержек.",
-    seoTitle: "Аренда авто в аэропорту Салоники (SKG) | Natali Cars",
+    seoTitle: "Аренда авто в аэропорту Салоники (SKG) | CarsNK",
     seoDescription:
       "Аренда авто в аэропорту Салоники (SKG) с подачей по прилёте. Недорогой прокат для поездок в Халкидики. Автомат и эконом.",
     introText:
       "Аэропорт Салоники (SKG) — главный международный аэропорт, обслуживающий Салоники и весь регион Греции. Бронируйте онлайн авто с получением в терминале аэропорта Салоники (SKG) без депозита и с поддержкой 24/7.",
     seoLongText:
-      "Аренда авто в аэропорту Салоники (SKG) — самый удобный способ начать поездку в Халкидики. Аэропорт расположен примерно в 30 минутах от Неа Каликратии и в часе езды от многих курортов Халкидиков. С арендованной машиной вы можете исследовать пляжи, деревни и побережье без общественного транспорта. Natali Cars предлагает подачу в терминале аэропорта. Не нужны такси или трансферы — машина готова к вашему прилёту. До Неа Каликратии около 35 км, до курортов Халкидиков — 60–90 км. Центр Салоников в 15 км от аэропорта. Гибкое время подачи, конкурентные цены, полная страховка. Забронируйте авто в аэропорту Салоники онлайн.",
+      "Аренда авто в аэропорту Салоники (SKG) — самый удобный способ начать поездку в Халкидики. Аэропорт расположен примерно в 30 минутах от Неа Каликратии и в часе езды от многих курортов Халкидиков. С арендованной машиной вы можете исследовать пляжи, деревни и побережье без общественного транспорта. CarsNK предлагает подачу в терминале аэропорта. Не нужны такси или трансферы — машина готова к вашему прилёту. До Неа Каликратии около 35 км, до курортов Халкидиков — 60–90 км. Центр Салоников в 15 км от аэропорта. Гибкое время подачи, конкурентные цены, полная страховка. Забронируйте авто в аэропорту Салоники онлайн.",
     benefitBlockTitle:
-      "Почему выбирают Natali Cars для аренды авто в аэропорту Салоники",
+      "Почему выбирают CarsNK для аренды авто в аэропорту Салоники",
     quickBenefits: [
       "Бесплатное бронирование",
       "Без депозита",
@@ -114,7 +114,7 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
       "Поддержка 24/7",
       "Выгодные цены",
     ],
-    rentalProcessTitle: "Как проходит аренда авто в Natali Cars:",
+    rentalProcessTitle: "Как проходит аренда авто в CarsNK:",
     rentalProcessSteps: [
       "Вы бронируете автомобиль онлайн",
       "Мы встречаем вас в аэропорту Салоники",
@@ -152,15 +152,15 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
     h1: "Оренда авто в аеропорту Салоніки (SKG)",
     heroSubtitle:
       "Отримайте авто прямо в аеропорту Салоніки та почніть поїздку до Халкідік без затримок.",
-    seoTitle: "Оренда авто в аеропорту Салоніки (SKG) | Natali Cars",
+    seoTitle: "Оренда авто в аеропорту Салоніки (SKG) | CarsNK",
     seoDescription:
       "Оренда авто в аеропорту Салоніки (SKG) з подачею по прильоту. Недорогий прокат для поїздок у Халкідіки.",
     introText:
       "Аеропорт Салоніки (SKG) — головний міжнародний аеропорт, що обслуговує Салоніки та весь регіон Греції. Бронюйте авто онлайн з видачею в терміналі аеропорту Салоніки (SKG) без депозиту та з підтримкою 24/7.",
     seoLongText:
-      "Оренда авто в аеропорту Салоніки (SKG) — найзручніший спосіб почати поїздку до Халкідік. Аеропорт знаходиться приблизно за 30 хвилин від Неа Калікратії. Natali Cars пропонує подачу в терміналі. Машина готова до вашого прильоту. Гнучкий час подачі, вигідні цени. Забронюйте авто в аеропорту Салоніки онлайн.",
+      "Оренда авто в аеропорту Салоніки (SKG) — найзручніший спосіб почати поїздку до Халкідік. Аеропорт знаходиться приблизно за 30 хвилин від Неа Калікратії. CarsNK пропонує подачу в терміналі. Машина готова до вашого прильоту. Гнучкий час подачі, вигідні цени. Забронюйте авто в аеропорту Салоніки онлайн.",
     benefitBlockTitle:
-      "Чому обирають Natali Cars для оренди авто в аеропорту Салоніки",
+      "Чому обирають CarsNK для оренди авто в аеропорту Салоніки",
     quickBenefits: [
       "Безкоштовне бронювання",
       "Без депозиту",
@@ -169,7 +169,7 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
       "Підтримка 24/7",
       "Вигідні ціни",
     ],
-    rentalProcessTitle: "Як відбувається оренда авто в Natali Cars:",
+    rentalProcessTitle: "Як відбувається оренда авто в CarsNK:",
     rentalProcessSteps: [
       "Ви бронюєте автомобіль онлайн",
       "Ми зустрічаємо вас в аеропорту Салоніки",
@@ -208,15 +208,15 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
     heroSubtitle:
       "Παραλάβετε το αυτοκίνητό σας απευθείας στο αεροδρόμιο Θεσσαλονίκης και ξεκινήστε για τη Χαλκιδική χωρίς καθυστερήσεις.",
     seoTitle:
-      "Ενοικίαση αυτοκινήτου στο αεροδρόμιο Θεσσαλονίκης (SKG) | Natali Cars",
+      "Ενοικίαση αυτοκινήτου στο αεροδρόμιο Θεσσαλονίκης (SKG) | CarsNK",
     seoDescription:
       "Νοικιάστε αυτοκίνητο στο αεροδρόμιο Θεσσαλονίκης (SKG) με παραλαβή upon arrival. Οικονομική ενοικίαση για τη Χαλκιδική.",
     introText:
       "Το Αεροδρόμιο Θεσσαλονίκης (SKG) είναι το κύριο διεθνές αεροδρόμιο που εξυπηρετεί τη Θεσσαλονίκη και ολόκληρη την περιοχή της Ελλάδας. Κάντε online κράτηση αυτοκινήτου με παραλαβή στον τερματικό σταθμό του Αεροδρομίου Θεσσαλονίκης (SKG), χωρίς εγγύηση και με υποστήριξη 24/7.",
     seoLongText:
-      "Η ενοικίαση αυτοκινήτου στο αεροδρόμιο Θεσσαλονίκης (SKG) είναι ο ευκολότερος τρόπος να ξεκινήσετε το ταξίδι σας στη Χαλκιδική. Το αεροδρόμιο απέχει περίπου 30 λεπτά από τη Νέα Καλλικράτεια και περίπου μία ώρα από πολλά δημοφιλή θέρετρα. Με ενοικιαζόμενο αυτοκίνητο μπορείτε να εξερευνήσετε παραλίες και παραθαλάσσια χωριά. Η Natali Cars προσφέρει παραλαβή στο terminal. Κλείστε online.",
+      "Η ενοικίαση αυτοκινήτου στο αεροδρόμιο Θεσσαλονίκης (SKG) είναι ο ευκολότερος τρόπος να ξεκινήσετε το ταξίδι σας στη Χαλκιδική. Το αεροδρόμιο απέχει περίπου 30 λεπτά από τη Νέα Καλλικράτεια και περίπου μία ώρα από πολλά δημοφιλή θέρετρα. Με ενοικιαζόμενο αυτοκίνητο μπορείτε να εξερευνήσετε παραλίες και παραθαλάσσια χωριά. Η CarsNK προσφέρει παραλαβή στο terminal. Κλείστε online.",
     benefitBlockTitle:
-      "Γιατί επιλέγουν τη Natali Cars για ενοικίαση αυτοκινήτου στο αεροδρόμιο Θεσσαλονίκης",
+      "Γιατί επιλέγουν τη CarsNK για ενοικίαση αυτοκινήτου στο αεροδρόμιο Θεσσαλονίκης",
     quickBenefits: [
       "Δωρεάν κράτηση",
       "Χωρίς εγγύηση",
@@ -225,7 +225,7 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
       "Υποστήριξη 24/7",
       "Ανταγωνιστικές τιμές",
     ],
-    rentalProcessTitle: "Πώς λειτουργεί η ενοικίαση αυτοκινήτου με τη Natali Cars:",
+    rentalProcessTitle: "Πώς λειτουργεί η ενοικίαση αυτοκινήτου με τη CarsNK:",
     rentalProcessSteps: [
       "Κάνετε online κράτηση του αυτοκινήτου",
       "Σας συναντάμε στο αεροδρόμιο Θεσσαλονίκης",
@@ -265,15 +265,15 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
     h1: "Mietwagen am Flughafen Thessaloniki (SKG)",
     heroSubtitle:
       "Holen Sie Ihr Mietauto direkt am Flughafen Thessaloniki ab und starten Sie ohne Verzögerung in die Chalkidiki.",
-    seoTitle: "Mietwagen am Flughafen Thessaloniki (SKG) | Natali Cars",
+    seoTitle: "Mietwagen am Flughafen Thessaloniki (SKG) | CarsNK",
     seoDescription:
       "Mietwagen am Flughafen Thessaloniki (SKG) mit Abholung bei Ankunft. Günstige Mieten für Chalkidiki. Automatik und Economy.",
     introText:
       "Der Flughafen Thessaloniki (SKG) ist der wichtigste internationale Flughafen für Thessaloniki und die gesamte Region Griechenlands. Buchen Sie Ihren Mietwagen online mit Übergabe am Terminal des Flughafens Thessaloniki (SKG) ohne Kaution und mit 24/7-Support.",
     seoLongText:
-      "Ein Mietwagen am Flughafen Thessaloniki (SKG) ist der einfachste Start in die Chalkidiki. Der Flughafen liegt etwa 30 Minuten von Nea Kallikratia und etwa eine Stunde von vielen Resorts entfernt. Mit dem Mietwagen erkunden Sie Strände und Küstenorte. Natali Cars bietet Abholung am Terminal. Buchen Sie online.",
+      "Ein Mietwagen am Flughafen Thessaloniki (SKG) ist der einfachste Start in die Chalkidiki. Der Flughafen liegt etwa 30 Minuten von Nea Kallikratia und etwa eine Stunde von vielen Resorts entfernt. Mit dem Mietwagen erkunden Sie Strände und Küstenorte. CarsNK bietet Abholung am Terminal. Buchen Sie online.",
     benefitBlockTitle:
-      "Warum Kunden Natali Cars für den Mietwagen am Flughafen Thessaloniki wählen",
+      "Warum Kunden CarsNK für den Mietwagen am Flughafen Thessaloniki wählen",
     quickBenefits: [
       "Kostenlose Buchung",
       "Ohne Kaution",
@@ -282,7 +282,7 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
       "24/7-Support",
       "Günstige Preise",
     ],
-    rentalProcessTitle: "So läuft die Autovermietung bei Natali Cars ab:",
+    rentalProcessTitle: "So läuft die Autovermietung bei CarsNK ab:",
     rentalProcessSteps: [
       "Sie buchen Ihr Fahrzeug online",
       "Wir treffen Sie am Flughafen Thessaloniki",
@@ -321,15 +321,15 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
     h1: "Кола под наем на летище Солун (SKG)",
     heroSubtitle:
       "Вземете колата си директно на летище Солун и тръгнете за Халкидики без забавяне.",
-    seoTitle: "Кола под наем на летище Солун (SKG) | Natali Cars",
+    seoTitle: "Кола под наем на летище Солун (SKG) | CarsNK",
     seoDescription:
       "Наем на кола на летище Солун (SKG) с получаване при пристигане. Доступен наем за Халкидики.",
     introText:
       "Летище Солун (SKG) е главното международно летище, което обслужва Солун и целия регион на Гърция. Резервирайте онлайн кола под наем с получаване на терминала на летище Солун (SKG) без депозит и с поддръжка 24/7.",
     seoLongText:
-      "Наемът на кола на летище Солун (SKG) е най-лесният старт за Халкидики. Летището е на около 30 минути от Неа Каликратия. С наета кола можете да посетите плажове и курорти. Natali Cars предлага получаване на терминала. Резервирайте онлайн.",
+      "Наемът на кола на летище Солун (SKG) е най-лесният старт за Халкидики. Летището е на около 30 минути от Неа Каликратия. С наета кола можете да посетите плажове и курорти. CarsNK предлага получаване на терминала. Резервирайте онлайн.",
     benefitBlockTitle:
-      "Защо избират Natali Cars за кола под наем на летище Солун",
+      "Защо избират CarsNK за кола под наем на летище Солун",
     quickBenefits: [
       "Безплатна резервация",
       "Без депозит",
@@ -338,7 +338,7 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
       "Поддръжка 24/7",
       "Изгодни цени",
     ],
-    rentalProcessTitle: "Как протича наемът на кола при Natali Cars:",
+    rentalProcessTitle: "Как протича наемът на кола при CarsNK:",
     rentalProcessSteps: [
       "Резервирате автомобила онлайн",
       "Посрещаме ви на летище Солун",
@@ -376,15 +376,15 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
     h1: "Închirieri auto la aeroportul Salonic (SKG)",
     heroSubtitle:
       "Ridicați mașina direct de la aeroportul Salonic și porniți spre Halkidiki fără întârzieri.",
-    seoTitle: "Închirieri auto la aeroportul Salonic (SKG) | Natali Cars",
+    seoTitle: "Închirieri auto la aeroportul Salonic (SKG) | CarsNK",
     seoDescription:
       "Închirieri auto la aeroportul Salonic (SKG) cu preluare la sosire. Închirieri pentru Halkidiki. Automat și economy.",
     introText:
       "Aeroportul Salonic (SKG) este principalul aeroport internațional care deservește Salonicul și întreaga regiune a Greciei. Rezervați online mașina cu preluare la terminalul Aeroportului Salonic (SKG), fără depozit și cu asistență 24/7.",
     seoLongText:
-      "Închirierea unei mașini la aeroportul Salonic (SKG) este cel mai simplu mod de a începe călătoria în Halkidiki. Aeroportul este la aproximativ 30 de minute de Nea Kallikratia. Cu mașina închiriată explorați plaje și sate. Natali Cars oferă preluare la terminal. Rezervați online.",
+      "Închirierea unei mașini la aeroportul Salonic (SKG) este cel mai simplu mod de a începe călătoria în Halkidiki. Aeroportul este la aproximativ 30 de minute de Nea Kallikratia. Cu mașina închiriată explorați plaje și sate. CarsNK oferă preluare la terminal. Rezervați online.",
     benefitBlockTitle:
-      "De ce aleg Natali Cars pentru închirierea auto la aeroportul Salonic",
+      "De ce aleg CarsNK pentru închirierea auto la aeroportul Salonic",
     quickBenefits: [
       "Rezervare gratuită",
       "Fără depozit",
@@ -393,7 +393,7 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
       "Asistență 24/7",
       "Prețuri avantajoase",
     ],
-    rentalProcessTitle: "Cum funcționează închirierea auto la Natali Cars:",
+    rentalProcessTitle: "Cum funcționează închirierea auto la CarsNK:",
     rentalProcessSteps: [
       "Rezervați mașina online",
       "Vă întâlnim la aeroportul Salonic",
@@ -431,15 +431,15 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
     h1: "Iznajmljivanje auta na aerodromu Solun (SKG)",
     heroSubtitle:
       "Preuzmite auto direktno na aerodromu Solun i krenite ka Halkidikiju bez odlaganja.",
-    seoTitle: "Iznajmljivanje auta na aerodromu Solun (SKG) | Natali Cars",
+    seoTitle: "Iznajmljivanje auta na aerodromu Solun (SKG) | CarsNK",
     seoDescription:
       "Iznajmljivanje auta na aerodromu Solun (SKG) sa preuzimanjem po dolasku. Pristupačno za Halkidiki.",
     introText:
       "Aerodrom Solun (SKG) je glavni međunarodni aerodrom koji opslužuje Solun i ceo region Grčke. Rezervišite auto online sa preuzimanjem na terminalu aerodroma Solun (SKG) bez depozita i uz podršku 24/7.",
     seoLongText:
-      "Iznajmljivanje auta na aerodromu Solun (SKG) je najlakši način da započnete putovanje na Halkidiki. Aerodrom je oko 30 minuta od Nea Kalikratije. Sa iznajmljenim autom istražujete plaže i letovališta. Natali Cars nudi preuzimanje na terminalu. Rezervište online.",
+      "Iznajmljivanje auta na aerodromu Solun (SKG) je najlakši način da započnete putovanje na Halkidiki. Aerodrom je oko 30 minuta od Nea Kalikratije. Sa iznajmljenim autom istražujete plaže i letovališta. CarsNK nudi preuzimanje na terminalu. Rezervište online.",
     benefitBlockTitle:
-      "Zašto biraju Natali Cars za iznajmljivanje auta na aerodromu Solun",
+      "Zašto biraju CarsNK za iznajmljivanje auta na aerodromu Solun",
     quickBenefits: [
       "Besplatna rezervacija",
       "Bez depozita",
@@ -448,7 +448,7 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
       "Podrška 24/7",
       "Povoljne cene",
     ],
-    rentalProcessTitle: "Kako izgleda iznajmljivanje auta kod Natali Cars:",
+    rentalProcessTitle: "Kako izgleda iznajmljivanje auta kod CarsNK:",
     rentalProcessSteps: [
       "Rezervišete automobil online",
       "Dočekujemo vas na aerodromu Solun",
@@ -486,15 +486,15 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
     h1: "Wynajem samochodu na lotnisku Saloniki (SKG)",
     heroSubtitle:
       "Odbierz samochód bezpośrednio na lotnisku Saloniki i ruszaj w trasę na Chalkidiki bez zbędnej zwłoki.",
-    seoTitle: "Wynajem samochodu na lotnisku Saloniki (SKG) | Natali Cars",
+    seoTitle: "Wynajem samochodu na lotnisku Saloniki (SKG) | CarsNK",
     seoDescription:
       "Wynajem auta na lotnisku Saloniki (SKG) z odbiorem po przylocie. Przejrzyste ceny na wyjazdy na Chalkidiki. Auta z automatyczną i manualną skrzynią.",
     introText:
       "Lotnisko Saloniki (SKG) to główne międzynarodowe lotnisko obsługujące Saloniki i region. Zarezerwuj auto online z odbiorem przy terminalu lotniska Saloniki (SKG), bez kaucji i z pomocą 24/7.",
     seoLongText:
-      "Wynajem auta na lotnisku Saloniki (SKG) to najwygodniejszy start wyjazdu na Chalkidiki. Lotnisko leży około 30 minut drogi od Nea Kallikratia i około godziny od wielu kurortów. Z własnym autem dotrzesz na plaże i do wiosek bez ograniczeń komunikacji publicznej. Natali Cars oferuje odbiór przy terminalu — odbierasz pojazd zaraz po lądowaniu i jedziesz prosto do noclegu. Trasa z lotniska na półwysep Chalkidiki prowadzi malowniczymi odcinkami wzdłuż Zatoki Termajskiej. Nea Kallikratia to około 35 km, a główne kurorty często 60–90 km. Centrum Salonik jest około 15 km od lotniska. Dopasowujemy godziny do rozkładu lotów, oferujemy konkurencyjne ceny i flotę od aut ekonomicznych po rodzinne. Rezerwuj online i zacznij urlop spokojnie.",
+      "Wynajem auta na lotnisku Saloniki (SKG) to najwygodniejszy start wyjazdu na Chalkidiki. Lotnisko leży około 30 minut drogi od Nea Kallikratia i około godziny od wielu kurortów. Z własnym autem dotrzesz na plaże i do wiosek bez ograniczeń komunikacji publicznej. CarsNK oferuje odbiór przy terminalu — odbierasz pojazd zaraz po lądowaniu i jedziesz prosto do noclegu. Trasa z lotniska na półwysep Chalkidiki prowadzi malowniczymi odcinkami wzdłuż Zatoki Termajskiej. Nea Kallikratia to około 35 km, a główne kurorty często 60–90 km. Centrum Salonik jest około 15 km od lotniska. Dopasowujemy godziny do rozkładu lotów, oferujemy konkurencyjne ceny i flotę od aut ekonomicznych po rodzinne. Rezerwuj online i zacznij urlop spokojnie.",
     benefitBlockTitle:
-      "Dlaczego warto wybrać Natali Cars przy wynajmie na lotnisku Saloniki",
+      "Dlaczego warto wybrać CarsNK przy wynajmie na lotnisku Saloniki",
     quickBenefits: [
       "Bezpłatna rezerwacja",
       "Bez kaucji",
@@ -503,7 +503,7 @@ const AIRPORT_PRIORITY_SEO_BY_LOCALE: Record<
       "Pomoc 24/7",
       "Konkurencyjne ceny",
     ],
-    rentalProcessTitle: "Jak wygląda wynajem z Natali Cars:",
+    rentalProcessTitle: "Jak wygląda wynajem z CarsNK:",
     rentalProcessSteps: [
       "Rezerwujesz auto online",
       "Spotykamy się na lotnisku Saloniki",

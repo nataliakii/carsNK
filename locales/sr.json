@@ -231,8 +231,8 @@
     "adminLogin": "Prijava za osoblje"
   },
   "seo": {
-    "title": "Natali Cars - Rent a car Halkidiki, Grčka",
-    "description": "Rent a car u Halkidikiju, Grčka — Natali Cars. Povoljno iznajmljivanje auta bez depozita. Fleksibilni uslovi preuzimanja i vraćanja. Najbolji rent a car u Halkidikiju, Nea Kalikratija, Kasandra, Sitonija.",
+    "title": "CarsNK - Rent a car Halkidiki, Grčka",
+    "description": "Rent a car u Halkidikiju, Grčka — CarsNK. Povoljno iznajmljivanje auta bez depozita. Fleksibilni uslovi preuzimanja i vraćanja. Najbolji rent a car u Halkidikiju, Nea Kalikratija, Kasandra, Sitonija.",
     "keywords": "rent a car Halkidiki, iznajmljivanje auta Grčka, najam vozila Halkidiki, jeftini rent a car, bez depozita"
   },
   "orderNotification": {
@@ -254,9 +254,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Hvala na rezervaciji – Natali Cars",
+    "title": "Hvala na rezervaciji – CarsNK",
     "greeting": "Poštovani/a {{CustomerName}},",
-    "thankYouChoose": "Hvala vam što ste izabrali **Natali Cars**.",
+    "thankYouChoose": "Hvala vam što ste izabrali **CarsNK**.",
     "weReceived": "Primili smo vaš zahtev za rezervaciju i cenimo vaše poverenje. Naš tim trenutno pregleda detalje i uskoro ćemo vas kontaktirati radi potvrde rezervacije i usklađivanja svega sa vašim očekivanjima.",
     "reservationDetails": "**Detalji rezervacije:**",
     "orderNumber": "Broj porudžbine: **#{{orderNumber}}**",
@@ -280,7 +280,7 @@
     "totalAmountLabel": "Ukupan iznos",
     "excludeCityDeliveryNote": "Bez dostave do grada.",
     "officialTitle": "Zvanična potvrda rezervacije",
-    "officialIntro": "Vaša rezervacija je zvanično potvrđena od strane Natali Cars.",
+    "officialIntro": "Vaša rezervacija je zvanično potvrđena od strane CarsNK.",
     "officialPdfNote": "Zvanični PDF sa potvrdom je priložen ovoj poruci. Sačuvajte ga radi preuzimanja vozila.",
     "generatedAtLabel": "Generisano",
     "customerLabel": "Klijent",
@@ -300,7 +300,7 @@
     "step3": "3. Nakon potvrde dobijate konačnu poruku sa svim potrebnim informacijama.",
     "questionsParagraph": "Ako imate pitanja, odgovorite na ovu poruku — rado ćemo vam pomoći lično.",
     "kindRegards": "S poštovanjem,",
-    "team": "**Tim Natali Cars**",
+    "team": "**Tim CarsNK**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {

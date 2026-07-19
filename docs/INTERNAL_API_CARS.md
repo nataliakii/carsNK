@@ -1,5 +1,8 @@
 # Internal API: Cars
 
+> Prefer the partner Aggregator API for new integrations:  
+> **[AGGREGATOR_API.md](./AGGREGATOR_API.md)** — `GET /api/v1/aggregator/cars` + `X-API-Key`.
+
 **Endpoint:** `GET /api/internal/cars`  
 **Purpose:** Return only real cars (testingCar = false) for external consumers (e.g. https://bbqr.site).
 
@@ -82,7 +85,7 @@ const cars = await res.json();
 **Optional / when available:**
 - **priceFrom** — Representative minimum price from pricing tiers.
 - **image** — Car photo URL or identifier (or `null`).
-- **bookingUrl** — Full URL to Natali Cars booking for this car.
+- **bookingUrl** — Full URL to CarsNK booking for this car.
 - **model** — Model name (if different from title).
 - **class** — Car class, e.g. `"compact"`, `"suv"` (lowercase).
 - **registration** — Year of manufacture.

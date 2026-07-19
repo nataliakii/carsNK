@@ -365,9 +365,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Thank you for your reservation – Natali Cars",
+    "title": "Thank you for your reservation – CarsNK",
     "greeting": "Dear {{CustomerName}},",
-    "thankYouChoose": "Thank you for choosing **Natali Cars**.",
+    "thankYouChoose": "Thank you for choosing **CarsNK**.",
     "weReceived": "We have received your reservation request and truly appreciate your trust in our service. Our team is currently reviewing the details and will contact you shortly to confirm the booking and ensure everything is arranged to your expectations.",
     "reservationDetails": "**Reservation details:**",
     "orderNumber": "Order number: **#{{orderNumber}}**",
@@ -391,7 +391,7 @@
     "totalAmountLabel": "Total amount",
     "excludeCityDeliveryNote": "Not including delivery to the city.",
     "officialTitle": "Official booking confirmation",
-    "officialIntro": "Your reservation has been officially confirmed by Natali Cars.",
+    "officialIntro": "Your reservation has been officially confirmed by CarsNK.",
     "officialPdfNote": "The official confirmation PDF is attached to this email. Please keep it for vehicle pick-up.",
     "generatedAtLabel": "Generated at",
     "customerLabel": "Customer",
@@ -411,7 +411,7 @@
     "step3": "3. Once confirmed, you will receive a final confirmation with all necessary information.",
     "questionsParagraph": "If you have any questions in the meantime, please feel free to reply to this email — we will be happy to assist you personally.",
     "kindRegards": "Kind regards,",
-    "team": "**Natali Cars Team**",
+    "team": "**CarsNK Team**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {

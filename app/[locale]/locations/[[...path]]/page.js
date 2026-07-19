@@ -491,7 +491,7 @@ export default async function LocationHierarchyPage({ params }) {
             />
           )}
 
-          {/* Airport: benefits / why Natali Cars — directly before FAQ */}
+          {/* Airport: benefits / why CarsNK — directly before FAQ */}
           {isAirport && prioritySeo?.benefitBlockTitle && prioritySeo?.quickBenefits?.length > 0 && (
             <SeoWhyRentBlock
               sectionId="airport-why-natali-cars"

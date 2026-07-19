@@ -38,8 +38,8 @@ export const seoKeywords = {
     "summer car hire Halkidiki",
 
     // Brand
-    "Natali Cars",
-    "Natali Cars Halkidiki",
+    "CarsNK",
+    "CarsNK Halkidiki",
   ],
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -74,7 +74,7 @@ export const seoKeywords = {
 
     // Бренд
     "Натали Карс",
-    "Natali Cars Халкидики",
+    "CarsNK Халкидики",
     "прокат авто Натали",
   ],
 
@@ -111,8 +111,8 @@ export const seoKeywords = {
     "Ferienautovermietung Griechenland",
 
     // Marke
-    "Natali Cars",
-    "Natali Cars Chalkidiki",
+    "CarsNK",
+    "CarsNK Chalkidiki",
     "Autovermietung Natali",
   ],
 
@@ -150,8 +150,8 @@ export const seoKeywords = {
     "porodični rent a car Grčka",
 
     // Brend
-    "Natali Cars",
-    "Natali Cars Halkidiki",
+    "CarsNK",
+    "CarsNK Halkidiki",
     "rent a car Natali",
   ],
 
@@ -189,8 +189,8 @@ export const seoKeywords = {
     "mașină pentru familie Halkidiki",
 
     // Brand
-    "Natali Cars",
-    "Natali Cars Halkidiki",
+    "CarsNK",
+    "CarsNK Halkidiki",
     "rent a car Natali Grecia",
   ],
 
@@ -229,7 +229,7 @@ export const seoKeywords = {
 
     // Бранд
     "Натали Карс",
-    "Natali Cars Халкидики",
+    "CarsNK Халкидики",
     "рент а кар Натали",
   ],
 
@@ -258,8 +258,8 @@ export const seoKeywords = {
     "ενοικίαση αυτοκινήτου χωρίς εγγύηση",
 
     // Brand
-    "Natali Cars",
-    "Natali Cars Χαλκιδική",
+    "CarsNK",
+    "CarsNK Χαλκιδική",
   ],
 };
 

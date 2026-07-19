@@ -1,5 +1,5 @@
 /**
- * Natali Cars email theme — colors and typography for email templates.
+ * CarsNK email theme — colors and typography for email templates.
  * Single source of truth for brand-accent and layout styles (inline, email-client safe).
  */
 

@@ -132,7 +132,7 @@ export async function generateMetadata({ params }) {
         description: resolved.seoDescription,
         url: toAbsoluteUrl(pagePath),
         type: "website",
-        siteName: "Natali Cars",
+        siteName: "CarsNK",
       },
       twitter: {
         card: "summary_large_image",
@@ -155,7 +155,7 @@ export async function generateMetadata({ params }) {
       title: resolved.seoTitle,
       description: resolved.seoDescription,
       alternates: { canonical: toAbsoluteUrl(pagePath), languages: alternates },
-      openGraph: { title: resolved.seoTitle, description: resolved.seoDescription, url: toAbsoluteUrl(pagePath), type: "website", siteName: "Natali Cars" },
+      openGraph: { title: resolved.seoTitle, description: resolved.seoDescription, url: toAbsoluteUrl(pagePath), type: "website", siteName: "CarsNK" },
       twitter: { card: "summary_large_image", title: resolved.seoTitle, description: resolved.seoDescription },
       robots: getRobotsForPath(pagePath),
     };
@@ -168,8 +168,8 @@ export async function generateMetadata({ params }) {
     const locationName = locationDef.nameByLocale[locale];
     const carModel = car.model || car.slug;
 
-    const title = `Rent ${carModel} in ${locationName} | Natali Cars`;
-    const description = `Rent ${carModel} with pickup in ${locationName}. ${capitalize(car.transmission)} transmission, ${car.seats || 5} seats. Book online with Natali Cars.`;
+    const title = `Rent ${carModel} in ${locationName} | CarsNK`;
+    const description = `Rent ${carModel} with pickup in ${locationName}. ${capitalize(car.transmission)} transmission, ${car.seats || 5} seats. Book online with CarsNK.`;
     const pagePath = getSeoPagePath(locale, slug);
     const alternates = buildHreflangAlternates(getSeoPageAlternates(locale, slug));
 
@@ -180,7 +180,7 @@ export async function generateMetadata({ params }) {
         canonical: toAbsoluteUrl(pagePath),
         languages: alternates,
       },
-      openGraph: { title, description, url: toAbsoluteUrl(pagePath), type: "website", siteName: "Natali Cars" },
+      openGraph: { title, description, url: toAbsoluteUrl(pagePath), type: "website", siteName: "CarsNK" },
       twitter: { card: "summary_large_image", title, description },
       robots: getRobotsForPath(pagePath),
     };

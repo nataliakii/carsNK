@@ -231,8 +231,8 @@
     "adminLogin": "Team-Anmeldung"
   },
   "seo": {
-    "title": "Natali Cars - Mietwagen in Chalkidiki, Griechenland",
-    "description": "Mietwagen in Chalkidiki, Griechenland bei Natali Cars. Günstige Autovermietung mit flexiblen Abhol- und Rückgabeoptionen. Bester Mietwagenservice in Chalkidiki, Nea Kallikratia, Kassandra, Sithonia.",
+    "title": "CarsNK - Mietwagen in Chalkidiki, Griechenland",
+    "description": "Mietwagen in Chalkidiki, Griechenland bei CarsNK. Günstige Autovermietung mit flexiblen Abhol- und Rückgabeoptionen. Bester Mietwagenservice in Chalkidiki, Nea Kallikratia, Kassandra, Sithonia.",
     "keywords": "Mietwagen Chalkidiki, Auto mieten Griechenland, Autovermietung Chalkidiki, günstig Auto mieten, Mietwagen ohne Kaution"
   },
   "orderNotification": {
@@ -254,9 +254,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Vielen Dank für Ihre Reservierung – Natali Cars",
+    "title": "Vielen Dank für Ihre Reservierung – CarsNK",
     "greeting": "Sehr geehrte(r) {{CustomerName}},",
-    "thankYouChoose": "Vielen Dank, dass Sie sich für **Natali Cars** entschieden haben.",
+    "thankYouChoose": "Vielen Dank, dass Sie sich für **CarsNK** entschieden haben.",
     "weReceived": "Wir haben Ihre Reservierungsanfrage erhalten und schätzen Ihr Vertrauen sehr. Unser Team prüft derzeit die Details und wird sich in Kürze bei Ihnen melden, um die Buchung zu bestätigen und alles nach Ihren Wünschen zu arrangieren.",
     "reservationDetails": "**Reservierungsdetails:**",
     "orderNumber": "Bestellnummer: **#{{orderNumber}}**",
@@ -280,7 +280,7 @@
     "totalAmountLabel": "Gesamtbetrag",
     "excludeCityDeliveryNote": "Ohne Lieferung in die Stadt.",
     "officialTitle": "Offizielle Buchungsbestätigung",
-    "officialIntro": "Ihre Reservierung wurde offiziell von Natali Cars bestätigt.",
+    "officialIntro": "Ihre Reservierung wurde offiziell von CarsNK bestätigt.",
     "officialPdfNote": "Die offizielle Bestätigung im PDF-Format ist dieser E-Mail beigefügt. Bitte bewahren Sie sie für die Fahrzeugübergabe auf.",
     "generatedAtLabel": "Erstellt am",
     "customerLabel": "Kunde",
@@ -300,7 +300,7 @@
     "step3": "3. Nach der Bestätigung erhalten Sie eine finale Bestätigung mit allen nötigen Informationen.",
     "questionsParagraph": "Wenn Sie Fragen haben, antworten Sie einfach auf diese E-Mail — wir helfen Ihnen gerne persönlich weiter.",
     "kindRegards": "Mit freundlichen Grüßen,",
-    "team": "**Team Natali Cars**",
+    "team": "**Team CarsNK**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {
