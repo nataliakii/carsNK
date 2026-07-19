@@ -367,6 +367,8 @@
         "greek": "Φως στη διαδρομή σου!",
         "line": "Lumină pe drum — Apollo luminează calea."
       }
-    ]
+    ],
+    "swap": "Inversează destinațiile",
+    "distanceApprox": "Aprox.: ~{{km}} km · ~{{minutes}} min"
   }
 }

@@ -454,7 +454,7 @@
     "cityPlaceholder": "Выберите город в Халкидики",
     "distance": "Расстояние: {{km}} км · ~{{minutes}} мин",
     "distanceError": "Не удалось рассчитать расстояние",
-    "distanceUnavailable": "Расстояние недоступно (нужен Google Maps API key)",
+    "distanceUnavailable": "Расстояние недоступно (нужен серверный Google Maps API key)",
     "successTitle": "Путь начинается",
     "successBlessing": "Пусть боги дороги хранят вас в пути.",
     "successQuotes": [
@@ -478,6 +478,8 @@
         "greek": "Φως στη διαδρομή σου!",
         "line": "Света на дороге — Аполлон освещает путь."
       }
-    ]
+    ],
+    "swap": "Поменять местами",
+    "distanceApprox": "Примерно: ~{{km}} км · ~{{minutes}} мин"
   }
 }

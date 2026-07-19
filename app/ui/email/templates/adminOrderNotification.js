@@ -1,19 +1,15 @@
 /**
  * Admin/system order notification email — голубая заставка, контент, подпись BBQR в цветах.
- * Принимает title (например "🚨 New client order created") и body (plain text по строкам).
+ * Optional actions: CTA buttons for company email (Accept / Reject / Calendar / Message).
  */
 
 import { EMAIL_STYLE, escapeHtml } from "@/app/ui/email/theme/nataliCarsEmailTheme";
 import { EMAIL_SIGNATURE_HTML } from "@/app/ui/email/templates/signature";
 
-/**
- * Одна строка body: если "Email: addr" — делаем addr ссылкой; если "🆕 NEW ORDER" — выделяем NEW тегом.
- */
 function formatLine(line) {
   const trimmed = (line || "").trim();
   if (!trimmed) return "";
 
-  // Email: xxx@yyy → Email: <a href="mailto:...">...</a>
   const emailMatch = trimmed.match(/^(\s*•\s*Email:\s*)([^\s]+@[^\s]+)(\s*)$/);
   if (emailMatch) {
     const before = escapeHtml(emailMatch[1]);
@@ -22,19 +18,20 @@ function formatLine(line) {
     return `${before}<a href="mailto:${escapeHtml(addr)}" style="color:#008989;text-decoration:none;">${escapeHtml(addr)}</a>${after}`;
   }
 
-  // 🆕 NEW ORDER #... → выделяем "NEW" серым тегом
   if (trimmed.includes("NEW ORDER")) {
     const idx = trimmed.indexOf("NEW ORDER");
     const rest = trimmed.slice(idx + "NEW ORDER".length);
-    return escapeHtml(trimmed.slice(0, idx)) + `<span style="background-color:${EMAIL_STYLE.border};padding:2px 8px;border-radius:4px;font-size:12px;">NEW</span> ORDER` + escapeHtml(rest);
+    return (
+      escapeHtml(trimmed.slice(0, idx)) +
+      `<span style="background-color:${EMAIL_STYLE.border};padding:2px 8px;border-radius:4px;font-size:12px;">NEW</span> ORDER` +
+      escapeHtml(rest)
+    );
   }
 
-  // 👤 Customer: — жирный заголовок
   if (trimmed.startsWith("👤 Customer:")) {
     return `<strong style="color:${EMAIL_STYLE.accent};">${escapeHtml(trimmed)}</strong>`;
   }
 
-  // 🪪 Driver's licence + bullet lines with Cloudinary URL → clickable link
   if (trimmed.startsWith("🪪")) {
     return `<strong style="color:${EMAIL_STYLE.accent};">${escapeHtml(trimmed)}</strong>`;
   }
@@ -49,19 +46,54 @@ function formatLine(line) {
   return escapeHtml(trimmed);
 }
 
+function renderActionsHtml(actions) {
+  if (!Array.isArray(actions) || actions.length === 0) return "";
+  const s = EMAIL_STYLE;
+  const buttons = actions
+    .filter((a) => a?.href && a?.label)
+    .map((a) => {
+      const bg =
+        a.variant === "danger"
+          ? "#E53935"
+          : a.variant === "secondary"
+            ? "#0B1F3A"
+            : a.variant === "outline"
+              ? "#ffffff"
+              : "#008989";
+      const color = a.variant === "outline" ? "#0B1F3A" : "#ffffff";
+      const border =
+        a.variant === "outline" ? "1px solid #0B1F3A" : `1px solid ${bg}`;
+      return `<a href="${escapeHtml(a.href)}"
+        style="display:inline-block;margin:6px 8px 6px 0;padding:12px 18px;background:${bg};color:${color};border:${border};border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;font-family:${s.fontSans};">
+        ${escapeHtml(a.label)}
+      </a>`;
+    })
+    .join("");
+  if (!buttons) return "";
+  return `
+    <tr>
+      <td style="padding:8px 40px 28px 40px;">
+        <div style="margin:0 0 10px;color:${s.muted};font-size:13px;font-family:${s.fontSans};">
+          Quick actions (no customer contacts in this email):
+        </div>
+        ${buttons}
+      </td>
+    </tr>`;
+}
+
 /**
- * @param {{ title: string, body: string }} data
- * @returns {string} Full HTML document
+ * @param {{ title: string, body: string, actions?: Array<{ label: string, href: string, variant?: string }> }} data
+ * @returns {string}
  */
 export function renderAdminOrderNotificationHtml(data) {
-  const { title, body } = data;
+  const { title, body, actions } = data;
   const s = EMAIL_STYLE;
 
   const linesHtml = (body || "")
     .split("\n")
     .map((line) => {
       const content = formatLine(line);
-      if (!content) return "<div style=\"height:8px;\"></div>";
+      if (!content) return '<div style="height:8px;"></div>';
       return `<div style="margin:8px 0;color:${s.text};line-height:1.6;font-size:15px;font-family:${s.fontSans};">${content}</div>`;
     })
     .join("");
@@ -78,18 +110,17 @@ export function renderAdminOrderNotificationHtml(data) {
     <tr>
       <td align="center">
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background-color:${s.bgCard};border:1px solid ${s.border};box-shadow:0 2px 8px rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
-          <!-- Голубая заставка -->
           <tr>
             <td style="background-color:${s.headerTeal};padding:30px 40px;text-align:center;">
               <h1 style="margin:0;color:${s.headerText};font-size:22px;font-weight:600;letter-spacing:0.5px;font-family:${s.fontSans};">${escapeHtml(title)}</h1>
             </td>
           </tr>
           <tr>
-            <td style="padding:40px 40px 36px 40px;">
+            <td style="padding:40px 40px 20px 40px;">
               ${linesHtml}
             </td>
           </tr>
-          <!-- Подпись BBQR в цветах -->
+          ${renderActionsHtml(actions)}
           <tr>
             <td style="padding:0 40px 30px 40px;">
               ${EMAIL_SIGNATURE_HTML}

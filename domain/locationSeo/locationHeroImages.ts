@@ -12,32 +12,89 @@ import {
  * with the location id as key (e.g. "nikiti", "sithonia") and defaultSrc + portraitPhoneSrc.
  */
 
-const DEFAULT_HERO = {
+export type LocationHeroImageConfig = {
+  defaultSrc: string;
+  portraitPhoneSrc: string;
+  /** CSS object-position for desktop / landscape */
+  objectPosition?: string;
+  /** CSS object-position for portrait phone */
+  portraitObjectPosition?: string;
+  /** Prefer text on the open side of the photo so the car stays visible */
+  contentSide?: "left" | "right";
+};
+
+const DEFAULT_HERO: LocationHeroImageConfig = {
   defaultSrc: "/car-rental-neakallikratia.png",
   portraitPhoneSrc: "/car-rental-neakallikratia-portrait.png",
-} as const;
+  objectPosition: "center 42%",
+  portraitObjectPosition: "center 35%",
+  contentSide: "right",
+};
 
-export const LOCATION_HERO_IMAGES: Record<
-  string,
-  { defaultSrc: string; portraitPhoneSrc: string }
-> = {
+export const LOCATION_HERO_IMAGES: Record<string, LocationHeroImageConfig> = {
   "nea-kallikratia": {
     defaultSrc: "/car-rental-neakallikratia.png",
     portraitPhoneSrc: "/car-rental-neakallikratia-portrait.png",
+    objectPosition: "center 40%",
+    portraitObjectPosition: "center 32%",
+    contentSide: "right",
   },
   halkidiki: {
     defaultSrc: "/car-rental-halkidiki.png",
     portraitPhoneSrc: "/car-rental-halkidiki-portrait.png",
+    objectPosition: "center 38%",
+    portraitObjectPosition: "center 30%",
+    contentSide: "right",
   },
   "thessaloniki-airport": {
     defaultSrc: "/car-rental-thessaloniki-airport.png",
     portraitPhoneSrc: "/car-rental-thessaloniki-airport-portrait.png",
+    objectPosition: "center 45%",
+    portraitObjectPosition: "center 40%",
+    contentSide: "right",
   },
   thessaloniki: {
     defaultSrc: "/car-rental-thessaloniki.png",
     portraitPhoneSrc: "/car-rental-thessaloniki-portrait.png",
+    // Car sits lower-right — shift crop up/left so bay + car both read; text goes left
+    objectPosition: "62% 58%",
+    portraitObjectPosition: "55% 48%",
+    contentSide: "left",
   },
 };
+
+/** English place names matching transfer / delivery location list */
+const LOCATION_TRANSFER_PLACE_NAMES: Record<string, string> = {
+  thessaloniki: "Thessaloniki",
+  "thessaloniki-airport": "Thessaloniki Airport",
+  halkidiki: "Halkidiki",
+  "nea-kallikratia": "Nea Kallikratia",
+  "nea-moudania": "Nea Moudania",
+  nikiti: "Nikiti",
+  "neos-marmaras": "Neos Marmaras",
+  sarti: "Sarti",
+  sithonia: "Sithonia",
+  kassandra: "Kassandra",
+  kallithea: "Kallithea",
+  pefkohori: "Pefkohori",
+  hanioti: "Hanioti",
+  polichrono: "Polichrono",
+  afitos: "Afitos",
+  kriopigi: "Kriopigi",
+  sani: "Sani",
+  kassandria: "Kassandria",
+  fourka: "Fourka",
+  metamorfosi: "Metamorfosi",
+  "agios-nikolaos-halkidiki": "Agios Nikolaos Halkidiki",
+  ormilia: "Ormilia",
+  petralona: "Petralona",
+  vrasna: "Vrasna",
+  olympiada: "Olympiada",
+};
+
+export function getTransferPlaceName(locationId: string): string | null {
+  return LOCATION_TRANSFER_PLACE_NAMES[locationId] || null;
+}
 
 const LOCATION_DISTANCE_KM: Record<
   LocationId,
@@ -158,10 +215,7 @@ const DISTANCE_TEXT_BY_LOCALE: Record<
 /**
  * Returns hero image config for a location id. Falls back to default if not in config.
  */
-export function getLocationHeroImage(locationId: string): {
-  defaultSrc: string;
-  portraitPhoneSrc: string;
-} {
+export function getLocationHeroImage(locationId: string): LocationHeroImageConfig {
   return (
     LOCATION_HERO_IMAGES[locationId] || {
       ...DEFAULT_HERO,

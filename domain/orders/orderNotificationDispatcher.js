@@ -50,6 +50,7 @@ import {
   formatSuperadminClientContextFooter,
   formatCompanyEmailClientLocaleFooter,
 } from "./adminNotifyLocales";
+import { buildCompanyEmailOrderActions } from "./buildCompanyEmailOrderActions";
 import {
   withTestOrderEmailSubject,
   withTestOrderTelegramMessage,
@@ -331,7 +332,26 @@ async function sendEmailNotification(
       body += formatCompanyEmailClientLocaleFooter(payload, messageLocale);
     }
     title = withTestOrderEmailSubject(title, Boolean(payload.fromLocalhost));
-    html = renderAdminOrderNotificationEmail(title, body);
+    let actions;
+    if (
+      target === "COMPANY_EMAIL" &&
+      sendToCompany &&
+      payload.intent === "ORDER_CREATED" &&
+      payload.orderId
+    ) {
+      try {
+        actions = buildCompanyEmailOrderActions(
+          payload.orderId,
+          messageLocale
+        );
+      } catch (err) {
+        console.warn(
+          "[notifyOrderAction] company email actions skipped:",
+          err?.message || err
+        );
+      }
+    }
+    html = renderAdminOrderNotificationEmail(title, body, actions);
   }
 
   title = withTestOrderEmailSubject(title, Boolean(payload.fromLocalhost));

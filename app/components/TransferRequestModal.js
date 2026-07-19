@@ -10,12 +10,20 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import SwapVertIcon from "@mui/icons-material/SwapVert";
 import { useTranslation } from "react-i18next";
 
-export default function TransferRequestModal({ open, onClose }) {
+export default function TransferRequestModal({
+  open,
+  onClose,
+  initialFrom = "",
+  initialTo = "",
+}) {
   const { t, i18n } = useTranslation();
   const [locations, setLocations] = useState([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
@@ -29,6 +37,7 @@ export default function TransferRequestModal({ open, onClose }) {
   const [email, setEmail] = useState("");
   const [distanceKm, setDistanceKm] = useState(null);
   const [durationMinutes, setDurationMinutes] = useState(null);
+  const [distanceApproximate, setDistanceApproximate] = useState(false);
   const [distanceLoading, setDistanceLoading] = useState(false);
   const [distanceError, setDistanceError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -53,7 +62,7 @@ export default function TransferRequestModal({ open, onClose }) {
     return list[Math.floor(Math.random() * list.length)];
   }, [t]);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setFrom("");
     setTo("");
     setPassengers("1");
@@ -64,16 +73,25 @@ export default function TransferRequestModal({ open, onClose }) {
     setEmail("");
     setDistanceKm(null);
     setDurationMinutes(null);
+    setDistanceApproximate(false);
     setDistanceError("");
     setError("");
     setSuccess(false);
-  };
+  }, []);
 
   const handleClose = () => {
     if (loading) return;
     reset();
     onClose?.();
   };
+
+  useEffect(() => {
+    if (!open) return;
+    setFrom(String(initialFrom || "").trim());
+    setTo(String(initialTo || "").trim());
+    setSuccess(false);
+    setError("");
+  }, [open, initialFrom, initialTo]);
 
   useEffect(() => {
     if (!open) return;
@@ -97,38 +115,45 @@ export default function TransferRequestModal({ open, onClose }) {
     };
   }, [open]);
 
-  const fetchDistance = useCallback(async (origin, destination) => {
-    if (!origin || !destination) {
-      setDistanceKm(null);
-      setDurationMinutes(null);
-      setDistanceError("");
-      return;
-    }
-    setDistanceLoading(true);
-    setDistanceError("");
-    try {
-      const res = await fetch("/api/transfers/distance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from: origin, to: destination }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || !body.success) {
+  const fetchDistance = useCallback(
+    async (origin, destination) => {
+      if (!origin || !destination) {
         setDistanceKm(null);
         setDurationMinutes(null);
-        setDistanceError(body.message || t("transfer.distanceError"));
+        setDistanceApproximate(false);
+        setDistanceError("");
         return;
       }
-      setDistanceKm(body.distanceKm);
-      setDurationMinutes(body.durationMinutes ?? null);
-    } catch {
-      setDistanceKm(null);
-      setDurationMinutes(null);
-      setDistanceError(t("transfer.distanceError"));
-    } finally {
-      setDistanceLoading(false);
-    }
-  }, [t]);
+      setDistanceLoading(true);
+      setDistanceError("");
+      try {
+        const res = await fetch("/api/transfers/distance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ from: origin, to: destination }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.success) {
+          setDistanceKm(null);
+          setDurationMinutes(null);
+          setDistanceApproximate(false);
+          setDistanceError(body.message || t("transfer.distanceError"));
+          return;
+        }
+        setDistanceKm(body.distanceKm);
+        setDurationMinutes(body.durationMinutes ?? null);
+        setDistanceApproximate(Boolean(body.approximate));
+      } catch {
+        setDistanceKm(null);
+        setDurationMinutes(null);
+        setDistanceApproximate(false);
+        setDistanceError(t("transfer.distanceError"));
+      } finally {
+        setDistanceLoading(false);
+      }
+    },
+    [t]
+  );
 
   useEffect(() => {
     if (!open || !from || !to) return;
@@ -137,6 +162,11 @@ export default function TransferRequestModal({ open, onClose }) {
     }, 350);
     return () => clearTimeout(timer);
   }, [open, from, to, fetchDistance]);
+
+  const handleSwap = () => {
+    setFrom(to);
+    setTo(from);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -300,6 +330,24 @@ export default function TransferRequestModal({ open, onClose }) {
                 />
               )}
             />
+
+            <Box sx={{ display: "flex", justifyContent: "center", my: -0.5 }}>
+              <Tooltip title={t("transfer.swap")}>
+                <IconButton
+                  type="button"
+                  onClick={handleSwap}
+                  aria-label={t("transfer.swap")}
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "background.paper",
+                  }}
+                >
+                  <SwapVertIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+
             <Autocomplete
               freeSolo
               options={locations}
@@ -339,10 +387,15 @@ export default function TransferRequestModal({ open, onClose }) {
               {distanceLoading && <CircularProgress size={18} />}
               {!distanceLoading && distanceKm != null && (
                 <Typography variant="body2" color="text.secondary">
-                  {t("transfer.distance", {
-                    km: distanceKm,
-                    minutes: durationMinutes ?? "—",
-                  })}
+                  {distanceApproximate
+                    ? t("transfer.distanceApprox", {
+                        km: distanceKm,
+                        minutes: durationMinutes ?? "—",
+                      })
+                    : t("transfer.distance", {
+                        km: distanceKm,
+                        minutes: durationMinutes ?? "—",
+                      })}
                 </Typography>
               )}
               {!distanceLoading && distanceError && (

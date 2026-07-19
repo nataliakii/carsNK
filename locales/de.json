@@ -367,6 +367,8 @@
         "greek": "Φως στη διαδρομή σου!",
         "line": "Licht auf Ihrem Weg — Apollon erhellt die Straße."
       }
-    ]
+    ],
+    "swap": "Ziele tauschen",
+    "distanceApprox": "Ca. Entfernung: ~{{km}} km · ~{{minutes}} Min."
   }
 }

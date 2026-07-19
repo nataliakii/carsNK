@@ -166,7 +166,7 @@ export default function OwnersSection() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1100 }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
       <Typography variant="h5" mb={1}>
         Owners &amp; admins
       </Typography>
@@ -186,118 +186,137 @@ export default function OwnersSection() {
         </Alert>
       ) : null}
 
-      <Typography variant="h6" mt={2} mb={1}>
-        Companies
-      </Typography>
-      <Table size="small" sx={{ mb: 2 }}>
-        <TableHead>
-          <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Email</TableCell>
-            <TableCell>Cars</TableCell>
-            <TableCell>ID</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {companies.map((c) => (
-            <TableRow key={String(c._id)}>
-              <TableCell>{c.name}</TableCell>
-              <TableCell>{c.email}</TableCell>
-              <TableCell>{c.carCount}</TableCell>
-              <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>
-                {String(c._id)}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        gap={3}
+        alignItems="flex-start"
+        mb={1}
+      >
+        <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
+          <Typography variant="h6" mb={1}>
+            Companies
+          </Typography>
+          <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={2}>
+            <TextField
+              size="small"
+              label="New company name"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              size="small"
+              label="Email"
+              value={companyEmail}
+              onChange={(e) => setCompanyEmail(e.target.value)}
+              fullWidth
+            />
+            <Button
+              variant="contained"
+              onClick={createCompany}
+              disabled={!companyName}
+              sx={{ flexShrink: 0 }}
+            >
+              Create company
+            </Button>
+          </Stack>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Cars</TableCell>
+                <TableCell>ID</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {companies.map((c) => (
+                <TableRow key={String(c._id)}>
+                  <TableCell>{c.name}</TableCell>
+                  <TableCell>{c.email}</TableCell>
+                  <TableCell>{c.carCount}</TableCell>
+                  <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>
+                    {String(c._id)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
 
-      <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={3}>
-        <TextField
-          size="small"
-          label="New company name"
-          value={companyName}
-          onChange={(e) => setCompanyName(e.target.value)}
-        />
-        <TextField
-          size="small"
-          label="Email"
-          value={companyEmail}
-          onChange={(e) => setCompanyEmail(e.target.value)}
-        />
-        <Button variant="contained" onClick={createCompany} disabled={!companyName}>
-          Create company
-        </Button>
+        <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
+          <Typography variant="h6" mb={1}>
+            Admin users
+          </Typography>
+          <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={2}>
+            <TextField
+              size="small"
+              select
+              label="Owner company"
+              value={userOwnerId}
+              onChange={(e) => setUserOwnerId(e.target.value)}
+              sx={{ minWidth: { sm: 140 }, flex: 1 }}
+            >
+              {companies.map((c) => (
+                <MenuItem key={String(c._id)} value={String(c._id)}>
+                  {c.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              size="small"
+              label="Admin email"
+              value={userEmail}
+              onChange={(e) => setUserEmail(e.target.value)}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              size="small"
+              type="password"
+              label="Password"
+              value={userPassword}
+              onChange={(e) => setUserPassword(e.target.value)}
+              sx={{ flex: 1 }}
+            />
+            <Button
+              variant="contained"
+              onClick={createUser}
+              disabled={!userEmail || !userPassword || !userOwnerId}
+              sx={{ flexShrink: 0 }}
+            >
+              Create ADMIN
+            </Button>
+          </Stack>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Email</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Owner</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {users.map((u) => (
+                <TableRow key={String(u._id)}>
+                  <TableCell>{u.email}</TableCell>
+                  <TableCell>
+                    {Number(u.role) === ROLE_SUPERADMIN
+                      ? "SUPERADMIN"
+                      : "ADMIN"}
+                  </TableCell>
+                  <TableCell>
+                    {u.ownerId
+                      ? companyNameById[String(u.ownerId)] || String(u.ownerId)
+                      : "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
       </Stack>
 
-      <Divider sx={{ my: 2 }} />
-
-      <Typography variant="h6" mb={1}>
-        Admin users
-      </Typography>
-      <Table size="small" sx={{ mb: 2 }}>
-        <TableHead>
-          <TableRow>
-            <TableCell>Email</TableCell>
-            <TableCell>Role</TableCell>
-            <TableCell>Owner</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {users.map((u) => (
-            <TableRow key={String(u._id)}>
-              <TableCell>{u.email}</TableCell>
-              <TableCell>
-                {Number(u.role) === ROLE_SUPERADMIN ? "SUPERADMIN" : "ADMIN"}
-              </TableCell>
-              <TableCell>
-                {u.ownerId
-                  ? companyNameById[String(u.ownerId)] || String(u.ownerId)
-                  : "—"}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-
-      <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={3}>
-        <TextField
-          size="small"
-          label="Admin email"
-          value={userEmail}
-          onChange={(e) => setUserEmail(e.target.value)}
-        />
-        <TextField
-          size="small"
-          type="password"
-          label="Password"
-          value={userPassword}
-          onChange={(e) => setUserPassword(e.target.value)}
-        />
-        <TextField
-          size="small"
-          select
-          label="Owner company"
-          value={userOwnerId}
-          onChange={(e) => setUserOwnerId(e.target.value)}
-          sx={{ minWidth: 180 }}
-        >
-          {companies.map((c) => (
-            <MenuItem key={String(c._id)} value={String(c._id)}>
-              {c.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <Button
-          variant="contained"
-          onClick={createUser}
-          disabled={!userEmail || !userPassword || !userOwnerId}
-        >
-          Create ADMIN
-        </Button>
-      </Stack>
-
-      <Divider sx={{ my: 2 }} />
+      <Divider sx={{ my: 3 }} />
 
       <Typography variant="h6" mb={1}>
         Assign cars to owner

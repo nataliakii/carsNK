@@ -367,6 +367,8 @@
         "greek": "Φως στη διαδρομή σου!",
         "line": "Svetlost na putu — Apolon osvetljava stazu."
       }
-    ]
+    ],
+    "swap": "Zameni destinacije",
+    "distanceApprox": "Približno: ~{{km}} km · ~{{minutes}} min"
   }
 }

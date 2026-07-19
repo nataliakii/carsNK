@@ -6,6 +6,8 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import Image from "next/image";
 import Link from "next/link";
 import ActionButton from "@/app/components/ui/buttons/ActionButton";
+import TransferRequestModal from "@app/components/TransferRequestModal";
+import { useTranslation } from "react-i18next";
 
 const AUTO_MS = 6000;
 const PHONE_PORTRAIT_QUERY =
@@ -15,6 +17,52 @@ const COMPACT_PORTRAIT_PHONE_HERO_TOP_PADDING = "88px";
 // Matches Feed mainPt so hero sits under nav with no white stripe
 const HERO_TOP_PADDING = { xs: "110px", md: "90px" };
 const HERO_NEGATIVE_MARGIN = { xs: "-110px", md: "-90px" };
+
+const BRAND_RED_CTA_SX = {
+  textDecoration: "none",
+  backgroundColor: "#E53935",
+  color: "#ffffff",
+  padding: "14px 28px",
+  borderRadius: "10px",
+  fontWeight: 700,
+  letterSpacing: "0.5px",
+  boxShadow: "0 4px 18px rgba(229,57,53,0.35)",
+  "&:hover": {
+    backgroundColor: "#B71C1C",
+    color: "#ffffff",
+    textDecoration: "none",
+    boxShadow: "0 6px 24px rgba(183,28,28,0.45)",
+    transform: "translateY(-1px)",
+  },
+  "&:active": {
+    backgroundColor: "#8e1515",
+    color: "#ffffff",
+    transform: "translateY(0)",
+  },
+};
+
+const TRANSFER_CTA_SX = {
+  textDecoration: "none",
+  backgroundColor: "transparent",
+  color: "#ffffff",
+  padding: "14px 28px",
+  borderRadius: "10px",
+  fontWeight: 700,
+  letterSpacing: "0.5px",
+  border: "2px solid rgba(255,255,255,0.92)",
+  boxShadow: "0 4px 18px rgba(0,0,0,0.18)",
+  "&:hover": {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    color: "#ffffff",
+    borderColor: "#ffffff",
+    textDecoration: "none",
+    transform: "translateY(-1px)",
+  },
+  "&:active": {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    transform: "translateY(0)",
+  },
+};
 
 export default function SeoHeroSliderCard({
   title,
@@ -35,10 +83,17 @@ export default function SeoHeroSliderCard({
   hideSecondaryContentOnPortraitPhone = false,
   raiseTitleOnPortraitPhone = false,
   alignTitleLeftOnPortraitPhone = false,
+  /** Force content to left or right on all breakpoints */
+  contentSide,
   /** Single even dim over the image (no side gradients). Good with white text. */
   uniformImageDim = false,
+  /** Prefill transfer "from" when Transfer CTA is used */
+  transferInitialFrom = "",
+  showTransferCta = false,
 }) {
+  const { t } = useTranslation();
   const [isPortraitPhone, setIsPortraitPhone] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
@@ -56,21 +111,35 @@ export default function SeoHeroSliderCard({
     return () => mediaQuery.removeListener(applyMatch);
   }, []);
 
-  const images =
+  const slides =
     Array.isArray(imageUrls) && imageUrls.length > 0
       ? imageUrls
           .map((item) => {
             if (typeof item === "string") {
-              return item;
+              return {
+                src: item,
+                objectPosition: "center center",
+              };
             }
 
             if (!item || typeof item !== "object") {
-              return "";
+              return null;
             }
 
-            return isPortraitPhone
+            const src = isPortraitPhone
               ? item.portraitPhoneSrc || item.defaultSrc || ""
               : item.defaultSrc || item.portraitPhoneSrc || "";
+            if (!src) return null;
+
+            const objectPosition = isPortraitPhone
+              ? item.portraitObjectPosition ||
+                item.objectPosition ||
+                "center center"
+              : item.objectPosition ||
+                item.portraitObjectPosition ||
+                "center center";
+
+            return { src, objectPosition };
           })
           .filter(Boolean)
       : [];
@@ -79,17 +148,18 @@ export default function SeoHeroSliderCard({
   const intervalRef = useRef(null);
 
   useEffect(() => {
-    if (images.length <= 1) return;
+    if (slides.length <= 1) return;
 
     intervalRef.current = setInterval(() => {
-      setIndex((prev) => (prev + 1) % images.length);
+      setIndex((prev) => (prev + 1) % slides.length);
     }, AUTO_MS);
 
     return () => clearInterval(intervalRef.current);
-  }, [images.length]);
+  }, [slides.length]);
 
   const shouldShowBottomRightCta =
-    ctaPlacement === "bottomRight" && ctaHref && ctaLabel;
+    ctaPlacement === "bottomRight" &&
+    ((ctaHref && ctaLabel) || showTransferCta);
   const hasHeroBenefits =
     Array.isArray(heroBenefits) && heroBenefits.length > 0;
   const shouldHideSecondaryContent =
@@ -103,6 +173,45 @@ export default function SeoHeroSliderCard({
       ? COMPACT_PORTRAIT_PHONE_HERO_TOP_PADDING
       : HERO_TOP_PADDING;
 
+  const alignLeft =
+    contentSide === "left" ||
+    (contentSide !== "right" &&
+      alignTitleLeftOnPortraitPhone &&
+      isPortraitPhone);
+
+  const findCarSx = { ...BRAND_RED_CTA_SX, ...(ctaSx || {}) };
+
+  const ctaButtons = (
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      spacing={1.25}
+      alignItems={{ xs: "stretch", sm: "center" }}
+      justifyContent={alignLeft ? "flex-start" : "flex-end"}
+    >
+      {ctaHref && ctaLabel && (
+        <ActionButton
+          component={Link}
+          href={ctaHref}
+          label={ctaLabel}
+          color="primary"
+          variant="contained"
+          size="large"
+          sx={findCarSx}
+        />
+      )}
+      {showTransferCta && (
+        <ActionButton
+          label={t("header.transfer")}
+          color="primary"
+          variant="outlined"
+          size="large"
+          onClick={() => setTransferOpen(true)}
+          sx={TRANSFER_CTA_SX}
+        />
+      )}
+    </Stack>
+  );
+
   return (
     <Box
       component="section"
@@ -115,7 +224,7 @@ export default function SeoHeroSliderCard({
       }}
     >
       {/* SLIDES */}
-      {images.map((src, i) => (
+      {slides.map((slide, i) => (
         <Box
           key={i}
           sx={{
@@ -126,11 +235,14 @@ export default function SeoHeroSliderCard({
           }}
         >
           <Image
-            src={src}
+            src={slide.src}
             alt={imageAlt}
             fill
             priority={i === 0}
-            style={{ objectFit: "cover" }}
+            style={{
+              objectFit: "cover",
+              objectPosition: slide.objectPosition,
+            }}
           />
         </Box>
       ))}
@@ -140,7 +252,7 @@ export default function SeoHeroSliderCard({
           sx={{
             position: "absolute",
             inset: 0,
-            bgcolor: "rgba(0,0,0,0.42)",
+            bgcolor: "rgba(0,0,0,0.38)",
             pointerEvents: "none",
           }}
         />
@@ -160,7 +272,12 @@ export default function SeoHeroSliderCard({
             sx={(theme) => ({
               position: "absolute",
               inset: 0,
-              background: `linear-gradient(270deg, 
+              background: alignLeft
+                ? `linear-gradient(90deg, 
+                ${theme.palette.common.black}CC 0%, 
+                ${theme.palette.common.black}88 40%, 
+                transparent 75%)`
+                : `linear-gradient(270deg, 
                 ${theme.palette.common.black}CC 0%, 
                 ${theme.palette.common.black}88 40%, 
                 transparent 75%)`,
@@ -170,7 +287,7 @@ export default function SeoHeroSliderCard({
         </>
       )}
 
-      {/* CONTENT: CTA above title, then paragraphs (no absolute positioning) */}
+      {/* CONTENT */}
       <Box
         sx={{
           position: "relative",
@@ -181,34 +298,18 @@ export default function SeoHeroSliderCard({
           py: { xs: 6, md: 10 },
           color: "common.white",
           display: "flex",
-          justifyContent:
-            alignTitleLeftOnPortraitPhone && isPortraitPhone
-              ? "flex-start"
-              : "flex-end",
+          justifyContent: alignLeft ? "flex-start" : "flex-end",
           ...(fullBleedUnderNav && { pt: heroTopPadding }),
         }}
       >
         <Box
           sx={{
             maxWidth: 680,
-            textAlign:
-              alignTitleLeftOnPortraitPhone && isPortraitPhone
-                ? "left"
-                : "right",
+            textAlign: alignLeft ? "left" : "right",
           }}
         >
           {ctaHref && ctaLabel && ctaPlacement !== "bottomRight" && (
-            <Box sx={{ mb: 2 }}>
-              <ActionButton
-                component={Link}
-                href={ctaHref}
-                label={ctaLabel}
-                color="primary"
-                variant="contained"
-                size="large"
-                sx={ctaSx}
-              />
-            </Box>
+            <Box sx={{ mb: 2 }}>{ctaButtons}</Box>
           )}
           <Typography
             component="h1"
@@ -222,9 +323,7 @@ export default function SeoHeroSliderCard({
               letterSpacing: "0.05em",
               fontSize: "clamp(1.5rem, 4vw, 2.5rem)",
               textShadow: heroTextShadow,
-              ...(alignTitleLeftOnPortraitPhone && isPortraitPhone
-                ? { textAlign: "left", pl: 0, pr: 0 }
-                : {}),
+              textAlign: alignLeft ? "left" : "right",
             }}
           >
             {title}
@@ -251,7 +350,8 @@ export default function SeoHeroSliderCard({
             <Box
               sx={{
                 mt: { xs: 2, md: 2.5 },
-                ml: "auto",
+                ml: alignLeft ? 0 : "auto",
+                mr: alignLeft ? "auto" : 0,
                 width: { xs: "100%", md: "min(340px, 100%)" },
                 maxWidth: 340,
                 px: { xs: 1.35, md: 1.7 },
@@ -271,8 +371,9 @@ export default function SeoHeroSliderCard({
                     sx={{
                       display: "flex",
                       alignItems: "flex-start",
-                      justifyContent: "flex-end",
+                      justifyContent: alignLeft ? "flex-start" : "flex-end",
                       gap: 0.75,
+                      flexDirection: alignLeft ? "row" : "row-reverse",
                     }}
                   >
                     <Typography
@@ -293,8 +394,7 @@ export default function SeoHeroSliderCard({
                         fontSize: { xs: 20, md: 22 },
                         mt: "1px",
                         flexShrink: 0,
-                        filter:
-                          "drop-shadow(0 4px 12px rgba(0,0,0,0.35))",
+                        filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.35))",
                       }}
                     />
                   </Box>
@@ -309,25 +409,19 @@ export default function SeoHeroSliderCard({
         <Box
           sx={{
             position: "absolute",
-            right: { xs: 16, md: 32 },
-            bottom: images.length > 1 ? { xs: 56, md: 72 } : { xs: 24, md: 32 },
+            ...(alignLeft
+              ? { left: { xs: 16, md: 32 } }
+              : { right: { xs: 16, md: 32 } }),
+            bottom: slides.length > 1 ? { xs: 56, md: 72 } : { xs: 24, md: 32 },
             zIndex: 4,
           }}
         >
-          <ActionButton
-            component={Link}
-            href={ctaHref}
-            label={ctaLabel}
-            color="primary"
-            variant="contained"
-            size="large"
-            sx={ctaSx}
-          />
+          {ctaButtons}
         </Box>
       )}
 
       {/* DOTS */}
-      {images.length > 1 && (
+      {slides.length > 1 && (
         <Stack
           direction="row"
           justifyContent="center"
@@ -340,7 +434,7 @@ export default function SeoHeroSliderCard({
             zIndex: 3,
           }}
         >
-          {images.map((_, i) => (
+          {slides.map((_, i) => (
             <Box
               key={i}
               onClick={() => setIndex(i)}
@@ -358,6 +452,14 @@ export default function SeoHeroSliderCard({
             />
           ))}
         </Stack>
+      )}
+
+      {showTransferCta && (
+        <TransferRequestModal
+          open={transferOpen}
+          onClose={() => setTransferOpen(false)}
+          initialFrom={transferInitialFrom}
+        />
       )}
     </Box>
   );

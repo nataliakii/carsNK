@@ -478,6 +478,8 @@
         "greek": "Φως στη διαδρομή σου!",
         "line": "Light on your road — Apollo brightens the way."
       }
-    ]
+    ],
+    "swap": "Swap destinations",
+    "distanceApprox": "Approx. distance: ~{{km}} km · ~{{minutes}} min"
   }
 }

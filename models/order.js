@@ -84,6 +84,16 @@ const OrderSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  /** Partner response from company notification email (not the same as confirmed). */
+  companyEmailDecision: {
+    type: String,
+    enum: ["accepted", "rejected"],
+    default: undefined,
+  },
+  companyEmailDecisionAt: {
+    type: Date,
+    default: null,
+  },
   status: {
     type: String,
     enum: [ORDER_STATUS.ACTIVE, ORDER_STATUS.PAID_AND_CLOSED],
@@ -717,6 +727,19 @@ if (Order?.schema && !Order.schema.path("drivingLicenceUrls")) {
     drivingLicenceUrls: {
       type: [String],
       default: [],
+    },
+  });
+}
+
+if (Order?.schema && !Order.schema.path("companyEmailDecision")) {
+  Order.schema.add({
+    companyEmailDecision: {
+      type: String,
+      enum: ["accepted", "rejected"],
+    },
+    companyEmailDecisionAt: {
+      type: Date,
+      default: null,
     },
   });
 }

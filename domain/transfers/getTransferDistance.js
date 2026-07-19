@@ -1,8 +1,14 @@
-import { toGooglePlaceQuery } from "@/domain/transfers/transferLocations";
+import {
+  toGooglePlaceQuery,
+  estimateTransferDistanceFromCatalog,
+} from "@/domain/transfers/transferLocations";
 
 /**
  * Driving distance via Google Distance Matrix API.
- * Requires GOOGLE_MAPS_API_KEY (server-only).
+ * Requires GOOGLE_MAPS_API_KEY (server-only) with Distance Matrix enabled
+ * and IP (or no) restrictions — HTTP referrer keys will be rejected.
+ *
+ * Falls back to curated delivery-locations distances when Google fails.
  *
  * @param {{ from: string, to: string }} params
  * @returns {Promise<{
@@ -11,6 +17,7 @@ import { toGooglePlaceQuery } from "@/domain/transfers/transferLocations";
  *   durationMinutes?: number,
  *   distanceText?: string,
  *   durationText?: string,
+ *   approximate?: boolean,
  *   message?: string,
  * }>}
  */
@@ -27,10 +34,28 @@ export async function getTransferDistance({ from, to }) {
       durationMinutes: 0,
       distanceText: "0 km",
       durationText: "0 min",
+      approximate: false,
     };
   }
 
   const apiKey = String(process.env.GOOGLE_MAPS_API_KEY || "").trim();
+  if (apiKey) {
+    const google = await fetchGoogleDistance(originName, destName, apiKey);
+    if (google.ok) return google;
+  }
+
+  const estimate = estimateTransferDistanceFromCatalog(originName, destName);
+  if (estimate.ok) {
+    return {
+      ok: true,
+      distanceKm: estimate.distanceKm,
+      durationMinutes: estimate.durationMinutes,
+      distanceText: `~${estimate.distanceKm} km`,
+      durationText: `~${estimate.durationMinutes} min`,
+      approximate: true,
+    };
+  }
+
   if (!apiKey) {
     return {
       ok: false,
@@ -38,6 +63,14 @@ export async function getTransferDistance({ from, to }) {
     };
   }
 
+  return {
+    ok: false,
+    message:
+      "Distance unavailable. Use a server Google Maps key (Distance Matrix API, IP restriction — not HTTP referrer).",
+  };
+}
+
+async function fetchGoogleDistance(originName, destName, apiKey) {
   const origins = toGooglePlaceQuery(originName);
   const destinations = toGooglePlaceQuery(destName);
   const url = new URL(
@@ -91,6 +124,7 @@ export async function getTransferDistance({ from, to }) {
       : undefined,
     distanceText: element.distance?.text || undefined,
     durationText: element.duration?.text || undefined,
+    approximate: false,
   };
 }
 

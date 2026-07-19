@@ -473,6 +473,8 @@
         "greek": "Φως στη διαδρομή σου!",
         "line": "Światła na drodze — Apollo rozjaśnia szlak."
       }
-    ]
+    ],
+    "swap": "Zamień miejsca",
+    "distanceApprox": "Około: ~{{km}} km · ~{{minutes}} min"
   }
 }

@@ -521,8 +521,13 @@ export function renderCustomerOfficialConfirmationEmail(payload) {
  * Renders admin/system order notification email (HTML with teal header + BBQR signature).
  * @param {string} title - e.g. "🚨 New client order created"
  * @param {string} text - Plain text body (newline-separated lines)
+ * @param {Array<{ label: string, href: string, variant?: string }>} [actions]
  * @returns {string} Full HTML document
  */
-export function renderAdminOrderNotificationEmail(title, text) {
-  return renderAdminOrderNotificationHtml({ title, body: text || "" });
+export function renderAdminOrderNotificationEmail(title, text, actions) {
+  return renderAdminOrderNotificationHtml({
+    title,
+    body: text || "",
+    actions,
+  });
 }

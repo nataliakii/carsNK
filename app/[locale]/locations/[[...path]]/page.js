@@ -24,6 +24,7 @@ import { SUPPORTED_LOCALES, LOCATION_IDS } from "@domain/locationSeo/locationSeo
 import {
   getLocationHeroImage,
   getLocationDistanceText,
+  getTransferPlaceName,
 } from "@domain/locationSeo/locationHeroImages";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@lib/authOptions";
@@ -60,25 +61,25 @@ import {
 } from "@domain/seoPages/seoPageRegistry";
 
 const PILLAR_LOCATION_IDS = [LOCATION_IDS.HALKIDIKI, LOCATION_IDS.THESSALONIKI_AIRPORT, LOCATION_IDS.NEA_KALLIKRATIA];
-/** Hero CTA («Подобрать авто»): явный контраст default + hover (без shorthand `background`, чтобы не ломать hover). */
+/** Hero CTA — brand red from logo accent line (#E53935). */
 const LOCATION_HERO_BUTTON_SX = {
   textDecoration: "none",
-  backgroundColor: "#c40000",
+  backgroundColor: "#E53935",
   color: "#ffffff",
-  padding: "16px 32px",
+  padding: "14px 28px",
   borderRadius: "10px",
-  fontWeight: 600,
+  fontWeight: 700,
   letterSpacing: "0.5px",
-  boxShadow: "0 4px 18px rgba(0,0,0,0.22)",
+  boxShadow: "0 4px 18px rgba(229,57,53,0.35)",
   "&:hover": {
-    backgroundColor: "#9a0000",
+    backgroundColor: "#B71C1C",
     color: "#ffffff",
     textDecoration: "none",
-    boxShadow: "0 6px 24px rgba(0,0,0,0.38)",
+    boxShadow: "0 6px 24px rgba(183,28,28,0.45)",
     transform: "translateY(-1px)",
   },
   "&:active": {
-    backgroundColor: "#7d0000",
+    backgroundColor: "#8e1515",
     color: "#ffffff",
     transform: "translateY(0)",
   },
@@ -268,6 +269,8 @@ export default async function LocationHierarchyPage({ params }) {
   // Hero images: from config (domain/locationSeo/locationHeroImages.ts). Fallback used if no entry.
   const locationHeroImage = getLocationHeroImage(location.id);
   const heroImages = [locationHeroImage];
+  const transferFrom =
+    getTransferPlaceName(location.id) || location.shortName || "";
   const distanceText =
     pageContent.distanceToThessaloniki ||
     location.distanceToThessalonikiText ||
@@ -336,6 +339,9 @@ export default async function LocationHierarchyPage({ params }) {
         preserveTitleCase
         stretchContentToEdge
         ctaSx={LOCATION_HERO_BUTTON_SX}
+        contentSide={locationHeroImage.contentSide || "right"}
+        showTransferCta
+        transferInitialFrom={transferFrom}
         heroBenefits={isAirport ? prioritySeo?.quickBenefits : []}
         hideSecondaryContentOnPortraitPhone={Boolean(heroSubtitle)}
         alignTitleLeftOnPortraitPhone={location.id === LOCATION_IDS.THESSALONIKI}

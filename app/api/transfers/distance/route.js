@@ -35,5 +35,6 @@ export async function POST(request) {
     durationMinutes: result.durationMinutes,
     distanceText: result.distanceText,
     durationText: result.durationText,
+    approximate: Boolean(result.approximate),
   });
 }
