@@ -166,22 +166,22 @@ export default function OwnersSection() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200 }}>
-      <Typography variant="h5" mb={1}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200, mx: "auto" }}>
+      <Typography variant="h5" fontWeight={700} mb={0.75}>
         Owners &amp; admins
       </Typography>
-      <Typography variant="body2" color="text.secondary" mb={2}>
+      <Typography variant="body2" color="text.secondary" mb={2.5}>
         Multi-tenant: each partner company owns a fleet. ADMIN users see only
         their ownerId. Unassigned cars: {unassignedCarCount}.
       </Typography>
 
       {error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
         </Alert>
       ) : null}
       {ok ? (
-        <Alert severity="success" sx={{ mb: 2 }}>
+        <Alert severity="success" sx={{ mb: 2.5 }} onClose={() => setOk("")}>
           {ok}
         </Alert>
       ) : null}
@@ -193,7 +193,7 @@ export default function OwnersSection() {
         mb={1}
       >
         <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
-          <Typography variant="h6" mb={1}>
+          <Typography variant="h6" mb={1.25}>
             Companies
           </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={2}>
@@ -213,9 +213,10 @@ export default function OwnersSection() {
             />
             <Button
               variant="contained"
+              color="primary"
               onClick={createCompany}
               disabled={!companyName}
-              sx={{ flexShrink: 0 }}
+              sx={{ flexShrink: 0, textTransform: "none", whiteSpace: "nowrap" }}
             >
               Create company
             </Button>
@@ -235,7 +236,17 @@ export default function OwnersSection() {
                   <TableCell>{c.name}</TableCell>
                   <TableCell>{c.email}</TableCell>
                   <TableCell>{c.carCount}</TableCell>
-                  <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>
+                  <TableCell
+                    title={String(c._id)}
+                    sx={{
+                      fontFamily: "monospace",
+                      fontSize: 12,
+                      maxWidth: 120,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {String(c._id)}
                   </TableCell>
                 </TableRow>
@@ -245,17 +256,17 @@ export default function OwnersSection() {
         </Box>
 
         <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
-          <Typography variant="h6" mb={1}>
+          <Typography variant="h6" mb={1.25}>
             Admin users
           </Typography>
-          <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={2}>
+          <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={2} flexWrap="wrap">
             <TextField
               size="small"
               select
               label="Owner company"
               value={userOwnerId}
               onChange={(e) => setUserOwnerId(e.target.value)}
-              sx={{ minWidth: { sm: 140 }, flex: 1 }}
+              sx={{ minWidth: { sm: 140 }, flex: "1 1 140px" }}
             >
               {companies.map((c) => (
                 <MenuItem key={String(c._id)} value={String(c._id)}>
@@ -268,7 +279,7 @@ export default function OwnersSection() {
               label="Admin email"
               value={userEmail}
               onChange={(e) => setUserEmail(e.target.value)}
-              sx={{ flex: 1 }}
+              sx={{ flex: "1 1 160px" }}
             />
             <TextField
               size="small"
@@ -276,13 +287,14 @@ export default function OwnersSection() {
               label="Password"
               value={userPassword}
               onChange={(e) => setUserPassword(e.target.value)}
-              sx={{ flex: 1 }}
+              sx={{ flex: "1 1 120px" }}
             />
             <Button
               variant="contained"
+              color="primary"
               onClick={createUser}
               disabled={!userEmail || !userPassword || !userOwnerId}
-              sx={{ flexShrink: 0 }}
+              sx={{ flexShrink: 0, textTransform: "none", whiteSpace: "nowrap" }}
             >
               Create ADMIN
             </Button>
@@ -318,7 +330,7 @@ export default function OwnersSection() {
 
       <Divider sx={{ my: 3 }} />
 
-      <Typography variant="h6" mb={1}>
+      <Typography variant="h6" mb={1.25}>
         Assign cars to owner
       </Typography>
       <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={2}>
@@ -338,8 +350,10 @@ export default function OwnersSection() {
         </TextField>
         <Button
           variant="contained"
+          color="primary"
           onClick={assignCars}
           disabled={!assignOwnerId || selectedCarIds.length === 0}
+          sx={{ textTransform: "none", whiteSpace: "nowrap" }}
         >
           Assign selected ({selectedCarIds.length})
         </Button>

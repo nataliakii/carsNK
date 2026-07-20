@@ -26,13 +26,12 @@ function Feed({ children, ...props }) {
 
   const shouldShowFooter = !props.isAdmin; // Скрываем Footer, если isAdmin === true
 
-  // Quick fix: reduce main top padding for admin pages so content sits directly
-  // under the fixed AppBar / admin topbar. Use a safe default (64px).
-  // Мемоизируем mainPt, чтобы не пересоздавать объект при каждом рендере
+  // Admin AppBar is fixed at 60px — clear it so page titles are not hidden.
+  // Cars page still adds its own offset for the fixed AdminTopBar below.
   const mainPt = useMemo(
     () =>
       props.isAdmin
-        ? { xs: "0px", md: "0px" }
+        ? { xs: "60px", md: "60px" }
         : { xs: "110px", md: "90px" },
     [props.isAdmin]
   );

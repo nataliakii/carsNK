@@ -21,7 +21,8 @@
     "clearSearch": "Șterge căutarea",
     "websiteVisits": "Visits",
     "transfer": "Transfer",
-    "transfers": "Transferuri"
+    "transfers": "Transferuri",
+    "owners": "Proprietari"
   },
   "catalog": {
     "noCarsMatchFilters": "Nicio mașină nu se potrivește filtrelor. Schimbă căutarea, clasa, cutia sau locurile."

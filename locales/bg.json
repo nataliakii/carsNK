@@ -21,7 +21,8 @@
     "clearSearch": "Изчисти търсенето",
     "websiteVisits": "Visits",
     "transfer": "Трансфер",
-    "transfers": "Трансфери"
+    "transfers": "Трансфери",
+    "owners": "Собственици"
   },
   "catalog": {
     "noCarsMatchFilters": "Няма коли за избраните филтри. Променете търсенето, класа, скоростите или местата."

@@ -36,11 +36,11 @@ export default function CalendarSection() {
       sx={{
         px: { xs: 0, md: 1 },
         pb: 0,
-        pt: "60px",
+        pt: 0,
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        height: "calc(100dvh - 0px)",
+        height: "calc(100dvh - 60px)",
         minHeight: 420,
         overflow: "hidden",
       }}

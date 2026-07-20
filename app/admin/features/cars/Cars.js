@@ -138,7 +138,7 @@ function Cars({ onCarDelete, setUpdateStatus }) {
       {isSuperAdmin && companies.length > 0 && (
         <FormControl
           size="small"
-          sx={{ mb: 1.5, minWidth: 220, mt: { xs: 8, md: 12 } }}
+          sx={{ mb: 1.5, minWidth: 220, mt: { xs: 7, md: 8 } }}
         >
           <InputLabel id="cars-company-filter">Company</InputLabel>
           <Select
@@ -161,7 +161,7 @@ function Cars({ onCarDelete, setUpdateStatus }) {
         container
         spacing={1.25}
         sx={{
-          mt: isSuperAdmin && companies.length > 0 ? 0 : { xs: 8, md: 14 },
+          mt: isSuperAdmin && companies.length > 0 ? 0 : { xs: 7, md: 8 },
           alignItems: "stretch",
         }}
       >

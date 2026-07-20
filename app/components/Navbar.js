@@ -550,36 +550,33 @@ export default function NavBar({
   const isAdminTransfersRoute = pathname?.startsWith("/admin/transfers");
   const isAdminOwnersRoute = pathname?.startsWith("/admin/owners");
   const adminNavLinkSx = {
-    px: { md: 0.8, lg: 1.25 },
-    py: 0.2,
-    fontSize: { md: 13, lg: 14 },
+    px: { md: 0.65, lg: 1 },
+    py: 0.35,
+    fontSize: { md: 12.5, lg: 13.5 },
+    fontWeight: 500,
     textTransform: "none",
     whiteSpace: "nowrap",
-    lineHeight: 1.1,
-    letterSpacing: 0.1,
-    opacity: 0.72,
-  };
-  const adminActionButtonSx = {
-    px: { md: 0.8, lg: 1.2 },
+    lineHeight: 1.2,
+    letterSpacing: 0.15,
+    color: "inherit",
+    opacity: 0.78,
+    borderBottom: "1px solid transparent",
+    borderRadius: 0,
     minWidth: "auto",
-    fontSize: { md: 11, lg: 12 },
-    textTransform: "none",
-    color: "white",
-    borderColor: "rgba(255,255,255,0.55)",
-    opacity: 0.86,
-    whiteSpace: "nowrap",
     "&:hover": {
-      borderColor: "white",
-      backgroundColor: "rgba(255, 255, 255, 0.1)",
       opacity: 1,
+      backgroundColor: "transparent",
     },
   };
-  const compactButtonTextSx = {
-    display: "block",
-    maxWidth: { md: 130, lg: 220 },
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+  const adminNavActiveSx = {
+    opacity: 1,
+    fontWeight: 600,
+    borderBottom: "1px solid rgba(255,255,255,0.8)",
+  };
+  const adminActionLinkSx = {
+    ...adminNavLinkSx,
+    opacity: 0.9,
+    px: { md: 0.75, lg: 1.1 },
   };
 
   return (
@@ -711,26 +708,12 @@ export default function NavBar({
                 </Typography>
               </LanguageSwitcher>
 
-              {/* Кнопка logout - только для админки */}
+              {/* Logout — text style, matches admin nav */}
               {isAdmin && adminRole !== null && (
                 <Button
-                  variant="outlined"
                   size="small"
                   onClick={handleLogout}
-                  sx={{
-                    color: "inherit",
-                    borderColor: "rgba(255, 255, 255, 0.5)",
-                    fontSize: "0.72rem",
-                    textTransform: "none",
-                    px: 1.15,
-                    minWidth: "auto",
-                    opacity: 0.85,
-                    "&:hover": {
-                      borderColor: "rgba(255, 255, 255, 0.8)",
-                      backgroundColor: "rgba(255, 255, 255, 0.1)",
-                      opacity: 1,
-                    },
-                  }}
+                  sx={adminActionLinkSx}
                 >
                   {t("header.logout") || "Logout"}
                 </Button>
@@ -738,12 +721,16 @@ export default function NavBar({
 
               <Stack
                 direction="row"
-                spacing={{ md: 0.5, lg: 0.9 }}
+                spacing={{ md: 0.25, lg: 0.5 }}
                 alignItems="center"
                 sx={{
                   display: { xs: "none", md: "flex" },
                   minWidth: 0,
-                  "& > *": { minWidth: 0 },
+                  maxWidth: { md: "72vw", lg: "78vw" },
+                  overflowX: "auto",
+                  scrollbarWidth: "none",
+                  "&::-webkit-scrollbar": { display: "none" },
+                  "& > *": { minWidth: 0, flexShrink: 0 },
                 }}
               >
                 {!isAdmin && (
@@ -841,40 +828,17 @@ export default function NavBar({
                       <Typography
                         sx={{
                           ...adminNavLinkSx,
-                          ...(isAdminCarsRoute
-                            ? {
-                                opacity: 1,
-                                fontWeight: 600,
-                                borderBottom: "1px solid rgba(255,255,255,0.75)",
-                              }
-                            : null),
+                          ...(isAdminCarsRoute ? adminNavActiveSx : null),
                         }}
                       >
                         {t("header.cars")}
                       </Typography>
                     </Link>
-                    {/*<Link href="/admin/orders">
-                      <Typography
-                        sx={{
-                          px: { xs: 0.5, md: 3 },
-                          fontSize: { xs: 11, md: 15 },
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {t("header.orders")}
-                      </Typography>
-                    </Link>*/}
                     <Link href="/admin/orders-calendar">
                       <Typography
                         sx={{
                           ...adminNavLinkSx,
-                          ...(isAdminCalendarRoute
-                            ? {
-                                opacity: 1,
-                                fontWeight: 600,
-                                borderBottom: "1px solid rgba(255,255,255,0.75)",
-                              }
-                            : null),
+                          ...(isAdminCalendarRoute ? adminNavActiveSx : null),
                         }}
                       >
                         {t("header.calendar")}
@@ -885,13 +849,7 @@ export default function NavBar({
                         <Typography
                           sx={{
                             ...adminNavLinkSx,
-                            ...(isAdminOrdersRoute
-                              ? {
-                                  opacity: 1,
-                                  fontWeight: 600,
-                                  borderBottom: "1px solid rgba(255,255,255,0.75)",
-                                }
-                              : null),
+                            ...(isAdminOrdersRoute ? adminNavActiveSx : null),
                           }}
                         >
                           {t("header.table")}
@@ -902,13 +860,7 @@ export default function NavBar({
                       <Typography
                         sx={{
                           ...adminNavLinkSx,
-                          ...(isAdminZonesRoute
-                            ? {
-                                opacity: 1,
-                                fontWeight: 600,
-                                borderBottom: "1px solid rgba(255,255,255,0.75)",
-                              }
-                            : null),
+                          ...(isAdminZonesRoute ? adminNavActiveSx : null),
                         }}
                       >
                         {t("header.deliveryZones")}
@@ -918,13 +870,7 @@ export default function NavBar({
                       <Typography
                         sx={{
                           ...adminNavLinkSx,
-                          ...(isAdminVisitsRoute
-                            ? {
-                                opacity: 1,
-                                fontWeight: 600,
-                                borderBottom: "1px solid rgba(255,255,255,0.75)",
-                              }
-                            : null),
+                          ...(isAdminVisitsRoute ? adminNavActiveSx : null),
                         }}
                       >
                         {t("header.websiteVisits")}
@@ -934,13 +880,7 @@ export default function NavBar({
                       <Typography
                         sx={{
                           ...adminNavLinkSx,
-                          ...(isAdminTransfersRoute
-                            ? {
-                                opacity: 1,
-                                fontWeight: 600,
-                                borderBottom: "1px solid rgba(255,255,255,0.75)",
-                              }
-                            : null),
+                          ...(isAdminTransfersRoute ? adminNavActiveSx : null),
                         }}
                       >
                         {t("header.transfers")}
@@ -951,44 +891,50 @@ export default function NavBar({
                         <Typography
                           sx={{
                             ...adminNavLinkSx,
-                            ...(isAdminOwnersRoute
-                              ? {
-                                  opacity: 1,
-                                  fontWeight: 600,
-                                  borderBottom:
-                                    "1px solid rgba(255,255,255,0.75)",
-                                }
-                              : null),
+                            ...(isAdminOwnersRoute ? adminNavActiveSx : null),
                           }}
                         >
-                          Owners
+                          {t("header.owners")}
                         </Typography>
                       </Link>
                     )}
+                    <Box
+                      aria-hidden
+                      sx={{
+                        width: "1px",
+                        alignSelf: "stretch",
+                        my: 0.6,
+                        mx: { md: 0.4, lg: 0.75 },
+                        backgroundColor: "rgba(255,255,255,0.28)",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <Button
+                      onClick={() => setDiscountModalOpen(true)}
+                      title={discountButtonLabel}
+                      sx={{
+                        ...adminActionLinkSx,
+                        maxWidth: { md: 140, lg: 200 },
+                        ...(discountActiveNow && {
+                          opacity: 1,
+                          color: "#a5d6a7",
+                          borderBottom: "1px solid rgba(165,214,167,0.7)",
+                        }),
+                      }}
+                    >
+                      <Box
+                        component="span"
+                        sx={{
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {currentDiscountInlineLabel}
+                      </Box>
+                    </Button>
                   </>
-                )}
-
-                {isAdmin && (
-                  <Button
-                    variant="outlined"
-                    onClick={() => setDiscountModalOpen(true)}
-                    title={discountButtonLabel}
-                    sx={{
-                      ...adminActionButtonSx,
-                      ...(discountActiveNow && {
-                        borderColor: "success.light",
-                        backgroundColor: "rgba(129, 199, 132, 0.2)",
-                        "&:hover": {
-                          borderColor: "success.light",
-                          backgroundColor: "rgba(129, 199, 132, 0.32)",
-                        },
-                      }),
-                    }}
-                  >
-                    <Box component="span" sx={compactButtonTextSx}>
-                      {currentDiscountInlineLabel}
-                    </Box>
-                  </Button>
                 )}
               </Stack>
             </Stack>
@@ -1453,7 +1399,7 @@ export default function NavBar({
                     href="/admin/owners"
                     onClick={() => setDrawerOpen(false)}
                   >
-                    <ListItemText primary="Owners" />
+                    <ListItemText primary={t("header.owners")} />
                   </ListItem>
                 )}
                 {isAdmin && (

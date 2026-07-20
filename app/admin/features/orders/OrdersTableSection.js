@@ -872,7 +872,7 @@ export default function OrdersTableSection() {
   // RENDER
   // ─────────────────────────────────────────────────────────────
   return (
-    <Box sx={{ px: { xs: 1, md: 2 }, pb: 6, pt: { xs: 8, md: 4 } }}>
+    <Box sx={{ px: { xs: 1, md: 2 }, pb: 6, pt: { xs: 2, md: 2 } }}>
       {/* Page Title */}
       <Typography 
         variant="h4" 

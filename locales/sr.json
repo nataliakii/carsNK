@@ -21,7 +21,8 @@
     "clearSearch": "Obriši pretragu",
     "websiteVisits": "Visits",
     "transfer": "Transfer",
-    "transfers": "Transferi"
+    "transfers": "Transferi",
+    "owners": "Vlasnici"
   },
   "catalog": {
     "noCarsMatchFilters": "Nema auta za izabrane filtere. Promenite pretragu, klasu, menjač ili broj sedišta."

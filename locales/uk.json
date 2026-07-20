@@ -21,7 +21,8 @@
     "clearSearch": "Очистити пошук",
     "websiteVisits": "Візити",
     "transfer": "Трансфер",
-    "transfers": "Трансфери"
+    "transfers": "Трансфери",
+    "owners": "Власники"
   },
   "catalog": {
     "noCarsMatchFilters": "Немає авто за обраними фільтрами. Змініть пошук, клас, КПП або кількість місць."

@@ -21,7 +21,8 @@
     "clearSearch": "Καθαρισμός αναζήτησης",
     "websiteVisits": "Visits",
     "transfer": "Μεταφορά",
-    "transfers": "Μεταφορές"
+    "transfers": "Μεταφορές",
+    "owners": "Ιδιοκτήτες"
   },
   "catalog": {
     "noCarsMatchFilters": "Δεν υπάρχουν αυτοκίνητα με αυτά τα φίλτρα. Δοκιμάστε άλλη αναζήτηση ή φίλτρα."

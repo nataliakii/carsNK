@@ -21,7 +21,8 @@
     "clearSearch": "Clear search",
     "websiteVisits": "Visits",
     "transfer": "Transfer",
-    "transfers": "Transfers"
+    "transfers": "Transfers",
+    "owners": "Owners"
   },
   "catalog": {
     "noCarsMatchFilters": "No cars match the selected filters. Try changing search, class, transmission, or seats."

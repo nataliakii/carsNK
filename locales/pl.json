@@ -21,7 +21,8 @@
     "clearSearch": "Wyczyść wyszukiwanie",
     "websiteVisits": "Visits",
     "transfer": "Transfer",
-    "transfers": "Transfery"
+    "transfers": "Transfery",
+    "owners": "Właściciele"
   },
   "catalog": {
     "noCarsMatchFilters": "Brak aut dla wybranych filtrów. Zmień wyszukiwanie, klasę, skrzynię lub miejsca."

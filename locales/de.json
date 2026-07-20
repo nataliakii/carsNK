@@ -21,7 +21,8 @@
     "clearSearch": "Suche löschen",
     "websiteVisits": "Visits",
     "transfer": "Transfer",
-    "transfers": "Transfers"
+    "transfers": "Transfers",
+    "owners": "Eigentümer"
   },
   "catalog": {
     "noCarsMatchFilters": "Keine Autos passen zu den Filtern. Suche, Klasse, Getriebe oder Sitze ändern."
