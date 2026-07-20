@@ -698,7 +698,7 @@ export default function CarTableRow({
               onDragStart: (e) => {
                 e.stopPropagation();
                 endPress({});
-                onOrderDragStart(e, singleOrderForDrag);
+                onOrderDragStart(e, singleOrderForDrag, dateStr);
               },
               onDragEnd: () => onOrderDragEnd(),
             }
@@ -1971,14 +1971,16 @@ export default function CarTableRow({
           onFocus={() => onCellFocus?.(rowIndex, colIndex)}
           onDragOver={
             onRowDragOver && enableOrderDrag
-              ? (e) => onRowDragOver(e, car)
+              ? (e) => onRowDragOver(e, car, dateStr)
               : undefined
           }
           onDragLeave={
             onRowDragLeave && enableOrderDrag ? onRowDragLeave : undefined
           }
           onDrop={
-            onRowDrop && enableOrderDrag ? (e) => onRowDrop(e, car) : undefined
+            onRowDrop && enableOrderDrag
+              ? (e) => onRowDrop(e, car, dateStr)
+              : undefined
           }
           sx={{
             padding: 0,

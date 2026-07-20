@@ -230,11 +230,27 @@ export default function CalendarOverlays({
         centerVertically={false}
       >
         <Typography sx={{ mb: 3, color: "text.primary" }}>
-          Вы хотите сдвинуть заказ с автомобиля{" "}
-          <strong>{confirmModal.oldCar?.model}</strong> (
-          {confirmModal.oldCar?.regNumber}) на автомобиль{" "}
-          <strong>{confirmModal.newCar?.model}</strong> (
-          {confirmModal.newCar?.regNumber})?
+          {confirmModal.kind === "dates" ? (
+            <>
+              Перенести заказ с{" "}
+              <strong>{confirmModal.fromRange}</strong> на{" "}
+              <strong>{confirmModal.toRange}</strong>
+              {confirmModal.dayDelta
+                ? ` (${confirmModal.dayDelta > 0 ? "+" : ""}${
+                    confirmModal.dayDelta
+                  } дн.)`
+                : ""}
+              ?
+            </>
+          ) : (
+            <>
+              Вы хотите сдвинуть заказ с автомобиля{" "}
+              <strong>{confirmModal.oldCar?.model}</strong> (
+              {confirmModal.oldCar?.regNumber}) на автомобиль{" "}
+              <strong>{confirmModal.newCar?.model}</strong> (
+              {confirmModal.newCar?.regNumber})?
+            </>
+          )}
         </Typography>
 
         <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>

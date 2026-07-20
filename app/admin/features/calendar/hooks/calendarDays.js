@@ -120,6 +120,62 @@ export function buildOrderDateRange(order) {
 }
 
 /**
+ * Shift an order's rental window by whole calendar days (Athens).
+ * Keeps clock times for timeIn/timeOut; returns null if delta is 0/invalid.
+ *
+ * @param {Object} order
+ * @param {number} dayDelta
+ * @returns {{ rentalStartDate: string, rentalEndDate: string, timeIn: Date, timeOut: Date, dayDelta: number } | null}
+ */
+export function shiftOrderByDays(order, dayDelta) {
+  const delta = Number(dayDelta);
+  if (!order?.rentalStartDate || !order?.rentalEndDate) return null;
+  if (!Number.isFinite(delta) || delta === 0) return null;
+
+  const start = dayjs
+    .utc(order.rentalStartDate)
+    .tz(BUSINESS_TZ)
+    .startOf("day")
+    .add(delta, "day");
+  const end = dayjs
+    .utc(order.rentalEndDate)
+    .tz(BUSINESS_TZ)
+    .startOf("day")
+    .add(delta, "day");
+
+  if (!end.isAfter(start, "day")) return null;
+
+  const timeIn = order.timeIn
+    ? dayjs(order.timeIn).tz(BUSINESS_TZ).add(delta, "day").toDate()
+    : start.hour(14).minute(0).second(0).toDate();
+  const timeOut = order.timeOut
+    ? dayjs(order.timeOut).tz(BUSINESS_TZ).add(delta, "day").toDate()
+    : end.hour(12).minute(0).second(0).toDate();
+
+  return {
+    rentalStartDate: start.format("YYYY-MM-DD"),
+    rentalEndDate: end.format("YYYY-MM-DD"),
+    timeIn,
+    timeOut,
+    dayDelta: delta,
+  };
+}
+
+/**
+ * Day delta between two YYYY-MM-DD strings (to − from).
+ * @param {string} fromDateStr
+ * @param {string} toDateStr
+ * @returns {number}
+ */
+export function calendarDayDelta(fromDateStr, toDateStr) {
+  if (!fromDateStr || !toDateStr) return 0;
+  const from = dayjs.tz(fromDateStr, "YYYY-MM-DD", BUSINESS_TZ);
+  const to = dayjs.tz(toDateStr, "YYYY-MM-DD", BUSINESS_TZ);
+  if (!from.isValid() || !to.isValid()) return 0;
+  return to.diff(from, "day");
+}
+
+/**
  * Возвращает индекс текущего дня в массиве days
  * @param {Array} days - массив дней календаря
  * @returns {number} индекс текущего дня или -1
