@@ -294,6 +294,7 @@ export function renderCustomerOrderConfirmationEmail(payload) {
     t.thankYouChoose,
     "",
     t.weReceived,
+    ...(t.availabilityDisclaimer ? ["", t.availabilityDisclaimer] : []),
     "",
     t.reservationDetails,
     orderNumberLine,

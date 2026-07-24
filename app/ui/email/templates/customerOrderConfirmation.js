@@ -118,6 +118,13 @@ export function renderCustomerOrderConfirmation(data) {
               ${p("margin-bottom:8px;", escapeHtml(greeting))}
               ${p("", strongFromMarkdown(escapeHtml(t.thankYouChoose || "")))}
               ${p("", escapeHtml(t.weReceived || ""))}
+              ${
+                t.availabilityDisclaimer
+                  ? `<div style="margin:20px 0 0 0;padding:16px 18px;background-color:#FFF8E7;border:1px solid #F0D9A8;border-left:4px solid #D4A017;">
+                <p style="margin:0;color:${s.text};line-height:1.55;font-size:14px;font-family:${s.fontSans};">${escapeHtml(t.availabilityDisclaimer)}</p>
+              </div>`
+                  : ""
+              }
               <div style="margin:28px 0 0 0;padding:24px;background-color:${s.bgDetailsCard};border:1px solid ${s.border};">
                 <div style="font-size:13px;color:${s.accent};font-weight:600;margin-bottom:16px;font-family:${s.fontSans};">${escapeHtml(reservationDetailsHeading)}</div>
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">

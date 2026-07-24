@@ -370,6 +370,7 @@
     "greeting": "Dear {{CustomerName}},",
     "thankYouChoose": "Thank you for choosing **CarsNK**.",
     "weReceived": "We have received your reservation request and truly appreciate your trust in our service. Our team is currently reviewing the details and will contact you shortly to confirm the booking and ensure everything is arranged to your expectations.",
+    "availabilityDisclaimer": "This email does not guarantee that the vehicle is available on these dates at the stated price. Our manager will send you the official confirmation after contacting you and rechecking availability.",
     "reservationDetails": "**Reservation details:**",
     "orderNumber": "Order number: **#{{orderNumber}}**",
     "vehicle": "Vehicle: **{{vehicle}}**",

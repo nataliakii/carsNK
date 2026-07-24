@@ -259,6 +259,7 @@
     "greeting": "Poštovani/a {{CustomerName}},",
     "thankYouChoose": "Hvala vam što ste izabrali **CarsNK**.",
     "weReceived": "Primili smo vaš zahtev za rezervaciju i cenimo vaše poverenje. Naš tim trenutno pregleda detalje i uskoro ćemo vas kontaktirati radi potvrde rezervacije i usklađivanja svega sa vašim očekivanjima.",
+    "availabilityDisclaimer": "Ovaj e-mail ne garantuje da je vozilo dostupno na navedene datume po navedenoj ceni. Zvaničnu potvrdu će vam poslati naš menadžer nakon što vas kontaktira i ponovo proveri dostupnost.",
     "reservationDetails": "**Detalji rezervacije:**",
     "orderNumber": "Broj porudžbine: **#{{orderNumber}}**",
     "vehicle": "Vozilo: **{{vehicle}}**",

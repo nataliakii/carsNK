@@ -259,6 +259,7 @@
     "greeting": "Sehr geehrte(r) {{CustomerName}},",
     "thankYouChoose": "Vielen Dank, dass Sie sich für **CarsNK** entschieden haben.",
     "weReceived": "Wir haben Ihre Reservierungsanfrage erhalten und schätzen Ihr Vertrauen sehr. Unser Team prüft derzeit die Details und wird sich in Kürze bei Ihnen melden, um die Buchung zu bestätigen und alles nach Ihren Wünschen zu arrangieren.",
+    "availabilityDisclaimer": "Diese E-Mail garantiert nicht, dass das Fahrzeug an diesen Daten zum angegebenen Preis verfügbar ist. Die offizielle Bestätigung sendet Ihnen unser Manager, nachdem er Sie kontaktiert und die Verfügbarkeit erneut geprüft hat.",
     "reservationDetails": "**Reservierungsdetails:**",
     "orderNumber": "Bestellnummer: **#{{orderNumber}}**",
     "vehicle": "Fahrzeug: **{{vehicle}}**",

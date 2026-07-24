@@ -259,6 +259,7 @@
     "greeting": "Stimate/Stimată {{CustomerName}},",
     "thankYouChoose": "Vă mulțumim că ați ales **CarsNK**.",
     "weReceived": "Am primit solicitarea dvs. de rezervare și apreciem încrederea acordată. Echipa noastră analizează detaliile și vă va contacta în curând pentru a confirma rezervarea și a stabili totul conform așteptărilor dvs.",
+    "availabilityDisclaimer": "Acest e-mail nu garantează că autovehiculul este disponibil la aceste date la prețul indicat. Confirmarea oficială vă va fi trimisă de managerul nostru după ce vă contactează și reverifică disponibilitatea.",
     "reservationDetails": "**Detalii rezervare:**",
     "orderNumber": "Număr comandă: **#{{orderNumber}}**",
     "vehicle": "Autovehicul: **{{vehicle}}**",
