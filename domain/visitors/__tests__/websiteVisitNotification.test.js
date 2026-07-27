@@ -237,4 +237,13 @@ describe("websiteVisitNotification helpers", () => {
     expect(getWebsiteVisitIpForHost("", "localhost")).toBe("127.0.0.1");
     expect(isAllowedWebsiteVisitIp("127.0.0.1")).toBe(true);
   });
+
+  test("localhost visits are skipped unless the opt-in flag is set", () => {
+    delete process.env.ALLOW_LOCAL_WEBSITE_VISIT_NOTIFICATIONS;
+
+    expect(isAllowedWebsiteVisitHost("localhost")).toBe(false);
+    expect(isAllowedWebsiteVisitIp("127.0.0.1")).toBe(false);
+    expect(isAllowedWebsiteVisitIp("::1")).toBe(false);
+    expect(normalizeWebsiteVisitUrl("http://localhost:3026/en")).toBe("");
+  });
 });

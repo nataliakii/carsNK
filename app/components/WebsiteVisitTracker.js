@@ -45,6 +45,16 @@ export default function WebsiteVisitTracker() {
     if (!isTrackablePath(pathname)) return undefined;
     if (navigator.webdriver) return undefined;
 
+    const host = window.location.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "[::1]" ||
+      host === "::1"
+    ) {
+      return undefined;
+    }
+
     sentRef.current = getSessionStorageFlag(SESSION_STORAGE_KEY);
     if (sentRef.current) {
       return undefined;

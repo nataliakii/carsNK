@@ -665,15 +665,15 @@ export default function CarTableRow({
         return null;
       };
 
-      const singleOrderForDrag =
-        enableOrderDrag &&
-        !moveMode &&
-        ordersForDate.length === 1 &&
-        !cellState.isPastDay &&
-        !cellState.isOverlapDate &&
-        !cellState.isStartEndOverlap
-          ? ordersForDate[0]
-          : null;
+      const singleOrderForDrag = (() => {
+        if (!enableOrderDrag || moveMode || cellState.isPastDay) return null;
+        if (ordersForDate.length === 1) return ordersForDate[0];
+        // Overlap day: still allow grabbing the order that starts here
+        const startOrder = ordersForDate.find(
+          (o) => formatDate(o.rentalStartDate, "YYYY-MM-DD") === dateStr
+        );
+        return startOrder || null;
+      })();
       const previewOrderCandidate = (() => {
         if (!ordersForDate.length) return null;
         const startOrder = ordersForDate.find(
@@ -688,7 +688,7 @@ export default function CarTableRow({
       const dragSourceOpacity =
         draggingOrderId &&
         ordersForDate.some((o) => String(o._id) === String(draggingOrderId))
-          ? 0.45
+          ? 0.4
           : 1;
 
       const orderDragProps =
@@ -701,6 +701,7 @@ export default function CarTableRow({
                 onOrderDragStart(e, singleOrderForDrag, dateStr);
               },
               onDragEnd: () => onOrderDragEnd(),
+              style: { cursor: "grab" },
             }
           : {};
       const orderHoverProps =
@@ -1995,10 +1996,13 @@ export default function CarTableRow({
               ? {
                   boxShadow: `inset 0 0 0 2px ${theme.palette.error.main}`,
                   cursor: "not-allowed",
+                  transition: "box-shadow 120ms ease",
                 }
               : rowDropValid
               ? {
                   boxShadow: `inset 0 0 0 2px ${theme.palette.success.main}`,
+                  cursor: "copy",
+                  transition: "box-shadow 120ms ease",
                 }
               : hasDayConflict
               ? {

@@ -27,6 +27,7 @@ import { changeRentalDates } from "@utils/action";
 import LegendCalendarAdmin from "./LegendCalendarAdmin";
 import CalendarGrid from "./CalendarGrid";
 import CalendarOverlays from "./CalendarOverlays";
+import CalendarDragHud from "./CalendarDragHud";
 import { calendarStyles } from "@/theme";
 import {
   useCalendarDays,
@@ -595,6 +596,7 @@ export default function CalendarContainer({
     isDraggingOrder,
     dragOverCarId,
     draggingOrderId,
+    dragHud,
     handleLongPress,
     handleCarSelectForMove,
     exitMoveMode,
@@ -1169,6 +1171,7 @@ export default function CalendarContainer({
       </BigCalendarLayout>
 
       <CalendarOverlays data={overlaysData} actions={overlaysActions} />
+      <CalendarDragHud hud={dragHud} />
     </>
   );
 }

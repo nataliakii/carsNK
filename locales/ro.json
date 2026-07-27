@@ -307,7 +307,7 @@
   },
   "admin": {
     "visits": {
-      "subtitle": "Human visits with geo — saved for study (Telegram still notifies).",
+      "subtitle": "Human visits with geo — saved for study in admin.",
       "refresh": "Refresh",
       "period": "Period",
       "days": "{{count}} days",

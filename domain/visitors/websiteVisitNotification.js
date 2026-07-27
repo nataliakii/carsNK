@@ -36,12 +36,8 @@ export function isLocalWebsiteVisitNotificationsEnabled() {
       ? String(process.env.ALLOW_LOCAL_WEBSITE_VISIT_NOTIFICATIONS || "").trim().toLowerCase()
       : "";
 
-  if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") {
-    return true;
-  }
-
-  // Local/dev servers should track visits without an extra env flag.
-  return typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+  // Opt-in only — never auto-log localhost visits in admin study.
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
 }
 
 export function normalizeComparableIp(value) {

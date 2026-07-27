@@ -242,11 +242,25 @@ export default function CalendarOverlays({
                 : ""}
               ?
             </>
+          ) : confirmModal.kind === "car+dates" ? (
+            <>
+              Перенести заказ на{" "}
+              <strong>{confirmModal.newCar?.model}</strong> (
+              {confirmModal.newCar?.regNumber}) и сдвинуть даты с{" "}
+              <strong>{confirmModal.fromRange}</strong> на{" "}
+              <strong>{confirmModal.toRange}</strong>
+              {confirmModal.dayDelta
+                ? ` (${confirmModal.dayDelta > 0 ? "+" : ""}${
+                    confirmModal.dayDelta
+                  } дн.)`
+                : ""}
+              ?
+            </>
           ) : (
             <>
-              Вы хотите сдвинуть заказ с автомобиля{" "}
+              Перенести заказ с{" "}
               <strong>{confirmModal.oldCar?.model}</strong> (
-              {confirmModal.oldCar?.regNumber}) на автомобиль{" "}
+              {confirmModal.oldCar?.regNumber}) на{" "}
               <strong>{confirmModal.newCar?.model}</strong> (
               {confirmModal.newCar?.regNumber})?
             </>
