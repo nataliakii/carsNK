@@ -393,8 +393,22 @@ export default function CarTableRow({
         isStartEndOverlap ||
         (isStartDate && isEndDate));
 
+    // HTML5 drag and long-press fight for the same gesture: after ~300ms
+    // long-press enters moveMode and clears singleOrderForDrag (requires !moveMode).
+    // Prefer native drag when the cell is actually draggable.
+    const singleForDrag =
+      relevantOrders.length === 1
+        ? relevantOrders[0]
+        : relevantOrders.find(
+            (o) => formatDate(o.rentalStartDate, "YYYY-MM-DD") === dateStr
+          ) || null;
+    const canHtml5Drag =
+      enableOrderDrag &&
+      Boolean(singleForDrag) &&
+      !isOrderCompleted(singleForDrag);
+
     beginPress({
-      enableLongPress: allowLongPress,
+      enableLongPress: allowLongPress && !canHtml5Drag,
       delayMs: 300,
       onLongPress: () => {
         // Предпочитаем заказ, который НАЧИНАЕТСЯ в эту дату (требование: на совмещённой дате выбирать начинающийся заказ)
@@ -429,7 +443,17 @@ export default function CarTableRow({
         }
       },
     });
-  }, [moveMode, startEndDates, startEndOverlapDates, ordersByDateMap, hasOrder, isLastDateForOrder, onLongPress, beginPress]);
+  }, [
+    moveMode,
+    startEndDates,
+    startEndOverlapDates,
+    ordersByDateMap,
+    hasOrder,
+    isLastDateForOrder,
+    onLongPress,
+    beginPress,
+    enableOrderDrag,
+  ]);
 
   // Старый handleLongPressEnd теперь не отменяет таймер при mouseLeave
   const handleLongPressEnd = () => {

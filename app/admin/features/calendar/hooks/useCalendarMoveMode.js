@@ -104,6 +104,9 @@ export function useCalendarMoveMode({
   const lastPointerRef = useRef({ x: null, y: null });
   const moveModeRef = useRef(false);
   const ghostRef = useRef(null);
+  // Sync drag session for dragover/drop — React state lags one frame and
+  // browsers cancel HTML5 DnD if preventDefault is missing on early dragover.
+  const dragSessionRef = useRef(null);
 
   useEffect(() => {
     moveModeRef.current = moveMode;
@@ -197,57 +200,54 @@ export function useCalendarMoveMode({
     ]
   );
 
-  const updateHud = useCallback(
-    (car, dateStr, canDrop, dayDelta) => {
-      const x = lastPointerRef.current.x;
-      const y = lastPointerRef.current.y;
-      if (x == null || y == null || !selectedMoveOrder) {
-        setDragHud(null);
-        return;
+  const updateHud = useCallback((car, dateStr, canDrop, dayDelta) => {
+    const x = lastPointerRef.current.x;
+    const y = lastPointerRef.current.y;
+    const order =
+      dragSessionRef.current?.order || null;
+    if (x == null || y == null || !order) {
+      setDragHud(null);
+      return;
+    }
+
+    const range = orderRangeStrings(order);
+    let toRange = formatRangeRu(range.start, range.end);
+    if (dayDelta !== 0) {
+      const shifted = shiftOrderByDays(order, dayDelta);
+      if (shifted) {
+        toRange = formatRangeRu(
+          shifted.rentalStartDate,
+          shifted.rentalEndDate
+        );
       }
+    }
 
-      const range = orderRangeStrings(selectedMoveOrder);
-      let toRange = formatRangeRu(range.start, range.end);
-      if (dayDelta !== 0) {
-        const shifted = shiftOrderByDays(selectedMoveOrder, dayDelta);
-        if (shifted) {
-          toRange = formatRangeRu(
-            shifted.rentalStartDate,
-            shifted.rentalEndDate
-          );
-        }
-      }
+    const sameCar = isOrderOnCar(order, car?._id);
+    const carLabel = car
+      ? `${car.model || ""} ${car.regNumber || ""}`.trim()
+      : "—";
 
-      const sameCar = isOrderOnCar(selectedMoveOrder, car?._id);
-      const carLabel = car
-        ? `${car.model || ""} ${car.regNumber || ""}`.trim()
-        : "—";
+    let action = "";
+    if (sameCar && dayDelta !== 0) {
+      action = `Даты → ${toRange}`;
+    } else if (!sameCar && dayDelta !== 0) {
+      action = `${carLabel} · ${toRange}`;
+    } else if (!sameCar) {
+      action = `На ${carLabel}`;
+    } else {
+      action = "Отпустите на другой день или машину";
+    }
 
-      let action = "";
-      if (sameCar && dayDelta !== 0) {
-        action = `Даты → ${toRange}`;
-      } else if (!sameCar && dayDelta !== 0) {
-        action = `${carLabel} · ${toRange}`;
-      } else if (!sameCar) {
-        action = `На ${carLabel}`;
-      } else {
-        action = "Отпустите на другой день или машину";
-      }
-
-      setDragHud({
-        x,
-        y,
-        canDrop,
-        action,
-        deltaLabel:
-          dayDelta !== 0
-            ? `${dayDelta > 0 ? "+" : ""}${dayDelta} дн.`
-            : null,
-        dateStr: dateStr || null,
-      });
-    },
-    [selectedMoveOrder]
-  );
+    setDragHud({
+      x,
+      y,
+      canDrop,
+      action,
+      deltaLabel:
+        dayDelta !== 0 ? `${dayDelta > 0 ? "+" : ""}${dayDelta} дн.` : null,
+      dateStr: dateStr || null,
+    });
+  }, []);
 
   const handleLongPress = useCallback(
     (order) => {
@@ -265,6 +265,10 @@ export function useCalendarMoveMode({
   const handleOrderDragStart = useCallback((e, order, dateStr) => {
     if (!order?._id) return;
     dropHandledRef.current = false;
+    dragSessionRef.current = {
+      order,
+      sourceDate: dateStr || null,
+    };
     setSelectedMoveOrder(order);
     setIsDraggingOrder(true);
     setDraggingOrderId(order._id);
@@ -276,21 +280,21 @@ export function useCalendarMoveMode({
     try {
       e.dataTransfer.setData(ORDER_DRAG_MIME, String(order._id));
       e.dataTransfer.effectAllowed = "move";
+      // Keep ghost in DOM for the whole drag — removing it early aborts DnD in Chrome/Safari.
+      if (ghostRef.current) {
+        ghostRef.current.remove();
+        ghostRef.current = null;
+      }
       const ghost = buildDragGhost(order, days);
       ghostRef.current = ghost;
       e.dataTransfer.setDragImage(ghost, 24, 16);
-      requestAnimationFrame(() => {
-        if (ghostRef.current) {
-          ghostRef.current.remove();
-          ghostRef.current = null;
-        }
-      });
     } catch {
       // ignore
     }
   }, []);
 
   const handleOrderDragEnd = useCallback(() => {
+    dragSessionRef.current = null;
     setIsDraggingOrder(false);
     setDragOverCarId(null);
     setDragSourceDate(null);
@@ -309,7 +313,9 @@ export function useCalendarMoveMode({
 
   const handleRowDragOver = useCallback(
     (e, car, dateStr) => {
-      if (!isDraggingOrder || !selectedMoveOrder) return;
+      const session = dragSessionRef.current;
+      const order = session?.order || selectedMoveOrder;
+      if (!order) return;
       e.preventDefault();
       e.stopPropagation();
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
@@ -317,15 +323,10 @@ export function useCalendarMoveMode({
       const carId = car?._id;
       if (dateStr) setDragOverDate(dateStr);
 
+      const sourceDate = session?.sourceDate ?? dragSourceDate;
       const delta =
-        dragSourceDate && dateStr
-          ? calendarDayDelta(dragSourceDate, dateStr)
-          : 0;
-      const canDrop = isLandingCompatibleOnCar(
-        selectedMoveOrder,
-        carId,
-        delta
-      );
+        sourceDate && dateStr ? calendarDayDelta(sourceDate, dateStr) : 0;
+      const canDrop = isLandingCompatibleOnCar(order, carId, delta);
 
       try {
         e.dataTransfer.dropEffect = canDrop ? "move" : "none";
@@ -335,13 +336,7 @@ export function useCalendarMoveMode({
       setDragOverCarId(carId);
       updateHud(car, dateStr, canDrop, delta);
     },
-    [
-      isDraggingOrder,
-      selectedMoveOrder,
-      dragSourceDate,
-      isLandingCompatibleOnCar,
-      updateHud,
-    ]
+    [selectedMoveOrder, dragSourceDate, isLandingCompatibleOnCar, updateHud]
   );
 
   const handleRowDragLeave = useCallback((e) => {
@@ -355,12 +350,11 @@ export function useCalendarMoveMode({
   }, []);
 
   const openMoveConfirm = useCallback(
-    ({ kind, newCar, dayDelta, shifted }) => {
-      if (!selectedMoveOrder) return;
-      const oldCar = cars.find((car) =>
-        isOrderOnCar(selectedMoveOrder, car._id)
-      );
-      const range = orderRangeStrings(selectedMoveOrder);
+    ({ kind, newCar, dayDelta, shifted, order: orderOverride }) => {
+      const order = orderOverride || selectedMoveOrder;
+      if (!order) return;
+      const oldCar = cars.find((car) => isOrderOnCar(order, car._id));
+      const range = orderRangeStrings(order);
 
       setConfirmModal({
         open: true,
@@ -395,16 +389,17 @@ export function useCalendarMoveMode({
     (e, car, dateStr) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!isDraggingOrder || !selectedMoveOrder) return;
+      const session = dragSessionRef.current;
+      const order = session?.order || selectedMoveOrder;
+      if (!order) return;
 
       const carId = car?._id;
-      const sameCar = isOrderOnCar(selectedMoveOrder, carId);
+      const sameCar = isOrderOnCar(order, carId);
+      const sourceDate = session?.sourceDate ?? dragSourceDate;
       const delta =
-        dateStr && dragSourceDate
-          ? calendarDayDelta(dragSourceDate, dateStr)
-          : 0;
+        dateStr && sourceDate ? calendarDayDelta(sourceDate, dateStr) : 0;
 
-      if (!isLandingCompatibleOnCar(selectedMoveOrder, carId, delta)) {
+      if (!isLandingCompatibleOnCar(order, carId, delta)) {
         showSingleSnackbar(
           "Сюда нельзя: прошлое, конфликт или то же место",
           { variant: "warning", autoHideDuration: 3500 }
@@ -413,12 +408,15 @@ export function useCalendarMoveMode({
       }
 
       dropHandledRef.current = true;
+      dragSessionRef.current = null;
       setIsDraggingOrder(false);
       setDragOverCarId(null);
       setDragOverDate(null);
       setDraggingOrderId(null);
       setDragHud(null);
       lastPointerRef.current = { x: null, y: null };
+      // Keep selectedMoveOrder for confirm modal
+      setSelectedMoveOrder(order);
 
       const carPayload = {
         _id: car._id,
@@ -428,23 +426,25 @@ export function useCalendarMoveMode({
       };
 
       if (sameCar) {
-        const shifted = shiftOrderByDays(selectedMoveOrder, delta);
+        const shifted = shiftOrderByDays(order, delta);
         openMoveConfirm({
           kind: "dates",
           newCar: null,
           dayDelta: delta,
           shifted,
+          order,
         });
         return;
       }
 
       if (delta !== 0) {
-        const shifted = shiftOrderByDays(selectedMoveOrder, delta);
+        const shifted = shiftOrderByDays(order, delta);
         openMoveConfirm({
           kind: "car+dates",
           newCar: carPayload,
           dayDelta: delta,
           shifted,
+          order,
         });
         return;
       }
@@ -454,10 +454,10 @@ export function useCalendarMoveMode({
         newCar: carPayload,
         dayDelta: 0,
         shifted: null,
+        order,
       });
     },
     [
-      isDraggingOrder,
       selectedMoveOrder,
       dragSourceDate,
       isLandingCompatibleOnCar,
@@ -468,6 +468,7 @@ export function useCalendarMoveMode({
 
   const exitMoveMode = useCallback(() => {
     const wasLongPressMode = moveModeRef.current;
+    dragSessionRef.current = null;
     setMoveMode(false);
     setSelectedMoveOrder(null);
     setDragSourceDate(null);
@@ -480,6 +481,7 @@ export function useCalendarMoveMode({
 
   const cancelDragOnly = useCallback(() => {
     dropHandledRef.current = false;
+    dragSessionRef.current = null;
     setIsDraggingOrder(false);
     setDragOverCarId(null);
     setDragSourceDate(null);
