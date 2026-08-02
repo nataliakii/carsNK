@@ -1,10 +1,12 @@
 import { Order } from "@models/order";
 import { connectToDB } from "@lib/database";
 import { withOrderVisibility } from "@/middleware/withOrderVisibility";
+import { ensureOrdersPulledFromOldDb } from "@/domain/sync/oldOrdersSync";
 
 async function handler(request, { params }) {
   try {
     await connectToDB();
+    await ensureOrdersPulledFromOldDb();
     const { carId } = params;
 
     const orders = await Order.find({ car: carId }).lean();

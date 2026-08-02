@@ -8,6 +8,7 @@ import { connectToDB } from "@lib/database";
 import { Order } from "@models/order";
 import { applyVisibilityToOrders } from "@/domain/orders/orderVisibility";
 import { buildOrdersOwnerFilter } from "@/domain/owners/ownerScope";
+import { ensureOrdersPulledFromOldDb } from "@/domain/sync/oldOrdersSync";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -33,6 +34,8 @@ function getTodayAthensStartUTC() {
  */
 export async function getActiveOrders(options = {}) {
   await connectToDB();
+  // Keep calendar occupancy in sync with the live old cluster.
+  await ensureOrdersPulledFromOldDb();
   const todayStartUTC = getTodayAthensStartUTC();
   const ownerFilter = buildOrdersOwnerFilter(options?.session ?? null);
   const orders = await Order.find({
@@ -52,6 +55,7 @@ export async function getActiveOrders(options = {}) {
  */
 export async function getAllOrders(options = {}) {
   await connectToDB();
+  await ensureOrdersPulledFromOldDb();
   const ownerFilter = buildOrdersOwnerFilter(options?.session ?? null);
   const orders = await Order.find(ownerFilter).select(ORDER_SELECT).lean();
   const user = options?.session?.user ?? null;

@@ -744,4 +744,45 @@ if (Order?.schema && !Order.schema.path("companyEmailDecision")) {
   });
 }
 
+// Mirror mutations for cars that live on the old Natali cluster.
+function attachOldDbMirrorHooks(schema) {
+  if (!schema || schema.__oldDbMirrorAttached) return;
+  schema.__oldDbMirrorAttached = true;
+
+  const mirrorUpsert = (doc) => {
+    if (!doc) return;
+    import("@/domain/sync/oldOrdersSync")
+      .then(({ mirrorOrderToOldDb }) => mirrorOrderToOldDb(doc))
+      .catch((err) => {
+        console.error("[Order mirror] upsert:", err?.message || err);
+      });
+  };
+
+  const mirrorDelete = (doc) => {
+    if (!doc?._id) return;
+    import("@/domain/sync/oldOrdersSync")
+      .then(({ mirrorOrderDeleteToOldDb }) =>
+        mirrorOrderDeleteToOldDb(doc._id, doc.car)
+      )
+      .catch((err) => {
+        console.error("[Order mirror] delete:", err?.message || err);
+      });
+  };
+
+  schema.post("save", function (doc) {
+    mirrorUpsert(doc);
+  });
+
+  schema.post("findOneAndUpdate", function (doc) {
+    mirrorUpsert(doc);
+  });
+
+  schema.post("findOneAndDelete", function (doc) {
+    mirrorDelete(doc);
+  });
+}
+
+attachOldDbMirrorHooks(OrderSchema);
+if (Order?.schema) attachOldDbMirrorHooks(Order.schema);
+
 export { OrderSchema, Order };

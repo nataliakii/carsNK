@@ -3,6 +3,7 @@ import { authOptions } from "@lib/authOptions";
 import { Order } from "@models/order";
 import { connectToDB } from "@lib/database";
 import { withOrderVisibility } from "@/middleware/withOrderVisibility";
+import { ensureOrdersPulledFromOldDb } from "@/domain/sync/oldOrdersSync";
 
 /**
  * GET /api/admin/orders
@@ -29,7 +30,8 @@ async function handler(request) {
     }
 
     await connectToDB();
-    
+    await ensureOrdersPulledFromOldDb();
+
     const adminRole = session.user?.role ?? 0;
 
     const orders = await Order.find({})

@@ -20,6 +20,7 @@
     "seed:owners": "node scripts/seedOwners.js",
     "copy:cars-from-old": "node scripts/copyCarsFromOldDb.js",
     "copy:delivery-zones-from-old": "node scripts/copyDeliveryZonesFromOldDb.js",
+    "copy:orders-from-old": "node scripts/copyOrdersFromOldDb.js",
     "export:cars-noseason": "node scripts/exportCarsNoSeasonPrices.js",
     "test": "jest",
     "test:timezone": "jest athensTime.roundtrip --verbose",
