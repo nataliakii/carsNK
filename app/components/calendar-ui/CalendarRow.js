@@ -137,6 +137,7 @@ CarTableRow.propTypes = {
   selectedOrderDates: PropTypes.array,
   isCarCompatibleForMove: PropTypes.bool,
   enableOrderDrag: PropTypes.bool,
+  preferTouchMove: PropTypes.bool,
   isDraggingOrder: PropTypes.bool,
   dragOverCarId: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
   draggingOrderId: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
@@ -170,6 +171,7 @@ export default function CarTableRow({
   selectedOrderDates,
   isCarCompatibleForMove,
   enableOrderDrag = false,
+  preferTouchMove = false,
   isDraggingOrder = false,
   dragOverCarId = null,
   draggingOrderId = null,
@@ -385,27 +387,30 @@ export default function CarTableRow({
       (o) => !dayjs(o.rentalEndDate).isBefore(dayjs(), "day")
     );
 
-    // Разрешаем длинное нажатие на совмещённой дате (конец + старт), даже если это последний день одного из заказов
-    const allowLongPress =
-      hasOrder(dateStr) &&
-      hasActiveOrder &&
-      (!isLastDateForOrder(dateStr) ||
-        isStartEndOverlap ||
-        (isStartDate && isEndDate));
+    // Any active order day can start move (including last day).
+    const allowLongPress = hasOrder(dateStr) && hasActiveOrder;
 
-    // HTML5 drag and long-press fight for the same gesture: after ~300ms
-    // long-press enters moveMode and clears singleOrderForDrag (requires !moveMode).
-    // Prefer native drag when the cell is actually draggable.
-    const singleForDrag =
-      relevantOrders.length === 1
-        ? relevantOrders[0]
-        : relevantOrders.find(
-            (o) => formatDate(o.rentalStartDate, "YYYY-MM-DD") === dateStr
-          ) || null;
+    // Pick any active order covering this cell (prefer start, then end, then first).
+    const singleForDrag = (() => {
+      const active = relevantOrders.filter((o) => !isOrderCompleted(o));
+      if (!active.length) return null;
+      if (active.length === 1) return active[0];
+      const starting = active.find(
+        (o) => formatDate(o.rentalStartDate, "YYYY-MM-DD") === dateStr
+      );
+      if (starting) return starting;
+      const ending = active.find(
+        (o) => formatDate(o.rentalEndDate, "YYYY-MM-DD") === dateStr
+      );
+      return ending || active[0];
+    })();
+
+    // Touch devices: keep long-press move mode (HTML5 DnD is unreliable on iOS).
+    // Fine pointer: prefer native drag and disable long-press on draggable cells.
     const canHtml5Drag =
       enableOrderDrag &&
-      Boolean(singleForDrag) &&
-      !isOrderCompleted(singleForDrag);
+      !preferTouchMove &&
+      Boolean(singleForDrag);
 
     beginPress({
       enableLongPress: allowLongPress && !canHtml5Drag,
@@ -453,6 +458,7 @@ export default function CarTableRow({
     onLongPress,
     beginPress,
     enableOrderDrag,
+    preferTouchMove,
   ]);
 
   // Старый handleLongPressEnd теперь не отменяет таймер при mouseLeave
@@ -690,13 +696,19 @@ export default function CarTableRow({
       };
 
       const singleOrderForDrag = (() => {
-        if (!enableOrderDrag || moveMode || cellState.isPastDay) return null;
-        if (ordersForDate.length === 1) return ordersForDate[0];
-        // Overlap day: still allow grabbing the order that starts here
-        const startOrder = ordersForDate.find(
+        if (!enableOrderDrag || moveMode) return null;
+        const active = ordersForDate.filter((o) => !isOrderCompleted(o));
+        if (!active.length) return null;
+        // Grab from any day of the order (including past / last day).
+        if (active.length === 1) return active[0];
+        const startOrder = active.find(
           (o) => formatDate(o.rentalStartDate, "YYYY-MM-DD") === dateStr
         );
-        return startOrder || null;
+        if (startOrder) return startOrder;
+        const endOrder = active.find(
+          (o) => formatDate(o.rentalEndDate, "YYYY-MM-DD") === dateStr
+        );
+        return endOrder || active[0];
       })();
       const previewOrderCandidate = (() => {
         if (!ordersForDate.length) return null;
@@ -716,7 +728,10 @@ export default function CarTableRow({
           : 1;
 
       const orderDragProps =
-        singleOrderForDrag && onOrderDragStart && onOrderDragEnd
+        singleOrderForDrag &&
+        onOrderDragStart &&
+        onOrderDragEnd &&
+        !preferTouchMove
           ? {
               draggable: true,
               onDragStart: (e) => {
@@ -1106,6 +1121,9 @@ export default function CarTableRow({
             <Box
               onClick={handleEmptyCellClick}
               onMouseDown={() => handleLongPressStart(dateStr)}
+              onTouchStart={(e) => {
+                if (e.touches.length === 1) handleLongPressStart(dateStr);
+              }}
               onMouseUp={handleLongPressEnd}
               onMouseLeave={handleLongPressEnd}
               onContextMenu={(e) => e.preventDefault()}
@@ -1140,6 +1158,9 @@ export default function CarTableRow({
             <Box
               onClick={handleEmptyCellClick}
               onMouseDown={() => handleLongPressStart(dateStr)}
+              onTouchStart={(e) => {
+                if (e.touches.length === 1) handleLongPressStart(dateStr);
+              }}
               onMouseUp={handleLongPressEnd}
               onMouseLeave={handleLongPressEnd}
               onContextMenu={(e) => e.preventDefault()}
@@ -1172,6 +1193,9 @@ export default function CarTableRow({
           <Box
             onClick={handleEmptyCellClick}
             onMouseDown={() => handleLongPressStart(dateStr)}
+            onTouchStart={(e) => {
+              if (e.touches.length === 1) handleLongPressStart(dateStr);
+            }}
             onMouseUp={handleLongPressEnd}
             onMouseLeave={handleLongPressEnd}
             onContextMenu={(e) => e.preventDefault()}
@@ -1270,6 +1294,9 @@ export default function CarTableRow({
         return (
           <Box
             onMouseDown={() => handleLongPressStart(dateStr)}
+            onTouchStart={(e) => {
+              if (e.touches.length === 1) handleLongPressStart(dateStr);
+            }}
             onMouseUp={handleOverlapMouseUp}
             onMouseLeave={handleLongPressEnd}
             onContextMenu={(e) => e.preventDefault()}
@@ -1430,6 +1457,9 @@ export default function CarTableRow({
         return (
           <Box
             onMouseDown={() => handleLongPressStart(dateStr)}
+            onTouchStart={(e) => {
+              if (e.touches.length === 1) handleLongPressStart(dateStr);
+            }}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleLongPressEnd}
             onContextMenu={(e) => e.preventDefault()}
@@ -1592,6 +1622,9 @@ export default function CarTableRow({
           <Box
             {...orderInteractionProps}
             onMouseDown={() => handleLongPressStart(dateStr)}
+            onTouchStart={(e) => {
+              if (e.touches.length === 1) handleLongPressStart(dateStr);
+            }}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleCellMouseLeave}
             onContextMenu={(e) => e.preventDefault()}
@@ -1729,6 +1762,9 @@ export default function CarTableRow({
           <Box
             {...orderInteractionProps}
             onMouseDown={() => handleLongPressStart(dateStr)}
+            onTouchStart={(e) => {
+              if (e.touches.length === 1) handleLongPressStart(dateStr);
+            }}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleCellMouseLeave}
             onContextMenu={(e) => e.preventDefault()}
@@ -1835,6 +1871,9 @@ export default function CarTableRow({
           <Box
             onClick={handleEmptyCellClick}
             onMouseDown={() => handleLongPressStart(dateStr)}
+            onTouchStart={(e) => {
+              if (e.touches.length === 1) handleLongPressStart(dateStr);
+            }}
             onMouseUp={handleLongPressEnd}
             onMouseLeave={handleLongPressEnd}
             onContextMenu={(e) => e.preventDefault()}
@@ -1895,6 +1934,9 @@ export default function CarTableRow({
         <Box
           {...orderInteractionProps}
           onMouseDown={() => handleLongPressStart(dateStr)}
+          onTouchStart={(e) => {
+            if (e.touches.length === 1) handleLongPressStart(dateStr);
+          }}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleCellMouseLeave}
           onContextMenu={(e) => e.preventDefault()}
@@ -1964,6 +2006,7 @@ export default function CarTableRow({
       theme.palette.neutral?.black,
       endPress,
       enableOrderDrag,
+      preferTouchMove,
       isDraggingOrder,
       draggingOrderId,
       onOrderDragStart,
@@ -1996,7 +2039,7 @@ export default function CarTableRow({
           onFocus={() => onCellFocus?.(rowIndex, colIndex)}
           onDragOver={
             onRowDragOver && enableOrderDrag
-              ? (e) => onRowDragOver(e, car, dateStr)
+              ? (e) => onRowDragOver(e, car, dayKey)
               : undefined
           }
           onDragLeave={
@@ -2004,7 +2047,7 @@ export default function CarTableRow({
           }
           onDrop={
             onRowDrop && enableOrderDrag
-              ? (e) => onRowDrop(e, car, dateStr)
+              ? (e) => onRowDrop(e, car, dayKey)
               : undefined
           }
           sx={{

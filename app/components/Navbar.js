@@ -548,6 +548,7 @@ export default function NavBar({
   const isAdminZonesRoute = pathname?.startsWith("/admin/delivery-zones");
   const isAdminVisitsRoute = pathname?.startsWith("/admin/website-visits");
   const isAdminTransfersRoute = pathname?.startsWith("/admin/transfers");
+  const isAdminVouchersRoute = pathname?.startsWith("/admin/vouchers");
   const isAdminOwnersRoute = pathname?.startsWith("/admin/owners");
   const adminNavLinkSx = {
     px: { md: 0.65, lg: 1 },
@@ -884,6 +885,16 @@ export default function NavBar({
                         }}
                       >
                         {t("header.transfers")}
+                      </Typography>
+                    </Link>
+                    <Link href="/admin/vouchers">
+                      <Typography
+                        sx={{
+                          ...adminNavLinkSx,
+                          ...(isAdminVouchersRoute ? adminNavActiveSx : null),
+                        }}
+                      >
+                        Vouchers
                       </Typography>
                     </Link>
                     {isSuperAdmin && (
@@ -1391,6 +1402,14 @@ export default function NavBar({
                   onClick={() => setDrawerOpen(false)}
                 >
                   <ListItemText primary={t("header.transfers")} />
+                </ListItem>
+                <ListItem
+                  button
+                  component={Link}
+                  href="/admin/vouchers"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  <ListItemText primary="Vouchers" />
                 </ListItem>
                 {isSuperAdmin && (
                   <ListItem

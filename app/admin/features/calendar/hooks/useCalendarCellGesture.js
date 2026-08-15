@@ -57,8 +57,12 @@ export function useCalendarCellGesture({ onFinalize }) {
 
   useEffect(() => {
     document.addEventListener("mouseup", cancelFromDocument);
+    document.addEventListener("touchend", cancelFromDocument);
+    document.addEventListener("touchcancel", cancelFromDocument);
     return () => {
       document.removeEventListener("mouseup", cancelFromDocument);
+      document.removeEventListener("touchend", cancelFromDocument);
+      document.removeEventListener("touchcancel", cancelFromDocument);
     };
   }, [cancelFromDocument]);
 

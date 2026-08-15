@@ -255,7 +255,7 @@ export function useCalendarMoveMode({
       setSelectedMoveOrder(order);
       setMoveMode(true);
       showSingleSnackbar(
-        "Перетащите заказ на другой день или другую машину — доступные ячейки жёлтые",
+        "Перетащите заказ на другой день/машину, или на телефоне: удерживайте ~0.3с и тапните цель",
         { variant: "info", autoHideDuration: 7000 }
       );
     },

@@ -18,6 +18,7 @@
     "seed:delivery-zones": "node scripts/seedDeliveryZones.js",
     "seed:carsnk-company": "node scripts/seedCarsNkCompany.js",
     "seed:owners": "node scripts/seedOwners.js",
+    "seed:natali-cars": "node scripts/seedNataliCarsOwner.js",
     "copy:cars-from-old": "node scripts/copyCarsFromOldDb.js",
     "copy:delivery-zones-from-old": "node scripts/copyDeliveryZonesFromOldDb.js",
     "copy:orders-from-old": "node scripts/copyOrdersFromOldDb.js",

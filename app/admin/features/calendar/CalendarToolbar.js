@@ -20,11 +20,13 @@ const SettingsIcon = dynamic(() => import("@mui/icons-material/Settings"), {
 
 export default function CalendarToolbar({
   dayRange,
+  dayScale,
   showLegend,
   legendPlacement,
   showBufferInLegend,
   showDeliveryInLegend,
   onDayRangeChange,
+  onDayScaleChange,
   onOpenCalendarSettings,
   onBulkOfflineOrders,
 }) {
@@ -116,6 +118,34 @@ export default function CalendarToolbar({
               <ToggleButton value="2m">2 мес.</ToggleButton>
             </ToggleButtonGroup>
           </ToolbarGroup>
+          {typeof onDayScaleChange === "function" ? (
+            <ToolbarGroup label="Масштаб">
+              <ToggleButtonGroup
+                exclusive={false}
+                size="small"
+                aria-label="Масштаб дней календаря"
+                sx={toggleGroupSx}
+              >
+                <ToggleButton
+                  value="zoom-out"
+                  onClick={() => onDayScaleChange(Number(dayScale || 1) - 0.15)}
+                  aria-label="Уменьшить"
+                >
+                  −
+                </ToggleButton>
+                <ToggleButton value="zoom-label" disabled>
+                  {Math.round(Number(dayScale || 1) * 100)}%
+                </ToggleButton>
+                <ToggleButton
+                  value="zoom-in"
+                  onClick={() => onDayScaleChange(Number(dayScale || 1) + 0.15)}
+                  aria-label="Увеличить"
+                >
+                  +
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </ToolbarGroup>
+          ) : null}
         </Box>
 
         {/* CENTER: buffer + delivery (mx auto + equal flex wings keeps block visually centered) */}

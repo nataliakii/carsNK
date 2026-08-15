@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import styles from "./loginForm.module.css";
 
@@ -66,6 +67,12 @@ const LoginForm = () => {
       <button type="submit" disabled={isLoading}>
         {isLoading ? "Logging in..." : "Login"}
       </button>
+      <Link
+        href="/forgot-password"
+        style={{ color: "inherit", opacity: 0.9, fontSize: 14 }}
+      >
+        Forgot password?
+      </Link>
       {error && <h2 style={{ color: "red" }}>{error}</h2>}
     </form>
   );

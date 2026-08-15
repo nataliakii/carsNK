@@ -717,7 +717,7 @@ body .MuiAutocomplete-popper .MuiPaper-root {
   }
 }
 
-/* Landscape телефон — компактные ячейки */
+/* Landscape телефон — компактные ячейки (уважаем CSS vars зума) */
 @media (max-width: 900px) and (orientation: landscape) {
   .bigcalendar-root {
     padding-top: 38px !important;
@@ -727,10 +727,11 @@ body .MuiAutocomplete-popper .MuiPaper-root {
   .bigcalendar-root tbody .MuiTableCell-root:not(:first-child),
   .bigcalendar-root thead .MuiTableCell-root:not(:first-child) {
     padding: 0 !important;
-    min-width: 24px !important;
-    max-width: 32px !important;
-    min-height: 18px !important;
-    max-height: 22px !important;
+    min-width: var(--calendar-day-width, 24px) !important;
+    max-width: var(--calendar-day-width, 32px) !important;
+    width: var(--calendar-day-width, 28px) !important;
+    min-height: var(--calendar-row-height, 18px) !important;
+    max-height: none !important;
     font-size: 10px !important;
     line-height: 1 !important;
     border-width: 1px !important;
@@ -743,8 +744,8 @@ body .MuiAutocomplete-popper .MuiPaper-root {
     line-height: 1.1 !important;
     margin: 0 !important;
     padding: 0 !important;
-    min-height: 18px !important;
-    max-height: 22px !important;
+    min-height: var(--calendar-row-height, 18px) !important;
+    max-height: none !important;
   }
   
   /* Первый столбец: компактный размер шрифта */
@@ -770,9 +771,9 @@ body .MuiAutocomplete-popper .MuiPaper-root {
   
   /* Контейнер ячеек с датами */
   .bigcalendar-root .bigcalendar-cell-wrapper {
-    height: 17.82px !important;
-    min-height: 17.82px !important;
-    max-height: 17.82px !important;
+    height: var(--calendar-row-height, 18px) !important;
+    min-height: var(--calendar-row-height, 18px) !important;
+    max-height: none !important;
   }
 }
 

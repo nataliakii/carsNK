@@ -34,6 +34,7 @@ export default function CalendarGrid(props) {
     sortedCars,
     setMeasurementRef,
     enableOrderDrag,
+    preferTouchMove,
     isDraggingOrder,
     dragOverCarId,
     draggingOrderId,
@@ -161,6 +162,7 @@ export default function CalendarGrid(props) {
               selectedOrderDates={selectedOrderDates}
               isCarCompatibleForMove={isCarCompatibleForMove(car._id)}
               enableOrderDrag={enableOrderDrag}
+              preferTouchMove={preferTouchMove}
               isDraggingOrder={isDraggingOrder}
               dragOverCarId={dragOverCarId}
               draggingOrderId={draggingOrderId}

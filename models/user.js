@@ -64,8 +64,26 @@ const userSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    /** SHA-256 of one-time password-reset token (raw token only in email link). */
+    resetPasswordTokenHash: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
 export const User = mongoose.models?.User || mongoose.model("User", userSchema);
+
+// HMR safety for cached model
+if (User?.schema && !User.schema.path("resetPasswordTokenHash")) {
+  User.schema.add({
+    resetPasswordTokenHash: { type: String, default: null, index: true },
+    resetPasswordExpires: { type: Date, default: null },
+  });
+}
