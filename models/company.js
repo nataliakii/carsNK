@@ -60,6 +60,9 @@ const CompanySchema = new Schema({
 
   // Delivery pricing
   deliveryPricePerKm: { type: Number, default: 1, min: 0 },
+
+  /** Public path or URL for transfer-voucher company stamp (per owner). */
+  voucherStampSrc: { type: String, default: "", trim: true },
 });
 
 // В клиентском бандле mongoose.models может быть undefined — не обращаться без проверки

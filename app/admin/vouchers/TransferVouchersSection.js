@@ -32,41 +32,6 @@ const DRAFT_KEY = "natali_transfer_voucher_draft_v1";
 const EMAILS_KEY = "natali_transfer_voucher_emails_v1";
 const MAX_SAVED_EMAILS = 20;
 
-function readSavedEmails() {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = JSON.parse(window.localStorage.getItem(EMAILS_KEY) || "[]");
-    if (!Array.isArray(raw)) return [];
-    return raw
-      .map((e) => String(e || "").trim().toLowerCase())
-      .filter((e) => e.includes("@"));
-  } catch {
-    return [];
-  }
-}
-
-function persistEmail(email) {
-  const next = String(email || "").trim().toLowerCase();
-  if (!next.includes("@")) return readSavedEmails();
-  const prev = readSavedEmails().filter((e) => e !== next);
-  const list = [next, ...prev].slice(0, MAX_SAVED_EMAILS);
-  try {
-    window.localStorage.setItem(EMAILS_KEY, JSON.stringify(list));
-  } catch {
-    // ignore
-  }
-  return list;
-}
-
-function readDraft() {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = JSON.parse(window.localStorage.getItem(DRAFT_KEY) || "null");
-    return raw && typeof raw === "object" ? raw : null;
-  } catch {
-    return null;
-  }
-}
 const labelCell = {
   backgroundColor: "#f4f7fb",
   color: "#073763",
@@ -440,8 +405,29 @@ function FormField({ label, value, onChange, multiline = false, type = "text" })
   );
 }
 
-export default function TransferVouchersSection() {
-  const [form, setForm] = useState(() => createDefaultTransferVoucherData());
+export default function TransferVouchersSection({
+  mode = "admin",
+  accessToken = null,
+  company = null,
+  initialDefaults = null,
+  emailApiPath = "/api/admin/vouchers/transfer/email",
+}) {
+  const isTokenMode = mode === "token";
+  const storageSuffix = isTokenMode
+    ? `_token_${String(company?._id || "x")}`
+    : "_admin";
+
+  const [form, setForm] = useState(() => {
+    const base = createDefaultTransferVoucherData();
+    return normalizeTransferVoucherData({
+      ...base,
+      ...(initialDefaults || {}),
+      stampSrc:
+        initialDefaults?.stampSrc ||
+        company?.voucherStampSrc ||
+        base.stampSrc,
+    });
+  });
   const [hydrated, setHydrated] = useState(false);
   const [savedEmails, setSavedEmails] = useState([]);
   const [email, setEmail] = useState("");
@@ -449,16 +435,69 @@ export default function TransferVouchersSection() {
   const [status, setStatus] = useState(null); // { severity, text }
   const data = useMemo(() => normalizeTransferVoucherData(form), [form]);
 
+  const draftKey = `${DRAFT_KEY}${storageSuffix}`;
+  const emailsKey = `${EMAILS_KEY}${storageSuffix}`;
+
   useEffect(() => {
-    const draft = readDraft();
+    const draft = (() => {
+      try {
+        const raw = JSON.parse(window.localStorage.getItem(draftKey) || "null");
+        return raw && typeof raw === "object" ? raw : null;
+      } catch {
+        return null;
+      }
+    })();
     if (draft) {
-      setForm(normalizeTransferVoucherData(draft));
+      setForm(
+        normalizeTransferVoucherData({
+          ...draft,
+          stampSrc:
+            initialDefaults?.stampSrc ||
+            company?.voucherStampSrc ||
+            draft.stampSrc,
+        })
+      );
+    } else if (initialDefaults) {
+      setForm((prev) =>
+        normalizeTransferVoucherData({ ...prev, ...initialDefaults })
+      );
     }
-    const emails = readSavedEmails();
+    const emails = (() => {
+      try {
+        const raw = JSON.parse(window.localStorage.getItem(emailsKey) || "[]");
+        if (!Array.isArray(raw)) return [];
+        return raw
+          .map((e) => String(e || "").trim().toLowerCase())
+          .filter((e) => e.includes("@"));
+      } catch {
+        return [];
+      }
+    })();
     setSavedEmails(emails);
     if (emails[0]) setEmail(emails[0]);
     setHydrated(true);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey, emailsKey]);
+
+  const persistEmailsList = (list) => {
+    try {
+      window.localStorage.setItem(emailsKey, JSON.stringify(list));
+    } catch {
+      // ignore
+    }
+  };
+
+  const rememberEmail = (addr) => {
+    const next = String(addr || "").trim().toLowerCase();
+    if (!next.includes("@")) return savedEmails;
+    const list = [next, ...savedEmails.filter((e) => e !== next)].slice(
+      0,
+      MAX_SAVED_EMAILS
+    );
+    setSavedEmails(list);
+    persistEmailsList(list);
+    return list;
+  };
 
   const setField = (key) => (value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -467,13 +506,17 @@ export default function TransferVouchersSection() {
     setBusy("save");
     setStatus(null);
     try {
-      const normalized = normalizeTransferVoucherData(form);
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(normalized));
+      const normalized = normalizeTransferVoucherData({
+        ...form,
+        stampSrc:
+          initialDefaults?.stampSrc ||
+          company?.voucherStampSrc ||
+          form.stampSrc,
+      });
+      window.localStorage.setItem(draftKey, JSON.stringify(normalized));
       setForm(normalized);
       const target = String(email || "").trim().toLowerCase();
-      if (target.includes("@")) {
-        setSavedEmails(persistEmail(target));
-      }
+      if (target.includes("@")) rememberEmail(target);
       setStatus({
         severity: "success",
         text: "Сохранено на этом устройстве. Можно вернуться позже.",
@@ -497,13 +540,17 @@ export default function TransferVouchersSection() {
     setBusy("send");
     setStatus(null);
     try {
-      const voucher = normalizeTransferVoucherData(form);
-      // Keep draft + email history in sync before send
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(voucher));
-      const emails = persistEmail(target);
-      setSavedEmails(emails);
+      const voucher = normalizeTransferVoucherData({
+        ...form,
+        stampSrc:
+          initialDefaults?.stampSrc ||
+          company?.voucherStampSrc ||
+          form.stampSrc,
+      });
+      window.localStorage.setItem(draftKey, JSON.stringify(voucher));
+      rememberEmail(target);
 
-      const res = await fetch("/api/admin/vouchers/transfer/email", {
+      const res = await fetch(emailApiPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
@@ -542,28 +589,39 @@ export default function TransferVouchersSection() {
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             Κουπόνια μεταφοράς
+            {company?.name ? ` — ${company.name}` : ""}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Προς το παρόν μόνο ελληνικά. Αργότερα: ελληνικά + αγγλικά.
+            {isTokenMode
+              ? "Доступ по специальной ссылке (только ваучеры этой компании)."
+              : "Προς το παρόν μόνο ελληνικά. Αργότερα: ελληνικά + αγγλικά."}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          <FormControlLabel
-            className="no-print"
-            control={
-              <Switch
-                checked={Boolean(form.bilingual)}
-                onChange={(e) => setField("bilingual")(e.target.checked)}
-                size="small"
-              />
-            }
-            label="EN + EL (preview)"
-          />
+          {!isTokenMode ? (
+            <FormControlLabel
+              className="no-print"
+              control={
+                <Switch
+                  checked={Boolean(form.bilingual)}
+                  onChange={(e) => setField("bilingual")(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="EN + EL (preview)"
+            />
+          ) : null}
           <Button
             variant="outlined"
             startIcon={<RestartAltIcon />}
             onClick={() => {
-              setForm(createDefaultTransferVoucherData());
+              const base = createDefaultTransferVoucherData();
+              setForm(
+                normalizeTransferVoucherData({
+                  ...base,
+                  ...(initialDefaults || {}),
+                })
+              );
               setStatus({ severity: "info", text: "Форма очищена" });
             }}
           >
@@ -642,7 +700,13 @@ export default function TransferVouchersSection() {
           </Button>
         </Stack>
         {savedEmails.length > 0 ? (
-          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1.25 }}>
+          <Stack
+            direction="row"
+            spacing={0.75}
+            flexWrap="wrap"
+            useFlexGap
+            sx={{ mt: 1.25 }}
+          >
             {savedEmails.map((addr) => (
               <Chip
                 key={addr}
@@ -652,14 +716,7 @@ export default function TransferVouchersSection() {
                 onDelete={() => {
                   const next = savedEmails.filter((e) => e !== addr);
                   setSavedEmails(next);
-                  try {
-                    window.localStorage.setItem(
-                      EMAILS_KEY,
-                      JSON.stringify(next)
-                    );
-                  } catch {
-                    // ignore
-                  }
+                  persistEmailsList(next);
                   if (email === addr) setEmail(next[0] || "");
                 }}
               />

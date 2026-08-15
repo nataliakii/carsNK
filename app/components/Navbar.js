@@ -550,6 +550,7 @@ export default function NavBar({
   const isAdminTransfersRoute = pathname?.startsWith("/admin/transfers");
   const isAdminVouchersRoute = pathname?.startsWith("/admin/vouchers");
   const isAdminOwnersRoute = pathname?.startsWith("/admin/owners");
+  const isAdminAccessTokensRoute = pathname?.startsWith("/admin/access-tokens");
   const adminNavLinkSx = {
     px: { md: 0.65, lg: 1 },
     py: 0.35,
@@ -906,6 +907,20 @@ export default function NavBar({
                           }}
                         >
                           {t("header.owners")}
+                        </Typography>
+                      </Link>
+                    )}
+                    {isSuperAdmin && (
+                      <Link href="/admin/access-tokens">
+                        <Typography
+                          sx={{
+                            ...adminNavLinkSx,
+                            ...(isAdminAccessTokensRoute
+                              ? adminNavActiveSx
+                              : null),
+                          }}
+                        >
+                          Access links
                         </Typography>
                       </Link>
                     )}
@@ -1419,6 +1434,16 @@ export default function NavBar({
                     onClick={() => setDrawerOpen(false)}
                   >
                     <ListItemText primary={t("header.owners")} />
+                  </ListItem>
+                )}
+                {isSuperAdmin && (
+                  <ListItem
+                    button
+                    component={Link}
+                    href="/admin/access-tokens"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    <ListItemText primary="Access links" />
                   </ListItem>
                 )}
                 {isAdmin && (

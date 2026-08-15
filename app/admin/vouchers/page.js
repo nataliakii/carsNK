@@ -4,6 +4,12 @@ import { authOptions } from "@lib/authOptions";
 import Feed from "@app/components/Feed";
 import { getCars, getCompany, getAllOrders } from "@/domain/services";
 import { COMPANY_ID } from "@/config/company";
+import Company from "@models/company";
+import { connectToDB } from "@lib/database";
+import {
+  buildCompanyVoucherDefaults,
+  getCompanyVoucherStampSrc,
+} from "@/domain/vouchers/companyStamp";
 import TransferVouchersSection from "./TransferVouchersSection";
 
 export default async function VouchersPage() {
@@ -15,6 +21,22 @@ export default async function VouchersPage() {
     getCars({ session }),
     getAllOrders({ session }),
   ]);
+
+  let voucherCompany = null;
+  let initialDefaults = null;
+  const ownerId = session?.user?.ownerId;
+  if (ownerId) {
+    await connectToDB();
+    const owned = await Company.findById(ownerId).lean();
+    if (owned) {
+      voucherCompany = {
+        _id: String(owned._id),
+        name: owned.name,
+        voucherStampSrc: getCompanyVoucherStampSrc(owned),
+      };
+      initialDefaults = buildCompanyVoucherDefaults(owned);
+    }
+  }
 
   const safeCompany = company ? JSON.parse(JSON.stringify(company)) : company;
   const safeCars = cars ? JSON.parse(JSON.stringify(cars)) : cars;
@@ -28,7 +50,10 @@ export default async function VouchersPage() {
       isAdmin
       isMain={false}
     >
-      <TransferVouchersSection />
+      <TransferVouchersSection
+        company={voucherCompany}
+        initialDefaults={initialDefaults}
+      />
     </Feed>
   );
 }
