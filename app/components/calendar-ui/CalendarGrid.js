@@ -92,8 +92,8 @@ export default function CalendarGrid(props) {
     <Table
       stickyHeader
       sx={{
-        width: "100%",
-        minWidth: 0,
+        width: "var(--calendar-table-min-width, 100%)",
+        minWidth: "var(--calendar-table-min-width, 100%)",
         tableLayout: "fixed",
       }}
     >

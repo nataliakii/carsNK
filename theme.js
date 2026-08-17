@@ -753,19 +753,16 @@ export const calendarStyles = {
     py: 0,
   },
   
-  // Шапка — ячейки дней (--calendar-day-width и --calendar-day-width-factor задаёт BigCalendar)
+  // Шапка — ячейки дней (ширина в px задаётся --calendar-day-width)
   headerDayCell: {
     position: "sticky",
     top: 0,
     zIndex: 4,
     fontSize: { xs: "0.9rem", sm: "0.95rem", md: "1rem" },
     padding: { xs: "4px 1px", sm: "5px 2px", md: "6px 3px" },
-    width:
-      "var(--calendar-day-width, calc((100% - var(--resource-col-width, 160px)) / var(--calendar-day-count, 31)))",
-    minWidth:
-      "var(--calendar-day-width, calc((100% - var(--resource-col-width, 160px)) / var(--calendar-day-count, 31)))",
-    maxWidth:
-      "var(--calendar-day-width, calc((100% - var(--resource-col-width, 160px)) / var(--calendar-day-count, 31)))",
+    width: "var(--calendar-day-width, 34px)",
+    minWidth: "var(--calendar-day-width, 34px)",
+    maxWidth: "var(--calendar-day-width, 34px)",
     boxSizing: "border-box",
     fontWeight: "bold",
     cursor: "pointer",

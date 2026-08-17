@@ -2052,12 +2052,9 @@ export default function CarTableRow({
           }
           sx={{
             padding: 0,
-            width:
-              "var(--calendar-day-width, calc((100% - var(--resource-col-width, 160px)) / var(--calendar-day-count, 31)))",
-            minWidth:
-              "var(--calendar-day-width, calc((100% - var(--resource-col-width, 160px)) / var(--calendar-day-count, 31)))",
-            maxWidth:
-              "var(--calendar-day-width, calc((100% - var(--resource-col-width, 160px)) / var(--calendar-day-count, 31)))",
+            width: "var(--calendar-day-width, 34px)",
+            minWidth: "var(--calendar-day-width, 34px)",
+            maxWidth: "var(--calendar-day-width, 34px)",
             boxSizing: "border-box",
             ...(rowDropInvalid
               ? {

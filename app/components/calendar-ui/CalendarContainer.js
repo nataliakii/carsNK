@@ -33,7 +33,6 @@ import {
   useCalendarDays,
   useMobileCalendarScroll,
   useCalendarMoveMode,
-  MEAN_GREGORIAN_MONTH_DAYS,
 } from "@/app/admin/features/calendar/hooks";
 import { useFirstColumnWidth } from "@/hooks/useFirstColumnWidth";
 
@@ -41,6 +40,8 @@ import { useFirstColumnWidth } from "@/hooks/useFirstColumnWidth";
 // View layout (toolbar): фиксированный normal density
 // ============================================
 const BASE_ROW_HEIGHT_PX = 27;
+/** Day column width at scale 100% — table grows in px so zoom/period actually scroll */
+const BASE_DAY_WIDTH_PX = 34;
 
 function getDensityLayoutSx() {
   return {
@@ -851,18 +852,18 @@ export default function CalendarContainer({
 
   const calendarMetricsSx = useMemo(() => {
     const dayCount = Math.max(days.length, 1);
-    // At dayScale=1, one ~month of days fills the viewport; more days → wider
-    // table (horizontal scroll). dayScale multiplies day width (pinch / +/−).
-    const widthFactor =
-      (dayCount / MEAN_GREGORIAN_MONTH_DAYS) * Number(dayScale || 1);
+    // Pixel widths (not %) so table-layout:fixed can grow beyond the viewport.
+    // Otherwise zoom/% and 2mo only redistribute columns inside 100% width.
+    const dayPx = Math.max(
+      16,
+      Math.round(BASE_DAY_WIDTH_PX * Number(dayScale || 1))
+    );
     const rowPx = BASE_ROW_HEIGHT_PX;
-    // Same formula on phone + desktop so pinch/zoom controls day size predictably.
-    const dayWidth = `calc((100% - var(--resource-col-width, 160px)) / var(--calendar-day-count) * var(--calendar-day-width-factor, 1))`;
 
     return {
       "--calendar-day-count": String(dayCount),
-      "--calendar-day-width-factor": String(widthFactor),
-      "--calendar-day-width": dayWidth,
+      "--calendar-day-width": `${dayPx}px`,
+      "--calendar-table-min-width": `calc(var(--resource-col-width, 160px) + ${dayCount} * ${dayPx}px)`,
       "--calendar-row-height": `${rowPx}px`,
     };
   }, [days.length, dayScale]);
