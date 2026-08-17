@@ -55,16 +55,18 @@ export async function POST(request, { params }) {
   });
 
   const origin = getRequestOrigin(request);
-  const stampAbsoluteUrl = stampSrc.startsWith("http")
-    ? stampSrc
-    : `${origin}${stampSrc.startsWith("/") ? "" : "/"}${stampSrc}`;
+  const stampAbsoluteUrl = stampSrc
+    ? stampSrc.startsWith("http")
+      ? stampSrc
+      : `${origin}${stampSrc.startsWith("/") ? "" : "/"}${stampSrc}`
+    : "";
 
   const html = buildTransferVoucherEmailHtml(voucher, { stampAbsoluteUrl });
-  const title = `Κουπόνι μεταφοράς — ${company.name}`;
+  const title = `Transfer voucher — ${company.name}`;
 
   try {
     const { bytes, fileName } = await buildTransferVoucherPdf(voucher, {
-      stampSrc,
+      stampSrc: stampSrc || undefined,
     });
     await sendEmailDirect({
       title,

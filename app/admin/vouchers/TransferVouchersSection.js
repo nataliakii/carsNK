@@ -31,6 +31,7 @@ import {
   voucherFieldLabel,
   voucherUiText,
 } from "@/domain/vouchers/transferVoucher";
+import { buildCompanyVoucherDefaults } from "@/domain/vouchers/companyStamp";
 
 const DRAFT_KEY = "natali_transfer_voucher_draft_v1";
 const EMAILS_KEY = "natali_transfer_voucher_emails_v1";
@@ -351,23 +352,31 @@ function TransferVoucherPreview({ data }) {
                 </Box>
               ) : null}
             </Typography>
-            <Box
-              component="img"
-              src={`${data.stampSrc}?v=2`}
-              alt="Σφραγίδα"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-              sx={{
-                mt: 1.25,
-                maxWidth: "92%",
-                maxHeight: 100,
-                objectFit: "contain",
-                opacity: 0.92,
-                transform: "rotate(-1.5deg)",
-                filter: "contrast(1.05)",
-              }}
-            />
+            {data.stampSrc ? (
+              <Box
+                component="img"
+                src={`${data.stampSrc}?v=2`}
+                alt=""
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+                sx={{
+                  mt: 1.25,
+                  maxWidth: "92%",
+                  maxHeight: 100,
+                  objectFit: "contain",
+                  opacity: 0.92,
+                  transform: "rotate(-1.5deg)",
+                  filter: "contrast(1.05)",
+                }}
+              />
+            ) : (
+              <Typography
+                sx={{ mt: 2, fontSize: 10, color: "text.secondary", px: 1 }}
+              >
+                —
+              </Typography>
+            )}
           </Box>
         </Grid>
         <Grid item xs={6}>
@@ -413,14 +422,54 @@ export default function TransferVouchersSection({
   mode = "admin",
   accessToken = null,
   company = null,
+  companies = [],
+  canPickCompany = false,
   initialDefaults = null,
   emailApiPath = "/api/admin/vouchers/transfer/email",
   pdfApiPath = "/api/admin/vouchers/transfer/pdf",
 }) {
   const isTokenMode = mode === "token";
+  const companyList = Array.isArray(companies) && companies.length
+    ? companies
+    : company
+      ? [company]
+      : [];
+
+  const [activeCompany, setActiveCompany] = useState(
+    () => company || companyList[0] || null
+  );
+
+  const brandingFor = (c, locale = "el") => {
+    if (!c) {
+      return (
+        initialDefaults || {
+          companyHeaderTitle: "",
+          companyInfo: "",
+          stampSrc: "",
+        }
+      );
+    }
+    // Prefer server-built defaults when still on the initial company
+    if (
+      initialDefaults &&
+      company &&
+      String(c._id) === String(company._id)
+    ) {
+      return {
+        companyHeaderTitle: initialDefaults.companyHeaderTitle || "",
+        companyInfo: initialDefaults.companyInfo || "",
+        stampSrc:
+          initialDefaults.stampSrc ||
+          c.voucherStampSrc ||
+          "",
+      };
+    }
+    return buildCompanyVoucherDefaults(c, locale);
+  };
+
   const storageSuffix = isTokenMode
-    ? `_token_${String(company?._id || "x")}`
-    : "_admin";
+    ? `_token_${String(activeCompany?._id || company?._id || "x")}`
+    : `_admin_${String(activeCompany?._id || "none")}`;
   const { i18n } = useTranslation();
   const { changeLanguage } = useMainContext();
 
@@ -432,15 +481,12 @@ export default function TransferVouchersSection({
   const [form, setForm] = useState(() => {
     const base = createDefaultTransferVoucherData();
     const siteLocale = voucherLocaleFromSite(i18n?.language);
+    const branding = brandingFor(company || companyList[0], siteLocale);
     return normalizeTransferVoucherData({
       ...base,
-      ...(initialDefaults || {}),
+      ...branding,
       locale: siteLocale,
       bilingual: false,
-      stampSrc:
-        initialDefaults?.stampSrc ||
-        company?.voucherStampSrc ||
-        base.stampSrc,
     });
   });
   const [hydrated, setHydrated] = useState(false);
@@ -461,14 +507,33 @@ export default function TransferVouchersSection({
   const draftKey = `${DRAFT_KEY}${storageSuffix}`;
   const emailsKey = `${EMAILS_KEY}${storageSuffix}`;
 
+  const applyCompany = (nextCompany) => {
+    if (!nextCompany) return;
+    setActiveCompany(nextCompany);
+    const locale = voucherLocaleFromSite(i18n?.language);
+    const branding = brandingFor(nextCompany, locale);
+    setForm((prev) =>
+      normalizeTransferVoucherData({
+        ...prev,
+        ...branding,
+        locale,
+        bilingual: false,
+      })
+    );
+  };
+
   // Keep voucher EL/EN in sync with the site language switcher.
   useEffect(() => {
     const apply = (lng) => {
       const next = voucherLocaleFromSite(lng);
       setForm((prev) => {
         if (prev.locale === next && !prev.bilingual) return prev;
+        const branding = brandingFor(activeCompany, next);
         return normalizeTransferVoucherData({
           ...prev,
+          companyHeaderTitle: branding.companyHeaderTitle || prev.companyHeaderTitle,
+          companyInfo: branding.companyInfo || prev.companyInfo,
+          stampSrc: branding.stampSrc,
           locale: next,
           bilingual: false,
         });
@@ -479,9 +544,10 @@ export default function TransferVouchersSection({
     i18n.on("languageChanged", onChange);
     return () => i18n.off("languageChanged", onChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18n]);
+  }, [i18n, activeCompany?._id]);
 
   useEffect(() => {
+    const branding = brandingFor(activeCompany, voucherLocaleFromSite(i18n.language));
     const draft = (() => {
       try {
         const raw = JSON.parse(window.localStorage.getItem(draftKey) || "null");
@@ -494,19 +560,17 @@ export default function TransferVouchersSection({
       setForm(
         normalizeTransferVoucherData({
           ...draft,
+          // Always re-bind company branding (never keep another company's stamp)
+          ...branding,
           locale: voucherLocaleFromSite(i18n.language),
           bilingual: false,
-          stampSrc:
-            initialDefaults?.stampSrc ||
-            company?.voucherStampSrc ||
-            draft.stampSrc,
         })
       );
-    } else if (initialDefaults) {
+    } else {
       setForm((prev) =>
         normalizeTransferVoucherData({
           ...prev,
-          ...initialDefaults,
+          ...branding,
           locale: voucherLocaleFromSite(i18n.language),
           bilingual: false,
         })
@@ -527,7 +591,7 @@ export default function TransferVouchersSection({
     if (emails[0]) setEmail(emails[0]);
     setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey, emailsKey]);
+  }, [draftKey, emailsKey, activeCompany?._id]);
 
   const persistEmailsList = (list) => {
     try {
@@ -552,25 +616,36 @@ export default function TransferVouchersSection({
   const setField = (key) => (value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const withCompanyBranding = (payload) => {
+    const branding = brandingFor(
+      activeCompany,
+      payload.locale === "en" ? "en" : "el"
+    );
+    return normalizeTransferVoucherData({
+      ...payload,
+      bilingual: false,
+      stampSrc: branding.stampSrc,
+      companyHeaderTitle:
+        payload.companyHeaderTitle || branding.companyHeaderTitle,
+      companyInfo: payload.companyInfo || branding.companyInfo,
+    });
+  };
+
   const handleSave = async () => {
     setBusy("save");
     setStatus(null);
     const locale = form.locale === "en" ? "en" : "el";
     try {
-      const voucher = normalizeTransferVoucherData({
-        ...form,
-        bilingual: false,
-        stampSrc:
-          initialDefaults?.stampSrc ||
-          company?.voucherStampSrc ||
-          form.stampSrc,
-      });
+      const voucher = withCompanyBranding(form);
 
       const res = await fetch(pdfApiPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ voucher }),
+        body: JSON.stringify({
+          voucher,
+          companyId: activeCompany?._id || undefined,
+        }),
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -618,14 +693,7 @@ export default function TransferVouchersSection({
     setBusy("send");
     setStatus(null);
     try {
-      const voucher = normalizeTransferVoucherData({
-        ...form,
-        bilingual: false,
-        stampSrc:
-          initialDefaults?.stampSrc ||
-          company?.voucherStampSrc ||
-          form.stampSrc,
-      });
+      const voucher = withCompanyBranding(form);
       window.localStorage.setItem(draftKey, JSON.stringify(voucher));
       rememberEmail(target);
 
@@ -633,7 +701,11 @@ export default function TransferVouchersSection({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ voucher, email: target }),
+        body: JSON.stringify({
+          voucher,
+          email: target,
+          companyId: activeCompany?._id || undefined,
+        }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok || payload.success === false) {
@@ -656,9 +728,13 @@ export default function TransferVouchersSection({
   const uiLocale = form.locale === "en" ? "en" : "el";
   const setLocale = (next) => {
     const locale = next === "en" ? "en" : "el";
+    const branding = brandingFor(activeCompany, locale);
     setForm((prev) =>
       normalizeTransferVoucherData({
         ...prev,
+        companyHeaderTitle: branding.companyHeaderTitle || prev.companyHeaderTitle,
+        companyInfo: branding.companyInfo || prev.companyInfo,
+        stampSrc: branding.stampSrc,
         locale,
         bilingual: false,
       })
@@ -666,6 +742,28 @@ export default function TransferVouchersSection({
     if (typeof changeLanguage === "function") {
       changeLanguage(locale);
     }
+  };
+
+  const handleReset = () => {
+    const locale = voucherLocaleFromSite(i18n?.language);
+    const branding = brandingFor(activeCompany, locale);
+    setForm(
+      normalizeTransferVoucherData({
+        ...createDefaultTransferVoucherData(),
+        ...branding,
+        locale,
+        bilingual: false,
+      })
+    );
+    try {
+      window.localStorage.removeItem(draftKey);
+    } catch {
+      // ignore
+    }
+    setStatus({
+      severity: "info",
+      text: voucherUiText("formCleared", locale),
+    });
   };
 
   const fieldLabel = (key) => voucherFieldLabel(key, uiLocale);
@@ -677,7 +775,7 @@ export default function TransferVouchersSection({
       <Box className="no-print" sx={{ mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
           {voucherFieldLabel("pageTitle", uiLocale)}
-          {company?.name ? ` — ${company.name}` : ""}
+          {activeCompany?.name ? ` — ${activeCompany.name}` : ""}
         </Typography>
         {isTokenMode ? (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -686,6 +784,35 @@ export default function TransferVouchersSection({
         ) : (
           <Box sx={{ mb: 1.5 }} />
         )}
+
+        {canPickCompany ? (
+          <Autocomplete
+            className="no-print"
+            size="small"
+            sx={{ mb: 1.5, maxWidth: 420 }}
+            options={companyList}
+            value={
+              companyList.find(
+                (c) => String(c._id) === String(activeCompany?._id)
+              ) || null
+            }
+            onChange={(_, next) => applyCompany(next)}
+            getOptionLabel={(c) => c?.name || ""}
+            isOptionEqualToValue={(a, b) => String(a?._id) === String(b?._id)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={voucherUiText("selectCompany", uiLocale)}
+              />
+            )}
+          />
+        ) : null}
+
+        {!form.stampSrc ? (
+          <Alert severity="info" sx={{ mb: 1.5 }}>
+            {voucherUiText("noStampHint", uiLocale)}
+          </Alert>
+        ) : null}
 
         <Stack
           direction={{ xs: "column", sm: "row" }}
@@ -734,21 +861,7 @@ export default function TransferVouchersSection({
               variant="outlined"
               fullWidth
               startIcon={<RestartAltIcon />}
-              onClick={() => {
-                const base = createDefaultTransferVoucherData();
-                setForm(
-                  normalizeTransferVoucherData({
-                    ...base,
-                    ...(initialDefaults || {}),
-                    locale: uiLocale,
-                    bilingual: false,
-                  })
-                );
-                setStatus({
-                  severity: "info",
-                  text: voucherUiText("formCleared", uiLocale),
-                });
-              }}
+              onClick={handleReset}
               sx={{ height: 40, whiteSpace: "nowrap" }}
             >
               {voucherUiText("reset", uiLocale)}

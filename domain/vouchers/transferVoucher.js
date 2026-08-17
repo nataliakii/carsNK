@@ -116,6 +116,11 @@ export const TRANSFER_VOUCHER_UI = {
     en: "(PDF attached)",
   },
   sendFailed: { el: "Σφάλμα αποστολής", en: "Send failed" },
+  selectCompany: { el: "Εταιρεία", en: "Company" },
+  noStampHint: {
+    el: "Δεν υπάρχει σφραγίδα για αυτή την εταιρεία",
+    en: "No stamp on file for this company",
+  },
 };
 
 export function formatVoucherLabel(key, { locale = "el", bilingual = false } = {}) {
@@ -144,8 +149,10 @@ export const createDefaultTransferVoucherData = () => ({
   locale: "el",
   bilingual: false,
 
-  companyHeaderTitle: "ΜΑΚΑΡΟΒΑ ΝΑΤΑΛΙΑ",
-  companyInfo: COMPANY_STAMP_TEXT.el,
+  // Company branding comes from buildCompanyVoucherDefaults(company) —
+  // never default to another partner's stamp/header.
+  companyHeaderTitle: "",
+  companyInfo: "",
   agreementDate: todayInputValue(),
   agreementTime: "",
 
@@ -171,7 +178,7 @@ export const createDefaultTransferVoucherData = () => ({
   amount: "",
   notes: "",
 
-  stampSrc: TRANSFER_VOUCHER_STAMP_SRC,
+  stampSrc: "",
 });
 
 const safeString = (value, fallback = "") => {

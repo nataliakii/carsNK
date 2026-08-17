@@ -6,11 +6,24 @@ import { getCars, getCompany, getAllOrders } from "@/domain/services";
 import { COMPANY_ID } from "@/config/company";
 import Company from "@models/company";
 import { connectToDB } from "@lib/database";
+import { ROLE } from "@models/user";
 import {
   buildCompanyVoucherDefaults,
   getCompanyVoucherStampSrc,
+  isNataliCarsCompany,
 } from "@/domain/vouchers/companyStamp";
 import TransferVouchersSection from "./TransferVouchersSection";
+
+function serializeCompany(doc) {
+  if (!doc) return null;
+  return {
+    _id: String(doc._id),
+    name: doc.name || "",
+    tel: doc.tel || "",
+    address: doc.address || "",
+    voucherStampSrc: getCompanyVoucherStampSrc(doc),
+  };
+}
 
 export default async function VouchersPage() {
   unstable_noStore();
@@ -22,19 +35,31 @@ export default async function VouchersPage() {
     getAllOrders({ session }),
   ]);
 
+  await connectToDB();
+
+  const role = Number(session?.user?.role);
+  const isSuperadmin = role === ROLE.SUPERADMIN;
+  const ownerId = session?.user?.ownerId;
+
   let voucherCompany = null;
   let initialDefaults = null;
-  const ownerId = session?.user?.ownerId;
-  if (ownerId) {
-    await connectToDB();
+  let companies = [];
+
+  if (isSuperadmin) {
+    const all = await Company.find({}).sort({ name: 1 }).lean();
+    companies = (all || []).map(serializeCompany).filter(Boolean);
+    const natali = (all || []).find((c) => isNataliCarsCompany(c));
+    const pick = natali || all?.[0] || null;
+    if (pick) {
+      voucherCompany = serializeCompany(pick);
+      initialDefaults = buildCompanyVoucherDefaults(pick);
+    }
+  } else if (ownerId) {
     const owned = await Company.findById(ownerId).lean();
     if (owned) {
-      voucherCompany = {
-        _id: String(owned._id),
-        name: owned.name,
-        voucherStampSrc: getCompanyVoucherStampSrc(owned),
-      };
+      voucherCompany = serializeCompany(owned);
       initialDefaults = buildCompanyVoucherDefaults(owned);
+      companies = [voucherCompany];
     }
   }
 
@@ -52,6 +77,8 @@ export default async function VouchersPage() {
     >
       <TransferVouchersSection
         company={voucherCompany}
+        companies={companies}
+        canPickCompany={isSuperadmin && companies.length > 1}
         initialDefaults={initialDefaults}
       />
     </Feed>

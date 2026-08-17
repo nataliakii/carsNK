@@ -1,10 +1,5 @@
-# Natali Cars voucher stamp
+# Voucher stamps (per company)
 
-- `natali-cars-stamp.png` — digitized company stamp (Greek).
-- Replace this file anytime; voucher form uses `/vouchers/natali-cars-stamp.png`.
-
-Stamp text:
-ΜΑΚΑΡΟΒΑ ΝΑΤΑΛΙΑ
-ΕΝΟΙΚΙΑΣΕΙΣ - ΠΩΛΗΣΕΙΣ ΑΥΤΟΚΙΝΗΤΩΝ
-ΚΕΛΕΣΗ 12 ΝΕΑ ΚΑΛΛΙΚΡΑΤΕΙΑ - ΤΗΛ. 6970 034707
-Α.Φ.Μ. 102741962 - Δ.Ο.Υ. Ν. ΜΟΥΔΑΝΙΩΝ
+- `natali-cars-stamp.png` — **Natali Cars only**.
+- Other companies must set `Company.voucherStampSrc` (e.g. `/vouchers/partner-stamp.png`) and place the file under `public/vouchers/`.
+- The app never falls back to the Natali stamp for a different company.

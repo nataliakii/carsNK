@@ -30,6 +30,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import { useTranslation, Trans } from "react-i18next";
 import { computeZoneDeliveryPrice } from "@/domain/delivery/deliveryPriceFormula";
 
 const EMPTY_FORM = {
@@ -43,7 +44,7 @@ function formatDistanceFormula(distanceKm, rate) {
   return `${distanceKm} × €${rate}`;
 }
 
-function buildDistanceHelperText(distanceKmValue, rateValue) {
+function buildDistanceHelperText(t, distanceKmValue, rateValue) {
   if (!String(distanceKmValue ?? "").trim()) return undefined;
   if (!String(rateValue ?? "").trim()) return undefined;
 
@@ -51,10 +52,10 @@ function buildDistanceHelperText(distanceKmValue, rateValue) {
   const rate = Number(rateValue);
   const price = computeZoneDeliveryPrice({ distanceKm }, rate);
 
-  return `Стоимость доставки: €${price} (${formatDistanceFormula(
-    distanceKmValue,
-    rateValue
-  )})`;
+  return t("deliveryZonesPage.distanceHelper", {
+    price,
+    formula: formatDistanceFormula(distanceKmValue, rateValue),
+  });
 }
 
 function hasFixedPrice(zone) {
@@ -63,6 +64,7 @@ function hasFixedPrice(zone) {
 }
 
 export default function DeliveryZonesSection() {
+  const { t } = useTranslation();
   const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -150,7 +152,9 @@ export default function DeliveryZonesSection() {
       if (data.success) {
         setNotification({
           severity: "success",
-          message: editingZone ? "Zone updated" : "Zone created",
+          message: editingZone
+            ? t("deliveryZonesPage.zoneUpdated")
+            : t("deliveryZonesPage.zoneCreated"),
         });
         setDialogOpen(false);
         fetchZones();
@@ -163,7 +167,12 @@ export default function DeliveryZonesSection() {
   };
 
   const handleDelete = async (zone) => {
-    if (!confirm(`Delete zone "${zone.name}"?`)) return;
+    if (
+      !confirm(
+        t("deliveryZonesPage.confirmDelete", { name: zone.name })
+      )
+    )
+      return;
 
     try {
       const res = await fetch(`/api/admin/delivery-zones/${zone._id}`, {
@@ -171,7 +180,10 @@ export default function DeliveryZonesSection() {
       });
       const data = await res.json();
       if (data.success) {
-        setNotification({ severity: "success", message: "Zone deleted" });
+        setNotification({
+          severity: "success",
+          message: t("deliveryZonesPage.zoneDeleted"),
+        });
         fetchZones();
       } else {
         setNotification({ severity: "error", message: data.message });
@@ -192,13 +204,13 @@ export default function DeliveryZonesSection() {
         setPricePerKmSaved(pricePerKm);
         setNotification({
           severity: "success",
-          message: "Price per km saved",
+          message: t("deliveryZonesPage.priceSaved"),
         });
       } else {
         const data = await res.json();
         setNotification({
           severity: "error",
-          message: data.message || "Failed to save",
+          message: data.message || t("deliveryZonesPage.saveFailed"),
         });
       }
     } catch (err) {
@@ -208,7 +220,9 @@ export default function DeliveryZonesSection() {
 
   const renderPrice = (zone) => {
     if (zone.isFreeDelivery) {
-      return <Typography variant="body2">Бесплатно</Typography>;
+      return (
+        <Typography variant="body2">{t("deliveryZonesPage.free")}</Typography>
+      );
     }
 
     if (hasFixedPrice(zone)) {
@@ -219,7 +233,7 @@ export default function DeliveryZonesSection() {
             component="span"
             sx={{ color: "success.main", fontWeight: 600, ml: 0.5 }}
           >
-            (fixed)
+            ({t("deliveryZonesPage.fixed")})
           </Box>
         </Typography>
       );
@@ -238,17 +252,17 @@ export default function DeliveryZonesSection() {
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
         <LocalShippingIcon sx={{ fontSize: 28 }} />
         <Typography variant="h5" fontWeight={700}>
-          Зоны доставки
+          {t("deliveryZonesPage.title")}
         </Typography>
       </Stack>
 
       <Paper sx={{ p: 2, mb: 3 }}>
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          Стоимость доставки
+          {t("deliveryZonesPage.costSection")}
         </Typography>
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1.5 }}>
           <TextField
-            label="Цена за км (€)"
+            label={t("deliveryZonesPage.pricePerKm")}
             size="small"
             type="number"
             value={pricePerKm}
@@ -262,12 +276,14 @@ export default function DeliveryZonesSection() {
             disabled={pricePerKm === pricePerKmSaved}
             onClick={handleSavePricePerKm}
           >
-            Save
+            {t("deliveryZonesPage.save")}
           </Button>
         </Stack>
-        <Typography variant="caption" color="text.secondary">
-          Формула: <b>цена за км × расстояние</b> (в одну сторону от базы).
-          Доставка считается отдельно для места получения и возврата.
+        <Typography variant="caption" color="text.secondary" component="div">
+          <Trans
+            i18nKey="deliveryZonesPage.formulaHint"
+            components={{ bold: <b /> }}
+          />
         </Typography>
       </Paper>
 
@@ -279,7 +295,7 @@ export default function DeliveryZonesSection() {
           sx={{ p: 2 }}
         >
           <Typography variant="subtitle1" fontWeight={600}>
-            Города / точки ({zones.length})
+            {t("deliveryZonesPage.citiesTitle", { count: zones.length })}
           </Typography>
           <Button
             variant="contained"
@@ -287,7 +303,7 @@ export default function DeliveryZonesSection() {
             startIcon={<AddIcon />}
             onClick={openAddDialog}
           >
-            Добавить
+            {t("deliveryZonesPage.add")}
           </Button>
         </Stack>
 
@@ -295,24 +311,32 @@ export default function DeliveryZonesSection() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Город / точка</TableCell>
-                <TableCell align="right">Расстояние от базы (км)</TableCell>
-                <TableCell align="right">Стоимость доставки</TableCell>
-                <TableCell align="center">Статус</TableCell>
-                <TableCell align="right">Действия</TableCell>
+                <TableCell>{t("deliveryZonesPage.colCity")}</TableCell>
+                <TableCell align="right">
+                  {t("deliveryZonesPage.colDistance")}
+                </TableCell>
+                <TableCell align="right">
+                  {t("deliveryZonesPage.colCost")}
+                </TableCell>
+                <TableCell align="center">
+                  {t("deliveryZonesPage.colStatus")}
+                </TableCell>
+                <TableCell align="right">
+                  {t("deliveryZonesPage.colActions")}
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center">
-                    Loading...
+                    {t("deliveryZonesPage.loading")}
                   </TableCell>
                 </TableRow>
               ) : zones.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center">
-                    Нет настроенных зон доставки
+                    {t("deliveryZonesPage.empty")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -337,12 +361,20 @@ export default function DeliveryZonesSection() {
                     </TableCell>
                     <TableCell align="center">
                       {zone.isFreeDelivery ? (
-                        <Chip label="Free" size="small" color="success" />
+                        <Chip
+                          label={t("deliveryZonesPage.statusFree")}
+                          size="small"
+                          color="success"
+                        />
                       ) : !zone.isActive ? (
-                        <Chip label="Inactive" size="small" color="default" />
+                        <Chip
+                          label={t("deliveryZonesPage.statusInactive")}
+                          size="small"
+                          color="default"
+                        />
                       ) : (
                         <Chip
-                          label="Active"
+                          label={t("deliveryZonesPage.statusActive")}
                           size="small"
                           color="primary"
                           variant="outlined"
@@ -350,13 +382,19 @@ export default function DeliveryZonesSection() {
                       )}
                     </TableCell>
                     <TableCell align="right">
-                      <Tooltip title="Edit">
-                        <IconButton size="small" onClick={() => openEditDialog(zone)}>
+                      <Tooltip title={t("deliveryZonesPage.edit")}>
+                        <IconButton
+                          size="small"
+                          onClick={() => openEditDialog(zone)}
+                        >
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton size="small" onClick={() => handleDelete(zone)}>
+                      <Tooltip title={t("deliveryZonesPage.delete")}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDelete(zone)}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -369,20 +407,31 @@ export default function DeliveryZonesSection() {
         </TableContainer>
       </Paper>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{editingZone ? "Редактировать" : "Добавить город"}</DialogTitle>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {editingZone
+            ? t("deliveryZonesPage.dialogEdit")
+            : t("deliveryZonesPage.dialogAdd")}
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              label="Название города / точки"
+              label={t("deliveryZonesPage.fieldName")}
               fullWidth
               size="small"
               value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="например: Airport, Thessaloniki"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, name: e.target.value }))
+              }
+              placeholder={t("deliveryZonesPage.fieldNamePlaceholder")}
             />
             <TextField
-              label="Расстояние от базы (км)"
+              label={t("deliveryZonesPage.fieldDistance")}
               fullWidth
               size="small"
               type="number"
@@ -391,16 +440,22 @@ export default function DeliveryZonesSection() {
                 setForm((f) => ({ ...f, distanceKm: e.target.value }))
               }
               inputProps={{ min: 0 }}
-              helperText={buildDistanceHelperText(form.distanceKm, pricePerKmSaved)}
+              helperText={buildDistanceHelperText(
+                t,
+                form.distanceKm,
+                pricePerKmSaved
+              )}
             />
             <TextField
-              label="Фиксированная цена (€ , опционально)"
+              label={t("deliveryZonesPage.fieldFixedPrice")}
               fullWidth
               size="small"
               type="number"
               value={form.fixedPrice}
-              onChange={(e) => setForm((f) => ({ ...f, fixedPrice: e.target.value }))}
-              helperText="Оставьте пустым для динамической цены по формуле"
+              onChange={(e) =>
+                setForm((f) => ({ ...f, fixedPrice: e.target.value }))
+              }
+              helperText={t("deliveryZonesPage.fixedPriceHelper")}
               inputProps={{ min: 0 }}
             />
             <FormControlLabel
@@ -408,22 +463,29 @@ export default function DeliveryZonesSection() {
                 <Switch
                   checked={form.isFreeDelivery}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, isFreeDelivery: e.target.checked }))
+                    setForm((f) => ({
+                      ...f,
+                      isFreeDelivery: e.target.checked,
+                    }))
                   }
                 />
               }
-              label="Бесплатная доставка"
+              label={t("deliveryZonesPage.freeDelivery")}
             />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Отмена</Button>
+          <Button onClick={() => setDialogOpen(false)}>
+            {t("deliveryZonesPage.cancel")}
+          </Button>
           <Button
             variant="contained"
             onClick={handleSave}
             disabled={!form.name.trim() || !form.distanceKm}
           >
-            {editingZone ? "Сохранить" : "Создать"}
+            {editingZone
+              ? t("deliveryZonesPage.save")
+              : t("deliveryZonesPage.create")}
           </Button>
         </DialogActions>
       </Dialog>

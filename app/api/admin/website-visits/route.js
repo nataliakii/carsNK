@@ -1,5 +1,5 @@
 import { connectToDB } from "@lib/database";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireSuperAdmin } from "@/lib/adminAuth";
 import WebsiteVisit from "@models/WebsiteVisit";
 
 function parsePositiveInt(value, fallback, { min = 1, max = 200 } = {}) {
@@ -19,7 +19,7 @@ function parseDays(value, fallback = 7) {
 export async function GET(request) {
   try {
     await connectToDB();
-    const { errorResponse } = await requireAdmin(request);
+    const { errorResponse } = await requireSuperAdmin(request);
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(request.url);

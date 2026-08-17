@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@lib/authOptions";
+import { requireSuperAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
 import Transfer, { TRANSFER_STATUS } from "@models/Transfer";
 
@@ -11,10 +10,8 @@ function json(body, status = 200) {
 }
 
 export async function PATCH(request, { params }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) {
-    return json({ success: false, message: "Unauthorized" }, 401);
-  }
+  const { errorResponse } = await requireSuperAdmin(request);
+  if (errorResponse) return errorResponse;
 
   const id = params?.id;
   if (!id) return json({ success: false, message: "id required" }, 400);

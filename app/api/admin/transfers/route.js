@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@lib/authOptions";
+import { requireSuperAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
 import Transfer, { TRANSFER_STATUS } from "@models/Transfer";
 
@@ -10,19 +9,16 @@ function json(body, status = 200) {
   return NextResponse.json(body, { status });
 }
 
-async function requireAdmin() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) return null;
-  return session;
-}
-
 export async function GET(request) {
-  const session = await requireAdmin();
-  if (!session) return json({ success: false, message: "Unauthorized" }, 401);
+  const { errorResponse } = await requireSuperAdmin(request);
+  if (errorResponse) return errorResponse;
 
   const { searchParams } = new URL(request.url);
   const status = String(searchParams.get("status") || "").trim();
-  const limit = Math.min(200, Math.max(1, Number(searchParams.get("limit")) || 100));
+  const limit = Math.min(
+    200,
+    Math.max(1, Number(searchParams.get("limit")) || 100)
+  );
 
   const filter = {};
   if (status && Object.values(TRANSFER_STATUS).includes(status)) {

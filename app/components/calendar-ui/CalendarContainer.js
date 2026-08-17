@@ -725,28 +725,24 @@ export default function CalendarContainer({
   );
 
   const handlePrevMonth = useCallback(() => {
-    if (viewMode === "full") {
+    // Period is controlled by the toolbar (15d / 1m / 2m). Arrows only shift
+    // the window — do not toggle viewMode (that used to fight the toolbar).
+    if (dayRange === "15d" || viewMode === "range15") {
       setRangeDirection("backward");
-      setViewMode("range15");
-    } else {
-      setViewMode("full");
-      const base = dayjs().year(year).month(month).subtract(1, "month");
-      setMonth(base.month());
-      setYear(base.year());
     }
-  }, [viewMode, year, month, setViewMode]);
+    const base = dayjs().year(year).month(month).subtract(1, "month");
+    setMonth(base.month());
+    setYear(base.year());
+  }, [dayRange, viewMode, year, month]);
 
   const handleNextMonth = useCallback(() => {
-    if (viewMode === "full") {
+    if (dayRange === "15d" || viewMode === "range15") {
       setRangeDirection("forward");
-      setViewMode("range15");
-    } else {
-      setViewMode("full");
-      const base = dayjs().year(year).month(month).add(1, "month");
-      setMonth(base.month());
-      setYear(base.year());
     }
-  }, [viewMode, year, month, setViewMode]);
+    const base = dayjs().year(year).month(month).add(1, "month");
+    setMonth(base.month());
+    setYear(base.year());
+  }, [dayRange, viewMode, year, month]);
 
   // =======================
   // 🚚 Move mode handlers (from hook)
@@ -855,11 +851,10 @@ export default function CalendarContainer({
 
   const calendarMetricsSx = useMemo(() => {
     const dayCount = Math.max(days.length, 1);
-    const autoFactor = Math.min(
-      2,
-      Math.max(0.55, MEAN_GREGORIAN_MONTH_DAYS / dayCount)
-    );
-    const widthFactor = autoFactor * dayScale;
+    // At dayScale=1, one ~month of days fills the viewport; more days → wider
+    // table (horizontal scroll). dayScale multiplies day width (pinch / +/−).
+    const widthFactor =
+      (dayCount / MEAN_GREGORIAN_MONTH_DAYS) * Number(dayScale || 1);
     const rowPx = BASE_ROW_HEIGHT_PX;
     // Same formula on phone + desktop so pinch/zoom controls day size predictably.
     const dayWidth = `calc((100% - var(--resource-col-width, 160px)) / var(--calendar-day-count) * var(--calendar-day-width-factor, 1))`;

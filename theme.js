@@ -710,7 +710,8 @@ export const calendarStyles = {
     // Убираем maxWidth чтобы не обрезать контент
     width: "100%",
     boxSizing: "border-box",
-    zIndex: 100,
+    // Keep below CalendarToolbar so sticky/overflow never steals toolbar clicks
+    zIndex: 1,
     height: "100%",
     // Добавляем padding справа для 31-го дня
     pr: { xs: 0.5, sm: 1 },

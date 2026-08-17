@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@lib/adminAuth";
 import { normalizeTransferVoucherData } from "@/domain/vouchers/transferVoucher";
 import { buildTransferVoucherPdf } from "@/domain/vouchers/transferVoucherPdf";
+import { resolveAdminVoucherCompany } from "@/domain/vouchers/resolveAdminVoucherCompany";
 
 export const runtime = "nodejs";
 
@@ -11,10 +12,10 @@ function json(body, status = 200) {
 
 /**
  * POST /api/admin/vouchers/transfer/pdf
- * Body: { voucher } → PDF download
+ * Body: { voucher, companyId? } → PDF download
  */
 export async function POST(request) {
-  const { errorResponse } = await requireAdmin(request);
+  const { session, errorResponse } = await requireAdmin(request);
   if (errorResponse) return errorResponse;
 
   let body;
@@ -24,12 +25,23 @@ export async function POST(request) {
     return json({ success: false, message: "Invalid JSON" }, 400);
   }
 
-  const voucher = normalizeTransferVoucherData(body?.voucher || {});
-  const stampPath = String(voucher.stampSrc || "/vouchers/natali-cars-stamp.png");
+  const { stampSrc, defaults } = await resolveAdminVoucherCompany(
+    session,
+    body?.companyId
+  );
+
+  const voucher = normalizeTransferVoucherData({
+    ...(body?.voucher || {}),
+    // Server-enforced branding — never print another company's stamp
+    stampSrc,
+    companyHeaderTitle:
+      body?.voucher?.companyHeaderTitle || defaults.companyHeaderTitle,
+    companyInfo: body?.voucher?.companyInfo || defaults.companyInfo,
+  });
 
   try {
     const { bytes, fileName } = await buildTransferVoucherPdf(voucher, {
-      stampSrc: stampPath,
+      stampSrc: stampSrc || undefined,
     });
     return new NextResponse(Buffer.from(bytes), {
       status: 200,

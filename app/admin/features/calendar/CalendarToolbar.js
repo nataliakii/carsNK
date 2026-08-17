@@ -12,6 +12,7 @@ import {
   Typography,
 } from "@mui/material";
 import dynamic from "next/dynamic";
+import { useTranslation } from "react-i18next";
 import LegendCalendarAdmin from "@/app/components/calendar-ui/LegendCalendarAdmin";
 
 const SettingsIcon = dynamic(() => import("@mui/icons-material/Settings"), {
@@ -30,8 +31,11 @@ export default function CalendarToolbar({
   onOpenCalendarSettings,
   onBulkOfflineOrders,
 }) {
+  const { t } = useTranslation();
   const showInlineLegend =
     Boolean(showLegend) && legendPlacement === "inline";
+  const scalePct = Math.round(Number(dayScale || 1) * 100);
+
   const toggleGroupSx = {
     "& .MuiToggleButtonGroup-grouped": {
       minHeight: 26,
@@ -47,7 +51,8 @@ export default function CalendarToolbar({
       px: 1,
       py: 0.3,
       lineHeight: 1.2,
-      transition: "background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease",
+      transition:
+        "background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease",
       "&:hover": {
         backgroundColor: "rgba(255,255,255,0.09)",
         color: "rgba(255,255,255,0.88)",
@@ -57,7 +62,8 @@ export default function CalendarToolbar({
         opacity: 1,
         backgroundColor: "primary.main",
         borderColor: "primary.main",
-        boxShadow: "0 0 0 1px rgba(255,255,255,0.12) inset, 0 1px 4px rgba(0,0,0,0.32)",
+        boxShadow:
+          "0 0 0 1px rgba(255,255,255,0.12) inset, 0 1px 4px rgba(0,0,0,0.32)",
         fontWeight: 600,
       },
       "&.Mui-selected:hover": {
@@ -70,9 +76,38 @@ export default function CalendarToolbar({
     },
   };
 
+  const zoomBtnSx = {
+    color: "rgba(255,255,255,0.88)",
+    borderColor: "rgba(255,255,255,0.14)",
+    borderRadius: "8px",
+    minWidth: 32,
+    minHeight: 26,
+    px: 0.75,
+    py: 0.25,
+    fontSize: "0.95rem",
+    lineHeight: 1,
+    textTransform: "none",
+    "&:hover": {
+      backgroundColor: "rgba(255,255,255,0.09)",
+      borderColor: "rgba(255,255,255,0.28)",
+    },
+  };
+
+  const handleDayRangeChange = (_event, next) => {
+    if (next == null) return;
+    if (typeof onDayRangeChange === "function") onDayRangeChange(next);
+  };
+
+  const bumpScale = (delta) => {
+    if (typeof onDayScaleChange !== "function") return;
+    onDayScaleChange(Number(dayScale || 1) + delta);
+  };
+
   return (
     <Box
       sx={{
+        position: "relative",
+        zIndex: 5,
         flexShrink: 0,
         px: "10px",
         py: "4px",
@@ -104,51 +139,72 @@ export default function CalendarToolbar({
             justifyContent: { xs: "center", sm: "flex-start" },
           }}
         >
-          <ToolbarGroup label="Период">
+          <ToolbarGroup label={t("calendar.toolbar.period")}>
             <ToggleButtonGroup
               exclusive
               size="small"
               value={dayRange}
-              onChange={(_, v) => v != null && onDayRangeChange(v)}
-              aria-label="Диапазон дней календаря"
+              onChange={handleDayRangeChange}
+              aria-label={t("calendar.toolbar.periodAria")}
               sx={toggleGroupSx}
             >
-              <ToggleButton value="15d">15 дн.</ToggleButton>
-              <ToggleButton value="1m">1 мес.</ToggleButton>
-              <ToggleButton value="2m">2 мес.</ToggleButton>
+              <ToggleButton value="15d">
+                {t("calendar.toolbar.range15d")}
+              </ToggleButton>
+              <ToggleButton value="1m">
+                {t("calendar.toolbar.range1m")}
+              </ToggleButton>
+              <ToggleButton value="2m">
+                {t("calendar.toolbar.range2m")}
+              </ToggleButton>
             </ToggleButtonGroup>
           </ToolbarGroup>
           {typeof onDayScaleChange === "function" ? (
-            <ToolbarGroup label="Масштаб">
-              <ToggleButtonGroup
-                exclusive={false}
-                size="small"
-                aria-label="Масштаб дней календаря"
-                sx={toggleGroupSx}
-              >
-                <ToggleButton
-                  value="zoom-out"
-                  onClick={() => onDayScaleChange(Number(dayScale || 1) - 0.15)}
-                  aria-label="Уменьшить"
+            <ToolbarGroup label={t("calendar.toolbar.scale")}>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Button
+                  type="button"
+                  size="small"
+                  variant="outlined"
+                  onClick={() => bumpScale(-0.15)}
+                  aria-label={t("calendar.toolbar.zoomOut")}
+                  sx={zoomBtnSx}
                 >
                   −
-                </ToggleButton>
-                <ToggleButton value="zoom-label" disabled>
-                  {Math.round(Number(dayScale || 1) * 100)}%
-                </ToggleButton>
-                <ToggleButton
-                  value="zoom-in"
-                  onClick={() => onDayScaleChange(Number(dayScale || 1) + 0.15)}
-                  aria-label="Увеличить"
+                </Button>
+                <Box
+                  aria-live="polite"
+                  sx={{
+                    minWidth: 44,
+                    px: 0.75,
+                    py: 0.35,
+                    textAlign: "center",
+                    fontSize: "0.72rem",
+                    color: "rgba(255,255,255,0.9)",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    borderRadius: "8px",
+                    lineHeight: 1.2,
+                    userSelect: "none",
+                  }}
+                >
+                  {scalePct}%
+                </Box>
+                <Button
+                  type="button"
+                  size="small"
+                  variant="outlined"
+                  onClick={() => bumpScale(0.15)}
+                  aria-label={t("calendar.toolbar.zoomIn")}
+                  sx={zoomBtnSx}
                 >
                   +
-                </ToggleButton>
-              </ToggleButtonGroup>
+                </Button>
+              </Stack>
             </ToolbarGroup>
           ) : null}
         </Box>
 
-        {/* CENTER: buffer + delivery (mx auto + equal flex wings keeps block visually centered) */}
+        {/* CENTER: buffer + delivery */}
         <Box
           sx={{
             display: "flex",
@@ -222,15 +278,15 @@ export default function CalendarToolbar({
                 },
               }}
             >
-              Bulk offline
+              {t("calendar.toolbar.bulkOffline")}
             </Button>
           ) : null}
 
-          <Tooltip title="Настройки календаря" arrow>
+          <Tooltip title={t("calendar.toolbar.settings")} arrow>
             <IconButton
               size="small"
               onClick={onOpenCalendarSettings}
-              aria-label="Настройки календаря"
+              aria-label={t("calendar.toolbar.settings")}
               sx={{
                 color: "rgba(255,255,255,0.92)",
                 border: "1px solid rgba(255,255,255,0.22)",

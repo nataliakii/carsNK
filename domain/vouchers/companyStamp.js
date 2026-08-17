@@ -1,29 +1,75 @@
 /**
- * Resolve per-company voucher stamp path.
+ * Resolve per-company voucher branding (stamp + header).
+ * Never reuse another company's stamp as a fallback.
  */
 
-const DEFAULT_STAMP = "/vouchers/natali-cars-stamp.png";
+import { COMPANY_STAMP_TEXT } from "@/domain/vouchers/transferVoucher";
 
-export function getCompanyVoucherStampSrc(company) {
-  const custom = String(company?.voucherStampSrc || "").trim();
-  if (custom) return custom;
+export const NATALI_CARS_STAMP_SRC = "/vouchers/natali-cars-stamp.png";
 
+export function isNataliCarsCompany(company) {
   const name = String(company?.name || "").toLowerCase();
-  if (name.includes("natali")) {
-    return "/vouchers/natali-cars-stamp.png";
-  }
-  // Placeholder until other companies upload their stamp
-  return DEFAULT_STAMP;
+  return name.includes("natali");
 }
 
-export function buildCompanyVoucherDefaults(company) {
+/**
+ * @param {object|null|undefined} company
+ * @returns {string} public path/URL, or "" when this company has no stamp
+ */
+export function getCompanyVoucherStampSrc(company) {
+  if (!company) return "";
+
+  const custom = String(company?.voucherStampSrc || "").trim();
+  if (custom) {
+    // Never let a non-Natali company keep a natali stamp path by mistake
+    if (
+      !isNataliCarsCompany(company) &&
+      custom.toLowerCase().includes("natali-cars-stamp")
+    ) {
+      return "";
+    }
+    return custom;
+  }
+
+  if (isNataliCarsCompany(company)) {
+    return NATALI_CARS_STAMP_SRC;
+  }
+
+  return "";
+}
+
+/**
+ * @param {object|null|undefined} company
+ * @param {"el"|"en"} [locale]
+ */
+export function buildCompanyVoucherDefaults(company, locale = "el") {
+  const loc = locale === "en" ? "en" : "el";
   const stampSrc = getCompanyVoucherStampSrc(company);
+
+  if (!company) {
+    return {
+      companyHeaderTitle: "",
+      companyInfo: "",
+      stampSrc: "",
+    };
+  }
+
+  if (isNataliCarsCompany(company)) {
+    return {
+      companyHeaderTitle:
+        loc === "en" ? "MAKAROVA NATALIA" : "ΜΑΚΑΡΟΒΑ ΝΑΤΑΛΙΑ",
+      companyInfo: COMPANY_STAMP_TEXT[loc] || COMPANY_STAMP_TEXT.el,
+      stampSrc,
+    };
+  }
+
   const name = company?.name || "Company";
   const tel = company?.tel || "";
   const address = company?.address || "";
   const lines = [name];
   if (address) lines.push(address);
-  if (tel) lines.push(`ΤΗΛ. ${tel}`);
+  if (tel) lines.push(loc === "en" ? `Tel. ${tel}` : `ΤΗΛ. ${tel}`);
+
   return {
     companyHeaderTitle: name,
     companyInfo: lines.join("\n"),

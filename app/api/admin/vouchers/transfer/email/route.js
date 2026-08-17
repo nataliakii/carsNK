@@ -5,6 +5,7 @@ import { normalizeTransferVoucherData } from "@/domain/vouchers/transferVoucher"
 import { buildTransferVoucherEmailHtml } from "@/domain/vouchers/transferVoucherEmailHtml";
 import { buildTransferVoucherPdf } from "@/domain/vouchers/transferVoucherPdf";
 import { getRequestOrigin } from "@/domain/auth/passwordReset";
+import { resolveAdminVoucherCompany } from "@/domain/vouchers/resolveAdminVoucherCompany";
 
 export const runtime = "nodejs";
 
@@ -14,10 +15,10 @@ function json(body, status = 200) {
 
 /**
  * POST /api/admin/vouchers/transfer/email
- * Body: { voucher, email }
+ * Body: { voucher, email, companyId? }
  */
 export async function POST(request) {
-  const { errorResponse } = await requireAdmin(request);
+  const { session, errorResponse } = await requireAdmin(request);
   if (errorResponse) return errorResponse;
 
   let body;
@@ -32,19 +33,33 @@ export async function POST(request) {
     return json({ success: false, message: "Valid email is required" }, 400);
   }
 
-  const voucher = normalizeTransferVoucherData(body?.voucher || {});
+  const { company, stampSrc, defaults } = await resolveAdminVoucherCompany(
+    session,
+    body?.companyId
+  );
+
+  const voucher = normalizeTransferVoucherData({
+    ...(body?.voucher || {}),
+    stampSrc,
+    companyHeaderTitle:
+      body?.voucher?.companyHeaderTitle || defaults.companyHeaderTitle,
+    companyInfo: body?.voucher?.companyInfo || defaults.companyInfo,
+  });
+
   const origin = getRequestOrigin(request);
-  const stampPath = String(voucher.stampSrc || "/vouchers/natali-cars-stamp.png");
-  const stampAbsoluteUrl = stampPath.startsWith("http")
-    ? stampPath
-    : `${origin}${stampPath.startsWith("/") ? "" : "/"}${stampPath}`;
+  const stampAbsoluteUrl = stampSrc
+    ? stampSrc.startsWith("http")
+      ? stampSrc
+      : `${origin}${stampSrc.startsWith("/") ? "" : "/"}${stampSrc}`
+    : "";
 
   const html = buildTransferVoucherEmailHtml(voucher, { stampAbsoluteUrl });
-  const title = `Κουπόνι μεταφοράς — ${voucher.clientName || voucher.lessee || "Natali Cars"}`;
+  const companyName = company?.name || voucher.companyHeaderTitle || "Transfer";
+  const title = `Transfer voucher — ${voucher.clientName || voucher.lessee || companyName}`;
 
   try {
     const { bytes, fileName } = await buildTransferVoucherPdf(voucher, {
-      stampSrc: stampPath,
+      stampSrc: stampSrc || undefined,
     });
     await sendEmailDirect({
       title,

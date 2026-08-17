@@ -48,7 +48,7 @@ export async function POST(request, { params }) {
 
   try {
     const { bytes, fileName } = await buildTransferVoucherPdf(voucher, {
-      stampSrc,
+      stampSrc: stampSrc || undefined,
     });
     return new NextResponse(Buffer.from(bytes), {
       status: 200,

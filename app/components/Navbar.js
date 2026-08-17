@@ -150,7 +150,9 @@ export default function NavBar({
   const sessionValue = useSession();
   const session = sessionValue?.data ?? null;
   const adminRole =
-    isAdmin && session?.user?.role !== undefined ? session.user.role : null; // ROLE.ADMIN = 1, ROLE.SUPERADMIN = 2
+    isAdmin && session?.user?.role !== undefined
+      ? Number(session.user.role)
+      : null; // ROLE.ADMIN = 1, ROLE.SUPERADMIN = 2
   const isSuperAdmin = adminRole === ROLE.SUPERADMIN;
 
   // Обработчик logout
@@ -878,26 +880,30 @@ export default function NavBar({
                         {t("header.deliveryZones")}
                       </Typography>
                     </Link>
-                    <Link href="/admin/website-visits">
-                      <Typography
-                        sx={{
-                          ...adminNavLinkSx,
-                          ...(isAdminVisitsRoute ? adminNavActiveSx : null),
-                        }}
-                      >
-                        {t("header.websiteVisits")}
-                      </Typography>
-                    </Link>
-                    <Link href="/admin/transfers">
-                      <Typography
-                        sx={{
-                          ...adminNavLinkSx,
-                          ...(isAdminTransfersRoute ? adminNavActiveSx : null),
-                        }}
-                      >
-                        {t("header.transfers")}
-                      </Typography>
-                    </Link>
+                    {isSuperAdmin && (
+                      <Link href="/admin/website-visits">
+                        <Typography
+                          sx={{
+                            ...adminNavLinkSx,
+                            ...(isAdminVisitsRoute ? adminNavActiveSx : null),
+                          }}
+                        >
+                          {t("header.websiteVisits")}
+                        </Typography>
+                      </Link>
+                    )}
+                    {isSuperAdmin && (
+                      <Link href="/admin/transfers">
+                        <Typography
+                          sx={{
+                            ...adminNavLinkSx,
+                            ...(isAdminTransfersRoute ? adminNavActiveSx : null),
+                          }}
+                        >
+                          {t("header.transfers")}
+                        </Typography>
+                      </Link>
+                    )}
                     <Link href="/admin/vouchers">
                       <Typography
                         sx={{
@@ -1413,22 +1419,26 @@ export default function NavBar({
                 >
                   <ListItemText primary={t("header.deliveryZones")} />
                 </ListItem>
-                <ListItem
-                  button
-                  component={Link}
-                  href="/admin/website-visits"
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  <ListItemText primary={t("header.websiteVisits")} />
-                </ListItem>
-                <ListItem
-                  button
-                  component={Link}
-                  href="/admin/transfers"
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  <ListItemText primary={t("header.transfers")} />
-                </ListItem>
+                {isSuperAdmin && (
+                  <ListItem
+                    button
+                    component={Link}
+                    href="/admin/website-visits"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    <ListItemText primary={t("header.websiteVisits")} />
+                  </ListItem>
+                )}
+                {isSuperAdmin && (
+                  <ListItem
+                    button
+                    component={Link}
+                    href="/admin/transfers"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    <ListItemText primary={t("header.transfers")} />
+                  </ListItem>
+                )}
                 <ListItem
                   button
                   component={Link}
