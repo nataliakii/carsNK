@@ -475,15 +475,17 @@ export default function NavBar({
   }, [discountHistory]);
 
   const currentDiscountInlineLabel = useMemo(() => {
-    if (!activeDiscount) return "Скидки";
+    if (!activeDiscount) return t("discount.navLabel");
     const type = activeDiscount?.type === "fixed" ? "fixed" : "percentage";
     const rawValue =
       type === "fixed"
         ? Number(activeDiscount?.value ?? activeDiscount?.amount ?? 0)
         : Number(activeDiscount?.discount ?? activeDiscount?.value ?? 0);
-    if (!Number.isFinite(rawValue) || rawValue <= 0) return "Скидки";
-    return type === "fixed" ? `Скидка €${rawValue}` : `Скидка ${rawValue}%`;
-  }, [activeDiscount]);
+    if (!Number.isFinite(rawValue) || rawValue <= 0) return t("discount.navLabel");
+    return type === "fixed"
+      ? t("discount.navFixed", { value: rawValue })
+      : t("discount.navPercent", { value: rawValue });
+  }, [activeDiscount, t]);
 
   // Определение: есть ли настроенная скидка (активная или будущая)
   const hasConfiguredDiscount = () => {
@@ -536,10 +538,11 @@ export default function NavBar({
       });
     }
     if (isDiscountUpcoming()) {
-      // Скидка запланирована на будущее
-      return `${selectedDiscount}% с ${formatDiscountDate(
-        discountStartDate
-      )} по ${formatDiscountDate(discountEndDate)}`;
+      return t("discount.upcomingRange", {
+        value: selectedDiscount,
+        from: formatDiscountDate(discountStartDate),
+        to: formatDiscountDate(discountEndDate),
+      });
     }
     // Нет настроенной скидки
     return t("discount.inactive");

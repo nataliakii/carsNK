@@ -367,7 +367,7 @@ const AddCarModal = ({
                     <RenderTextField
                       type="number"
                       name="PriceKacko"
-                      label={t("car.KackoPrice") || "Цена КАСКО в день"}
+                      label={t("car.KackoPrice") || "CDW price per day"}
                       defaultValue={carData.PriceKacko || 5}
                       updatedCar={carData}
                       handleChange={handleChange}
@@ -414,7 +414,7 @@ const AddCarModal = ({
                     {/* <RenderTextField
                       type="number"
                       name="PriceKacko"
-                      label={t("car.KackoPrice") || "Цена КАСКО в день"}
+                      label={t("car.KackoPrice") || "CDW price per day"}
                       defaultValue={carData.PriceKacko || 5}
                       updatedCar={carData}
                       handleChange={handleChange}
@@ -461,7 +461,7 @@ const AddCarModal = ({
                     {/* <RenderTextField
                       type="number"
                       name="PriceKacko"
-                      label={t("car.KackoPrice") || "Цена КАСКО в день"}
+                      label={t("car.KackoPrice") || "CDW price per day"}
                       defaultValue={carData.PriceKacko || 5}
                       updatedCar={carData}
                       handleChange={handleChange}
@@ -469,7 +469,7 @@ const AddCarModal = ({
                     {/* <RenderTextField
                       type="number"
                       name="deposit"
-                      label={t("car.deposit") || "Залог, €"}
+                      label={t("car.deposit") || "Deposit, €"}
                       defaultValue={carData.deposit || 0}
                       updatedCar={carData}
                       handleChange={handleChange}
@@ -523,7 +523,7 @@ const AddCarModal = ({
                       renderInput={(params) => (
                         <TextField
                           {...params}
-                          label={t("car.color") || "Цвет"}
+                          label={t("car.color") || "Color"}
                           name="color"
                           required
                           onChange={(e) => {
@@ -540,7 +540,7 @@ const AddCarModal = ({
                     <RenderTextField
                       type="number"
                       name="deposit"
-                      label={t("car.deposit") || "Залог, €"}
+                      label={t("car.deposit") || "Deposit, €"}
                       defaultValue={carData.deposit || 0}
                       updatedCar={carData}
                       handleChange={handleChange}

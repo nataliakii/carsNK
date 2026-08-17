@@ -191,7 +191,13 @@
     "KackoPrice": "Τιμή CDW",
     "deposit": "Κατάθεση",
     "noDeposit": "ΧΩΡΙΣ ΚΑΤΑΘΕΣΗ",
-    "flightNumber": "Αριθμός πτήσης"
+    "flightNumber": "Αριθμός πτήσης",
+    "activeOnSite": "Ενεργό στον ιστότοπο",
+    "inactiveOnSite": "Κρυφό από τον ιστότοπο",
+    "showOnSite": "Στον ιστότοπο",
+    "hideOnSite": "Εκτός ιστότοπου",
+    "activatedOnSite": "Το αυτοκίνητο εμφανίζεται στον ιστότοπο",
+    "deactivatedOnSite": "Το αυτοκίνητο αποκρύφθηκε από τον ιστότοπο"
   },
   "bookMesssages": {
     "bookOK": "Η κράτηση παραλήφθηκε. Σας ευχαριστούμε για την κράτησή σας!",
@@ -297,7 +303,28 @@
   },
   "discount": {
     "activeRange": "Έκπτωση {{value}}% από {{from}} έως {{to}}",
-    "inactive": "Έκπτωση"
+    "upcomingRange": "{{value}}% από {{from}} έως {{to}}",
+    "inactive": "Έκπτωση",
+    "navLabel": "Εκπτώσεις",
+    "navPercent": "Έκπτωση {{value}}%",
+    "navFixed": "Έκπτωση €{{value}}",
+    "modalTitle": "Έκπτωση: {{value}}%",
+    "activeTitle": "Ενεργή έκπτωση",
+    "activeValue": "Ενεργή έκπτωση: {{value}}",
+    "notApplied": "Δεν εφαρμόζεται έκπτωση",
+    "startDate": "Ημερομηνία έναρξης έκπτωσης",
+    "endDate": "Ημερομηνία λήξης έκπτωσης",
+    "activeToday": "Η έκπτωση είναι ενεργή σήμερα",
+    "rentalPercent": "Έκπτωση ενοικίασης (%):",
+    "hideHistory": "Απόκρυψη ιστορικού εκπτώσεων",
+    "showHistory": "Ιστορικό εκπτώσεων ({{count}})",
+    "historyEmpty": "Το ιστορικό εκπτώσεων είναι κενό",
+    "typeFixed": "Σταθερή έκπτωση",
+    "typePercent": "% έκπτωση",
+    "when": "Πότε: {{date}}",
+    "source": "Πηγή: {{source}}",
+    "close": "Κλείσιμο",
+    "save": "Αποθήκευση"
   },
   "calendar": {
     "prevMonth": "Προηγούμενος μήνας",

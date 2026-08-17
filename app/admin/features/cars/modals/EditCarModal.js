@@ -355,7 +355,7 @@ const EditCarModal = ({
               {/* <RenderTextField
                 type="number"
                 name="PriceChildSeats"
-                label={t("car.childSeatsPrice") || "Цена детских кресел"}
+                label={t("car.childSeatsPrice") || "Child seat price"}
                 defaultValue={updatedCar.PriceChildSeats}
                 updatedCar={updatedCar}
                 handleChange={handleChange}
@@ -364,7 +364,7 @@ const EditCarModal = ({
               <RenderTextField
                 type="number"
                 name="PriceKacko"
-                label={t("car.KackoPrice") || "Цена КАСКО в день"}
+                label={t("car.KackoPrice") || "CDW price per day"}
                 //label="Цена КАСКО в день"
                 defaultValue={updatedCar.PriceKacko}
                 updatedCar={updatedCar}
@@ -374,7 +374,7 @@ const EditCarModal = ({
               {/* <RenderTextField
                 type="number"
                 name="deposit"
-                label={t("car.deposit") || "Залог, €"}
+                label={t("car.deposit") || "Deposit, €"}
                 defaultValue={
                   typeof updatedCar.deposit !== "undefined"
                     ? updatedCar.deposit
@@ -418,7 +418,7 @@ const EditCarModal = ({
               <RenderTextField
                 type="number"
                 name="franchise"
-                label={t("car.franchise") || "Франшиза"}
+                label={t("car.franchise") || "Franchise"}
                 defaultValue={updatedCar.franchise}
                 updatedCar={updatedCar}
                 handleChange={handleChange}
@@ -468,7 +468,7 @@ const EditCarModal = ({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label={t("car.color") || "Цвет"}
+                    label={t("car.color") || "Color"}
                     name="color"
                     disabled={isLoading}
                     onChange={(e) => {
@@ -485,7 +485,7 @@ const EditCarModal = ({
               <RenderTextField
                 type="number"
                 name="deposit"
-                label={t("car.deposit") || "Залог, €"}
+                label={t("car.deposit") || "Deposit, €"}
                 defaultValue={
                   typeof updatedCar.deposit !== "undefined"
                     ? updatedCar.deposit
@@ -498,7 +498,7 @@ const EditCarModal = ({
               {/* <RenderTextField
                 type="number"
                 name="franchise"
-                label={t("car.franchise") || "Франшиза"}
+                label={t("car.franchise") || "Franchise"}
                 defaultValue={updatedCar.franchise}
                 updatedCar={updatedCar}
                 handleChange={handleChange}
@@ -530,7 +530,7 @@ const EditCarModal = ({
             <RenderTextField
               type="number"
               name="PriceChildSeats"
-              label={t("car.childSeatsPrice") || "Цена детских кресел"}
+              label={t("car.childSeatsPrice") || "Child seat price"}
               defaultValue={updatedCar.PriceChildSeats}
               updatedCar={updatedCar}
               handleChange={handleChange}
