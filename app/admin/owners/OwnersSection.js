@@ -34,7 +34,11 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import SearchIcon from "@mui/icons-material/Search";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import Link from "next/link";
+import { COMPANY_ID } from "@config/company";
 
 const ROLE_ADMIN = 1;
 const ROLE_SUPERADMIN = 2;
@@ -67,6 +71,15 @@ export default function OwnersSection() {
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
+
+  const [editCompanyOpen, setEditCompanyOpen] = useState(false);
+  const [editCompanyName, setEditCompanyName] = useState("");
+  const [editCompanyEmail, setEditCompanyEmail] = useState("");
+  const [editCompanyTel, setEditCompanyTel] = useState("");
+
+  const [editAdminOpen, setEditAdminOpen] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState(null);
+  const [editAdminEmail, setEditAdminEmail] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -217,6 +230,138 @@ export default function OwnersSection() {
       setAdminDialogOpen(false);
       setOk(`Admin created for ${selectedCompany?.name || "company"}: ${body.user?.email}`);
       await load();
+    } catch (err) {
+      setError(err.message || "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openEditCompany = () => {
+    if (!selectedCompany) return;
+    setEditCompanyName(selectedCompany.name || "");
+    setEditCompanyEmail(selectedCompany.email || "");
+    setEditCompanyTel(selectedCompany.tel || "");
+    setEditCompanyOpen(true);
+  };
+
+  const updateCompany = async () => {
+    if (!selectedCompanyId) return;
+    setBusy(true);
+    setError("");
+    setOk("");
+    try {
+      const res = await fetch(`/api/admin/owners/${selectedCompanyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editCompanyName,
+          email: editCompanyEmail,
+          tel: editCompanyTel,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.message || "Failed");
+      setEditCompanyOpen(false);
+      setOk(`Company updated: ${body.company?.name}`);
+      await load();
+    } catch (err) {
+      setError(err.message || "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteCompany = async () => {
+    if (!selectedCompany) return;
+    const confirmed = window.confirm(
+      `Delete "${selectedCompany.name}"?\n\nAll company admins will be removed. Cars must be reassigned first.`
+    );
+    if (!confirmed) return;
+    setBusy(true);
+    setError("");
+    setOk("");
+    try {
+      const res = await fetch(`/api/admin/owners/${selectedCompanyId}`, {
+        method: "DELETE",
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.message || "Failed");
+      setOk(`Company deleted (${body.adminsRemoved || 0} admin(s) removed)`);
+      setSelectedCompanyId("");
+      await load();
+    } catch (err) {
+      setError(err.message || "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openEditAdmin = (admin) => {
+    setEditingAdmin(admin);
+    setEditAdminEmail(admin.email || "");
+    setEditAdminOpen(true);
+  };
+
+  const updateAdminEmail = async () => {
+    if (!editingAdmin?._id) return;
+    setBusy(true);
+    setError("");
+    setOk("");
+    try {
+      const res = await fetch(`/api/admin/owners/users/${editingAdmin._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: editAdminEmail }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.message || "Failed");
+      setEditAdminOpen(false);
+      setEditingAdmin(null);
+      setOk(`Email updated: ${body.user?.email}`);
+      await load();
+    } catch (err) {
+      setError(err.message || "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteAdmin = async (admin) => {
+    const confirmed = window.confirm(
+      `Delete admin ${admin.email}? They will no longer be able to log in.`
+    );
+    if (!confirmed) return;
+    setBusy(true);
+    setError("");
+    setOk("");
+    try {
+      const res = await fetch(`/api/admin/owners/users/${admin._id}`, {
+        method: "DELETE",
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.message || "Failed");
+      setOk(`Admin removed: ${admin.email}`);
+      await load();
+    } catch (err) {
+      setError(err.message || "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendAdminPasswordReset = async (admin) => {
+    setBusy(true);
+    setError("");
+    setOk("");
+    try {
+      const res = await fetch(
+        `/api/admin/owners/users/${admin._id}/reset-password`,
+        { method: "POST" }
+      );
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.message || "Failed");
+      setOk(body.message || `Reset email sent to ${admin.email}`);
     } catch (err) {
       setError(err.message || "Failed");
     } finally {
@@ -475,14 +620,36 @@ export default function OwnersSection() {
                       </Tooltip>
                     </Stack>
                   </Box>
-                  <Button
-                    variant="outlined"
-                    startIcon={<PersonAddIcon />}
-                    onClick={() => setAdminDialogOpen(true)}
-                    sx={{ textTransform: "none" }}
-                  >
-                    Add admin
-                  </Button>
+                  <Stack direction="row" gap={1} flexWrap="wrap">
+                    <Button
+                      variant="outlined"
+                      startIcon={<PersonAddIcon />}
+                      onClick={() => setAdminDialogOpen(true)}
+                      sx={{ textTransform: "none" }}
+                    >
+                      Add admin
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<EditIcon />}
+                      onClick={openEditCompany}
+                      sx={{ textTransform: "none" }}
+                    >
+                      Edit company
+                    </Button>
+                    {String(selectedCompany._id) !== String(COMPANY_ID) ? (
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        onClick={deleteCompany}
+                        disabled={busy || (selectedCompany.carCount || 0) > 0}
+                        sx={{ textTransform: "none" }}
+                      >
+                        Delete company
+                      </Button>
+                    ) : null}
+                  </Stack>
                 </Stack>
               </Box>
 
@@ -510,6 +677,7 @@ export default function OwnersSection() {
                         <TableCell>Email</TableCell>
                         <TableCell>Username</TableCell>
                         <TableCell>Role</TableCell>
+                        <TableCell align="right">Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -519,6 +687,38 @@ export default function OwnersSection() {
                           <TableCell>{u.username || "—"}</TableCell>
                           <TableCell>
                             <Chip size="small" label="ADMIN" color="primary" variant="outlined" />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Stack direction="row" gap={0.5} justifyContent="flex-end">
+                              <Tooltip title="Change email">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => openEditAdmin(u)}
+                                  disabled={busy}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Send password reset email">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => sendAdminPasswordReset(u)}
+                                  disabled={busy}
+                                >
+                                  <MailOutlineIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete admin">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => deleteAdmin(u)}
+                                  disabled={busy}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Stack>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -784,6 +984,85 @@ export default function OwnersSection() {
             sx={{ textTransform: "none" }}
           >
             Create admin
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={editCompanyOpen}
+        onClose={() => !busy && setEditCompanyOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Edit company</DialogTitle>
+        <DialogContent>
+          <Stack gap={1.5} sx={{ pt: 1 }}>
+            <TextField
+              label="Company name"
+              value={editCompanyName}
+              onChange={(e) => setEditCompanyName(e.target.value)}
+              autoFocus
+              fullWidth
+            />
+            <TextField
+              label="Email"
+              value={editCompanyEmail}
+              onChange={(e) => setEditCompanyEmail(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Phone"
+              value={editCompanyTel}
+              onChange={(e) => setEditCompanyTel(e.target.value)}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditCompanyOpen(false)} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={updateCompany}
+            disabled={busy || !editCompanyName.trim()}
+            sx={{ textTransform: "none" }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={editAdminOpen}
+        onClose={() => !busy && setEditAdminOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Change admin email</DialogTitle>
+        <DialogContent>
+          <Stack gap={1.5} sx={{ pt: 1 }}>
+            <TextField
+              label="Email"
+              type="email"
+              value={editAdminEmail}
+              onChange={(e) => setEditAdminEmail(e.target.value)}
+              autoFocus
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditAdminOpen(false)} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={updateAdminEmail}
+            disabled={busy || !editAdminEmail.trim()}
+            sx={{ textTransform: "none" }}
+          >
+            Save
           </Button>
         </DialogActions>
       </Dialog>

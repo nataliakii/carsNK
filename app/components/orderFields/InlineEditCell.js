@@ -84,7 +84,10 @@ export default function InlineEditCell({
     return (
       <Box
         title={title}
-        onDoubleClick={startEdit}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          startEdit();
+        }}
         sx={{
           cursor: disabled ? "default" : "text",
           userSelect: "none",

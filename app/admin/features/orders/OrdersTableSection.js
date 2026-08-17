@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   Box,
   Paper,
@@ -29,6 +29,8 @@ import {
   Switch,
   FormControlLabel,
   Popover,
+  Modal,
+  Grid,
 } from "@mui/material";
 import {
   Search as SearchIcon,
@@ -70,6 +72,10 @@ import {
   resolveOrderOwnerId,
   summarizeFilteredOrders,
 } from "@/domain/orders/ordersTableStats";
+import { extractArraysOfStartEndConfPending } from "@/domain/calendar";
+import EditOrderModal from "@/app/admin/features/orders/modals/EditOrderModal";
+import OrderUnsavedCloseDialog from "@/app/admin/features/orders/components/OrderUnsavedCloseDialog";
+import { isPast } from "@utils/businessTime";
 
 // Dayjs plugins
 dayjs.extend(utc);
@@ -147,6 +153,121 @@ export default function OrdersTableSection() {
   // ⚠️ RBAC SOURCE OF TRUTH: session.user.role is the ONLY source for UI permissions
   // adminRole from API is NOT used for permissions (only for debugging if needed)
   const [conflictsByOrderId, setConflictsByOrderId] = useState({}); // { orderId: { message, conflicts: [] } }
+
+  // ─────────────────────────────────────────────────────────────
+  // EDIT ORDER MODAL (same as calendar)
+  // ─────────────────────────────────────────────────────────────
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState(null);
+  const [isConflictOrder, setIsConflictOrder] = useState(false);
+  const editCloseGuardsRef = useRef(new Map());
+  const [unsavedEditDialogOpen, setUnsavedEditDialogOpen] = useState(false);
+  const [unsavedEditSaving, setUnsavedEditSaving] = useState(false);
+  const [startEndDates, setStartEndDates] = useState([]);
+
+  const registerEditOrderCloseGuard = useCallback((orderId, guard) => {
+    const id = String(orderId);
+    editCloseGuardsRef.current.set(id, guard);
+    return () => {
+      editCloseGuardsRef.current.delete(id);
+    };
+  }, []);
+
+  const performEditModalClose = useCallback(() => {
+    setEditModalOpen(false);
+    setSelectedOrderForEdit(null);
+  }, []);
+
+  const tryCloseEditModal = useCallback(() => {
+    const guards = [...editCloseGuardsRef.current.values()];
+    const dirty = guards.some((g) => g.isDirty());
+    if (!dirty) {
+      performEditModalClose();
+      return;
+    }
+    setUnsavedEditDialogOpen(true);
+  }, [performEditModalClose]);
+
+  const handleEditModalBackdropClose = useCallback(
+    (_event, reason) => {
+      if (reason === "backdropClick" || reason === "escapeKeyDown") {
+        tryCloseEditModal();
+      }
+    },
+    [tryCloseEditModal]
+  );
+
+  const handleUnsavedEditDiscard = useCallback(() => {
+    setUnsavedEditDialogOpen(false);
+    performEditModalClose();
+  }, [performEditModalClose]);
+
+  const handleUnsavedEditCancel = useCallback(() => {
+    setUnsavedEditDialogOpen(false);
+  }, []);
+
+  const handleUnsavedEditSave = useCallback(async () => {
+    const guards = [...editCloseGuardsRef.current.values()];
+    const dirtyGuards = guards.filter((g) => g.isDirty());
+    setUnsavedEditSaving(true);
+    try {
+      let allSaved = true;
+      for (const g of dirtyGuards) {
+        const guardSaved = await g.save();
+        if (!guardSaved) {
+          allSaved = false;
+          break;
+        }
+      }
+      if (!allSaved) {
+        setUnsavedEditDialogOpen(false);
+        return;
+      }
+      setUnsavedEditDialogOpen(false);
+      performEditModalClose();
+    } catch (err) {
+      setUnsavedEditDialogOpen(false);
+      enqueueSnackbar(err?.message || t("order.unsavedSaveBlocked"), {
+        variant: "error",
+      });
+    } finally {
+      setUnsavedEditSaving(false);
+    }
+  }, [performEditModalClose, enqueueSnackbar, t]);
+
+  useEffect(() => {
+    if (!editModalOpen) {
+      setUnsavedEditDialogOpen(false);
+      setUnsavedEditSaving(false);
+    }
+  }, [editModalOpen]);
+
+  useEffect(() => {
+    if (!allOrders) return;
+    const { startEnd } = extractArraysOfStartEndConfPending(allOrders);
+    setStartEndDates(startEnd);
+  }, [allOrders]);
+
+  const handleSaveOrderFromModal = useCallback(
+    async (updatedOrder) => {
+      setSelectedOrderForEdit(updatedOrder);
+      await fetchAndUpdateOrders();
+    },
+    [fetchAndUpdateOrders]
+  );
+
+  const handleOrderRowDoubleClick = useCallback((order, event) => {
+    const target = event.target;
+    if (
+      target.closest(
+        'button, a, input, textarea, select, [role="switch"], [role="checkbox"], [data-stop-order-modal]'
+      )
+    ) {
+      return;
+    }
+    setSelectedOrderForEdit(order);
+    setEditModalOpen(true);
+  }, []);
   
   // Get current user for permission checks
   // ⚠️ RBAC SOURCE OF TRUTH: session.user.role is the single source of truth for UI permissions
@@ -1358,7 +1479,9 @@ export default function OrdersTableSection() {
                     <React.Fragment key={order._id}>
                       <TableRow
                         hover
+                        onDoubleClick={(e) => handleOrderRowDoubleClick(order, e)}
                         sx={{
+                          cursor: "pointer",
                           borderLeft: `4px solid ${orderColor.main}`,
                           "&:hover": {
                             backgroundColor: orderColor.bg || alpha(orderColor.main, 0.04),
@@ -1919,6 +2042,76 @@ export default function OrdersTableSection() {
           )}
         </Box>
       </Popover>
+
+      <Modal
+        open={editModalOpen && !!selectedOrderForEdit}
+        onClose={handleEditModalBackdropClose}
+        sx={{
+          display: "flex",
+          alignItems: { xs: "flex-start", sm: "center" },
+          justifyContent: "center",
+          overflowY: { xs: "auto", sm: "hidden" },
+        }}
+      >
+        <Box
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              tryCloseEditModal();
+            }
+          }}
+          sx={{
+            display: "flex",
+            alignItems: { xs: "flex-start", sm: "center" },
+            justifyContent: { xs: "flex-start", sm: "center" },
+            width: "100%",
+            minHeight: "100%",
+            overflowY: "auto",
+            overflowX: "hidden",
+            p: { xs: 0.75, sm: 2 },
+          }}
+        >
+          <Grid
+            container
+            justifyContent="center"
+            alignItems="flex-start"
+            onClick={(e) => e.stopPropagation()}
+            sx={{
+              width: "100%",
+              maxWidth: { xs: "95vw", sm: "92vw", md: "1100px" },
+              maxHeight: { xs: "none", sm: "100%" },
+              overflowX: "hidden",
+              my: { xs: 0.5, sm: 0 },
+            }}
+          >
+            {selectedOrderForEdit && (
+              <Grid item xs={12}>
+                <EditOrderModal
+                  order={selectedOrderForEdit}
+                  open={editModalOpen}
+                  onClose={performEditModalClose}
+                  onRequestClose={tryCloseEditModal}
+                  registerEditOrderCloseGuard={registerEditOrderCloseGuard}
+                  onSave={handleSaveOrderFromModal}
+                  isConflictOrder={isConflictOrder}
+                  setIsConflictOrder={setIsConflictOrder}
+                  startEndDates={startEndDates}
+                  cars={cars}
+                  isViewOnly={isPast(selectedOrderForEdit.rentalEndDate)}
+                  ordersInBatch={1}
+                />
+              </Grid>
+            )}
+          </Grid>
+        </Box>
+      </Modal>
+
+      <OrderUnsavedCloseDialog
+        open={unsavedEditDialogOpen}
+        onClose={handleUnsavedEditCancel}
+        onDiscard={handleUnsavedEditDiscard}
+        onSaveAndExit={handleUnsavedEditSave}
+        saving={unsavedEditSaving}
+      />
     </Box>
   );
 }

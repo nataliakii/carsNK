@@ -157,6 +157,27 @@ export default function NavBar({
       ? Number(session.user.role)
       : null; // ROLE.ADMIN = 1, ROLE.SUPERADMIN = 2
   const isSuperAdmin = adminRole === ROLE.SUPERADMIN;
+  const [partnerCompanyName, setPartnerCompanyName] = useState("");
+
+  useEffect(() => {
+    if (!isAdmin || isSuperAdmin || !session?.user?.ownerId) {
+      setPartnerCompanyName("");
+      return undefined;
+    }
+    const ownerId = String(session.user.ownerId);
+    let cancelled = false;
+    fetch(`/api/company/${ownerId}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled) setPartnerCompanyName(data?.name || "");
+      })
+      .catch(() => {
+        if (!cancelled) setPartnerCompanyName("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, isSuperAdmin, session?.user?.ownerId]);
 
   // Обработчик logout
   const handleLogout = async () => {
@@ -292,7 +313,7 @@ export default function NavBar({
 
   const adminIdentityLabel = isSuperAdmin
     ? t("header.superadmin")
-    : company?.name || session?.user?.email || t("header.adminRole");
+    : partnerCompanyName || session?.user?.email || t("header.adminRole");
 
   // Локаль из URL имеет приоритет, чтобы отображаемый язык и ссылки всегда совпадали с страницей
   const pathSegments = pathname?.split("/").filter(Boolean) || [];
