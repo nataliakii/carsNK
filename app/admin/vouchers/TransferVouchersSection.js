@@ -552,12 +552,12 @@ export default function TransferVouchersSection({
   const setField = (key) => (value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setBusy("save");
     setStatus(null);
     const locale = form.locale === "en" ? "en" : "el";
     try {
-      const normalized = normalizeTransferVoucherData({
+      const voucher = normalizeTransferVoucherData({
         ...form,
         bilingual: false,
         stampSrc:
@@ -565,10 +565,32 @@ export default function TransferVouchersSection({
           company?.voucherStampSrc ||
           form.stampSrc,
       });
-      window.localStorage.setItem(draftKey, JSON.stringify(normalized));
-      setForm(normalized);
-      const target = String(email || "").trim().toLowerCase();
-      if (target.includes("@")) rememberEmail(target);
+
+      const res = await fetch(pdfApiPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ voucher }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.message || voucherUiText("saveFailed", locale));
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="([^"]+)"/i);
+      const fileName = match?.[1] || `transfer-voucher-${Date.now()}.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
       setStatus({
         severity: "success",
         text: voucherUiText("savedLocal", locale),
