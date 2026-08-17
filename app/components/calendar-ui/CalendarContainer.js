@@ -40,7 +40,7 @@ import { useFirstColumnWidth } from "@/hooks/useFirstColumnWidth";
 // View layout (toolbar): фиксированный normal density
 // ============================================
 const BASE_ROW_HEIGHT_PX = 27;
-/** Day column width at scale 100% — table grows in px so zoom/period actually scroll */
+/** Fixed day column width — period (15d/1m/2m) changes column count + table scroll */
 const BASE_DAY_WIDTH_PX = 34;
 
 function getDensityLayoutSx() {
@@ -71,8 +71,6 @@ function BigCalendarLayout({
   firstColumnWidth,
   extraRootSx = {},
   extraTableContainerSx = {},
-  dayScale = 1,
-  onDayScaleChange,
 }) {
   return (
     <Box
@@ -99,75 +97,6 @@ function BigCalendarLayout({
             showBufferControls={showBufferInLegend}
             showDeliveryInfo={showDeliveryInLegend}
           />
-        </Box>
-      )}
-
-      {typeof onDayScaleChange === "function" && (
-        <Box
-          sx={{
-            position: "absolute",
-            right: 10,
-            bottom: 12,
-            zIndex: 6,
-            display: "flex",
-            alignItems: "center",
-            gap: 0.5,
-            px: 0.75,
-            py: 0.35,
-            borderRadius: 2,
-            bgcolor: "rgba(20,20,20,0.78)",
-            color: "#fff",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.28)",
-            backdropFilter: "blur(6px)",
-            userSelect: "none",
-          }}
-        >
-          <Box
-            component="button"
-            type="button"
-            aria-label="Уменьшить дни"
-            onClick={() => onDayScaleChange(dayScale - 0.15)}
-            sx={{
-              border: 0,
-              background: "transparent",
-              color: "inherit",
-              cursor: "pointer",
-              fontSize: 18,
-              lineHeight: 1,
-              px: 0.75,
-              py: 0.25,
-            }}
-          >
-            −
-          </Box>
-          <Box
-            sx={{
-              fontSize: 11,
-              opacity: 0.9,
-              minWidth: 36,
-              textAlign: "center",
-            }}
-          >
-            {Math.round(dayScale * 100)}%
-          </Box>
-          <Box
-            component="button"
-            type="button"
-            aria-label="Увеличить дни"
-            onClick={() => onDayScaleChange(dayScale + 0.15)}
-            sx={{
-              border: 0,
-              background: "transparent",
-              color: "inherit",
-              cursor: "pointer",
-              fontSize: 18,
-              lineHeight: 1,
-              px: 0.75,
-              py: 0.25,
-            }}
-          >
-            +
-          </Box>
         </Box>
       )}
 
@@ -202,8 +131,6 @@ export default function CalendarContainer({
   viewMode: viewModeProp,
   onViewModeChange,
   dayRange = "1m",
-  dayScale: dayScaleProp,
-  onDayScaleChange,
 }) {
   // ─────────────────────────────────────────
   // 🔍 DEV INSTRUMENTATION (removed in production build)
@@ -375,31 +302,6 @@ export default function CalendarContainer({
   const [rangeDirection, setRangeDirection] = useState("forward"); // 'forward' | 'backward'
   const [isPortraitPhone, setIsPortraitPhone] = useState(false);
   const [preferTouchMove, setPreferTouchMove] = useState(false);
-  const [dayScaleUncontrolled, setDayScaleUncontrolled] = useState(() => {
-    if (typeof window === "undefined") return 1;
-    try {
-      const n = Number(localStorage.getItem("bigCalendar_dayScale"));
-      if (Number.isFinite(n)) return Math.min(2.8, Math.max(0.55, n));
-    } catch {
-      // ignore
-    }
-    return 1;
-  });
-  const isDayScaleControlled =
-    dayScaleProp !== undefined && typeof onDayScaleChange === "function";
-  const dayScale = isDayScaleControlled ? dayScaleProp : dayScaleUncontrolled;
-  const setDayScale = useCallback(
-    (next) => {
-      const clamped = Math.min(2.8, Math.max(0.55, Number(next) || 1));
-      if (isDayScaleControlled) onDayScaleChange(clamped);
-      else setDayScaleUncontrolled(clamped);
-    },
-    [isDayScaleControlled, onDayScaleChange]
-  );
-  const dayScaleRef = useRef(dayScale);
-  useEffect(() => {
-    dayScaleRef.current = dayScale;
-  }, [dayScale]);
 
   // =======================
   // 📦 Orders & selection
@@ -553,56 +455,6 @@ export default function CalendarContainer({
       else if (mq.removeListener) mq.removeListener(handler);
     };
   }, []);
-
-  useEffect(() => {
-    if (isDayScaleControlled || typeof window === "undefined") return;
-    try {
-      localStorage.setItem("bigCalendar_dayScale", String(dayScale));
-    } catch {
-      // ignore
-    }
-  }, [dayScale, isDayScaleControlled]);
-
-  // Pinch-to-zoom day width (iPhone-like) on the scroll container.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    let startDist = 0;
-    let startScale = 1;
-
-    const distance = (t0, t1) => {
-      const dx = t0.clientX - t1.clientX;
-      const dy = t0.clientY - t1.clientY;
-      return Math.hypot(dx, dy);
-    };
-
-    const onTouchStart = (e) => {
-      if (e.touches.length !== 2) return;
-      startDist = distance(e.touches[0], e.touches[1]);
-      startScale = dayScaleRef.current;
-    };
-    const onTouchMove = (e) => {
-      if (e.touches.length !== 2 || startDist <= 0) return;
-      e.preventDefault();
-      const ratio = distance(e.touches[0], e.touches[1]) / startDist;
-      setDayScale(startScale * ratio);
-    };
-    const onTouchEnd = () => {
-      startDist = 0;
-    };
-
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd);
-    el.addEventListener("touchcancel", onTouchEnd);
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-      el.removeEventListener("touchcancel", onTouchEnd);
-    };
-  }, [setDayScale]);
 
   useEffect(() => {
     localStorage.setItem("bigCalendar_month", month.toString());
@@ -852,12 +704,7 @@ export default function CalendarContainer({
 
   const calendarMetricsSx = useMemo(() => {
     const dayCount = Math.max(days.length, 1);
-    // Pixel widths (not %) so table-layout:fixed can grow beyond the viewport.
-    // Otherwise zoom/% and 2mo only redistribute columns inside 100% width.
-    const dayPx = Math.max(
-      16,
-      Math.round(BASE_DAY_WIDTH_PX * Number(dayScale || 1))
-    );
+    const dayPx = BASE_DAY_WIDTH_PX;
     const rowPx = BASE_ROW_HEIGHT_PX;
 
     return {
@@ -866,7 +713,7 @@ export default function CalendarContainer({
       "--calendar-table-min-width": `calc(var(--resource-col-width, 160px) + ${dayCount} * ${dayPx}px)`,
       "--calendar-row-height": `${rowPx}px`,
     };
-  }, [days.length, dayScale]);
+  }, [days.length]);
 
   const handleAddOrderClick = useCallback(
     (car, dateStr) => {
@@ -1330,8 +1177,6 @@ export default function CalendarContainer({
         firstColumnWidth={firstColumnWidth}
         extraRootSx={rootSx}
         extraTableContainerSx={tableContainerSx}
-        dayScale={dayScale}
-        onDayScaleChange={setDayScale}
       >
         <CalendarGrid data={gridData} actions={gridActions} />
       </BigCalendarLayout>

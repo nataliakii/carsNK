@@ -21,20 +21,17 @@ const SettingsIcon = dynamic(() => import("@mui/icons-material/Settings"), {
 
 export default function CalendarToolbar({
   dayRange,
-  dayScale,
   showLegend,
   legendPlacement,
   showBufferInLegend,
   showDeliveryInLegend,
   onDayRangeChange,
-  onDayScaleChange,
   onOpenCalendarSettings,
   onBulkOfflineOrders,
 }) {
   const { t } = useTranslation();
   const showInlineLegend =
     Boolean(showLegend) && legendPlacement === "inline";
-  const scalePct = Math.round(Number(dayScale || 1) * 100);
 
   const toggleGroupSx = {
     "& .MuiToggleButtonGroup-grouped": {
@@ -76,31 +73,9 @@ export default function CalendarToolbar({
     },
   };
 
-  const zoomBtnSx = {
-    color: "rgba(255,255,255,0.88)",
-    borderColor: "rgba(255,255,255,0.14)",
-    borderRadius: "8px",
-    minWidth: 32,
-    minHeight: 26,
-    px: 0.75,
-    py: 0.25,
-    fontSize: "0.95rem",
-    lineHeight: 1,
-    textTransform: "none",
-    "&:hover": {
-      backgroundColor: "rgba(255,255,255,0.09)",
-      borderColor: "rgba(255,255,255,0.28)",
-    },
-  };
-
   const handleDayRangeChange = (_event, next) => {
     if (next == null) return;
     if (typeof onDayRangeChange === "function") onDayRangeChange(next);
-  };
-
-  const bumpScale = (delta) => {
-    if (typeof onDayScaleChange !== "function") return;
-    onDayScaleChange(Number(dayScale || 1) + delta);
   };
 
   return (
@@ -128,7 +103,6 @@ export default function CalendarToolbar({
           rowGap: 1,
         }}
       >
-        {/* LEFT: period controls */}
         <Box
           sx={{
             display: "flex",
@@ -159,52 +133,8 @@ export default function CalendarToolbar({
               </ToggleButton>
             </ToggleButtonGroup>
           </ToolbarGroup>
-          {typeof onDayScaleChange === "function" ? (
-            <ToolbarGroup label={t("calendar.toolbar.scale")}>
-              <Stack direction="row" spacing={0.5} alignItems="center">
-                <Button
-                  type="button"
-                  size="small"
-                  variant="outlined"
-                  onClick={() => bumpScale(-0.15)}
-                  aria-label={t("calendar.toolbar.zoomOut")}
-                  sx={zoomBtnSx}
-                >
-                  −
-                </Button>
-                <Box
-                  aria-live="polite"
-                  sx={{
-                    minWidth: 44,
-                    px: 0.75,
-                    py: 0.35,
-                    textAlign: "center",
-                    fontSize: "0.72rem",
-                    color: "rgba(255,255,255,0.9)",
-                    border: "1px solid rgba(255,255,255,0.14)",
-                    borderRadius: "8px",
-                    lineHeight: 1.2,
-                    userSelect: "none",
-                  }}
-                >
-                  {scalePct}%
-                </Box>
-                <Button
-                  type="button"
-                  size="small"
-                  variant="outlined"
-                  onClick={() => bumpScale(0.15)}
-                  aria-label={t("calendar.toolbar.zoomIn")}
-                  sx={zoomBtnSx}
-                >
-                  +
-                </Button>
-              </Stack>
-            </ToolbarGroup>
-          ) : null}
         </Box>
 
-        {/* CENTER: buffer + delivery */}
         <Box
           sx={{
             display: "flex",
@@ -225,7 +155,6 @@ export default function CalendarToolbar({
           />
         </Box>
 
-        {/* RIGHT: legend (icons) + settings */}
         <Box
           sx={{
             display: "flex",

@@ -21,7 +21,6 @@ export default function CalendarSection() {
   const {
     settings,
     setDayRange,
-    setDayScale,
     setShowLegend,
     setShowBufferInLegend,
     setShowDeliveryInLegend,
@@ -48,13 +47,11 @@ export default function CalendarSection() {
     >
       <CalendarToolbar
         dayRange={settings.dayRange}
-        dayScale={settings.dayScale}
         showLegend={settings.showLegend}
         legendPlacement={settings.legendPlacement}
         showBufferInLegend={settings.showBufferInLegend}
         showDeliveryInLegend={settings.showDeliveryInLegend}
         onDayRangeChange={setDayRange}
-        onDayScaleChange={setDayScale}
         onOpenCalendarSettings={() => setSettingsPanelOpen(true)}
         onBulkOfflineOrders={() => setBulkOfflineOpen(true)}
       />
@@ -130,8 +127,6 @@ export default function CalendarSection() {
             viewMode={viewModeForCalendar}
             onViewModeChange={applyViewModeFromCalendar}
             dayRange={settings.dayRange}
-            dayScale={settings.dayScale}
-            onDayScaleChange={setDayScale}
           />
         )}
       </Box>

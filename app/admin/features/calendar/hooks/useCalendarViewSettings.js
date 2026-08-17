@@ -21,7 +21,6 @@ const STORAGE_KEY = "calendar_view_settings_v1";
  */
 const DEFAULT_SETTINGS = {
   dayRange: "1m",
-  dayScale: 1,
   showLegend: false,
   legendPlacement: "inline",
   showBufferInLegend: true,
@@ -56,11 +55,6 @@ function normalizeSettings(parsed) {
     dayRange: VALID_DAY_RANGE.has(merged.dayRange)
       ? merged.dayRange
       : DEFAULT_SETTINGS.dayRange,
-    dayScale: (() => {
-      const n = Number(merged.dayScale);
-      if (!Number.isFinite(n)) return DEFAULT_SETTINGS.dayScale;
-      return Math.min(2.8, Math.max(0.55, n));
-    })(),
     // Легенда всегда inline: опция смены расположения удалена из UI.
     legendPlacement: "inline",
     showLegend:
@@ -132,15 +126,6 @@ export function useCalendarViewSettings() {
     setSettings((s) => ({ ...s, dayRange }));
   }, []);
 
-  const setDayScale = useCallback((dayScale) => {
-    const n = Number(dayScale);
-    if (!Number.isFinite(n)) return;
-    setSettings((s) => ({
-      ...s,
-      dayScale: Math.min(2.8, Math.max(0.55, n)),
-    }));
-  }, []);
-
   const setShowLegend = useCallback((showLegend) => {
     setSettings((s) => ({ ...s, showLegend: Boolean(showLegend) }));
   }, []);
@@ -198,7 +183,6 @@ export function useCalendarViewSettings() {
     settings,
     hydrated,
     setDayRange,
-    setDayScale,
     setShowLegend,
     setShowBufferInLegend,
     setShowDeliveryInLegend,
