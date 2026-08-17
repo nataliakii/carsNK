@@ -415,6 +415,7 @@ export default function TransferVouchersSection({
   company = null,
   initialDefaults = null,
   emailApiPath = "/api/admin/vouchers/transfer/email",
+  pdfApiPath = "/api/admin/vouchers/transfer/pdf",
 }) {
   const isTokenMode = mode === "token";
   const storageSuffix = isTokenMode

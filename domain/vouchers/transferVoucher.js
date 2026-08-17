@@ -85,7 +85,7 @@ export const TRANSFER_VOUCHER_UI = {
   },
   language: { el: "Γλώσσα", en: "Language" },
   reset: { el: "Επαναφορά", en: "Reset" },
-  save: { el: "Αποθήκευση", en: "Save" },
+  save: { el: "Αποθήκευση PDF", en: "Save PDF" },
   print: { el: "Εκτύπωση", en: "Print" },
   send: { el: "Αποστολή", en: "Send" },
   recipientEmail: { el: "Email παραλήπτη", en: "Recipient email" },
@@ -99,10 +99,10 @@ export const TRANSFER_VOUCHER_UI = {
   },
   formCleared: { el: "Η φόρμα καθαρίστηκε", en: "Form cleared" },
   savedLocal: {
-    el: "Αποθηκεύτηκε σε αυτή τη συσκευή. Μπορείτε να επιστρέψετε αργότερα.",
-    en: "Saved on this device. You can come back later.",
+    el: "Το PDF αποθηκεύτηκε στον υπολογιστή σας.",
+    en: "PDF saved to your computer.",
   },
-  saveFailed: { el: "Αποτυχία αποθήκευσης", en: "Could not save" },
+  saveFailed: { el: "Αποτυχία αποθήκευσης PDF", en: "Could not save PDF" },
   emailInvalid: {
     el: "Εισαγάγετε έγκυρο email",
     en: "Enter a valid email",

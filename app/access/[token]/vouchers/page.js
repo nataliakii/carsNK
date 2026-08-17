@@ -55,6 +55,7 @@ export default async function AccessVouchersPage({ params }) {
         company={safeCompany}
         initialDefaults={defaults}
         emailApiPath={`/api/access/${encodeURIComponent(rawToken)}/vouchers/email`}
+        pdfApiPath={`/api/access/${encodeURIComponent(rawToken)}/vouchers/pdf`}
       />
     </Feed>
   );
