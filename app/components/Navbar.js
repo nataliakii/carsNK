@@ -106,6 +106,9 @@ const GradientAppBar = styled(AppBar, {
   // Фиксированная высота — НЕ меняется при scroll
   height: 60,
   minHeight: 60,
+  // Prevent logo/nav overflow from stealing clicks on content under the bar
+  // (calendar Period/Scale sit directly below the logo).
+  overflow: "hidden",
   backgroundColor: theme.palette.backgroundDark1?.bg || "#1a1a1a",
   color: theme.palette.backgroundDark1?.text || "#ffffff",
   boxShadow: "none",
@@ -306,7 +309,8 @@ export default function NavBar({
 
   const localeLink = (path) =>
     isAdmin ? path : withLocalePrefix(effectiveLocale, path);
-  const homeHref = localeLink("/");
+  // Admin logo must not send staff to the public rental homepage.
+  const homeHref = isAdmin ? "/admin/orders-calendar" : localeLink("/");
   const rentalTermsHref = localeLink("/rental-terms");
   const contactsHref = localeLink("/contacts");
   const termsAliasHref = localeLink("/terms");
@@ -605,7 +609,14 @@ export default function NavBar({
           },
         }}
       >
-        <Toolbar>
+        <Toolbar
+          sx={{
+            minHeight: "60px !important",
+            height: 60,
+            overflow: "hidden",
+            px: { xs: 1, sm: 2 },
+          }}
+        >
           <Stack
             direction="row-reverse"
             alignItems="center"
@@ -982,7 +993,16 @@ export default function NavBar({
             </Stack>
 
             <Box sx={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-              <Link href={homeHref} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Link
+                href={homeHref}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  maxHeight: 48,
+                  overflow: "hidden",
+                }}
+              >
                 <Image
                   src="/logo-hor-transparent.png"
                   alt="CarsNK"
@@ -990,8 +1010,9 @@ export default function NavBar({
                   height={72}
                   priority
                   style={{
-                    width: "clamp(110px, 22vw, 160px)",
-                    height: "auto",
+                    width: "clamp(96px, 18vw, 140px)",
+                    height: 40,
+                    maxHeight: 40,
                     objectFit: "contain",
                   }}
                 />

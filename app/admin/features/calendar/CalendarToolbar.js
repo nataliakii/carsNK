@@ -107,7 +107,7 @@ export default function CalendarToolbar({
     <Box
       sx={{
         position: "relative",
-        zIndex: 5,
+        zIndex: 1100,
         flexShrink: 0,
         px: "10px",
         py: "4px",
@@ -148,13 +148,13 @@ export default function CalendarToolbar({
               aria-label={t("calendar.toolbar.periodAria")}
               sx={toggleGroupSx}
             >
-              <ToggleButton value="15d">
+              <ToggleButton value="15d" type="button">
                 {t("calendar.toolbar.range15d")}
               </ToggleButton>
-              <ToggleButton value="1m">
+              <ToggleButton value="1m" type="button">
                 {t("calendar.toolbar.range1m")}
               </ToggleButton>
-              <ToggleButton value="2m">
+              <ToggleButton value="2m" type="button">
                 {t("calendar.toolbar.range2m")}
               </ToggleButton>
             </ToggleButtonGroup>
