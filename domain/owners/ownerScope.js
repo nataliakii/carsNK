@@ -8,12 +8,32 @@ import mongoose from "mongoose";
 import { ROLE } from "@models/user";
 import { COMPANY_ID } from "@config/company";
 
+/** Normalize role from session/JWT (number, numeric string, or label). */
+export function getUserRole(user) {
+  const raw = user?.role ?? user?.roleId;
+  const asNum = Number(raw);
+  if (Number.isFinite(asNum) && asNum > 0) return asNum;
+  const label = String(raw || "")
+    .trim()
+    .toLowerCase();
+  if (label === "superadmin") return ROLE.SUPERADMIN;
+  if (label === "admin") return ROLE.ADMIN;
+  return null;
+}
+
 export function isSuperAdminUser(user) {
-  return user?.isAdmin === true && Number(user.role) === ROLE.SUPERADMIN;
+  return getUserRole(user) === ROLE.SUPERADMIN;
 }
 
 export function isAdminUser(user) {
-  return user?.isAdmin === true && Number(user.role) === ROLE.ADMIN;
+  return getUserRole(user) === ROLE.ADMIN;
+}
+
+/** Any authenticated admin (role or legacy isAdmin flag). */
+export function isAnyAdminUser(user) {
+  if (!user) return false;
+  if (isSuperAdminUser(user) || isAdminUser(user)) return true;
+  return user.isAdmin === true || user.isAdmin === "true";
 }
 
 /** Normalize to string ObjectId or null. */
@@ -42,8 +62,8 @@ export function getDefaultOwnerId() {
 /**
  * Mongo filter for cars list.
  * - Public (no admin session): hide testingCar + inactive cars
- * - Superadmin: all cars
- * - Admin: own fleet only (ownerId) + hide testingCar (inactive still visible in admin)
+ * - Superadmin: all cars (including inactive / testing) — isActive is display flag only
+ * - Admin: own fleet only (ownerId), including inactive; hide testingCar
  */
 export function buildCarsOwnerFilter(session) {
   const user = session?.user ?? null;
@@ -65,6 +85,18 @@ export function buildCarsOwnerFilter(session) {
     return {
       $and: [testingGate, { ownerId: new mongoose.Types.ObjectId(ownerId) }],
     };
+  }
+
+  // Legacy / partial session: marked admin but role missing — never apply public
+  // activeGate (would hide every deactivated car from the calendar).
+  if (isAnyAdminUser(user)) {
+    const ownerId = getSessionOwnerId(user);
+    if (ownerId) {
+      return {
+        $and: [testingGate, { ownerId: new mongoose.Types.ObjectId(ownerId) }],
+      };
+    }
+    return {};
   }
 
   return { $and: [testingGate, activeGate] };
@@ -93,7 +125,7 @@ export function filterPublicCars(cars) {
 export function buildOrdersOwnerFilter(session) {
   const user = session?.user ?? null;
   if (isSuperAdminUser(user)) return {};
-  if (isAdminUser(user)) {
+  if (isAdminUser(user) || isAnyAdminUser(user)) {
     const ownerId = getSessionOwnerId(user);
     if (!ownerId) return { _id: null };
     return { ownerId: new mongoose.Types.ObjectId(ownerId) };
@@ -103,7 +135,7 @@ export function buildOrdersOwnerFilter(session) {
 
 /** True if admin may access this car document. */
 export function canAccessOwnedDoc(user, doc) {
-  if (!user?.isAdmin) return false;
+  if (!user?.isAdmin && !isAnyAdminUser(user)) return false;
   if (isSuperAdminUser(user)) return true;
   const sessionOwner = getSessionOwnerId(user);
   const docOwner = normalizeOwnerId(doc?.ownerId);

@@ -39,12 +39,29 @@ describe("ownerScope", () => {
     ).toEqual({});
   });
 
-  test("admin cars filter scopes by ownerId", () => {
+  test("superadmin by role alone (no isAdmin) sees all cars", () => {
+    expect(
+      buildCarsOwnerFilter({
+        user: { role: ROLE.SUPERADMIN },
+      })
+    ).toEqual({});
+  });
+
+  test("isAdmin without role still skips public active gate", () => {
+    expect(
+      buildCarsOwnerFilter({
+        user: { isAdmin: true },
+      })
+    ).toEqual({});
+  });
+
+  test("admin cars filter scopes by ownerId and keeps inactive", () => {
     const filter = buildCarsOwnerFilter({
       user: { isAdmin: true, role: ROLE.ADMIN, ownerId: ownerA },
     });
     expect(filter.$and).toHaveLength(2);
     expect(String(filter.$and[1].ownerId)).toBe(ownerA);
+    expect(JSON.stringify(filter)).not.toContain("isActive");
   });
 
   test("admin orders filter scopes by ownerId", () => {
