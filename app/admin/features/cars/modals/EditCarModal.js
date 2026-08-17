@@ -15,6 +15,7 @@ import {
   InputAdornment,
   Stack,
   Autocomplete,
+  Switch,
 } from "@mui/material";
 import DialogLayout from "@/app/components/ui/modals/DialogLayout";
 import { ConfirmButton, CancelButton } from "@/app/components/ui";
@@ -248,7 +249,41 @@ const EditCarModal = ({
       actions={modalActions}
       contentSx={{ opacity: isLoading ? 0.3 : 1, transition: "opacity 0.2s" }}
       >
-        <Grid container spacing={3} sx={{ flexGrow: 1, pt: 4 }}>
+        <Grid container spacing={3} sx={{ flexGrow: 1, pt: 2 }}>
+          <Grid item xs={12}>
+            <Box
+              sx={{
+                p: 1.5,
+                mb: 0.5,
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor:
+                  updatedCar.isActive === false ? "warning.light" : "success.light",
+                bgcolor:
+                  updatedCar.isActive === false
+                    ? "warning.50"
+                    : "success.50",
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={updatedCar.isActive !== false}
+                    onChange={handleCheckboxChange}
+                    name="isActive"
+                    color="success"
+                    disabled={isLoading}
+                  />
+                }
+                label={
+                  updatedCar.isActive === false
+                    ? t("car.inactiveOnSite") || "Hidden on site — turn on to show on website"
+                    : t("car.activeOnSite") || "Active on website"
+                }
+                sx={{ m: 0, "& .MuiFormControlLabel-label": { fontWeight: 700 } }}
+              />
+            </Box>
+          </Grid>
           {isSuperAdmin && (
             <Grid item xs={12}>
               <FormControl fullWidth size="small">
@@ -501,18 +536,6 @@ const EditCarModal = ({
               handleChange={handleChange}
               isLoading={isLoading}
             />{" "}
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={updatedCar.isActive !== false}
-                  onChange={handleCheckboxChange}
-                  name="isActive"
-                  disabled={isLoading}
-                />
-              }
-              label={t("car.activeOnSite") || "Active on website"}
-              sx={{ my: 0.5 }}
-            />
             <FormControlLabel
               control={
                 <Checkbox

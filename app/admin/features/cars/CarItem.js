@@ -11,6 +11,8 @@ import {
   Typography,
   Stack,
   Chip,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import { ConfirmButton, CancelButton, ActionButton } from "@/app/components/ui";
 import EditCarModal from "./modals/EditCarModal";
@@ -147,11 +149,43 @@ function CarItem({
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [hovered, setHovered] = useState(false);
+  const [togglingActive, setTogglingActive] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     setUpdatedCar({ ...car, deposit: car.deposit });
   }, [car]);
+
+  const isOnSite = car.isActive !== false;
+
+  const handleToggleActive = async (event) => {
+    const nextActive = Boolean(event.target.checked);
+    setTogglingActive(true);
+    setUpdateStatus(null);
+    try {
+      const response = await updateCarInContext({
+        ...car,
+        isActive: nextActive,
+      });
+      if (!response?.data) {
+        throw new Error(response?.message || "Failed to update");
+      }
+      setUpdatedCar(response.data);
+      setUpdateStatus({
+        type: 200,
+        message: nextActive
+          ? t("car.activatedOnSite") || "Car is now visible on the website"
+          : t("car.deactivatedOnSite") || "Car is hidden from the website",
+      });
+    } catch (error) {
+      setUpdateStatus({
+        type: 400,
+        message: error?.message || "Failed to update visibility",
+      });
+    } finally {
+      setTogglingActive(false);
+    }
+  };
 
   const handleImageSelect = useCallback((event) => {
     const file = event.target.files[0];
@@ -313,21 +347,50 @@ function CarItem({
               bgcolor: (theme) => theme.palette.grey[100],
             }}
           />
-          {car.isActive === false ? (
-            <Chip
-              size="small"
-              color="warning"
-              label={t("car.inactiveOnSite") || "Hidden on site"}
-              sx={{
-                alignSelf: "flex-start",
-                mt: 0.25,
-                height: 22,
-                fontSize: "0.7rem",
-                fontWeight: 600,
-              }}
-            />
-          ) : null}
+          <Chip
+            size="small"
+            color={isOnSite ? "success" : "warning"}
+            variant={isOnSite ? "outlined" : "filled"}
+            label={
+              isOnSite
+                ? t("car.activeOnSite") || "Active on website"
+                : t("car.inactiveOnSite") || "Hidden on site"
+            }
+            sx={{
+              alignSelf: "flex-start",
+              mt: 0.25,
+              height: 22,
+              fontSize: "0.7rem",
+              fontWeight: 600,
+            }}
+          />
         </Stack>
+        <FormControlLabel
+          sx={{
+            mt: 0.5,
+            ml: 0,
+            mr: 0,
+            alignItems: "center",
+            "& .MuiFormControlLabel-label": {
+              fontSize: "0.8rem",
+              fontWeight: 600,
+            },
+          }}
+          control={
+            <Switch
+              size="small"
+              color="success"
+              checked={isOnSite}
+              disabled={togglingActive}
+              onChange={handleToggleActive}
+            />
+          }
+          label={
+            isOnSite
+              ? t("car.showOnSite") || "On website"
+              : t("car.hideOnSite") || "Off website"
+          }
+        />
       </CarDetails>
 
       <Stack
