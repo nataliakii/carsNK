@@ -6,6 +6,7 @@ import { resolveScopedAccessToken } from "@/domain/auth/scopedAccessToken";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
 import { normalizeTransferVoucherData } from "@/domain/vouchers/transferVoucher";
 import { buildTransferVoucherEmailHtml } from "@/domain/vouchers/transferVoucherEmailHtml";
+import { buildTransferVoucherPdf } from "@/domain/vouchers/transferVoucherPdf";
 import { getRequestOrigin } from "@/domain/auth/passwordReset";
 import { getCompanyVoucherStampSrc } from "@/domain/vouchers/companyStamp";
 
@@ -47,26 +48,37 @@ export async function POST(request, { params }) {
     return json({ success: false, message: "Company not found" }, 404);
   }
 
+  const stampSrc = getCompanyVoucherStampSrc(company);
   const voucher = normalizeTransferVoucherData({
     ...(body?.voucher || {}),
-    stampSrc: getCompanyVoucherStampSrc(company),
+    stampSrc,
   });
 
   const origin = getRequestOrigin(request);
-  const stampPath = String(voucher.stampSrc || "");
-  const stampAbsoluteUrl = stampPath.startsWith("http")
-    ? stampPath
-    : `${origin}${stampPath.startsWith("/") ? "" : "/"}${stampPath}`;
+  const stampAbsoluteUrl = stampSrc.startsWith("http")
+    ? stampSrc
+    : `${origin}${stampSrc.startsWith("/") ? "" : "/"}${stampSrc}`;
 
   const html = buildTransferVoucherEmailHtml(voucher, { stampAbsoluteUrl });
   const title = `Κουπόνι μεταφοράς — ${company.name}`;
 
   try {
+    const { bytes, fileName } = await buildTransferVoucherPdf(voucher, {
+      stampSrc,
+    });
     await sendEmailDirect({
       title,
-      message: "Transfer voucher / Κουπόνι μεταφοράς — see HTML version.",
+      message:
+        "Transfer voucher / Κουπόνι μεταφοράς — PDF attached. See also HTML version.",
       html,
       to: [email],
+      attachments: [
+        {
+          filename: fileName,
+          content: Buffer.from(bytes),
+          contentType: "application/pdf",
+        },
+      ],
     });
     return json({ success: true, message: `Sent to ${email}` });
   } catch (err) {

@@ -562,7 +562,7 @@ export default function TransferVouchersSection({
       }
       setStatus({
         severity: "success",
-        text: `Отправлено на ${target}`,
+        text: `Отправлено на ${target} (PDF во вложении)`,
       });
     } catch (err) {
       setStatus({

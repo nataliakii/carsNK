@@ -147,11 +147,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Only real cars: testingCar is false or not set (exclude testingCar === true)
+    // Only real + active cars for public/partner listings
     const filter = {
-      $or: [
-        { testingCar: false },
-        { testingCar: { $exists: false } },
+      $and: [
+        {
+          $or: [{ testingCar: false }, { testingCar: { $exists: false } }],
+        },
+        {
+          $or: [{ isActive: { $ne: false } }, { isActive: { $exists: false } }],
+        },
       ],
     };
     // Mongoose Query has union overloads that confuse TS; assert to run the chain

@@ -158,6 +158,11 @@ export default async function LocalizedCarPage({ params }) {
     resolvedCar = carDirect;
   }
 
+  // Inactive cars are not bookable on the public site.
+  if (resolvedCar?.isActive === false && !session?.user?.isAdmin) {
+    notFound();
+  }
+
   // Redirect to canonical slug when URL differs (e.g. case) to avoid duplicate content.
   if (params.slug !== resolvedCar.slug) {
     permanentRedirect(getCarPath(locale, resolvedCar.slug));

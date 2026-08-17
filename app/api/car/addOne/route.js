@@ -129,6 +129,7 @@ function extractCarData(formData) {
     seats: toNumber(formData.get("seats")),
     numberOfDoors: toNumber(formData.get("numberOfDoors")),
     airConditioning: toBoolean(formData.get("airConditioning"), false),
+    isActive: toBoolean(formData.get("isActive"), true),
     enginePower: toNumber(formData.get("enginePower")),
     pricingTiers: parsePricingTiers(formData.get("pricingTiers")),
     regNumber: formData.get("regNumber"),

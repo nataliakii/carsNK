@@ -104,6 +104,15 @@ const CarSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  /**
+   * When false, car is hidden from the public website (home, listings, SEO).
+   * Still visible in admin / superadmin fleet and calendar.
+   */
+  isActive: {
+    type: Boolean,
+    default: true,
+    index: true,
+  },
   /** Partner firm (Company._id) that owns this car in the multi-tenant fleet. */
   ownerId: {
     type: Schema.Types.ObjectId,

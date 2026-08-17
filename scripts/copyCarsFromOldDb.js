@@ -32,6 +32,7 @@ function stripVolatile(doc) {
   copy.orders = [];
   copy.ownerId = new ObjectId(COMPANY_ID);
   if (copy.testingCar == null) copy.testingCar = false;
+  if (copy.isActive == null) copy.isActive = true;
   copy.copiedFromOldAt = new Date();
   return copy;
 }

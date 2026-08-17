@@ -41,9 +41,9 @@ export function getDefaultOwnerId() {
 
 /**
  * Mongo filter for cars list.
- * - Public (no admin session): hide testingCar only
+ * - Public (no admin session): hide testingCar + inactive cars
  * - Superadmin: all cars
- * - Admin: own fleet only (ownerId) + hide testingCar
+ * - Admin: own fleet only (ownerId) + hide testingCar (inactive still visible in admin)
  */
 export function buildCarsOwnerFilter(session) {
   const user = session?.user ?? null;
@@ -51,6 +51,9 @@ export function buildCarsOwnerFilter(session) {
 
   const testingGate = {
     $or: [{ testingCar: { $ne: true } }, { testingCar: { $exists: false } }],
+  };
+  const activeGate = {
+    $or: [{ isActive: { $ne: false } }, { isActive: { $exists: false } }],
   };
 
   if (isAdminUser(user)) {
@@ -64,7 +67,21 @@ export function buildCarsOwnerFilter(session) {
     };
   }
 
-  return testingGate;
+  return { $and: [testingGate, activeGate] };
+}
+
+/** True if a car may appear on the public website. */
+export function isPublicCar(car) {
+  if (!car) return false;
+  if (car.testingCar === true) return false;
+  if (car.isActive === false) return false;
+  if (car.isHidden === true) return false;
+  if (car.deletedAt) return false;
+  return true;
+}
+
+export function filterPublicCars(cars) {
+  return (cars || []).filter(isPublicCar);
 }
 
 /**

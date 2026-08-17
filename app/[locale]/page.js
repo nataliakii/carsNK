@@ -15,6 +15,7 @@ import { getSeoConfig } from "@config/seo";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@lib/authOptions";
 import { getCars, getCompany, getActiveOrders } from "@/domain/services";
+import { filterPublicCars } from "@/domain/owners/ownerScope";
 import { buildHubJsonLd } from "@/services/seo/jsonLdBuilder";
 import { buildHubMetadata } from "@/services/seo/metadataBuilder";
 
@@ -34,6 +35,9 @@ export default async function LocalizedHomePage({ params }) {
     getActiveOrders({ session }),
     getCompany(COMPANY_ID),
   ]);
+
+  // Public homepage never shows inactive / testing cars, even if an admin is logged in.
+  const publicCars = filterPublicCars(carsData);
 
   const hubSeo = getHubSeo(locale);
   const primaryLocation = getLocationById(locale, LOCATION_IDS.HALKIDIKI);
@@ -61,7 +65,7 @@ export default async function LocalizedHomePage({ params }) {
     <>
       <JsonLdScript id={`hub-jsonld-${locale}`} data={hubJsonLd} />
       <Feed
-        cars={carsData}
+        cars={publicCars}
         orders={ordersData}
         isMain={true}
         company={companyData}

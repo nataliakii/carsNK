@@ -504,6 +504,18 @@ const EditCarModal = ({
             <FormControlLabel
               control={
                 <Checkbox
+                  checked={updatedCar.isActive !== false}
+                  onChange={handleCheckboxChange}
+                  name="isActive"
+                  disabled={isLoading}
+                />
+              }
+              label={t("car.activeOnSite") || "Active on website"}
+              sx={{ my: 0.5 }}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
                   checked={updatedCar.airConditioning || false}
                   onChange={handleCheckboxChange}
                   name="airConditioning"

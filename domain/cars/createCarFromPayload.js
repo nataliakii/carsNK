@@ -90,6 +90,8 @@ export async function createCarFromPayload(payload, ctx) {
       ownerId,
       sort: Number(payload?.sort) || 999,
       testingCar: Boolean(payload?.testingCar),
+      isActive:
+        payload?.isActive === undefined ? true : Boolean(payload.isActive),
     };
 
     const slugBase = generateSlugBase(data);

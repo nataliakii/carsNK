@@ -11,7 +11,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const REAL_CARS_FILTER = {
-  $or: [{ testingCar: false }, { testingCar: { $exists: false } }],
+  $and: [
+    { $or: [{ testingCar: false }, { testingCar: { $exists: false } }] },
+    { $or: [{ isActive: { $ne: false } }, { isActive: { $exists: false } }] },
+  ],
 };
 
 function corsHeaders(request) {

@@ -14,10 +14,20 @@ describe("ownerScope", () => {
   const ownerA = COMPANY_ID;
   const ownerB = "507f1f77bcf86cd799439011";
 
-  test("public cars filter hides testingCar only", () => {
+  test("public cars filter hides testingCar and inactive", () => {
     const filter = buildCarsOwnerFilter(null);
     expect(filter).toEqual({
-      $or: [{ testingCar: { $ne: true } }, { testingCar: { $exists: false } }],
+      $and: [
+        {
+          $or: [
+            { testingCar: { $ne: true } },
+            { testingCar: { $exists: false } },
+          ],
+        },
+        {
+          $or: [{ isActive: { $ne: false } }, { isActive: { $exists: false } }],
+        },
+      ],
     });
   });
 

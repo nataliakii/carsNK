@@ -300,18 +300,34 @@ function CarItem({
       <CarDetails>
         <CarTitle noWrap>{car.model}</CarTitle>
         <CarReg>{car.regNumber}</CarReg>
-        <Chip
-          size="small"
-          label={displayCompany}
-          sx={{
-            alignSelf: "flex-start",
-            mt: 0.25,
-            height: 22,
-            fontSize: "0.7rem",
-            fontWeight: 600,
-            bgcolor: (theme) => theme.palette.grey[100],
-          }}
-        />
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+          <Chip
+            size="small"
+            label={displayCompany}
+            sx={{
+              alignSelf: "flex-start",
+              mt: 0.25,
+              height: 22,
+              fontSize: "0.7rem",
+              fontWeight: 600,
+              bgcolor: (theme) => theme.palette.grey[100],
+            }}
+          />
+          {car.isActive === false ? (
+            <Chip
+              size="small"
+              color="warning"
+              label={t("car.inactiveOnSite") || "Hidden on site"}
+              sx={{
+                alignSelf: "flex-start",
+                mt: 0.25,
+                height: 22,
+                fontSize: "0.7rem",
+                fontWeight: 600,
+              }}
+            />
+          ) : null}
+        </Stack>
       </CarDetails>
 
       <Stack

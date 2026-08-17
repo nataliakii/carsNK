@@ -71,6 +71,7 @@ const AddCarModal = ({
     color: "white",
     numberOfDoors: 4,
     airConditioning: true,
+    isActive: true,
     enginePower: "100",
     engine: "1.500",
     pricingTiers: defaultPrices,
@@ -108,6 +109,7 @@ const AddCarModal = ({
         "airConditioning",
         carData.airConditioning ? "true" : "false"
       );
+      formData.append("isActive", carData.isActive !== false ? "true" : "false");
       formData.append("enginePower", String(carData.enginePower));
       formData.append("engine", String(carData.engine));
       formData.append("color", String(carData.color));
@@ -369,6 +371,17 @@ const AddCarModal = ({
                       defaultValue={carData.PriceKacko || 5}
                       updatedCar={carData}
                       handleChange={handleChange}
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={carData.isActive !== false}
+                          onChange={handleChange}
+                          name="isActive"
+                        />
+                      }
+                      label={t("car.activeOnSite") || "Active on website"}
+                      sx={{ my: 1 }}
                     />
                     <FormControlLabel
                       control={

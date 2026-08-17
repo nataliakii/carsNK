@@ -177,6 +177,8 @@
     "fuel": "Fuel type",
     "seats": "Seats",
     "air": "Air Conditioning",
+    "activeOnSite": "Active on website",
+    "inactiveOnSite": "Hidden on site",
     "reg-year": "Registration Year",
     "reg-numb": "Registration Number",
     "color": "Color",
