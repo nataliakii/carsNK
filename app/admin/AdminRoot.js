@@ -95,7 +95,11 @@ export default function AdminRoot({
     <>
       {/* Calendar Legend - only render if showLegend is true */}
       {showLegend && (
-        <LegendCalendarAdmin client={isMain} />
+        <LegendCalendarAdmin
+          client={isMain}
+          showBufferControls={!isMain}
+          showDeliveryInfo={!isMain}
+        />
       )}
 
       {/* Discount Modal - state managed by parent */}

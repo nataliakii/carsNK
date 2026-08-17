@@ -16,6 +16,8 @@
     "seats": "Кількість місць",
     "seatsOption": "{{count}} місць",
     "logout": "Вийти",
+    "superadmin": "Суперадмін",
+    "adminRole": "Адмін",
     "searchCars": "Пошук авто",
     "searchCarsPlaceholder": "Пошук за моделлю, класом, паливом…",
     "clearSearch": "Очистити пошук",
@@ -438,6 +440,9 @@
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {
+    "loadingCars": "Завантаження автомобілів...",
+    "loadingCalendar": "Завантаження календаря...",
+    "loadingOrdersTable": "Завантаження таблиці замовлень...",
     "visits": {
       "subtitle": "Візити з гео — зберігаються в адмінці для вивчення.",
       "refresh": "Оновити",

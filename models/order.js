@@ -70,7 +70,11 @@ const OrderSchema = new mongoose.Schema({
   },
   customerName: {
     type: String,
-    required: true,
+    default: "",
+    // Online bookings require a name; offline/admin stubs may leave it empty.
+    required: function requiredCustomerName() {
+      return !this.offline;
+    },
   },
   carNumber: {
     type: String,
@@ -250,7 +254,11 @@ const OrderSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: true,
+    default: "",
+    // Online bookings require a phone; offline/admin stubs may leave it empty.
+    required: function requiredPhone() {
+      return !this.offline;
+    },
   },
   email: {
     type: String,

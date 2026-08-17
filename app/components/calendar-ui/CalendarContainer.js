@@ -33,6 +33,7 @@ import {
   useCalendarDays,
   useMobileCalendarScroll,
   useCalendarMoveMode,
+  useCalendarPaintRange,
 } from "@/app/admin/features/calendar/hooks";
 import { useFirstColumnWidth } from "@/hooks/useFirstColumnWidth";
 
@@ -623,6 +624,28 @@ export default function CalendarContainer({
     handleRowDrop,
   } = moveModeHook;
 
+  const handleAddOrderClick = useCallback(
+    (car, dateStr) => {
+      if (moveMode) return;
+
+      setSelectedCarForAdd(car);
+      setSelectedDateForAdd(dateStr);
+      setIsAddOrderOpen(true);
+    },
+    [moveMode]
+  );
+
+  const paintEnabled = !moveMode && !isDraggingOrder;
+  const {
+    isPainting,
+    startPaint,
+    consumePaintClick,
+    isDatePainted,
+  } = useCalendarPaintRange({
+    enabled: paintEnabled,
+    onCommit: handleAddOrderClick,
+  });
+
   // Always allow grab; touch devices use long-press, mouse uses HTML5 drag.
   const enableOrderDrag = true;
 
@@ -714,18 +737,6 @@ export default function CalendarContainer({
       "--calendar-row-height": `${rowPx}px`,
     };
   }, [days.length]);
-
-  const handleAddOrderClick = useCallback(
-    (car, dateStr) => {
-      // Если в режиме перемещения - не открываем AddOrderModal
-      if (moveMode) return;
-
-      setSelectedCarForAdd(car);
-      setSelectedDateForAdd(dateStr);
-      setIsAddOrderOpen(true);
-    },
-    [moveMode]
-  );
 
   const hasBlockingModal = useMemo(
     () =>
@@ -937,8 +948,9 @@ export default function CalendarContainer({
       ...calendarMetricsSx,
       ...densitySx,
       ...compactDensitySx.root,
+      ...(isPainting ? { userSelect: "none", cursor: "ew-resize" } : {}),
     }),
-    [calendarMetricsSx, densitySx, compactDensitySx.root]
+    [calendarMetricsSx, densitySx, compactDensitySx.root, isPainting]
   );
   const tableContainerSx = useMemo(
     () => compactDensitySx.tableContainer,
@@ -1017,6 +1029,8 @@ export default function CalendarContainer({
       selectedMoveOrder,
       selectedOrderDates,
       calendarRef,
+      isPainting,
+      isDatePainted,
     }),
     [
       headerData,
@@ -1037,6 +1051,8 @@ export default function CalendarContainer({
       orderToMove,
       selectedMoveOrder,
       selectedOrderDates,
+      isPainting,
+      isDatePainted,
     ]
   );
 
@@ -1062,6 +1078,8 @@ export default function CalendarContainer({
       handleOrderDragStart,
       handleOrderDragEnd,
       onActiveCellChange: setActiveCellClamped,
+      startPaint,
+      consumePaintClick,
     }),
     [
       handlePrevMonth,
@@ -1082,6 +1100,8 @@ export default function CalendarContainer({
       handleOrderDragStart,
       handleOrderDragEnd,
       setActiveCellClamped,
+      startPaint,
+      consumePaintClick,
     ]
   );
 

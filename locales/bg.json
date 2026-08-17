@@ -16,6 +16,8 @@
     "seats": "Места",
     "seatsOption": "{{count}} места",
     "logout": "Изход",
+    "superadmin": "Суперадмин",
+    "adminRole": "Админ",
     "searchCars": "Търсене на коли",
     "searchCarsPlaceholder": "Търсене по модел, клас, гориво…",
     "clearSearch": "Изчисти търсенето",
@@ -306,6 +308,9 @@
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {
+    "loadingCars": "Зареждане на автомобили...",
+    "loadingCalendar": "Зареждане на календара...",
+    "loadingOrdersTable": "Зареждане на таблицата с поръчки...",
     "visits": {
       "subtitle": "Human visits with geo — saved for study in admin.",
       "refresh": "Refresh",

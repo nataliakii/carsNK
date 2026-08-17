@@ -57,6 +57,18 @@ function Feed({ children, ...props }) {
     }
   }, [props.locale]);
 
+  // Admin routes have no /en/ prefix — re-apply saved UI language on mount.
+  useEffect(() => {
+    if (!props.isAdmin || typeof window === "undefined") return;
+    const saved = localStorage.getItem("selectedLanguage");
+    const supported = Array.isArray(i?.options?.supportedLngs)
+      ? i.options.supportedLngs
+      : [];
+    if (saved && supported.includes(saved) && i.language !== saved) {
+      i.changeLanguage(saved).catch(() => {});
+    }
+  }, [props.isAdmin]);
+
   useEffect(() => {
     if (window.matchMedia("(prefers-color-scheme: light)").matches) {
       setIsDarkMode(false);

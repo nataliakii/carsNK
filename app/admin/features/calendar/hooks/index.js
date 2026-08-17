@@ -8,5 +8,6 @@ export {
   buildOrderDateRange,
 } from "./calendarDays";
 export { useCalendarMoveMode } from "./useCalendarMoveMode";
+export { useCalendarPaintRange } from "./useCalendarPaintRange";
 export { useCalendarViewSettings } from "./useCalendarViewSettings";
 export { useCalendarCellGesture } from "./useCalendarCellGesture";

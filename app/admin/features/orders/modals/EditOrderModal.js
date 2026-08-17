@@ -1869,7 +1869,7 @@ const EditOrderModal = ({
                       size="small"
                     />
                   }
-                  label="Офлайн (не через сайт)"
+                  label={t("order.offline")}
                   sx={{ mt: 1, mb: 0.5 }}
                 />
                 {/* 🔴 BLOCK: показываем сообщение о блокировке подтверждения (только если canConfirm === false) */}

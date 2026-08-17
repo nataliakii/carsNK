@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { Modal, Grid, Box, Typography } from "@mui/material";
+import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -31,6 +32,7 @@ export default function CalendarOverlays({
   data,
   actions,
 }) {
+  const { t } = useTranslation();
   const {
     open,
     selectedOrders,
@@ -225,54 +227,54 @@ export default function CalendarOverlays({
       <ModalLayout
         open={confirmModal.open}
         onClose={handleCloseConfirmModal}
-        title="Подтверждение перемещения"
+        title={t("calendar.moveConfirmTitle")}
         size="small"
         centerVertically={false}
       >
         <Typography sx={{ mb: 3, color: "text.primary" }}>
-          {confirmModal.kind === "dates" ? (
-            <>
-              Перенести заказ с{" "}
-              <strong>{confirmModal.fromRange}</strong> на{" "}
-              <strong>{confirmModal.toRange}</strong>
-              {confirmModal.dayDelta
-                ? ` (${confirmModal.dayDelta > 0 ? "+" : ""}${
-                    confirmModal.dayDelta
-                  } дн.)`
-                : ""}
-              ?
-            </>
-          ) : confirmModal.kind === "car+dates" ? (
-            <>
-              Перенести заказ на{" "}
-              <strong>{confirmModal.newCar?.model}</strong> (
-              {confirmModal.newCar?.regNumber}) и сдвинуть даты с{" "}
-              <strong>{confirmModal.fromRange}</strong> на{" "}
-              <strong>{confirmModal.toRange}</strong>
-              {confirmModal.dayDelta
-                ? ` (${confirmModal.dayDelta > 0 ? "+" : ""}${
-                    confirmModal.dayDelta
-                  } дн.)`
-                : ""}
-              ?
-            </>
-          ) : (
-            <>
-              Перенести заказ с{" "}
-              <strong>{confirmModal.oldCar?.model}</strong> (
-              {confirmModal.oldCar?.regNumber}) на{" "}
-              <strong>{confirmModal.newCar?.model}</strong> (
-              {confirmModal.newCar?.regNumber})?
-            </>
-          )}
+          {(() => {
+            const delta =
+              confirmModal.dayDelta != null && confirmModal.dayDelta !== 0
+                ? t("calendar.moveConfirmDeltaDays", {
+                    signed: `${confirmModal.dayDelta > 0 ? "+" : ""}${
+                      confirmModal.dayDelta
+                    }`,
+                  })
+                : "";
+            if (confirmModal.kind === "dates") {
+              return t("calendar.moveConfirmDates", {
+                from: confirmModal.fromRange,
+                to: confirmModal.toRange,
+                delta,
+              });
+            }
+            if (confirmModal.kind === "car+dates") {
+              return t("calendar.moveConfirmCarAndDates", {
+                car: confirmModal.newCar?.model || "",
+                reg: confirmModal.newCar?.regNumber || "",
+                from: confirmModal.fromRange,
+                to: confirmModal.toRange,
+                delta,
+              });
+            }
+            return t("calendar.moveConfirmCar", {
+              fromCar: confirmModal.oldCar?.model || "",
+              fromReg: confirmModal.oldCar?.regNumber || "",
+              toCar: confirmModal.newCar?.model || "",
+              toReg: confirmModal.newCar?.regNumber || "",
+            });
+          })()}
         </Typography>
 
         <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-          <CancelButton onClick={handleCloseConfirmModal} label="НЕТ" />
+          <CancelButton
+            onClick={handleCloseConfirmModal}
+            label={t("calendar.moveConfirmNo")}
+          />
           <ActionButton
             color="success"
             onClick={handleConfirmMove}
-            label="ДА"
+            label={t("calendar.moveConfirmYes")}
           />
         </Box>
       </ModalLayout>

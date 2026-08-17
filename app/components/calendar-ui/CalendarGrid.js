@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo } from "react";
 import { Table, TableBody, TableRow, useTheme } from "@mui/material";
+import { useTranslation } from "react-i18next";
 import { CalendarFirstColumn } from "../ui";
 import CarTableRow from "./CalendarRow";
 import CalendarHeader from "./CalendarHeader";
@@ -10,6 +11,7 @@ import CalendarHeader from "./CalendarHeader";
  */
 export default function CalendarGrid(props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const data = props?.data ?? props;
   const actions = props?.actions ?? props;
 
@@ -49,6 +51,8 @@ export default function CalendarGrid(props) {
     selectedMoveOrder,
     selectedOrderDates,
     calendarRef,
+    isPainting,
+    isDatePainted,
   } = data;
   const {
     handleEditCar,
@@ -66,6 +70,8 @@ export default function CalendarGrid(props) {
     handleOrderDragStart,
     handleOrderDragEnd,
     onActiveCellChange,
+    startPaint,
+    consumePaintClick,
   } = actions;
 
   const headerActions = useMemo(
@@ -104,7 +110,7 @@ export default function CalendarGrid(props) {
             <CalendarFirstColumn
               ref={index === 0 ? setMeasurementRef : null}
               onClick={() => handleEditCar(car)}
-              title="Нажмите для редактирования информации об автомобиле"
+              title={t("calendar.tooltips.editCar")}
               onDragOver={
                 enableOrderDrag
                   ? (e) => handleRowDragOver(e, car)
@@ -171,6 +177,10 @@ export default function CalendarGrid(props) {
               onRowDragOver={handleRowDragOver}
               onRowDragLeave={handleRowDragLeave}
               onRowDrop={handleRowDrop}
+              isPainting={isPainting}
+              isDatePainted={isDatePainted}
+              onPaintPointerDown={startPaint}
+              consumePaintClick={consumePaintClick}
             />
           </TableRow>
         ))}

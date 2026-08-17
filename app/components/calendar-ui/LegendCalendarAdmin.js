@@ -104,6 +104,8 @@ function LegendCalendarAdmin({
   const legendLabel = (key) => t(`calendar.legend.${key}`);
   const legendDetail = (key) => t(`calendar.legend.detail${key}`);
 
+  const isClientLegend = Boolean(client && !inToolbar && !inDrawer);
+
   const baseItemSx = {
     display: "inline-flex",
     alignItems: "center",
@@ -111,8 +113,8 @@ function LegendCalendarAdmin({
     color: primaryTextColor,
     fontSize: inToolbar ? "0.72rem" : "0.75rem",
     lineHeight: 1.1,
-    whiteSpace: "nowrap",
-    maxWidth: "100%",
+    whiteSpace: isClientLegend ? "normal" : "nowrap",
+    maxWidth: isClientLegend ? "none" : "100%",
   };
 
   const legendTooltipTitle = (label, tooltip) =>
@@ -169,8 +171,9 @@ function LegendCalendarAdmin({
               color: secondaryTextColor,
               fontSize: inToolbar ? "0.7rem" : "0.74rem",
               fontWeight: 500,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              overflow: isClientLegend ? "visible" : "hidden",
+              textOverflow: isClientLegend ? "clip" : "ellipsis",
+              whiteSpace: isClientLegend ? "normal" : "nowrap",
             }}
           >
             {label}
@@ -231,13 +234,14 @@ function LegendCalendarAdmin({
     </Tooltip>
   );
 
-  const rowDisplay = inDrawer || inToolbar ? "flex" : { xs: "none", sm: "flex" };
+  const rowDisplay =
+    inDrawer || inToolbar || client ? "flex" : { xs: "none", sm: "flex" };
   const compactLegendItems = client
     ? [
         {
           key: "client-confirmed",
           color: ORDER_COLORS.CONFIRMED_CLIENT.main,
-          label: t("order.unavailable-dates"),
+          label: t("calendar.legend.clientBooked"),
           tooltip: t("calendar.legend.bookedDatesTooltip"),
         },
       ]
@@ -270,13 +274,16 @@ function LegendCalendarAdmin({
 
   return (
     <Stack
+      className="legend-calendar-admin"
       display={rowDisplay}
-      width={useIconOnlyLegend ? "auto" : "100%"}
-      maxWidth={useIconOnlyLegend ? "100%" : undefined}
+      width={useIconOnlyLegend || isClientLegend ? "auto" : "100%"}
+      maxWidth="100%"
       spacing={inToolbar ? 0.5 : 0.9}
       sx={{
-        py: inToolbar ? 0 : 0.7,
-        px: inToolbar ? 0 : 1.25,
+        py: inToolbar ? 0 : isClientLegend ? 0.35 : 0.7,
+        px: inToolbar ? 0 : isClientLegend ? 0 : 1.25,
+        overflow: "visible",
+        flexShrink: isClientLegend ? 0 : undefined,
         backgroundColor: inToolbar
           ? "transparent"
           : theme.palette.backgroundDark1?.bg || "#1a1a1a",
@@ -428,11 +435,12 @@ function LegendCalendarAdmin({
           <Stack
             direction="row"
             alignItems="center"
-            flexWrap="wrap"
+            flexWrap={isClientLegend ? "wrap" : "wrap"}
             sx={{
               columnGap: useIconOnlyLegend ? 0.35 : 1.1,
               rowGap: 0.45,
               minWidth: 0,
+              overflow: "visible",
             }}
           >
             {compactLegendItems.map((item) => (

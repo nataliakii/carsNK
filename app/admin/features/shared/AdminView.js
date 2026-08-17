@@ -3,10 +3,20 @@
 import { useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Box } from "@mui/material";
+import { useTranslation } from "react-i18next";
 import Feed from "@app/components/Feed";
 
 // Shared components from new structure
 import { AdminLoader, AdminNotifications, AdminTopBar } from "@app/admin/shared";
+
+function FeatureLoader({ i18nKey }) {
+  const { t, i18n } = useTranslation();
+  const message = t(i18nKey, {
+    lng: i18n.language,
+    defaultValue: i18nKey,
+  });
+  return <AdminLoader message={message} />;
+}
 
 // ─────────────────────────────────────────────────────────────
 // LAZY-LOADED FEATURE SECTIONS
@@ -16,7 +26,7 @@ import { AdminLoader, AdminNotifications, AdminTopBar } from "@app/admin/shared"
 const CarsSection = dynamic(
   () => import("@app/admin/features/cars/CarsSection"),
   { 
-    loading: () => <AdminLoader message="Загрузка автомобилей..." />,
+    loading: () => <FeatureLoader i18nKey="admin.loadingCars" />,
     ssr: false 
   }
 );
@@ -24,7 +34,7 @@ const CarsSection = dynamic(
 const CalendarSection = dynamic(
   () => import("@app/admin/features/calendar/CalendarSection"),
   { 
-    loading: () => <AdminLoader message="Загрузка календаря..." />,
+    loading: () => <FeatureLoader i18nKey="admin.loadingCalendar" />,
     ssr: false 
   }
 );
@@ -32,7 +42,7 @@ const CalendarSection = dynamic(
 const OrdersTableSection = dynamic(
   () => import("@app/admin/features/orders/OrdersTableSection"),
   { 
-    loading: () => <AdminLoader message="Загрузка таблицы заказов..." />,
+    loading: () => <FeatureLoader i18nKey="admin.loadingOrdersTable" />,
     ssr: false 
   }
 );

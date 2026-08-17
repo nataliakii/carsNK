@@ -16,6 +16,8 @@
     "seats": "Sitzplätze",
     "seatsOption": "{{count}} Sitze",
     "logout": "Abmelden",
+    "superadmin": "Superadmin",
+    "adminRole": "Admin",
     "searchCars": "Autos suchen",
     "searchCarsPlaceholder": "Suche nach Modell, Klasse, Kraftstoff…",
     "clearSearch": "Suche löschen",
@@ -306,6 +308,9 @@
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {
+    "loadingCars": "Fahrzeuge werden geladen...",
+    "loadingCalendar": "Kalender wird geladen...",
+    "loadingOrdersTable": "Bestelltabelle wird geladen...",
     "visits": {
       "subtitle": "Human visits with geo — saved for study in admin.",
       "refresh": "Refresh",

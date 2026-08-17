@@ -16,6 +16,8 @@
     "seats": "Locuri",
     "seatsOption": "{{count}} locuri",
     "logout": "Deconectare",
+    "superadmin": "Superadmin",
+    "adminRole": "Admin",
     "searchCars": "Caută mașini",
     "searchCarsPlaceholder": "Caută după model, clasă, combustibil…",
     "clearSearch": "Șterge căutarea",
@@ -306,6 +308,9 @@
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {
+    "loadingCars": "Se încarcă mașinile...",
+    "loadingCalendar": "Se încarcă calendarul...",
+    "loadingOrdersTable": "Se încarcă tabelul de comenzi...",
     "visits": {
       "subtitle": "Human visits with geo — saved for study in admin.",
       "refresh": "Refresh",

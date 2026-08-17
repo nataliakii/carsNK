@@ -16,6 +16,8 @@
     "seats": "Sedista",
     "seatsOption": "{{count}} sedišta",
     "logout": "Odjava",
+    "superadmin": "Superadmin",
+    "adminRole": "Admin",
     "searchCars": "Pretraga auta",
     "searchCarsPlaceholder": "Pretraga po modelu, klasi, gorivu…",
     "clearSearch": "Obriši pretragu",
@@ -306,6 +308,9 @@
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {
+    "loadingCars": "Učitavanje automobila...",
+    "loadingCalendar": "Učitavanje kalendara...",
+    "loadingOrdersTable": "Učitavanje tabele porudžbina...",
     "visits": {
       "subtitle": "Human visits with geo — saved for study in admin.",
       "refresh": "Refresh",

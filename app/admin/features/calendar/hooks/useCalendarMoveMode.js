@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -49,14 +50,14 @@ function emptyConfirm() {
   };
 }
 
-function buildDragGhost(order, dayCount) {
+function buildDragGhost(order, dayCountLabel) {
   const el = document.createElement("div");
   const name =
     order.customerName ||
     order.customer?.name ||
     order.regNumber ||
-    "Заказ";
-  el.textContent = `${name} · ${dayCount} дн.`;
+    "Order";
+  el.textContent = `${name} · ${dayCountLabel}`;
   el.setAttribute(
     "style",
     [
@@ -89,6 +90,7 @@ export function useCalendarMoveMode({
   showSingleSnackbar,
   scrollContainerRef,
 }) {
+  const { t } = useTranslation();
   const [moveMode, setMoveMode] = useState(false);
   const [selectedMoveOrder, setSelectedMoveOrder] = useState(null);
   const [confirmModal, setConfirmModal] = useState(emptyConfirm);
@@ -229,13 +231,16 @@ export function useCalendarMoveMode({
 
     let action = "";
     if (sameCar && dayDelta !== 0) {
-      action = `Даты → ${toRange}`;
+      action = t("calendar.dragHudDates", { range: toRange });
     } else if (!sameCar && dayDelta !== 0) {
-      action = `${carLabel} · ${toRange}`;
+      action = t("calendar.dragHudCarDates", {
+        car: carLabel,
+        range: toRange,
+      });
     } else if (!sameCar) {
-      action = `На ${carLabel}`;
+      action = t("calendar.dragHudCar", { car: carLabel });
     } else {
-      action = "Отпустите на другой день или машину";
+      action = t("calendar.dragHudHint");
     }
 
     setDragHud({
@@ -244,22 +249,26 @@ export function useCalendarMoveMode({
       canDrop,
       action,
       deltaLabel:
-        dayDelta !== 0 ? `${dayDelta > 0 ? "+" : ""}${dayDelta} дн.` : null,
+        dayDelta !== 0
+          ? t("calendar.dragHudDeltaDays", {
+              signed: `${dayDelta > 0 ? "+" : ""}${dayDelta}`,
+            })
+          : null,
       dateStr: dateStr || null,
     });
-  }, []);
+  }, [t]);
 
   const handleLongPress = useCallback(
     (order) => {
       if (!order?._id) return;
       setSelectedMoveOrder(order);
       setMoveMode(true);
-      showSingleSnackbar(
-        "Перетащите заказ на другой день/машину, или на телефоне: удерживайте ~0.3с и тапните цель",
-        { variant: "info", autoHideDuration: 7000 }
-      );
+      showSingleSnackbar(t("calendar.tooltips.moveHintSnackbar"), {
+        variant: "info",
+        autoHideDuration: 7000,
+      });
     },
-    [showSingleSnackbar]
+    [showSingleSnackbar, t]
   );
 
   const handleOrderDragStart = useCallback((e, order, dateStr) => {
@@ -285,13 +294,16 @@ export function useCalendarMoveMode({
         ghostRef.current.remove();
         ghostRef.current = null;
       }
-      const ghost = buildDragGhost(order, days);
+      const ghost = buildDragGhost(
+        order,
+        t("calendar.daysShort", { count: days })
+      );
       ghostRef.current = ghost;
       e.dataTransfer.setDragImage(ghost, 24, 16);
     } catch {
       // ignore
     }
-  }, []);
+  }, [t]);
 
   const handleOrderDragEnd = useCallback(() => {
     dragSessionRef.current = null;

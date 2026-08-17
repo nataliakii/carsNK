@@ -111,9 +111,19 @@ export default function BulkAddOfflineOrdersModal({
       });
       const body = await res.json();
       if (!res.ok && !(body.created || []).length) {
-        throw new Error(body.message || "Bulk add failed");
+        const firstErr = (body.errors || [])[0]?.error;
+        throw new Error(
+          firstErr
+            ? `${body.message || "Bulk add failed"}: ${firstErr}`
+            : body.message || "Bulk add failed"
+        );
       }
-      const msg = body.message || "Done";
+      const errLines = (body.errors || [])
+        .map((e) => `Row ${Number(e.index) + 1}: ${e.error}`)
+        .join(" · ");
+      const msg = errLines
+        ? `${body.message || "Done"} — ${errLines}`
+        : body.message || "Done";
       setResultMsg(msg);
       setUpdateStatus?.({ type: 200, message: msg });
       if (typeof fetchAndUpdateOrders === "function") {
@@ -184,9 +194,9 @@ export default function BulkAddOfflineOrdersModal({
                   <TableCell>End</TableCell>
                   <TableCell>In</TableCell>
                   <TableCell>Out</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Phone</TableCell>
-                  <TableCell>Email</TableCell>
+                  <TableCell>Name (opt.)</TableCell>
+                  <TableCell>Phone (opt.)</TableCell>
+                  <TableCell>Email (opt.)</TableCell>
                   <TableCell>Pickup</TableCell>
                   <TableCell>Return</TableCell>
                   <TableCell>€</TableCell>
@@ -339,6 +349,7 @@ export default function BulkAddOfflineOrdersModal({
             display="block"
           >
             Each row is saved as an offline booking (confirmed, no email/Telegram).
+            Name, phone and email are optional.
           </Typography>
         </>
       )}

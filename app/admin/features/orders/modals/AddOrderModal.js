@@ -452,7 +452,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
     if (calcLoading) {
       setStatusMessage({
         type: "error",
-        message: "Дождитесь расчёта стоимости",
+        message: t("order.waitForPriceCalc"),
       });
       setLoadingState(false);
       return false;
@@ -462,17 +462,26 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
     if (bookDates.start && dayjs(bookDates.start).isBefore(dayjs(), "day")) {
       setStatusMessage({
         type: "error",
-        message: "Дата начала аренды не может быть раньше сегодняшнего дня",
+        message: t("order.startDateNotBeforeToday"),
       });
       setLoadingState(false);
       return false;
     }
 
+    const isOffline = Boolean(orderDetails.offline);
     const phoneTrim = (orderDetails.phone || "").trim();
-    if (!phoneTrim || !isValidInternationalPhone(phoneTrim)) {
+    if (!isOffline && (!phoneTrim || !isValidInternationalPhone(phoneTrim))) {
       setStatusMessage({
         type: "error",
         message: phoneTrim ? t("order.phoneInvalid") : t("order.required"),
+      });
+      setLoadingState(false);
+      return false;
+    }
+    if (isOffline && phoneTrim && !isValidInternationalPhone(phoneTrim)) {
+      setStatusMessage({
+        type: "error",
+        message: t("order.phoneInvalid"),
       });
       setLoadingState(false);
       return false;
@@ -565,7 +574,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
 
       // Унифицированная обработка ответов addOrderNew
       if (response.status === "success") {
-        const msg = response?.data?.message || "Заказ успешно добавлен";
+        const msg = response?.data?.message || t("order.addedSuccess");
         setStatusMessage({ type: "success", message: msg });
         setUpdateStatus({ type: 200, message: msg }); // type: 200 для обновления календаря
         // Явный вызов обновления заказов для BigCalendar
@@ -585,21 +594,21 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
       }
 
       if (response.status === "startEndConflict") {
-        const msg = response?.message || "Конфликт старт/финиш дат";
+        const msg = response?.message || t("order.conflictStartEnd");
         setStatusMessage({ type: "warning", message: msg });
         setUpdateStatus({ type: 200, message: msg });
         return false;
       }
 
       if (response.status === "pending") {
-        const msg = response?.message || "Есть неподтвержденные пересечения";
+        const msg = response?.message || t("order.pendingOverlaps");
         setStatusMessage({ type: "warning", message: msg });
         setUpdateStatus({ type: 202, message: msg });
         return false;
       }
 
       if (response.status === "conflict") {
-        const msg = response?.message || "Даты уже заняты и недоступны";
+        const msg = response?.message || t("order.datesUnavailable");
         setStatusMessage({ type: "error", message: msg });
         setUpdateStatus({ type: 409, message: msg });
         return false;
@@ -607,7 +616,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
 
       // status === 'error' или неожиданный статус
       {
-        const msg = response?.message || "Не удалось добавить заказ";
+        const msg = response?.message || t("order.addFailed");
         setStatusMessage({ type: "error", message: msg });
         setUpdateStatus({ type: 400, message: msg });
         return false;
@@ -617,14 +626,12 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
 
       setStatusMessage({
         type: "error",
-        message:
-          error?.message ||
-          "Не удалось добавить заказ. Пожалуйста, проверьте данные.",
+        message: error?.message || t("order.addFailedCheckData"),
       });
 
       setUpdateStatus({
         type: 400,
-        message: error?.message || "Ошибка сервера",
+        message: error?.message || t("order.serverError"),
       });
       return false;
     } finally {
@@ -765,7 +772,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
               size="small"
             />
           }
-          label="Офлайн (не через сайт)"
+          label={t("order.offline")}
           sx={{ mb: 1, alignSelf: "flex-start" }}
         />
         {/* Location fields */}
@@ -1199,8 +1206,8 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
               !bookDates.end ||
               !startTime ||
               !endTime ||
-              !orderDetails.customerName ||
-              !orderDetails.phone
+              (!orderDetails.offline &&
+                (!orderDetails.customerName || !orderDetails.phone))
             }
             label={t("order.CompleteBook")}
           />

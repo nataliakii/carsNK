@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import dynamic from "next/dynamic";
+import { useTranslation } from "react-i18next";
 
 const CloseIcon = dynamic(() => import("@mui/icons-material/Close"), {
   ssr: false,
@@ -40,6 +41,7 @@ export default function CalendarSettingsPanel({
   setHighlightToday,
   setAutoScrollToToday,
 }) {
+  const { t } = useTranslation();
   const [bufferModalOpen, setBufferModalOpen] = useState(false);
 
   const showBufferShortcut =
@@ -75,12 +77,12 @@ export default function CalendarSettingsPanel({
           }}
         >
           <Typography variant="subtitle1" component="h2" fontWeight={600}>
-            Настройки календаря
+            {t("calendar.settingsPanel.title")}
           </Typography>
           <IconButton
             edge="end"
             onClick={onClose}
-            aria-label="Закрыть настройки"
+            aria-label={t("calendar.settingsPanel.closeAria")}
             size="small"
           >
             <CloseIcon />
@@ -98,7 +100,7 @@ export default function CalendarSettingsPanel({
         >
           <Stack spacing={2}>
             <Typography variant="caption" color="text.secondary">
-              Видимость
+              {t("calendar.settingsPanel.visibilitySection")}
             </Typography>
 
             <FormControlLabel
@@ -109,7 +111,11 @@ export default function CalendarSettingsPanel({
                   onChange={(e) => setShowLegend(e.target.checked)}
                 />
               }
-              label={<Typography variant="body2">Показывать легенду</Typography>}
+              label={
+                <Typography variant="body2">
+                  {t("calendar.settingsPanel.showLegend")}
+                </Typography>
+              }
             />
 
             <FormControlLabel
@@ -123,7 +129,7 @@ export default function CalendarSettingsPanel({
               }
               label={
                 <Typography variant="body2">
-                  Буфер между заказами в легенде
+                  {t("calendar.settingsPanel.bufferInLegend")}
                 </Typography>
               }
             />
@@ -138,7 +144,9 @@ export default function CalendarSettingsPanel({
                 />
               }
               label={
-                <Typography variant="body2">Тариф доставки в легенде</Typography>
+                <Typography variant="body2">
+                  {t("calendar.settingsPanel.deliveryInLegend")}
+                </Typography>
               }
             />
 
@@ -154,7 +162,7 @@ export default function CalendarSettingsPanel({
               }
               label={
                 <Typography variant="body2">
-                  Бейджи конфликтов (если отображаются)
+                  {t("calendar.settingsPanel.conflictBadges")}
                 </Typography>
               }
             />
@@ -168,7 +176,9 @@ export default function CalendarSettingsPanel({
                 />
               }
               label={
-                <Typography variant="body2">Подсветка колонки «сегодня»</Typography>
+                <Typography variant="body2">
+                  {t("calendar.settingsPanel.highlightToday")}
+                </Typography>
               }
             />
 
@@ -182,7 +192,7 @@ export default function CalendarSettingsPanel({
               }
               label={
                 <Typography variant="body2">
-                  Автоскролл к сегодня (узкий экран)
+                  {t("calendar.settingsPanel.autoScrollToday")}
                 </Typography>
               }
             />
@@ -194,7 +204,7 @@ export default function CalendarSettingsPanel({
                 onClick={() => setBufferModalOpen(true)}
                 sx={{ alignSelf: "flex-start", mt: 1 }}
               >
-                Настройки буфера между заказами
+                {t("calendar.settingsPanel.bufferSettingsButton")}
               </Button>
             )}
 
@@ -202,7 +212,7 @@ export default function CalendarSettingsPanel({
               <>
                 <Divider sx={{ my: 1 }} />
                 <Typography variant="caption" color="text.secondary">
-                  Легенда
+                  {t("calendar.settingsPanel.legendSection")}
                 </Typography>
                 <Box data-bigcalendar-legend sx={{ width: "100%" }}>
                   <LegendCalendarAdmin

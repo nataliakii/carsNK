@@ -28,6 +28,7 @@ import {
   alpha,
   Switch,
   FormControlLabel,
+  Popover,
 } from "@mui/material";
 import {
   Search as SearchIcon,
@@ -41,6 +42,7 @@ import {
   Close as CloseIcon,
   Autorenew as AutorenewIcon,
   FileDownload as FileDownloadIcon,
+  History as HistoryIcon,
 } from "@mui/icons-material";
 import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
@@ -133,6 +135,8 @@ export default function OrdersTableSection() {
   const [isTogglingConfirm, setIsTogglingConfirm] = useState({});
   /** Live auto-price preview only — never writes to DB. { [orderId]: { loading, live, error } } */
   const [autoPricePreviewById, setAutoPricePreviewById] = useState({});
+  /** Price history popover: { orderId, anchorEl, loading, items, error } */
+  const [priceHistoryUi, setPriceHistoryUi] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [commissionPercent, setCommissionPercent] = useState(10);
@@ -580,12 +584,36 @@ export default function OrdersTableSection() {
         });
         clearConflictHighlights();
         
-        // Always merge fieldsToSend with result.data (even if result.data is empty)
-        // This ensures UI updates even if backend doesn't return updated fields
-        const mergedUpdate = {
-          ...fieldsToSend,
-          ...(result.data || {}),
-        };
+        // Prefer server order; never let client totalPrice overwrite stored auto on manual override.
+        const serverOrder =
+          result.data && typeof result.data === "object" ? result.data : {};
+        const mergedUpdate = { ...serverOrder };
+        delete mergedUpdate.isOverridePrice;
+        if (
+          field === "totalPrice" &&
+          options.source === "manual" &&
+          (mergedUpdate.OverridePrice === null ||
+            mergedUpdate.OverridePrice === undefined)
+        ) {
+          mergedUpdate.OverridePrice = value;
+        }
+        if (
+          field === "totalPrice" &&
+          options.source === "recalculate"
+        ) {
+          mergedUpdate.OverridePrice = null;
+          if (
+            mergedUpdate.totalPrice === null ||
+            mergedUpdate.totalPrice === undefined
+          ) {
+            mergedUpdate.totalPrice = value;
+          }
+        }
+        // Fallback for non-price fields if server body was empty
+        if (Object.keys(serverOrder).length === 0) {
+          Object.assign(mergedUpdate, fieldsToSend);
+          delete mergedUpdate.isOverridePrice;
+        }
         
         // Debug logging (dev only)
         if (process.env.NODE_ENV !== "production") {
@@ -604,17 +632,35 @@ export default function OrdersTableSection() {
           )
         );
 
+        const priceNum = Number(
+          field === "totalPrice"
+            ? options.source === "manual"
+              ? mergedUpdate.OverridePrice ?? value
+              : mergedUpdate.totalPrice ?? value
+            : 0
+        );
         const successMsg =
           field === "totalPrice" && options.source === "recalculate"
-            ? `Цена пересчитана: €${Number(
-                mergedUpdate.totalPrice ?? value ?? 0
-              ).toFixed(2)}`
-            : result.message || "Order updated successfully";
+            ? t("table.priceRecalculated", {
+                price: priceNum.toFixed(2),
+              })
+            : field === "totalPrice"
+              ? t("table.priceSavedManual", {
+                  price: priceNum.toFixed(2),
+                })
+              : field === "rentalStartDate" ||
+                  field === "rentalEndDate" ||
+                  field === "timeIn" ||
+                  field === "timeOut"
+                ? t("order.changeDates")
+                : t("order.orderUpdated");
         enqueueSnackbar(successMsg, { variant: "success" });
       }
     } catch (error) {
       console.error("Error updating order field:", error);
-      enqueueSnackbar(error.message || "Failed to update order", { variant: "error" });
+      enqueueSnackbar(error.message || t("table.updateFailed"), {
+        variant: "error",
+      });
     } finally {
       setIsSaving((prev) => ({ ...prev, [savingKey]: false }));
     }
@@ -624,18 +670,20 @@ export default function OrdersTableSection() {
     setConflictHighlightsFromResult,
     clearConflictHighlights,
     setAllOrders,
+    t,
   ]);
   
   /**
    * Preview live auto price from /api/order/calcTotalPrice.
    * Does NOT write totalPrice / OverridePrice — display only.
+   * @returns {Promise<number|null>}
    */
   const handlePreviewAutoPrice = useCallback(async (order) => {
     const orderId = order._id;
 
     setAutoPricePreviewById((prev) => ({
       ...prev,
-      [orderId]: { loading: true, live: null, error: null },
+      [orderId]: { loading: true, live: prev[orderId]?.live ?? null, error: null },
     }));
 
     try {
@@ -653,7 +701,7 @@ export default function OrdersTableSection() {
       }
 
       if (!carNumber) {
-        throw new Error("Не удалось определить номер автомобиля");
+        throw new Error(t("table.priceCarUnknown"));
       }
 
       const rentalStartDate = order.rentalStartDate
@@ -664,7 +712,7 @@ export default function OrdersTableSection() {
         : null;
 
       if (!rentalStartDate || !rentalEndDate) {
-        throw new Error("Не указаны даты аренды");
+        throw new Error(t("table.priceDatesMissing"));
       }
 
       const data = await calculateTotalPrice(
@@ -683,17 +731,19 @@ export default function OrdersTableSection() {
       );
 
       if (!data.ok) {
-        throw new Error(data.error || "Ошибка расчёта цены");
+        throw new Error(data.error || t("table.priceCalcFailed"));
       }
 
+      const live = Number(data.totalPrice) || 0;
       setAutoPricePreviewById((prev) => ({
         ...prev,
         [orderId]: {
           loading: false,
-          live: Number(data.totalPrice) || 0,
+          live,
           error: null,
         },
       }));
+      return live;
     } catch (error) {
       console.error("Error previewing auto price:", error);
       setAutoPricePreviewById((prev) => ({
@@ -701,14 +751,82 @@ export default function OrdersTableSection() {
         [orderId]: {
           loading: false,
           live: null,
-          error: error.message || "Ошибка расчёта",
+          error: error.message || t("table.priceCalcFailed"),
         },
       }));
-      enqueueSnackbar(error.message || "Ошибка расчёта цены", {
+      enqueueSnackbar(error.message || t("table.priceCalcFailed"), {
         variant: "error",
       });
+      return null;
     }
-  }, [cars, enqueueSnackbar]); 
+  }, [cars, enqueueSnackbar, t]);
+
+  /** Save system-calculated price as auto (clears manual override). */
+  const handleApplySystemPrice = useCallback(
+    async (order) => {
+      const live = await handlePreviewAutoPrice(order);
+      if (live == null || !Number.isFinite(live)) return;
+      await handleFieldUpdate(order._id, "totalPrice", live, {
+        source: "recalculate",
+      });
+    },
+    [handleFieldUpdate, handlePreviewAutoPrice]
+  );
+
+  const handleOpenPriceHistory = useCallback(
+    async (event, orderId) => {
+      const anchorEl = event.currentTarget;
+      setPriceHistoryUi({
+        orderId,
+        anchorEl,
+        loading: true,
+        items: [],
+        error: null,
+      });
+      try {
+        const res = await fetch(
+          `/api/admin/orders/${orderId}/price-breakdown`,
+          { credentials: "include" }
+        );
+        const body = await res.json();
+        if (!res.ok || body.success === false) {
+          throw new Error(body.message || t("table.priceHistoryFailed"));
+        }
+        const history = Array.isArray(body.data?.history)
+          ? body.data.history
+          : [];
+        const current =
+          body.data && body.data.totalPrice != null
+            ? [
+                {
+                  totalPrice: body.data.totalPrice,
+                  source: body.data.source || "current",
+                  createdAt: body.data.updatedAt || body.data.frozenAt,
+                  isCurrent: true,
+                },
+              ]
+            : [];
+        const items = [...history].reverse().slice(0, 12);
+        setPriceHistoryUi({
+          orderId,
+          anchorEl,
+          loading: false,
+          items: items.length ? items : current,
+          error: null,
+        });
+      } catch (err) {
+        setPriceHistoryUi({
+          orderId,
+          anchorEl,
+          loading: false,
+          items: [],
+          error: err.message || t("table.priceHistoryFailed"),
+        });
+      }
+    },
+    [t]
+  );
+
   const handleToggleConfirm = useCallback(async (orderId) => {
     setIsTogglingConfirm((prev) => ({ ...prev, [orderId]: true }));
     
@@ -1441,144 +1559,163 @@ export default function OrdersTableSection() {
                         )}
                       </TableCell>
 
-                      {/* Price - effective (editable override) + stored auto + live preview (no overwrite) */}
-                      <TableCell align="right">
-                        <Stack spacing={0.5} alignItems="flex-end">
-                          <Stack direction="row" spacing={0.5} alignItems="center">
-                            {(() => {
-                              const effectivePrice = getEffectivePrice(order);
-                              const hasManualOverride =
-                                order.OverridePrice !== null &&
-                                order.OverridePrice !== undefined;
-                              const storedAuto = getStoredAutoPrice(order);
-                              const preview = autoPricePreviewById[order._id];
+                      {/* Price: charged (editable) + system calc + saved auto + history */}
+                      <TableCell align="right" sx={{ minWidth: 200 }}>
+                        {(() => {
+                          const effectivePrice = getEffectivePrice(order);
+                          const hasManualOverride =
+                            order.OverridePrice !== null &&
+                            order.OverridePrice !== undefined;
+                          const storedAuto = getStoredAutoPrice(order);
+                          const preview = autoPricePreviewById[order._id];
+                          const systemPrice =
+                            preview?.live != null
+                              ? Number(preview.live)
+                              : storedAuto;
+                          const days = getOrderNumberOfDaysOrZero(order);
 
-                              return (
-                                <>
-                                  <InlineEditCell
-                                    type="number"
-                                    value={effectivePrice?.toString() || "0"}
-                                    disabled={
-                                      !canEditTotalPrice ||
-                                      isSaving[`${order._id}_totalPrice`]
-                                    }
-                                    onDenied={() => {
-                                      const permission = getFieldPermission(
-                                        order,
-                                        "totalPrice"
-                                      );
+                          return (
+                            <Stack spacing={0.35} alignItems="flex-end">
+                              <Stack
+                                direction="row"
+                                spacing={0.5}
+                                alignItems="center"
+                              >
+                                <InlineEditCell
+                                  type="number"
+                                  value={effectivePrice?.toString() || "0"}
+                                  disabled={
+                                    !canEditTotalPrice ||
+                                    isSaving[`${order._id}_totalPrice`]
+                                  }
+                                  onDenied={() => {
+                                    const permission = getFieldPermission(
+                                      order,
+                                      "totalPrice"
+                                    );
+                                    enqueueSnackbar(
+                                      permission.reason ||
+                                        t("table.cannotEditPrice"),
+                                      { variant: "warning" }
+                                    );
+                                  }}
+                                  onCommit={(val) => {
+                                    const numericValue = val
+                                      ? parseFloat(val)
+                                      : null;
+                                    if (
+                                      numericValue === null ||
+                                      isNaN(numericValue) ||
+                                      val.trim() === ""
+                                    ) {
                                       enqueueSnackbar(
-                                        permission.reason ||
-                                          "⛔ Нельзя редактировать сумму",
-                                        { variant: "warning" }
+                                        t("table.invalidPriceNumber"),
+                                        { variant: "error" }
                                       );
-                                    }}
-                                    onCommit={(val) => {
-                                      const numericValue = val
-                                        ? parseFloat(val)
-                                        : null;
-                                      if (
-                                        numericValue === null ||
-                                        isNaN(numericValue) ||
-                                        val.trim() === ""
-                                      ) {
-                                        enqueueSnackbar(
-                                          "⛔ Введите корректное число",
-                                          { variant: "error" }
-                                        );
-                                        return;
-                                      }
-                                      if (numericValue < 0) {
-                                        enqueueSnackbar(
-                                          "⛔ Сумма не может быть отрицательной",
-                                          { variant: "error" }
-                                        );
-                                        return;
-                                      }
-                                      handleFieldUpdate(
-                                        order._id,
-                                        "totalPrice",
-                                        numericValue,
-                                        { source: "manual" }
+                                      return;
+                                    }
+                                    if (numericValue < 0) {
+                                      enqueueSnackbar(
+                                        t("table.priceNotNegative"),
+                                        { variant: "error" }
                                       );
-                                    }}
-                                    formatDisplay={(val) => {
-                                      if (!val || val === "0") return "€0";
-                                      const num = parseFloat(val);
-                                      if (isNaN(num)) return "€0";
-                                      return `€${num.toFixed(2)}`;
-                                    }}
-                                    inputProps={{
-                                      step: "0.01",
-                                      min: "0",
-                                    }}
-                                    sx={{ textAlign: "right" }}
-                                    inputSx={{
-                                      textAlign: "right",
-                                      fontWeight: 600,
+                                      return;
+                                    }
+                                    handleFieldUpdate(
+                                      order._id,
+                                      "totalPrice",
+                                      numericValue,
+                                      { source: "manual" }
+                                    );
+                                  }}
+                                  formatDisplay={(val) => {
+                                    if (!val || val === "0") return "€0.00";
+                                    const num = parseFloat(val);
+                                    if (isNaN(num)) return "€0.00";
+                                    return `€${num.toFixed(2)}`;
+                                  }}
+                                  inputProps={{
+                                    step: "0.01",
+                                    min: "0",
+                                  }}
+                                  sx={{ textAlign: "right" }}
+                                  inputSx={{
+                                    textAlign: "right",
+                                    fontWeight: 700,
+                                  }}
+                                />
+                                {hasManualOverride && (
+                                  <Chip
+                                    size="small"
+                                    label={t("table.priceManual")}
+                                    sx={{
+                                      height: 20,
+                                      fontSize: "0.65rem",
+                                      bgcolor: alpha(
+                                        palette.status.warning,
+                                        0.15
+                                      ),
+                                      color: palette.status.warning,
                                     }}
                                   />
-                                  {hasManualOverride && (
-                                    <Tooltip
-                                      title={`Stored auto: €${storedAuto.toFixed(2)}`}
-                                    >
-                                      <Typography
-                                        variant="caption"
-                                        sx={{
-                                          color: palette.status.warning,
-                                          fontSize: "0.65rem",
-                                          whiteSpace: "nowrap",
-                                          ml: 0.5,
-                                        }}
-                                      >
-                                        ✏️ Manual
-                                      </Typography>
-                                    </Tooltip>
-                                  )}
-                                </>
-                              );
-                            })()}
-                            <Tooltip title="Показать автоматическую цену (без сохранения в заказ)">
-                              <IconButton
-                                size="small"
-                                onClick={() => handlePreviewAutoPrice(order)}
-                                disabled={
-                                  autoPricePreviewById[order._id]?.loading
-                                }
-                                sx={{
-                                  p: 0.5,
-                                  color: palette.primary.main,
-                                  "&:hover": {
-                                    backgroundColor: alpha(
-                                      palette.primary.main,
-                                      0.1
-                                    ),
-                                  },
-                                }}
-                              >
-                                {autoPricePreviewById[order._id]?.loading ? (
-                                  <CircularProgress size={16} />
-                                ) : (
-                                  <AutorenewIcon fontSize="small" />
                                 )}
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ lineHeight: 1.2 }}
-                          >
-                            Auto: €{getStoredAutoPrice(order).toFixed(2)}
-                            {autoPricePreviewById[order._id]?.live != null
-                              ? ` · Live: €${Number(
-                                  autoPricePreviewById[order._id].live
-                                ).toFixed(2)}`
-                              : ""}
-                            {" · "}
-                            {getOrderNumberOfDaysOrZero(order)} {t("table.days")}
-                          </Typography>
-                        </Stack>
+                                <Tooltip title={t("table.priceRecalcTooltip")}>
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() =>
+                                        handleApplySystemPrice(order)
+                                      }
+                                      disabled={
+                                        !canEditTotalPrice ||
+                                        preview?.loading ||
+                                        isSaving[`${order._id}_totalPrice`]
+                                      }
+                                      sx={{ p: 0.4 }}
+                                    >
+                                      {preview?.loading ? (
+                                        <CircularProgress size={14} />
+                                      ) : (
+                                        <AutorenewIcon fontSize="small" />
+                                      )}
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                                <Tooltip title={t("table.priceHistory")}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) =>
+                                      handleOpenPriceHistory(e, order._id)
+                                    }
+                                    sx={{ p: 0.4 }}
+                                  >
+                                    <HistoryIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </Stack>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ lineHeight: 1.25, textAlign: "right" }}
+                              >
+                                {t("table.priceSystem")}: €
+                                {Number(systemPrice || 0).toFixed(2)}
+                                {preview?.live != null &&
+                                Number(preview.live) !== Number(storedAuto)
+                                  ? ` · ${t("table.priceSavedAuto")}: €${Number(
+                                      storedAuto || 0
+                                    ).toFixed(2)}`
+                                  : hasManualOverride
+                                    ? ` · ${t("table.priceSavedAuto")}: €${Number(
+                                        storedAuto || 0
+                                      ).toFixed(2)}`
+                                    : ""}
+                                {" · "}
+                                {days} {t("table.days")}
+                              </Typography>
+                            </Stack>
+                          );
+                        })()}
                       </TableCell>
 
                       {/* Confirmed - Switch Toggle */}
@@ -1714,6 +1851,74 @@ export default function OrdersTableSection() {
           }}
         />
       </Paper>
+
+      <Popover
+        open={Boolean(priceHistoryUi?.anchorEl)}
+        anchorEl={priceHistoryUi?.anchorEl || null}
+        onClose={() => setPriceHistoryUi(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Box sx={{ p: 1.5, minWidth: 240, maxWidth: 320 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
+            {t("table.priceHistory")}
+          </Typography>
+          {priceHistoryUi?.loading ? (
+            <Stack alignItems="center" py={2}>
+              <CircularProgress size={22} />
+            </Stack>
+          ) : priceHistoryUi?.error ? (
+            <Typography variant="body2" color="error">
+              {priceHistoryUi.error}
+            </Typography>
+          ) : !(priceHistoryUi?.items || []).length ? (
+            <Typography variant="body2" color="text.secondary">
+              {t("table.priceHistoryEmpty")}
+            </Typography>
+          ) : (
+            <Stack spacing={0.75}>
+              {(priceHistoryUi.items || []).map((item, idx) => {
+                const ts = item.createdAt || item.savedAt;
+                const when = ts
+                  ? dayjs(ts).tz(ATHENS_TZ).format("DD.MM.YYYY HH:mm")
+                  : "—";
+                const src = item.isCurrent
+                  ? t("table.priceHistoryCurrent")
+                  : item.source || "—";
+                return (
+                  <Box
+                    key={`${when}-${idx}`}
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 1,
+                      borderBottom: "1px solid",
+                      borderColor: "divider",
+                      pb: 0.5,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="caption" display="block">
+                        {when}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                      >
+                        {src}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" fontWeight={700}>
+                      €{Number(item.totalPrice || 0).toFixed(2)}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </Stack>
+          )}
+        </Box>
+      </Popover>
     </Box>
   );
 }

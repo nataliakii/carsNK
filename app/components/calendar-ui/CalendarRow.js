@@ -14,6 +14,7 @@ import { useMainContext } from "@app/Context";
 import { formatDate, isPast, BUSINESS_TZ } from "@utils/businessTime";
 import PropTypes from "prop-types";
 import { useSnackbar } from "notistack";
+import { useTranslation } from "react-i18next";
 
 // ============================================
 // Импорт helpers и hooks
@@ -148,6 +149,10 @@ CarTableRow.propTypes = {
   onRowDrop: PropTypes.func,
   /** Root Box with .bigcalendar-root — column hover highlight; avoids document.querySelector for multi-calendar safety */
   calendarRef: PropTypes.shape({ current: PropTypes.any }),
+  isPainting: PropTypes.bool,
+  isDatePainted: PropTypes.func,
+  onPaintPointerDown: PropTypes.func,
+  consumePaintClick: PropTypes.func,
 };
 
 export default function CarTableRow({
@@ -180,7 +185,12 @@ export default function CarTableRow({
   onRowDragOver,
   onRowDragLeave,
   onRowDrop,
+  isPainting = false,
+  isDatePainted,
+  onPaintPointerDown,
+  consumePaintClick,
 }) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [hoveredOrderId, setHoveredOrderId] = useState(null);
@@ -1029,6 +1039,8 @@ export default function CarTableRow({
 
       // ИСПРАВЛЕННАЯ функция обработки клика по пустой ячейке
       const handleEmptyCellClick = () => {
+        if (consumePaintClick?.()) return;
+
         // 🔧 PERF FIX: Gate console.log behind dev check
         if (process.env.NODE_ENV !== "production") {
           console.log("Empty cell click - moveMode:", moveMode, "car:", car);
@@ -1076,7 +1088,7 @@ export default function CarTableRow({
 
           const ordersAtTargetCar = ordersByCarId(car._id);
           if (!getCarAvailability(selectedMoveOrder, ordersAtTargetCar).available) {
-            enqueueSnackbar("⛔ Перемещение отменено: конфликт по времени", {
+            enqueueSnackbar(t("calendar.tooltips.moveConflictTime"), {
               variant: "error",
             });
             return;
@@ -1107,6 +1119,24 @@ export default function CarTableRow({
         }
       };
 
+      const cellPainted = Boolean(isDatePainted?.(car._id, dateStr));
+      const canStartPaint =
+        !moveMode &&
+        !isDraggingOrder &&
+        !cellState.isPastDay &&
+        cellState.isCellEmpty &&
+        ordersForDate.length === 0;
+      const handlePaintPointerDown = (e) => {
+        if (!canStartPaint) return;
+        onPaintPointerDown?.(e, { car, dateStr });
+      };
+      const paintFill = cellPainted
+        ? {
+            backgroundColor: "rgba(0,194,184,0.22)",
+            boxShadow: "inset 0 0 0 1px rgba(0,194,184,0.45)",
+          }
+        : {};
+
       // =======================
       // Render decision
       // =======================
@@ -1127,7 +1157,7 @@ export default function CarTableRow({
               onMouseUp={handleLongPressEnd}
               onMouseLeave={handleLongPressEnd}
               onContextMenu={(e) => e.preventDefault()}
-              title="Нажмите для перемещения заказа"
+              title={t("calendar.tooltips.moveOrder")}
               sx={{
                 border: border,
                 position: "relative",
@@ -1164,7 +1194,7 @@ export default function CarTableRow({
               onMouseUp={handleLongPressEnd}
               onMouseLeave={handleLongPressEnd}
               onContextMenu={(e) => e.preventDefault()}
-              title="Нажмите для перемещения заказа"
+              title={t("calendar.tooltips.moveOrder")}
               sx={{
                 border: border,
                 position: "relative",
@@ -1192,6 +1222,7 @@ export default function CarTableRow({
         return (
           <Box
             onClick={handleEmptyCellClick}
+            onPointerDown={handlePaintPointerDown}
             onMouseDown={() => handleLongPressStart(dateStr)}
             onTouchStart={(e) => {
               if (e.touches.length === 1) handleLongPressStart(dateStr);
@@ -1201,11 +1232,11 @@ export default function CarTableRow({
             onContextMenu={(e) => e.preventDefault()}
             title={
               moveMode && isInMoveModeDateRange
-                ? "Нажмите для перемещения заказа"
+                ? t("calendar.tooltips.moveOrder")
                 : !moveMode
                 ? cellState.isPastDay
-                  ? "Дата в прошлом — клик недоступен"
-                  : "Нажмите для создания нового заказа"
+                  ? t("calendar.tooltips.pastDate")
+                  : t("calendar.tooltips.createOrder")
                 : undefined
             }
             sx={{
@@ -1227,11 +1258,14 @@ export default function CarTableRow({
                   ? "not-allowed"
                   : cellState.isPastDay
                   ? "not-allowed"
+                  : isPainting
+                  ? "ew-resize"
                   : "pointer",
               border: border,
               width: "100%",
+              ...paintFill,
               "&:hover .bigcalendar-empty-plus": {
-                opacity: 1,
+                opacity: cellPainted ? 0 : 1,
               },
             }}
           >
@@ -1303,11 +1337,11 @@ export default function CarTableRow({
             title={
               moveMode
                 ? isPartOfSelectedOrder(dateStr)
-                  ? "Нажмите для выхода из режима перемещения"
+                  ? t("calendar.tooltips.exitMoveMode")
                   : undefined
                 : cellState.isCompletedCell || cellState.isPastDay
-                ? "Нажмите для просмотра заказа"
-                : "Длинное нажатие для режима перемещения заказа, обычный клик для просмотра всех заказов"
+                ? t("calendar.tooltips.viewOrder")
+                : t("calendar.tooltips.longPressMoveViewAll")
             }
             sx={{
               border: border,
@@ -1466,13 +1500,13 @@ export default function CarTableRow({
             title={
               moveMode
                 ? shouldShowFirstMoveDay || shouldShowLastMoveDay
-                  ? "Нажмите для перемещения заказа"
+                  ? t("calendar.tooltips.moveOrder")
                   : isPartOfSelectedOrder(dateStr)
-                  ? "Нажмите для выхода из режима перемещения"
+                  ? t("calendar.tooltips.exitMoveMode")
                   : undefined
                 : cellState.isCompletedCell || cellState.isPastDay
-                ? "Нажмите для просмотра заказа"
-                : "Длинное нажатие для режима перемещения заказа, обычный клик для просмотра и редактирования заказов"
+                ? t("calendar.tooltips.viewOrder")
+                : t("calendar.tooltips.longPressMoveEdit")
             }
             sx={{
               border: border,
@@ -1631,15 +1665,15 @@ export default function CarTableRow({
             title={
               moveMode
                 ? shouldShowFirstMoveDay
-                  ? "Нажмите для перемещения заказа в первый день"
+                  ? t("calendar.tooltips.moveOrderFirstDay")
                   : shouldHighlightRight
-                  ? "Нажмите для выхода из режима перемещения"
+                  ? t("calendar.tooltips.exitMoveMode")
                   : undefined
                 : cellState.isCompletedCell
-                ? "Нажмите для просмотра заказа"
+                ? t("calendar.tooltips.viewOrder")
                 : singleOrderForDrag
-                ? "Перетащите на другую строку (машину) или длинное нажатие для режима перемещения"
-                : "Длинное нажатие для режима перемещения, обычный клик для просмотра и редактирования заказа"
+                ? t("calendar.tooltips.dragOrLongPress")
+                : t("calendar.tooltips.longPressMove")
             }
             sx={{
               border: border,
@@ -1771,15 +1805,15 @@ export default function CarTableRow({
             title={
               moveMode
                 ? shouldShowLastMoveDay
-                  ? "Нажмите для перемещения заказа в последний день"
+                  ? t("calendar.tooltips.moveOrderLastDay")
                   : shouldHighlightLeft || shouldHighlightRight
-                  ? "Нажмите для выхода из режима перемещения"
+                  ? t("calendar.tooltips.exitMoveMode")
                   : undefined
                 : cellState.isCompletedCell || cellState.isPastDay
-                ? "Нажмите для просмотра заказа"
+                ? t("calendar.tooltips.viewOrder")
                 : singleOrderForDrag
-                ? "Перетащите на другую строку (машину) или длинное нажатие для режима перемещения"
-                : "Длинное нажатие для режима перемещения, обычный клик для просмотра и редактирования заказа"
+                ? t("calendar.tooltips.dragOrLongPress")
+                : t("calendar.tooltips.longPressMove")
             }
             sx={{
               border: border,
@@ -1877,7 +1911,7 @@ export default function CarTableRow({
             onMouseUp={handleLongPressEnd}
             onMouseLeave={handleLongPressEnd}
             onContextMenu={(e) => e.preventDefault()}
-            title="Нажмите для перемещения заказа"
+            title={t("calendar.tooltips.moveOrder")}
             sx={{
               border: border,
               position: "relative",
@@ -1943,13 +1977,13 @@ export default function CarTableRow({
           title={
             moveMode
               ? isPartOfSelectedOrder(dateStr)
-                ? "Нажмите для выхода из режима перемещения"
+                ? t("calendar.tooltips.exitMoveMode")
                 : undefined
               : cellState.isCompletedCell
-              ? "Нажмите для просмотра заказа"
+              ? t("calendar.tooltips.viewOrder")
               : singleOrderForDrag
-              ? "Перетащите на другую строку (машину) или длинное нажатие для режима перемещения"
-              : "Длинное нажатие для режима перемещения, обычный клик для просмотра и редактирования заказа"
+              ? t("calendar.tooltips.dragOrLongPress")
+              : t("calendar.tooltips.longPressMove")
           }
           sx={{
             position: "relative",
@@ -2013,6 +2047,11 @@ export default function CarTableRow({
       onOrderDragEnd,
       disableHoverPreview,
       conflictByDay,
+      consumePaintClick,
+      isDatePainted,
+      onPaintPointerDown,
+      isPainting,
+      t,
     ]
   );
 
@@ -2035,6 +2074,16 @@ export default function CarTableRow({
         <TableCell
           key={day.dayjs.toString()}
           data-col-index={colIndex}
+          data-calendar-paint-date={dayKey}
+          data-calendar-paint-car={String(car._id)}
+          data-calendar-paint-ok={
+            !moveMode &&
+            !isDraggingOrder &&
+            !hasOrder(dayKey) &&
+            !day.dayjs.isBefore(dayjs(), "day")
+              ? "1"
+              : "0"
+          }
           tabIndex={activeDayIndex === colIndex ? 0 : -1}
           onFocus={() => onCellFocus?.(rowIndex, colIndex)}
           onDragOver={
@@ -2122,7 +2171,7 @@ export default function CarTableRow({
                   textAlign: "center",
                   pointerEvents: "none",
                 }}
-                title="Конфликтующие бронирования"
+                title={t("calendar.tooltips.conflicts")}
               >
                 {dayConflictCount > 1 ? `+${dayConflictCount}` : ""}
               </Box>

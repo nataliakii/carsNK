@@ -287,7 +287,12 @@ export default function NavBar({
     lang,
     setLang,
     changeLanguage, // Добавляем функцию смены языка
+    company,
   } = useMainContext();
+
+  const adminIdentityLabel = isSuperAdmin
+    ? t("header.superadmin")
+    : company?.name || session?.user?.email || t("header.adminRole");
 
   // Локаль из URL имеет приоритет, чтобы отображаемый язык и ссылки всегда совпадали с страницей
   const pathSegments = pathname?.split("/").filter(Boolean) || [];
@@ -990,15 +995,13 @@ export default function NavBar({
               </Stack>
             </Stack>
 
-            <Box sx={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1, minWidth: 0 }}>
               <Link
                 href={homeHref}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 8,
                   maxHeight: 48,
-                  overflow: "hidden",
                 }}
               >
                 <Image
@@ -1014,48 +1017,48 @@ export default function NavBar({
                     objectFit: "contain",
                   }}
                 />
-                {isAdmin && (
+              </Link>
+              {isAdmin && (
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={0.75}
+                  sx={{ minWidth: 0 }}
+                >
                   <Logo
                     sx={{
                       fontSize: "clamp(10px, 2vw, 14px)",
                       lineHeight: 1,
                       opacity: 0.85,
+                      flexShrink: 0,
                     }}
                   >
                     ADMIN
                   </Logo>
-                )}
-              </Link>
-              {/* Chip с ролью - только для админки, в правом верхнем углу логотипа */}
-              {isAdmin && adminRole === ROLE.SUPERADMIN && (
-                <Chip
-                  label={adminRole === ROLE.SUPERADMIN ? "Superadmin" : "Admin"}
-                  size="small"
-                  sx={{
-                    position: "absolute",
-                    top: -5,
-                    right: -5,
-                    backgroundColor:
-                      adminRole === ROLE.SUPERADMIN
-                        ? "rgba(255, 193, 7, 0.2)"
-                        : "rgba(33, 150, 243, 0.2)",
-                    color:
-                      adminRole === ROLE.SUPERADMIN
-                        ? "#ffc107"
-                        : "secondary.main",
-                    border: `1px solid ${
-                      adminRole === ROLE.SUPERADMIN
-                        ? "triadic.yellowBright"
-                        : "secondary.main"
-                    }`,
-                    fontWeight: 600,
-                    fontSize: "0.65rem",
-                    height: 20,
-                    zIndex: 1,
-                    // Скрываем на очень маленьких экранах
-                    display: { xs: "none", sm: "flex" },
-                  }}
-                />
+                  <Chip
+                    label={adminIdentityLabel}
+                    size="small"
+                    title={adminIdentityLabel}
+                    sx={{
+                      maxWidth: { xs: 120, sm: 180, md: 240 },
+                      height: 22,
+                      fontWeight: 700,
+                      fontSize: "0.7rem",
+                      backgroundColor: isSuperAdmin
+                        ? "rgba(255, 193, 7, 0.22)"
+                        : "rgba(0, 194, 184, 0.18)",
+                      color: isSuperAdmin ? "#ffc107" : "secondary.main",
+                      border: isSuperAdmin
+                        ? "1px solid rgba(255, 193, 7, 0.55)"
+                        : "1px solid rgba(0, 194, 184, 0.45)",
+                      "& .MuiChip-label": {
+                        px: 0.9,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      },
+                    }}
+                  />
+                </Stack>
               )}
             </Box>
           </Stack>
@@ -1163,6 +1166,8 @@ export default function NavBar({
             $isCarInfo={isCarInfo}
             sx={{
               display: { xs: "flex" },
+              overflow: "visible",
+              px: { xs: 1, sm: 2 },
               // Явно показываем StyledBox на landscape телефоне
               // Используем правильный синтаксис MUI для кастомных media queries
               "@media (max-width:900px) and (orientation: landscape)": {
@@ -1178,7 +1183,6 @@ export default function NavBar({
               pb={1}
               sx={{
                 width: "100%",
-                "& > *": { minWidth: 0 },
                 // apply only for small landscape touch devices (phones/tablets)
                 // Используем правильный синтаксис MUI для кастомных media queries
                 "@media (max-width:900px) and (orientation: landscape) and (hover: none) and (pointer: coarse)":
@@ -1188,8 +1192,18 @@ export default function NavBar({
                   },
               }}
             >
-              {/* Legend: occupy only intrinsic space - loaded via AdminRoot */}
-              <Box sx={{ flex: "0 0 auto", mr: 1, minWidth: 0 }}>
+              {/* Legend: keep full labels visible; wrap instead of clipping */}
+              <Box
+                sx={{
+                  flex: { xs: "1 1 100%", sm: "0 0 auto" },
+                  mr: { sm: 1 },
+                  minWidth: 0,
+                  maxWidth: "100%",
+                  overflow: "visible",
+                  display: "flex",
+                  justifyContent: { xs: "center", sm: "flex-start" },
+                }}
+              >
                 {isAdmin && <AdminRoot showLegend={true} isMain={isMain} />}
               </Box>
 
@@ -1353,25 +1367,54 @@ export default function NavBar({
           <Stack
             direction="row"
             justifyContent="space-between"
-            alignItems="center"
+            alignItems="flex-start"
+            spacing={1}
           >
-            <Link
-              href={homeHref}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-            >
-              <Image
-                src="/logo-hor-dark.png"
-                alt="CarsNK"
-                width={140}
-                height={63}
-                style={{
-                  width: 140,
-                  height: "auto",
-                  objectFit: "contain",
-                }}
-              />
-              {isAdmin && <Logo sx={{ fontSize: 12 }}>ADMIN</Logo>}
-            </Link>
+            <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
+              <Link
+                href={homeHref}
+                style={{ display: "inline-flex", alignItems: "center" }}
+              >
+                <Image
+                  src="/logo-hor-dark.png"
+                  alt="CarsNK"
+                  width={140}
+                  height={63}
+                  style={{
+                    width: 140,
+                    height: "auto",
+                    objectFit: "contain",
+                  }}
+                />
+              </Link>
+              {isAdmin && (
+                <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
+                  <Logo sx={{ fontSize: 12 }}>ADMIN</Logo>
+                  <Chip
+                    label={adminIdentityLabel}
+                    size="small"
+                    title={adminIdentityLabel}
+                    sx={{
+                      maxWidth: 140,
+                      height: 22,
+                      fontWeight: 700,
+                      fontSize: "0.7rem",
+                      backgroundColor: isSuperAdmin
+                        ? "rgba(255, 193, 7, 0.22)"
+                        : "rgba(0, 194, 184, 0.18)",
+                      color: isSuperAdmin ? "#ffc107" : "secondary.main",
+                      border: isSuperAdmin
+                        ? "1px solid rgba(255, 193, 7, 0.55)"
+                        : "1px solid rgba(0, 194, 184, 0.45)",
+                      "& .MuiChip-label": {
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      },
+                    }}
+                  />
+                </Stack>
+              )}
+            </Stack>
             <IconButton onClick={() => setDrawerOpen(false)}>
               <CloseIcon />
             </IconButton>

@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { Box, Typography, useTheme } from "@mui/material";
 import { keyframes } from "@mui/material/styles";
+import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
 import { formatDate } from "@utils/businessTime";
 import { getOrderColor } from "@/domain/orders/getOrderColor";
@@ -52,6 +53,7 @@ function effectiveOrderPrice(order) {
  */
 export default function OrderHoverPreview({ order, conflictHint = false }) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   const { oc, badgeColor, badgeTextColor, durationLabel, priceLine } =
     useMemo(() => {
@@ -72,7 +74,7 @@ export default function OrderHoverPreview({ order, conflictHint = false }) {
           : "#fff";
 
       const days = inclusiveRentalDays(order);
-      const durationLabelLocal = `${days} дн.`;
+      const durationLabelLocal = t("calendar.daysShort", { count: days });
 
       // Calendar hover must show effective fixed order price (manual override first).
       const price = effectiveOrderPrice(order);
@@ -88,11 +90,13 @@ export default function OrderHoverPreview({ order, conflictHint = false }) {
         durationLabel: durationLabelLocal,
         priceLine: priceLineLocal,
       };
-    }, [order, theme.palette]);
+    }, [order, theme.palette, t]);
 
   if (!order) return null;
 
-  const statusLabel = oc?.label ?? "—";
+  const statusLabel = oc?.key
+    ? t(`calendar.legend.${oc.key}`, { defaultValue: oc.label })
+    : oc?.label ?? "—";
   const startStr = formatDate(order.rentalStartDate, "DD.MM.YYYY");
   const endStr = formatDate(order.rentalEndDate, "DD.MM.YYYY");
 
@@ -226,7 +230,7 @@ export default function OrderHoverPreview({ order, conflictHint = false }) {
                 color: "warning.dark",
                 fontWeight: 700,
               }}
-              title="На эту дату есть пересечение по машине"
+              title={t("calendar.tooltips.overlapHint")}
             >
               ⚠
             </Typography>

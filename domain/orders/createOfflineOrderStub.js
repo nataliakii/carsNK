@@ -64,8 +64,6 @@ export async function createOfflineOrderStub(row, ctx) {
 
     const customerName = String(row?.customerName || "").trim();
     const phone = String(row?.phone || "").trim();
-    if (!customerName) return { ok: false, error: "customerName is required" };
-    if (!phone) return { ok: false, error: "phone is required" };
 
     const startDate = toBusinessStartOfDay(row?.rentalStartDate);
     const endDate = toBusinessStartOfDay(row?.rentalEndDate);

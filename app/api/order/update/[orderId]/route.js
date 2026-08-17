@@ -1041,9 +1041,23 @@ export const PATCH = async (request, { params }) => {
         console.log("Order updated successfully");
       }
 
+      const priceOnlyUpdate =
+        payload.isOverridePrice === true ||
+        (typeof payload.totalPrice === "number" &&
+          !datesChanged &&
+          !timesChanged &&
+          !priceAffectingFieldsChanged);
+      const successMessage = priceOnlyUpdate
+        ? payload.isOverridePrice === true
+          ? "Price updated (manual)"
+          : "Price updated"
+        : datesChanged || timesChanged
+          ? "Dates updated successfully"
+          : "Order updated successfully";
+
       return new Response(
         JSON.stringify({
-          message: `ВСЕ ОТЛИЧНО! Даты изменены.`,
+          message: successMessage,
           data: savedOrder,
           updatedOrder: savedOrder,
           status: 201,
