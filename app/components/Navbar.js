@@ -219,6 +219,8 @@ export default function NavBar({
   const { i18n, t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
+  const isAccessLink =
+    typeof pathname === "string" && pathname.startsWith("/access/");
 
   // Загружаем скидку для ВСЕХ пользователей (чтобы показать активную скидку)
   // Сохранение скидки доступно только админам (см. handleSaveDiscount)
@@ -353,9 +355,9 @@ export default function NavBar({
       document.cookie = `NEXT_LOCALE=${selectedLanguage}; path=/; max-age=31536000`;
     }
     // Keep /access/{token}/… URLs intact — locale lives in i18n only there.
-    const isAccessLink =
+    const isAccessLinkPath =
       typeof pathname === "string" && pathname.startsWith("/access/");
-    if (!isAdmin && !isAccessLink && pathname) {
+    if (!isAdmin && !isAccessLinkPath && pathname) {
       router.push(switchPathLocale(pathname, selectedLanguage));
     }
     handleLanguageClose();
@@ -690,14 +692,16 @@ export default function NavBar({
                   </svg>
                 </IconButton>
               )}
-              <IconButton
-                edge="start"
-                color="inherit"
-                onClick={() => setDrawerOpen(true)}
-                sx={{ display: { xs: "block", md: "none" } }}
-              >
-                <MenuIcon />
-              </IconButton>
+              {!isAccessLink ? (
+                <IconButton
+                  edge="start"
+                  color="inherit"
+                  onClick={() => setDrawerOpen(true)}
+                  sx={{ display: { xs: "block", md: "none" } }}
+                >
+                  <MenuIcon />
+                </IconButton>
+              ) : null}
 
               {/* Языковой переключатель - всегда видим */}
               <LanguageSwitcher color="inherit" onClick={handleLanguageClick}>
@@ -1309,6 +1313,7 @@ export default function NavBar({
         )}
       </GradientAppBar>
 
+      {!isAccessLink ? (
       <Drawer
         anchor="right"
         open={drawerOpen}
@@ -1507,6 +1512,7 @@ export default function NavBar({
           </List>
         </Box>
       </Drawer>
+      ) : null}
 
       {/* Admin UI (DiscountModal) - loaded via AdminRoot */}
       {isAdmin && (
