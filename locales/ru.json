@@ -341,7 +341,28 @@
       "zoomIn": "Увеличить",
       "zoomOut": "Уменьшить",
       "settings": "Настройки календаря",
-      "bulkOffline": "Bulk offline"
+      "bulkOffline": "Bulk offline",
+      "buffer": "Буфер: {{value}}",
+      "bufferTooltip": "Буфер между заказами: {{value}} (нажмите для изменения)",
+      "bufferHoursUnit": "{{count}} ч.",
+      "deliveryRateTooltip": "Тариф доставки за километр",
+      "pricePerKmValue": "{{price}} €/км",
+      "pricePerKmEmpty": "— €/км"
+    },
+    "legend": {
+      "PAID_AND_CLOSED": "Закрыт",
+      "CONFIRMED_CLIENT": "Клиент",
+      "CONFIRMED_ADMIN": "Админ",
+      "OFFLINE": "Офлайн",
+      "PENDING_CLIENT": "Ожидает",
+      "PENDING_ADMIN": "Ожидает (админ)",
+      "detailPAID_AND_CLOSED": "Заказ завершён, оплачен и закрыт. Только просмотр.",
+      "detailCONFIRMED_CLIENT": "Клиентский заказ подтверждён. Приоритетный.",
+      "detailCONFIRMED_ADMIN": "Админский заказ (блокировка дат). Подтверждён.",
+      "detailOFFLINE": "Офлайн-бронь вне сайта. Блокирует даты.",
+      "detailPENDING_CLIENT": "Клиентский заказ ожидает подтверждения.",
+      "detailPENDING_ADMIN": "Админский заказ (черновик). Ожидает подтверждения.",
+      "bookedDatesTooltip": "Эти даты уже забронированы"
     }
   },
   "deliveryZonesPage": {

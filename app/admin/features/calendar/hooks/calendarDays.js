@@ -59,6 +59,7 @@ export function buildCalendarDays({
         date: date.date(),
         weekday: date.format("dd"),
         isSunday: date.day() === 0,
+        isMonthStart: date.date() === 1,
       };
     });
   }
@@ -74,6 +75,7 @@ export function buildCalendarDays({
         date: date.date(),
         weekday: date.format("dd"),
         isSunday: date.day() === 0,
+        isMonthStart: date.date() === 1,
       };
     });
   }
@@ -88,6 +90,7 @@ export function buildCalendarDays({
       date: date.date(),
       weekday: date.format("dd"),
       isSunday: date.day() === 0,
+      isMonthStart: date.date() === 1,
     };
   });
 }
@@ -209,11 +212,12 @@ function findTableInScrollContainer(container) {
   return tables[0] ?? null;
 }
 
-function getTheadFirstRowCells(table) {
+/** Day columns live on the last thead row (month-band row may sit above). */
+function getTheadDayRow(table) {
   if (!table) return null;
   const thead = table.tHead || table.getElementsByTagName("thead")[0];
   if (!thead?.rows?.length) return null;
-  return thead.rows[0].cells;
+  return thead.rows[thead.rows.length - 1];
 }
 
 function sumCellWidthsBeforeIndex(cells, index) {
@@ -240,19 +244,36 @@ export function scrollCalendarToToday({ container, todayIndex }) {
     const table = findTableInScrollContainer(container);
     if (!table) return;
 
-    const cells = getTheadFirstRowCells(table);
-    if (!cells || cells.length === 0) return;
+    const thead = table.tHead || table.getElementsByTagName("thead")[0];
+    const dayRow = getTheadDayRow(table);
+    if (!thead || !dayRow?.cells?.length) return;
 
-    const todayColumnIndex = 1 + todayIndex;
-    if (todayColumnIndex < 1 || todayColumnIndex >= cells.length) return;
+    const dayCells = dayRow.cells;
+    let todayColumnIndex = -1;
+    for (let i = 0; i < dayCells.length; i++) {
+      if (dayCells[i].getAttribute("data-col-index") === String(todayIndex)) {
+        todayColumnIndex = i;
+        break;
+      }
+    }
+    if (todayColumnIndex < 0) return;
 
     const containerWidth = container.clientWidth;
     if (!Number.isFinite(containerWidth) || containerWidth <= 0) return;
 
-    const columnLeft = sumCellWidthsBeforeIndex(cells, todayColumnIndex);
+    let columnLeft = sumCellWidthsBeforeIndex(dayCells, todayColumnIndex);
     if (columnLeft == null) return;
 
-    const todayCell = cells[todayColumnIndex];
+    // Month-band layout: day row has only day cells; sticky resource col is on row 0.
+    const dayRowStartsWithDay = dayCells[0]?.hasAttribute("data-col-index");
+    if (dayRowStartsWithDay) {
+      const resourceWidth = thead.rows[0]?.cells?.[0]?.offsetWidth ?? 0;
+      if (Number.isFinite(resourceWidth) && resourceWidth > 0) {
+        columnLeft += resourceWidth;
+      }
+    }
+
+    const todayCell = dayCells[todayColumnIndex];
     const cellWidth = todayCell?.offsetWidth ?? 0;
     if (!Number.isFinite(cellWidth) || cellWidth <= 0) return;
 

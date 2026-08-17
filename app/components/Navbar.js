@@ -869,18 +869,16 @@ export default function NavBar({
                         {t("header.calendar")}
                       </Typography>
                     </Link>
-                    {isSuperAdmin && (
-                      <Link href="/admin/orders">
-                        <Typography
-                          sx={{
-                            ...adminNavLinkSx,
-                            ...(isAdminOrdersRoute ? adminNavActiveSx : null),
-                          }}
-                        >
-                          {t("header.table")}
-                        </Typography>
-                      </Link>
-                    )}
+                    <Link href="/admin/orders">
+                      <Typography
+                        sx={{
+                          ...adminNavLinkSx,
+                          ...(isAdminOrdersRoute ? adminNavActiveSx : null),
+                        }}
+                      >
+                        {t("header.table")}
+                      </Typography>
+                    </Link>
                     <Link href="/admin/delivery-zones">
                       <Typography
                         sx={{
@@ -1427,11 +1425,14 @@ export default function NavBar({
                 <ListItem button component={Link} href="/admin/orders-calendar">
                   <ListItemText primary={t("header.calendar")} />
                 </ListItem>
-                {isSuperAdmin && (
-                  <ListItem button component={Link} href="/admin/orders">
-                    <ListItemText primary={t("header.table")} />
-                  </ListItem>
-                )}
+                <ListItem
+                  button
+                  component={Link}
+                  href="/admin/orders"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  <ListItemText primary={t("header.table")} />
+                </ListItem>
                 <ListItem
                   button
                   component={Link}

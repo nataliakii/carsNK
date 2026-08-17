@@ -21,14 +21,14 @@ const BufferSettingsModal = dynamic(
   { ssr: false }
 );
 
-const TOOLBAR_LEGEND_DETAIL_BY_KEY = {
-  PAID_AND_CLOSED: "Заказ завершён, оплачен и закрыт. Только просмотр.",
-  CONFIRMED_CLIENT: "Клиентский заказ подтверждён. Приоритетный.",
-  CONFIRMED_ADMIN: "Админский заказ (блокировка дат). Подтверждён.",
-  OFFLINE: "Офлайн-бронь вне сайта. Блокирует даты, особая штриховка.",
-  PENDING_CLIENT: "Клиентский заказ ожидает подтверждения.",
-  PENDING_ADMIN: "Админский заказ (черновик). Ожидает подтверждения.",
-};
+const LEGEND_COLOR_KEYS = [
+  "PAID_AND_CLOSED",
+  "CONFIRMED_CLIENT",
+  "CONFIRMED_ADMIN",
+  "OFFLINE",
+  "PENDING_CLIENT",
+  "PENDING_ADMIN",
+];
 
 const LEGEND_POPOVER_ID = "calendar-admin-legend-popover";
 
@@ -95,8 +95,14 @@ function LegendCalendarAdmin({
     typeof bufferRaw === "number" && Number.isFinite(bufferRaw)
       ? bufferRaw >= 24 && bufferRaw % 24 === 0
         ? `${bufferRaw / 24} day`
-        : `${bufferRaw}h`
+        : t("calendar.toolbar.bufferHoursUnit", { count: bufferRaw })
       : "—";
+  const bufferTooltipValue =
+    typeof bufferRaw === "number" && Number.isFinite(bufferRaw)
+      ? t("calendar.toolbar.bufferHoursUnit", { count: bufferRaw })
+      : "—";
+  const legendLabel = (key) => t(`calendar.legend.${key}`);
+  const legendDetail = (key) => t(`calendar.legend.detail${key}`);
 
   const baseItemSx = {
     display: "inline-flex",
@@ -232,48 +238,16 @@ function LegendCalendarAdmin({
           key: "client-confirmed",
           color: ORDER_COLORS.CONFIRMED_CLIENT.main,
           label: t("order.unavailable-dates"),
-          tooltip: "Эти даты уже забронированы",
+          tooltip: t("calendar.legend.bookedDatesTooltip"),
         },
       ]
-    : [
-        {
-          key: "paid-and-closed",
-          color: ORDER_COLORS.PAID_AND_CLOSED.main,
-          label: "Closed",
-          tooltip: "Заказ завершён, оплачен и закрыт. Только просмотр.",
-        },
-        {
-          key: "confirmed-client",
-          color: ORDER_COLORS.CONFIRMED_CLIENT.main,
-          label: "Client",
-          tooltip: "Клиентский заказ подтверждён. Приоритетный.",
-        },
-        {
-          key: "confirmed-admin",
-          color: ORDER_COLORS.CONFIRMED_ADMIN.main,
-          label: "Admin",
-          tooltip: "Админский заказ (блокировка дат). Подтверждён.",
-        },
-        {
-          key: "offline",
-          color: ORDER_COLORS.OFFLINE.main,
-          hatch: true,
-          label: "Offline",
-          tooltip: "Офлайн-бронь вне сайта. Блокирует даты.",
-        },
-        {
-          key: "pending-client",
-          color: ORDER_COLORS.PENDING_CLIENT.main,
-          label: "Pending",
-          tooltip: "Клиентский заказ ожидает подтверждения.",
-        },
-        {
-          key: "pending-admin",
-          color: ORDER_COLORS.PENDING_ADMIN.main,
-          label: "Pending Admin",
-          tooltip: "Админский заказ (черновик). Ожидает подтверждения.",
-        },
-      ];
+    : LEGEND_COLOR_KEYS.map((key) => ({
+        key: key.toLowerCase().replace(/_/g, "-"),
+        color: ORDER_COLORS[key].main,
+        hatch: key === "OFFLINE",
+        label: legendLabel(key),
+        tooltip: legendDetail(key),
+      }));
 
   const toolbarInfoOnly = inToolbar && !showLegendItems;
   const useIconOnlyLegend = Boolean(
@@ -281,14 +255,17 @@ function LegendCalendarAdmin({
   );
   const toolbarInteractiveLegend = Boolean(useIconOnlyLegend && !client);
   const toolbarLegendRows = toolbarInteractiveLegend
-    ? getOrderColorsForLegend().map((oc) => ({
-        key: oc.key,
-        color: oc.main,
-        hatch: Boolean(oc.hatch),
-        hoverTitle: oc.label,
-        label: oc.label,
-        detailTooltip: TOOLBAR_LEGEND_DETAIL_BY_KEY[oc.key] || "",
-      }))
+    ? getOrderColorsForLegend().map((oc) => {
+        const label = legendLabel(oc.key);
+        return {
+          key: oc.key,
+          color: oc.main,
+          hatch: Boolean(oc.hatch),
+          hoverTitle: label,
+          label,
+          detailTooltip: legendDetail(oc.key),
+        };
+      })
     : [];
 
   return (
@@ -525,9 +502,9 @@ function LegendCalendarAdmin({
         >
           {showBufferControls && (
             <Tooltip
-              title={`Буфер между заказами: ${
-                company?.bufferTime != null ? `${company.bufferTime} ч.` : "—"
-              } (нажмите для изменения)`}
+              title={t("calendar.toolbar.bufferTooltip", {
+                value: bufferTooltipValue,
+              })}
               arrow
             >
               <ButtonBase
@@ -563,7 +540,7 @@ function LegendCalendarAdmin({
                     textOverflow: "ellipsis",
                   }}
                 >
-                  Buffer: {bufferLabel}
+                  {t("calendar.toolbar.buffer", { value: bufferLabel })}
                 </Typography>
                 <SettingsIcon sx={{ fontSize: 14, color: "inherit" }} />
               </ButtonBase>
@@ -571,7 +548,7 @@ function LegendCalendarAdmin({
           )}
 
           {showDeliveryInfo && (
-            <Tooltip title="Тариф доставки за километр" arrow>
+            <Tooltip title={t("calendar.toolbar.deliveryRateTooltip")} arrow>
               <Typography
                 variant="caption"
                 sx={{
@@ -592,7 +569,11 @@ function LegendCalendarAdmin({
                   🚚
                 </Box>
                 <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {deliveryPrice != null ? `${deliveryPrice} €/км` : "— €/км"}
+                  {deliveryPrice != null
+                    ? t("calendar.toolbar.pricePerKmValue", {
+                        price: deliveryPrice,
+                      })
+                    : t("calendar.toolbar.pricePerKmEmpty")}
                 </Box>
               </Typography>
             </Tooltip>
@@ -618,43 +599,16 @@ function LegendCalendarAdmin({
             boxSizing: "border-box",
           }}
         >
-          <FullLegendItem
-            color={ORDER_COLORS.PAID_AND_CLOSED.main}
-            label={ORDER_COLORS.PAID_AND_CLOSED.label}
-            tooltip="Заказ завершён, оплачен и закрыт. Только просмотр."
-            wrap
-          />
-          <FullLegendItem
-            color={ORDER_COLORS.CONFIRMED_CLIENT.main}
-            label={ORDER_COLORS.CONFIRMED_CLIENT.label}
-            tooltip="Клиентский заказ подтверждён. Приоритетный."
-            wrap
-          />
-          <FullLegendItem
-            color={ORDER_COLORS.CONFIRMED_ADMIN.main}
-            label={ORDER_COLORS.CONFIRMED_ADMIN.label}
-            tooltip="Админский заказ (блокировка дат). Подтверждён."
-            wrap
-          />
-          <FullLegendItem
-            color={ORDER_COLORS.OFFLINE.main}
-            label={ORDER_COLORS.OFFLINE.label}
-            tooltip="Офлайн-бронь вне сайта. Блокирует даты."
-            hatch
-            wrap
-          />
-          <FullLegendItem
-            color={ORDER_COLORS.PENDING_CLIENT.main}
-            label={ORDER_COLORS.PENDING_CLIENT.label}
-            tooltip="Клиентский заказ ожидает подтверждения."
-            wrap
-          />
-          <FullLegendItem
-            color={ORDER_COLORS.PENDING_ADMIN.main}
-            label={ORDER_COLORS.PENDING_ADMIN.label}
-            tooltip="Админский заказ (черновик). Ожидает подтверждения."
-            wrap
-          />
+          {LEGEND_COLOR_KEYS.map((key) => (
+            <FullLegendItem
+              key={key}
+              color={ORDER_COLORS[key].main}
+              label={legendLabel(key)}
+              tooltip={legendDetail(key)}
+              hatch={key === "OFFLINE"}
+              wrap
+            />
+          ))}
         </Stack>
       )}
 

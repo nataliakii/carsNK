@@ -56,8 +56,8 @@ const FEATURES = {
     feature: "calendar",
   },
   orders: {
-    component: CalendarSection,
-    feature: "calendar",
+    component: OrdersTableSection,
+    feature: "orders-table",
   },
   "orders-table": {
     component: OrdersTableSection,

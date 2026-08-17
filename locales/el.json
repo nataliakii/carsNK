@@ -343,7 +343,28 @@
       "zoomIn": "Μεγέθυνση",
       "zoomOut": "Σμίκρυνση",
       "settings": "Ρυθμίσεις ημερολογίου",
-      "bulkOffline": "Bulk offline"
+      "bulkOffline": "Bulk offline",
+      "buffer": "Buffer: {{value}}",
+      "bufferTooltip": "Διάστημα μεταξύ κρατήσεων: {{value}} (κλικ για αλλαγή)",
+      "bufferHoursUnit": "{{count}}ώ",
+      "deliveryRateTooltip": "Τιμή παράδοσης ανά χιλιόμετρο",
+      "pricePerKmValue": "{{price}} €/χλμ",
+      "pricePerKmEmpty": "— €/χλμ"
+    },
+    "legend": {
+      "PAID_AND_CLOSED": "Closed",
+      "CONFIRMED_CLIENT": "Client",
+      "CONFIRMED_ADMIN": "Admin",
+      "OFFLINE": "Offline",
+      "PENDING_CLIENT": "Pending",
+      "PENDING_ADMIN": "Pending Admin",
+      "detailPAID_AND_CLOSED": "Η κράτηση ολοκληρώθηκε, πληρώθηκε και έκλεισε. Μόνο προβολή.",
+      "detailCONFIRMED_CLIENT": "Επιβεβαιωμένη κράτηση πελάτη. Προτεραιότητα.",
+      "detailCONFIRMED_ADMIN": "Κράτηση διαχειριστή (μπλοκάρισμα ημερομηνιών). Επιβεβαιωμένη.",
+      "detailOFFLINE": "Offline κράτηση εκτός ιστοσελίδας. Μπλοκάρει ημερομηνίες.",
+      "detailPENDING_CLIENT": "Κράτηση πελάτη σε αναμονή επιβεβαίωσης.",
+      "detailPENDING_ADMIN": "Πρόχειρη κράτηση διαχειριστή. Σε αναμονή επιβεβαίωσης.",
+      "bookedDatesTooltip": "Αυτές οι ημερομηνίες είναι ήδη κρατημένες"
     }
   },
   "deliveryZonesPage": {

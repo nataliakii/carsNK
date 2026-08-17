@@ -341,7 +341,28 @@
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
       "settings": "Calendar settings",
-      "bulkOffline": "Bulk offline"
+      "bulkOffline": "Bulk offline",
+      "buffer": "Buffer: {{value}}",
+      "bufferTooltip": "Buffer between orders: {{value}} (click to change)",
+      "bufferHoursUnit": "{{count}}h",
+      "deliveryRateTooltip": "Delivery rate per kilometre",
+      "pricePerKmValue": "{{price}} €/km",
+      "pricePerKmEmpty": "— €/km"
+    },
+    "legend": {
+      "PAID_AND_CLOSED": "Closed",
+      "CONFIRMED_CLIENT": "Client",
+      "CONFIRMED_ADMIN": "Admin",
+      "OFFLINE": "Offline",
+      "PENDING_CLIENT": "Pending",
+      "PENDING_ADMIN": "Pending Admin",
+      "detailPAID_AND_CLOSED": "Order finished, paid and closed. View only.",
+      "detailCONFIRMED_CLIENT": "Confirmed client booking. Priority.",
+      "detailCONFIRMED_ADMIN": "Admin booking (date block). Confirmed.",
+      "detailOFFLINE": "Offline booking outside the site. Blocks dates.",
+      "detailPENDING_CLIENT": "Client booking awaiting confirmation.",
+      "detailPENDING_ADMIN": "Admin draft booking. Awaiting confirmation.",
+      "bookedDatesTooltip": "These dates are already booked"
     }
   },
   "deliveryZonesPage": {
