@@ -35,6 +35,7 @@ export default function AccessTokensSection() {
   const [label, setLabel] = useState("");
   const [expiresInDays, setExpiresInDays] = useState("90");
   const [lastCreatedLink, setLastCreatedLink] = useState("");
+  const [showRevoked, setShowRevoked] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,7 +123,9 @@ export default function AccessTokensSection() {
       if (!res.ok || !body.success) {
         throw new Error(body.message || "Revoke failed");
       }
-      setOk("Link revoked");
+      setOk(
+        "Link revoked — old URL no longer works. Click Generate below to create a new link you can copy."
+      );
       await load();
     } catch (err) {
       setError(err.message || "Revoke failed");
@@ -140,6 +143,9 @@ export default function AccessTokensSection() {
     }
   };
 
+  const visibleTokens = tokens.filter((t) => showRevoked || t.active);
+  const revokedCount = tokens.filter((t) => !t.active).length;
+
   if (loading) {
     return (
       <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}>
@@ -155,7 +161,9 @@ export default function AccessTokensSection() {
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Generate passwordless links for a company page only (e.g. Natali Cars
-        vouchers). Token does not unlock the full admin panel.
+        vouchers). After Generate, copy the full URL immediately — it is shown
+        only once and cannot be recovered later (only revoke / create a new
+        one).
       </Typography>
 
       {error ? (
@@ -163,9 +171,59 @@ export default function AccessTokensSection() {
           {error}
         </Alert>
       ) : null}
-      {ok ? (
+      {ok && !lastCreatedLink ? (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setOk("")}>
           {ok}
+        </Alert>
+      ) : null}
+
+      {lastCreatedLink ? (
+        <Alert
+          severity="success"
+          sx={{
+            mb: 3,
+            border: "2px solid",
+            borderColor: "success.main",
+            "& .MuiAlert-message": { width: "100%" },
+          }}
+          onClose={() => {
+            setLastCreatedLink("");
+            setOk("");
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.75 }}>
+            Copy this link now — it will not be shown again
+          </Typography>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            alignItems={{ sm: "center" }}
+          >
+            <Box
+              sx={{
+                flex: 1,
+                p: 1.25,
+                borderRadius: 1,
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "divider",
+                fontFamily: "monospace",
+                fontSize: 13,
+                wordBreak: "break-all",
+              }}
+            >
+              {lastCreatedLink}
+            </Box>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<ContentCopyIcon />}
+              onClick={() => copy(lastCreatedLink)}
+              sx={{ flexShrink: 0, textTransform: "none", whiteSpace: "nowrap" }}
+            >
+              Copy link
+            </Button>
+          </Stack>
         </Alert>
       ) : null}
 
@@ -238,33 +296,37 @@ export default function AccessTokensSection() {
             Generate
           </Button>
         </Stack>
-
-        {lastCreatedLink ? (
-          <Alert
-            severity="info"
-            sx={{ mt: 2 }}
-            action={
-              <Button
-                color="inherit"
-                size="small"
-                startIcon={<ContentCopyIcon />}
-                onClick={() => copy(lastCreatedLink)}
-              >
-                Copy
-              </Button>
-            }
-          >
-            <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
-              {lastCreatedLink}
-            </Typography>
-          </Alert>
-        ) : null}
       </Box>
 
       <Divider sx={{ mb: 2 }} />
-      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-        Existing links
-      </Typography>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ sm: "center" }}
+        gap={1}
+        mb={1}
+      >
+        <Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Existing links
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Full URLs are not stored. Need a link again? Generate a new one and
+            copy it from the green box.
+          </Typography>
+        </Box>
+        {revokedCount > 0 ? (
+          <Button
+            size="small"
+            onClick={() => setShowRevoked((v) => !v)}
+            sx={{ textTransform: "none", flexShrink: 0 }}
+          >
+            {showRevoked
+              ? "Hide revoked"
+              : `Show revoked (${revokedCount})`}
+          </Button>
+        ) : null}
+      </Stack>
       <Table size="small">
         <TableHead>
           <TableRow>
@@ -278,7 +340,7 @@ export default function AccessTokensSection() {
           </TableRow>
         </TableHead>
         <TableBody>
-          {tokens.map((t) => (
+          {visibleTokens.map((t) => (
             <TableRow key={String(t._id)}>
               <TableCell>{t.companyName}</TableCell>
               <TableCell>{t.label || "—"}</TableCell>
@@ -294,7 +356,7 @@ export default function AccessTokensSection() {
                 {t.active ? (
                   <Chip size="small" color="success" label="active" />
                 ) : (
-                  <Chip size="small" color="default" label="revoked/expired" />
+                  <Chip size="small" color="default" label="revoked" />
                 )}
               </TableCell>
               <TableCell>
@@ -319,10 +381,14 @@ export default function AccessTokensSection() {
               </TableCell>
             </TableRow>
           ))}
-          {tokens.length === 0 ? (
+          {visibleTokens.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7}>
-                <Typography color="text.secondary">No links yet</Typography>
+                <Typography color="text.secondary">
+                  {tokens.length === 0
+                    ? "No links yet — click Generate above."
+                    : "No active links. Click Generate to create one you can copy."}
+                </Typography>
               </TableCell>
             </TableRow>
           ) : null}

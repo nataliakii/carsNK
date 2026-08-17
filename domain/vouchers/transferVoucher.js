@@ -28,17 +28,33 @@ export const COMPANY_STAMP_TEXT = {
 };
 
 /**
- * Field labels: Greek primary; English kept for future bilingual print.
- * UI currently uses `el` (and optionally shows `en` under it when bilingual).
+ * Field labels: Greek / English — one language at a time (no mixed UI).
  */
 export const TRANSFER_VOUCHER_LABELS = {
   agreementDateTime: {
     el: "Ημερομηνία Κατάρτισης",
     en: "Agreement Date & Time",
   },
+  agreementDate: {
+    el: "Ημερομηνία κατάρτισης",
+    en: "Agreement date",
+  },
+  agreementTime: {
+    el: "Ώρα κατάρτισης",
+    en: "Agreement time",
+  },
+  companyHeaderTitle: {
+    el: "Τίτλος εταιρείας",
+    en: "Company title",
+  },
+  companyInfo: {
+    el: "Στοιχεία εταιρείας",
+    en: "Company details",
+  },
   title: { el: "Κουπόνι μεταφοράς", en: "Transfer voucher" },
-  lessee: { el: "Μισθωτής", en: "Lesse" },
-  lesseeDetails: { el: "Στοιχεία Μισθωτή", en: "Lesse details" },
+  pageTitle: { el: "Κουπόνια μεταφοράς", en: "Transfer vouchers" },
+  lessee: { el: "Μισθωτής", en: "Lessee" },
+  lesseeDetails: { el: "Στοιχεία Μισθωτή", en: "Lessee details" },
   dateOfService: { el: "Ημερομηνία Υπηρεσίας", en: "Date of service" },
   pickUpPoint: { el: "Σημείο παραλαβής", en: "Pick up point" },
   rentalDuration: { el: "Διάρκεια μίσθωσης", en: "Rental duration" },
@@ -48,7 +64,7 @@ export const TRANSFER_VOUCHER_LABELS = {
   clientName: { el: "Όνομα πελάτη", en: "Client's name" },
   startingPoint: { el: "Σημείο έναρξης", en: "Starting point" },
   pickUpTime: { el: "Ώρα παραλαβής", en: "Pick up time" },
-  endingTime: { el: "Ώρα λήξης", en: "Ending Time" },
+  endingTime: { el: "Ώρα λήξης", en: "Ending time" },
   passengers: { el: "Αριθμός ατόμων", en: "Number of passengers" },
   driverLicenseNo: {
     el: "Αριθμός άδειας οδήγησης",
@@ -61,15 +77,66 @@ export const TRANSFER_VOUCHER_LABELS = {
   customerSignature: { el: "Υπογραφή Μισθωτή", en: "Customer signature" },
 };
 
+/** Chrome / actions / status messages for the voucher page UI. */
+export const TRANSFER_VOUCHER_UI = {
+  tokenAccessHint: {
+    el: "Πρόσβαση με ειδικό σύνδεσμο (μόνο κουπόνια αυτής της εταιρείας).",
+    en: "Access via special link (vouchers for this company only).",
+  },
+  language: { el: "Γλώσσα", en: "Language" },
+  reset: { el: "Επαναφορά", en: "Reset" },
+  save: { el: "Αποθήκευση", en: "Save" },
+  print: { el: "Εκτύπωση", en: "Print" },
+  send: { el: "Αποστολή", en: "Send" },
+  recipientEmail: { el: "Email παραλήπτη", en: "Recipient email" },
+  emailHelperEmpty: {
+    el: "Η διεύθυνση θα αποθηκευτεί μετά την αποστολή",
+    en: "Address will be saved after sending",
+  },
+  emailHelperSaved: {
+    el: "Αποθηκευμένες διευθύνσεις εμφανίζονται στη λίστα",
+    en: "Saved addresses appear in the list",
+  },
+  formCleared: { el: "Η φόρμα καθαρίστηκε", en: "Form cleared" },
+  savedLocal: {
+    el: "Αποθηκεύτηκε σε αυτή τη συσκευή. Μπορείτε να επιστρέψετε αργότερα.",
+    en: "Saved on this device. You can come back later.",
+  },
+  saveFailed: { el: "Αποτυχία αποθήκευσης", en: "Could not save" },
+  emailInvalid: {
+    el: "Εισαγάγετε έγκυρο email",
+    en: "Enter a valid email",
+  },
+  sentTo: {
+    el: "Στάλθηκε στο",
+    en: "Sent to",
+  },
+  pdfAttached: {
+    el: "(συνημμένο PDF)",
+    en: "(PDF attached)",
+  },
+  sendFailed: { el: "Σφάλμα αποστολής", en: "Send failed" },
+};
+
 export function formatVoucherLabel(key, { locale = "el", bilingual = false } = {}) {
   const entry = TRANSFER_VOUCHER_LABELS[key];
-  if (!entry) return key;
+  if (!entry) return { primary: key, secondary: "" };
   if (bilingual) {
-    // English on top, Greek under — matches original paper form style.
+    // English on top, Greek under — optional dual print mode.
     return { primary: entry.en, secondary: entry.el };
   }
   if (locale === "en") return { primary: entry.en, secondary: "" };
   return { primary: entry.el, secondary: "" };
+}
+
+export function voucherUiText(key, locale = "el") {
+  const entry = TRANSFER_VOUCHER_UI[key];
+  if (!entry) return key;
+  return locale === "en" ? entry.en : entry.el;
+}
+
+export function voucherFieldLabel(key, locale = "el") {
+  return formatVoucherLabel(key, { locale, bilingual: false }).primary;
 }
 
 export const createDefaultTransferVoucherData = () => ({

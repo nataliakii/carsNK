@@ -8,24 +8,28 @@ import {
   Button,
   Chip,
   CircularProgress,
-  FormControlLabel,
   GlobalStyles,
   Grid,
   Paper,
   Stack,
-  Switch,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import LocalPrintshopIcon from "@mui/icons-material/LocalPrintshop";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import SaveIcon from "@mui/icons-material/Save";
 import SendIcon from "@mui/icons-material/Send";
+import { useTranslation } from "react-i18next";
+import { useMainContext } from "@app/Context";
 import {
   createDefaultTransferVoucherData,
   formatDateDisplay,
   formatVoucherLabel,
   normalizeTransferVoucherData,
+  voucherFieldLabel,
+  voucherUiText,
 } from "@/domain/vouchers/transferVoucher";
 
 const DRAFT_KEY = "natali_transfer_voucher_draft_v1";
@@ -416,12 +420,22 @@ export default function TransferVouchersSection({
   const storageSuffix = isTokenMode
     ? `_token_${String(company?._id || "x")}`
     : "_admin";
+  const { i18n } = useTranslation();
+  const { changeLanguage } = useMainContext();
+
+  const voucherLocaleFromSite = (lng) => {
+    const code = String(lng || "el").toLowerCase().slice(0, 2);
+    return code === "el" ? "el" : "en";
+  };
 
   const [form, setForm] = useState(() => {
     const base = createDefaultTransferVoucherData();
+    const siteLocale = voucherLocaleFromSite(i18n?.language);
     return normalizeTransferVoucherData({
       ...base,
       ...(initialDefaults || {}),
+      locale: siteLocale,
+      bilingual: false,
       stampSrc:
         initialDefaults?.stampSrc ||
         company?.voucherStampSrc ||
@@ -433,10 +447,38 @@ export default function TransferVouchersSection({
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(null); // 'save' | 'send' | null
   const [status, setStatus] = useState(null); // { severity, text }
-  const data = useMemo(() => normalizeTransferVoucherData(form), [form]);
+  const data = useMemo(
+    () =>
+      normalizeTransferVoucherData({
+        ...form,
+        bilingual: false,
+        locale: form.locale === "en" ? "en" : "el",
+      }),
+    [form]
+  );
 
   const draftKey = `${DRAFT_KEY}${storageSuffix}`;
   const emailsKey = `${EMAILS_KEY}${storageSuffix}`;
+
+  // Keep voucher EL/EN in sync with the site language switcher.
+  useEffect(() => {
+    const apply = (lng) => {
+      const next = voucherLocaleFromSite(lng);
+      setForm((prev) => {
+        if (prev.locale === next && !prev.bilingual) return prev;
+        return normalizeTransferVoucherData({
+          ...prev,
+          locale: next,
+          bilingual: false,
+        });
+      });
+    };
+    apply(i18n.language);
+    const onChange = (lng) => apply(lng);
+    i18n.on("languageChanged", onChange);
+    return () => i18n.off("languageChanged", onChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n]);
 
   useEffect(() => {
     const draft = (() => {
@@ -451,6 +493,8 @@ export default function TransferVouchersSection({
       setForm(
         normalizeTransferVoucherData({
           ...draft,
+          locale: voucherLocaleFromSite(i18n.language),
+          bilingual: false,
           stampSrc:
             initialDefaults?.stampSrc ||
             company?.voucherStampSrc ||
@@ -459,7 +503,12 @@ export default function TransferVouchersSection({
       );
     } else if (initialDefaults) {
       setForm((prev) =>
-        normalizeTransferVoucherData({ ...prev, ...initialDefaults })
+        normalizeTransferVoucherData({
+          ...prev,
+          ...initialDefaults,
+          locale: voucherLocaleFromSite(i18n.language),
+          bilingual: false,
+        })
       );
     }
     const emails = (() => {
@@ -505,9 +554,11 @@ export default function TransferVouchersSection({
   const handleSave = () => {
     setBusy("save");
     setStatus(null);
+    const locale = form.locale === "en" ? "en" : "el";
     try {
       const normalized = normalizeTransferVoucherData({
         ...form,
+        bilingual: false,
         stampSrc:
           initialDefaults?.stampSrc ||
           company?.voucherStampSrc ||
@@ -519,12 +570,12 @@ export default function TransferVouchersSection({
       if (target.includes("@")) rememberEmail(target);
       setStatus({
         severity: "success",
-        text: "Сохранено на этом устройстве. Можно вернуться позже.",
+        text: voucherUiText("savedLocal", locale),
       });
     } catch (err) {
       setStatus({
         severity: "error",
-        text: err?.message || "Не удалось сохранить",
+        text: err?.message || voucherUiText("saveFailed", locale),
       });
     } finally {
       setBusy(null);
@@ -532,9 +583,13 @@ export default function TransferVouchersSection({
   };
 
   const handleSend = async () => {
+    const locale = form.locale === "en" ? "en" : "el";
     const target = String(email || "").trim().toLowerCase();
     if (!target.includes("@")) {
-      setStatus({ severity: "warning", text: "Укажите корректный email" });
+      setStatus({
+        severity: "warning",
+        text: voucherUiText("emailInvalid", locale),
+      });
       return;
     }
     setBusy("send");
@@ -542,6 +597,7 @@ export default function TransferVouchersSection({
     try {
       const voucher = normalizeTransferVoucherData({
         ...form,
+        bilingual: false,
         stampSrc:
           initialDefaults?.stampSrc ||
           company?.voucherStampSrc ||
@@ -558,94 +614,146 @@ export default function TransferVouchersSection({
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok || payload.success === false) {
-        throw new Error(payload.message || "Не удалось отправить");
+        throw new Error(payload.message || voucherUiText("sendFailed", locale));
       }
       setStatus({
         severity: "success",
-        text: `Отправлено на ${target} (PDF во вложении)`,
+        text: `${voucherUiText("sentTo", locale)} ${target} ${voucherUiText("pdfAttached", locale)}`,
       });
     } catch (err) {
       setStatus({
         severity: "error",
-        text: err?.message || "Ошибка отправки",
+        text: err?.message || voucherUiText("sendFailed", locale),
       });
     } finally {
       setBusy(null);
     }
   };
 
+  const uiLocale = form.locale === "en" ? "en" : "el";
+  const setLocale = (next) => {
+    const locale = next === "en" ? "en" : "el";
+    setForm((prev) =>
+      normalizeTransferVoucherData({
+        ...prev,
+        locale,
+        bilingual: false,
+      })
+    );
+    if (typeof changeLanguage === "function") {
+      changeLanguage(locale);
+    }
+  };
+
+  const fieldLabel = (key) => voucherFieldLabel(key, uiLocale);
+
   return (
     <Box sx={{ p: { xs: 1, md: 2 }, maxWidth: 1280, mx: "auto" }}>
       <GlobalStyles styles={printStyles} />
 
-      <Stack
-        className="no-print"
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1}
-        alignItems={{ sm: "center" }}
-        justifyContent="space-between"
-        sx={{ mb: 2 }}
-      >
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            Κουπόνια μεταφοράς
-            {company?.name ? ` — ${company.name}` : ""}
+      <Box className="no-print" sx={{ mb: 2 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+          {voucherFieldLabel("pageTitle", uiLocale)}
+          {company?.name ? ` — ${company.name}` : ""}
+        </Typography>
+        {isTokenMode ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {voucherUiText("tokenAccessHint", uiLocale)}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {isTokenMode
-              ? "Доступ по специальной ссылке (только ваучеры этой компании)."
-              : "Προς το παρόν μόνο ελληνικά. Αργότερα: ελληνικά + αγγλικά."}
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          {!isTokenMode ? (
-            <FormControlLabel
-              className="no-print"
-              control={
-                <Switch
-                  checked={Boolean(form.bilingual)}
-                  onChange={(e) => setField("bilingual")(e.target.checked)}
-                  size="small"
-                />
-              }
-              label="EN + EL (preview)"
-            />
-          ) : null}
-          <Button
-            variant="outlined"
-            startIcon={<RestartAltIcon />}
-            onClick={() => {
-              const base = createDefaultTransferVoucherData();
-              setForm(
-                normalizeTransferVoucherData({
-                  ...base,
-                  ...(initialDefaults || {}),
-                })
-              );
-              setStatus({ severity: "info", text: "Форма очищена" });
+        ) : (
+          <Box sx={{ mb: 1.5 }} />
+        )}
+
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          alignItems={{ xs: "stretch", sm: "center" }}
+          justifyContent="space-between"
+        >
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={uiLocale}
+            onChange={(_, value) => {
+              if (value) setLocale(value);
+            }}
+            aria-label={voucherUiText("language", uiLocale)}
+            sx={{ alignSelf: { xs: "stretch", sm: "center" } }}
+          >
+            <ToggleButton
+              value="el"
+              sx={{ textTransform: "none", px: 1.5, flex: { xs: 1, sm: "none" } }}
+            >
+              Ελληνικά
+            </ToggleButton>
+            <ToggleButton
+              value="en"
+              sx={{ textTransform: "none", px: 1.5, flex: { xs: 1, sm: "none" } }}
+            >
+              English
+            </ToggleButton>
+          </ToggleButtonGroup>
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "1fr",
+                sm: "repeat(3, minmax(0, 1fr))",
+              },
+              gap: 1,
+              width: { xs: "100%", sm: "auto" },
+              minWidth: { sm: 360 },
+              flex: { sm: "0 1 420px" },
             }}
           >
-            Reset
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={
-              busy === "save" ? <CircularProgress size={14} /> : <SaveIcon />
-            }
-            disabled={Boolean(busy)}
-            onClick={handleSave}
-          >
-            Сохранить
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<LocalPrintshopIcon />}
-            onClick={() => window.print()}
-          >
-            Εκτύπωση
-          </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<RestartAltIcon />}
+              onClick={() => {
+                const base = createDefaultTransferVoucherData();
+                setForm(
+                  normalizeTransferVoucherData({
+                    ...base,
+                    ...(initialDefaults || {}),
+                    locale: uiLocale,
+                    bilingual: false,
+                  })
+                );
+                setStatus({
+                  severity: "info",
+                  text: voucherUiText("formCleared", uiLocale),
+                });
+              }}
+              sx={{ height: 40, whiteSpace: "nowrap" }}
+            >
+              {voucherUiText("reset", uiLocale)}
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={
+                busy === "save" ? <CircularProgress size={14} /> : <SaveIcon />
+              }
+              disabled={Boolean(busy)}
+              onClick={handleSave}
+              sx={{ height: 40, whiteSpace: "nowrap" }}
+            >
+              {voucherUiText("save", uiLocale)}
+            </Button>
+            <Button
+              variant="contained"
+              fullWidth
+              startIcon={<LocalPrintshopIcon />}
+              onClick={() => window.print()}
+              sx={{ height: 40, whiteSpace: "nowrap" }}
+            >
+              {voucherUiText("print", uiLocale)}
+            </Button>
+          </Box>
         </Stack>
-      </Stack>
+      </Box>
 
       {status ? (
         <Alert
@@ -660,9 +768,9 @@ export default function TransferVouchersSection({
 
       <Paper className="no-print" sx={{ p: 2, mb: 2 }}>
         <Stack
-          direction={{ xs: "column", md: "row" }}
+          direction={{ xs: "column", sm: "row" }}
           spacing={1.5}
-          alignItems={{ md: "center" }}
+          alignItems={{ xs: "stretch", sm: "flex-start" }}
         >
           <Autocomplete
             freeSolo
@@ -676,12 +784,12 @@ export default function TransferVouchersSection({
                 {...params}
                 size="small"
                 type="email"
-                label="Email получателя"
+                label={voucherUiText("recipientEmail", uiLocale)}
                 placeholder="client@example.com"
                 helperText={
                   savedEmails.length
-                    ? "Сохранённые адреса подставляются из списка"
-                    : "Адрес сохранится после отправки"
+                    ? voucherUiText("emailHelperSaved", uiLocale)
+                    : voucherUiText("emailHelperEmpty", uiLocale)
                 }
               />
             )}
@@ -694,9 +802,14 @@ export default function TransferVouchersSection({
             }
             disabled={Boolean(busy) || !hydrated}
             onClick={handleSend}
-            sx={{ flexShrink: 0, minWidth: 160 }}
+            sx={{
+              flexShrink: 0,
+              height: 40,
+              minWidth: { xs: "100%", sm: 160 },
+              mt: { sm: "1px" },
+            }}
           >
-            Отправить
+            {voucherUiText("send", uiLocale)}
           </Button>
         </Stack>
         {savedEmails.length > 0 ? (
@@ -730,111 +843,111 @@ export default function TransferVouchersSection({
           <Paper sx={{ p: 2 }}>
             <Stack spacing={1.25}>
               <FormField
-                label="Τίτλος εταιρείας"
+                label={fieldLabel("companyHeaderTitle")}
                 value={form.companyHeaderTitle}
                 onChange={setField("companyHeaderTitle")}
               />
               <FormField
-                label="Στοιχεία εταιρείας"
+                label={fieldLabel("companyInfo")}
                 value={form.companyInfo}
                 onChange={setField("companyInfo")}
                 multiline
               />
               <FormField
-                label="Ημερομηνία κατάρτισης"
+                label={fieldLabel("agreementDate")}
                 type="date"
                 value={form.agreementDate}
                 onChange={setField("agreementDate")}
               />
               <FormField
-                label="Ώρα κατάρτισης"
+                label={fieldLabel("agreementTime")}
                 value={form.agreementTime}
                 onChange={setField("agreementTime")}
               />
               <FormField
-                label="Μισθωτής"
+                label={fieldLabel("lessee")}
                 value={form.lessee}
                 onChange={setField("lessee")}
               />
               <FormField
-                label="Στοιχεία μισθωτή"
+                label={fieldLabel("lesseeDetails")}
                 value={form.lesseeDetails}
                 onChange={setField("lesseeDetails")}
                 multiline
               />
               <FormField
-                label="Όνομα πελάτη"
+                label={fieldLabel("clientName")}
                 value={form.clientName}
                 onChange={setField("clientName")}
               />
               <FormField
-                label="Ημερομηνία υπηρεσίας"
+                label={fieldLabel("dateOfService")}
                 type="date"
                 value={form.dateOfService}
                 onChange={setField("dateOfService")}
               />
               <FormField
-                label="Σημείο έναρξης"
+                label={fieldLabel("startingPoint")}
                 value={form.startingPoint}
                 onChange={setField("startingPoint")}
               />
               <FormField
-                label="Σημείο παραλαβής"
+                label={fieldLabel("pickUpPoint")}
                 value={form.pickUpPoint}
                 onChange={setField("pickUpPoint")}
               />
               <FormField
-                label="Ώρα παραλαβής"
+                label={fieldLabel("pickUpTime")}
                 value={form.pickUpTime}
                 onChange={setField("pickUpTime")}
               />
               <FormField
-                label="Ώρα λήξης"
+                label={fieldLabel("endingTime")}
                 value={form.endingTime}
                 onChange={setField("endingTime")}
               />
               <FormField
-                label="Διάρκεια μίσθωσης"
+                label={fieldLabel("rentalDuration")}
                 value={form.rentalDuration}
                 onChange={setField("rentalDuration")}
               />
               <FormField
-                label="Αριθμός ατόμων"
+                label={fieldLabel("passengers")}
                 value={form.passengers}
                 onChange={setField("passengers")}
               />
               <FormField
-                label="Τύπος οχήματος"
+                label={fieldLabel("vehicleType")}
                 value={form.vehicleType}
                 onChange={setField("vehicleType")}
               />
               <FormField
-                label="Αρ. κυκλοφορίας"
+                label={fieldLabel("vehicleRegNum")}
                 value={form.vehicleRegNum}
                 onChange={setField("vehicleRegNum")}
               />
               <FormField
-                label="Όνομα οδηγού"
+                label={fieldLabel("driverName")}
                 value={form.driverName}
                 onChange={setField("driverName")}
               />
               <FormField
-                label="Αριθμός άδειας οδήγησης"
+                label={fieldLabel("driverLicenseNo")}
                 value={form.driverLicenseNo}
                 onChange={setField("driverLicenseNo")}
               />
               <FormField
-                label="Αριθμός ΔΤ οδηγού"
+                label={fieldLabel("driverIdNo")}
                 value={form.driverIdNo}
                 onChange={setField("driverIdNo")}
               />
               <FormField
-                label="Ποσό"
+                label={fieldLabel("amount")}
                 value={form.amount}
                 onChange={setField("amount")}
               />
               <FormField
-                label="Παρατηρήσεις"
+                label={fieldLabel("notes")}
                 value={form.notes}
                 onChange={setField("notes")}
                 multiline

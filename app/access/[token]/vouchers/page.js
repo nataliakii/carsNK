@@ -8,6 +8,7 @@ import {
   buildCompanyVoucherDefaults,
   getCompanyVoucherStampSrc,
 } from "@/domain/vouchers/companyStamp";
+import Feed from "@app/components/Feed";
 import TransferVouchersSection from "@/app/admin/vouchers/TransferVouchersSection";
 
 export const metadata = {
@@ -19,6 +20,7 @@ export const metadata = {
  * Passwordless voucher page:
  * /access/[token]/vouchers
  * Token must include scope vouchers.transfer and binds to one company (stamp).
+ * Language comes from the site language switcher (EL/EN) without changing the URL.
  */
 export default async function AccessVouchersPage({ params }) {
   unstable_noStore();
@@ -34,19 +36,26 @@ export default async function AccessVouchersPage({ params }) {
   if (!company) notFound();
 
   const defaults = buildCompanyVoucherDefaults(company);
-  const safeCompany = {
-    _id: String(company._id),
-    name: company.name,
-    voucherStampSrc: getCompanyVoucherStampSrc(company),
-  };
+  const safeCompany = JSON.parse(
+    JSON.stringify({
+      _id: String(company._id),
+      name: company.name,
+      voucherStampSrc: getCompanyVoucherStampSrc(company),
+      tel: company.tel,
+      email: company.email,
+      address: company.address,
+    })
+  );
 
   return (
-    <TransferVouchersSection
-      mode="token"
-      accessToken={rawToken}
-      company={safeCompany}
-      initialDefaults={defaults}
-      emailApiPath={`/api/access/${encodeURIComponent(rawToken)}/vouchers/email`}
-    />
+    <Feed cars={[]} orders={[]} company={safeCompany} isMain={false}>
+      <TransferVouchersSection
+        mode="token"
+        accessToken={rawToken}
+        company={safeCompany}
+        initialDefaults={defaults}
+        emailApiPath={`/api/access/${encodeURIComponent(rawToken)}/vouchers/email`}
+      />
+    </Feed>
   );
 }

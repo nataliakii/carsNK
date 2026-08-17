@@ -2,9 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
+  Checkbox,
+  Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  List,
+  ListItemButton,
+  ListItemText,
   MenuItem,
   Stack,
   Table,
@@ -13,13 +26,24 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
-  Alert,
-  Divider,
 } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import SearchIcon from "@mui/icons-material/Search";
+import Link from "next/link";
 
 const ROLE_ADMIN = 1;
 const ROLE_SUPERADMIN = 2;
+
+function shortId(id) {
+  const s = String(id || "");
+  if (s.length <= 10) return s;
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
+}
 
 export default function OwnersSection() {
   const [companies, setCompanies] = useState([]);
@@ -27,18 +51,22 @@ export default function OwnersSection() {
   const [cars, setCars] = useState([]);
   const [unassignedCarCount, setUnassignedCarCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
 
+  const [selectedCompanyId, setSelectedCompanyId] = useState("");
+  const [carQuery, setCarQuery] = useState("");
+  const [carFilter, setCarFilter] = useState("all"); // all | company | unassigned | other
+  const [selectedCarIds, setSelectedCarIds] = useState([]);
+
+  const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [companyEmail, setCompanyEmail] = useState("");
 
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
-  const [userOwnerId, setUserOwnerId] = useState("");
-
-  const [assignOwnerId, setAssignOwnerId] = useState("");
-  const [selectedCarIds, setSelectedCarIds] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,22 +74,27 @@ export default function OwnersSection() {
     try {
       const [ownersRes, carsRes] = await Promise.all([
         fetch("/api/admin/owners"),
-        fetch("/api/car/all"),
+        fetch("/api/car/all", { method: "POST", cache: "no-store" }),
       ]);
       const ownersBody = await ownersRes.json();
       if (!ownersRes.ok || !ownersBody.success) {
         throw new Error(ownersBody.message || "Failed to load owners");
       }
-      setCompanies(ownersBody.companies || []);
+      const list = ownersBody.companies || [];
+      setCompanies(list);
       setUsers(ownersBody.users || []);
       setUnassignedCarCount(ownersBody.unassignedCarCount || 0);
+      setSelectedCompanyId((prev) => {
+        if (prev && list.some((c) => String(c._id) === prev)) return prev;
+        return list[0] ? String(list[0]._id) : "";
+      });
 
       if (carsRes.ok) {
         const carsBody = await carsRes.json();
-        const list = Array.isArray(carsBody)
+        const carList = Array.isArray(carsBody)
           ? carsBody
           : carsBody?.data || carsBody?.cars || [];
-        setCars(list);
+        setCars(carList);
       }
     } catch (err) {
       setError(err.message || "Failed to load");
@@ -80,7 +113,65 @@ export default function OwnersSection() {
     return map;
   }, [companies]);
 
+  const selectedCompany = useMemo(
+    () => companies.find((c) => String(c._id) === selectedCompanyId) || null,
+    [companies, selectedCompanyId]
+  );
+
+  const adminsForCompany = useMemo(() => {
+    if (!selectedCompanyId) return [];
+    return users.filter(
+      (u) =>
+        Number(u.role) !== ROLE_SUPERADMIN &&
+        String(u.ownerId || "") === selectedCompanyId
+    );
+  }, [users, selectedCompanyId]);
+
+  const superadmins = useMemo(
+    () => users.filter((u) => Number(u.role) === ROLE_SUPERADMIN),
+    [users]
+  );
+
+  const adminCountByCompany = useMemo(() => {
+    const map = {};
+    for (const u of users) {
+      if (Number(u.role) === ROLE_SUPERADMIN) continue;
+      const oid = String(u.ownerId || "");
+      if (!oid) continue;
+      map[oid] = (map[oid] || 0) + 1;
+    }
+    return map;
+  }, [users]);
+
+  const filteredCars = useMemo(() => {
+    const q = carQuery.trim().toLowerCase();
+    return (cars || []).filter((car) => {
+      const owner = car.ownerId ? String(car.ownerId) : "";
+      if (carFilter === "company" && owner !== selectedCompanyId) return false;
+      if (carFilter === "unassigned" && owner) return false;
+      if (
+        carFilter === "other" &&
+        (!owner || owner === selectedCompanyId)
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      const hay = `${car.model || ""} ${car.carNumber || ""} ${car.regNumber || ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [cars, carQuery, carFilter, selectedCompanyId]);
+
+  const copyText = async (text) => {
+    try {
+      await navigator.clipboard.writeText(String(text));
+      setOk("Copied");
+    } catch {
+      setError("Could not copy");
+    }
+  };
+
   const createCompany = async () => {
+    setBusy(true);
     setError("");
     setOk("");
     try {
@@ -93,14 +184,19 @@ export default function OwnersSection() {
       if (!res.ok || !body.success) throw new Error(body.message || "Failed");
       setCompanyName("");
       setCompanyEmail("");
+      setCompanyDialogOpen(false);
       setOk(`Company created: ${body.company?.name}`);
       await load();
+      if (body.company?._id) setSelectedCompanyId(String(body.company._id));
     } catch (err) {
       setError(err.message || "Failed");
+    } finally {
+      setBusy(false);
     }
   };
 
   const createUser = async () => {
+    setBusy(true);
     setError("");
     setOk("");
     try {
@@ -111,21 +207,26 @@ export default function OwnersSection() {
           email: userEmail,
           password: userPassword,
           role: ROLE_ADMIN,
-          ownerId: userOwnerId,
+          ownerId: selectedCompanyId,
         }),
       });
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.message || "Failed");
       setUserEmail("");
       setUserPassword("");
-      setOk(`Admin created: ${body.user?.email}`);
+      setAdminDialogOpen(false);
+      setOk(`Admin created for ${selectedCompany?.name || "company"}: ${body.user?.email}`);
       await load();
     } catch (err) {
       setError(err.message || "Failed");
+    } finally {
+      setBusy(false);
     }
   };
 
-  const assignCars = async () => {
+  const assignCars = async (ownerId = selectedCompanyId) => {
+    if (!ownerId || selectedCarIds.length === 0) return;
+    setBusy(true);
     setError("");
     setOk("");
     try {
@@ -133,7 +234,7 @@ export default function OwnersSection() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ownerId: assignOwnerId,
+          ownerId,
           carIds: selectedCarIds,
           updateOrders: true,
         }),
@@ -142,11 +243,13 @@ export default function OwnersSection() {
       if (!res.ok || !body.success) throw new Error(body.message || "Failed");
       setSelectedCarIds([]);
       setOk(
-        `Assigned ${body.carsModified} cars (${body.ordersModified} orders updated)`
+        `Moved ${body.carsModified} cars to ${companyNameById[ownerId] || "company"} (orders updated: ${body.ordersModified})`
       );
       await load();
     } catch (err) {
       setError(err.message || "Failed");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -155,6 +258,17 @@ export default function OwnersSection() {
     setSelectedCarIds((prev) =>
       prev.includes(sid) ? prev.filter((x) => x !== sid) : [...prev, sid]
     );
+  };
+
+  const toggleAllFiltered = () => {
+    const ids = filteredCars.map((c) => String(c._id));
+    const allSelected =
+      ids.length > 0 && ids.every((id) => selectedCarIds.includes(id));
+    if (allSelected) {
+      setSelectedCarIds((prev) => prev.filter((id) => !ids.includes(id)));
+    } else {
+      setSelectedCarIds((prev) => Array.from(new Set([...prev, ...ids])));
+    }
   };
 
   if (loading) {
@@ -166,14 +280,62 @@ export default function OwnersSection() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200, mx: "auto" }}>
-      <Typography variant="h5" fontWeight={700} mb={0.75}>
-        Owners &amp; admins
-      </Typography>
-      <Typography variant="body2" color="text.secondary" mb={2.5}>
-        Multi-tenant: each partner company owns a fleet. ADMIN users see only
-        their ownerId. Unassigned cars: {unassignedCarCount}.
-      </Typography>
+    <Box sx={{ p: { xs: 1.5, md: 3 }, maxWidth: 1280, mx: "auto" }}>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ sm: "flex-start" }}
+        gap={1.5}
+        mb={2}
+      >
+        <Box>
+          <Typography variant="h5" fontWeight={700}>
+            Partner companies
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Pick a company → manage its login and fleet. Superadmin sees
+            everyone; each company admin only sees their cars.
+          </Typography>
+        </Box>
+        <Stack direction="row" gap={1} flexWrap="wrap">
+          <Button
+            component={Link}
+            href="/admin/access-tokens"
+            variant="outlined"
+            sx={{ textTransform: "none" }}
+          >
+            Access links
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCompanyDialogOpen(true)}
+            sx={{ textTransform: "none" }}
+          >
+            New company
+          </Button>
+        </Stack>
+      </Stack>
+
+      <Stack direction="row" gap={1} flexWrap="wrap" mb={2}>
+        <Chip label={`${companies.length} companies`} size="small" />
+        <Chip
+          label={`${users.filter((u) => Number(u.role) === ROLE_ADMIN).length} company admins`}
+          size="small"
+        />
+        <Chip
+          color={unassignedCarCount > 0 ? "warning" : "default"}
+          label={`${unassignedCarCount} unassigned cars`}
+          size="small"
+        />
+        {superadmins.length > 0 ? (
+          <Chip
+            variant="outlined"
+            label={`Superadmin: ${superadmins.map((u) => u.email).join(", ")}`}
+            size="small"
+          />
+        ) : null}
+      </Stack>
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -181,218 +343,450 @@ export default function OwnersSection() {
         </Alert>
       ) : null}
       {ok ? (
-        <Alert severity="success" sx={{ mb: 2.5 }} onClose={() => setOk("")}>
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setOk("")}>
           {ok}
         </Alert>
       ) : null}
 
       <Stack
         direction={{ xs: "column", md: "row" }}
-        gap={3}
-        alignItems="flex-start"
-        mb={1}
+        gap={2}
+        alignItems="stretch"
       >
-        <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
-          <Typography variant="h6" mb={1.25}>
-            Companies
-          </Typography>
-          <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={2}>
+        {/* Company list */}
+        <Box
+          sx={{
+            width: { xs: "100%", md: 300 },
+            flexShrink: 0,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            overflow: "hidden",
+          }}
+        >
+          <Box sx={{ px: 2, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
+            <Typography variant="subtitle2" fontWeight={700}>
+              Companies
+            </Typography>
+          </Box>
+          <List dense disablePadding>
+            {companies.map((c) => {
+              const id = String(c._id);
+              const selected = id === selectedCompanyId;
+              return (
+                <ListItemButton
+                  key={id}
+                  selected={selected}
+                  onClick={() => {
+                    setSelectedCompanyId(id);
+                    setSelectedCarIds([]);
+                    setCarFilter("company");
+                  }}
+                  sx={{ py: 1.25, alignItems: "flex-start" }}
+                >
+                  <ListItemText
+                    primary={
+                      <Typography fontWeight={selected ? 700 : 600}>
+                        {c.name}
+                      </Typography>
+                    }
+                    secondary={
+                      <Stack
+                        component="span"
+                        direction="row"
+                        gap={0.75}
+                        flexWrap="wrap"
+                        useFlexGap
+                        sx={{ mt: 0.5 }}
+                      >
+                        <Chip
+                          size="small"
+                          icon={<DirectionsCarIcon />}
+                          label={`${c.carCount || 0} cars`}
+                          sx={{ height: 22, "& .MuiChip-label": { px: 0.75 } }}
+                        />
+                        <Chip
+                          size="small"
+                          label={`${adminCountByCompany[id] || 0} admins`}
+                          sx={{ height: 22, "& .MuiChip-label": { px: 0.75 } }}
+                        />
+                      </Stack>
+                    }
+                    secondaryTypographyProps={{ component: "div" }}
+                  />
+                </ListItemButton>
+              );
+            })}
+            {companies.length === 0 ? (
+              <Box sx={{ p: 2 }}>
+                <Typography color="text.secondary" variant="body2">
+                  No companies yet. Create the first partner.
+                </Typography>
+              </Box>
+            ) : null}
+          </List>
+        </Box>
+
+        {/* Detail */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {!selectedCompany ? (
+            <Alert severity="info">Select a company on the left.</Alert>
+          ) : (
+            <Stack gap={2}>
+              <Box
+                sx={{
+                  p: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                  bgcolor: "background.paper",
+                }}
+              >
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  justifyContent="space-between"
+                  gap={1.5}
+                  alignItems={{ sm: "center" }}
+                >
+                  <Box>
+                    <Typography variant="h6" fontWeight={700}>
+                      {selectedCompany.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {selectedCompany.email || "No email"}
+                      {selectedCompany.tel ? ` · ${selectedCompany.tel}` : ""}
+                    </Typography>
+                    <Stack direction="row" alignItems="center" gap={0.5} mt={0.5}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ fontFamily: "monospace" }}
+                      >
+                        ID {shortId(selectedCompany._id)}
+                      </Typography>
+                      <Tooltip title="Copy company ID">
+                        <IconButton
+                          size="small"
+                          onClick={() => copyText(selectedCompany._id)}
+                        >
+                          <ContentCopyIcon fontSize="inherit" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  </Box>
+                  <Button
+                    variant="outlined"
+                    startIcon={<PersonAddIcon />}
+                    onClick={() => setAdminDialogOpen(true)}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Add admin
+                  </Button>
+                </Stack>
+              </Box>
+
+              <Box
+                sx={{
+                  p: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                  bgcolor: "background.paper",
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight={700} mb={1}>
+                  Admins for this company
+                </Typography>
+                {adminsForCompany.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" mb={1}>
+                    No company admin yet. Add one so they can log in and manage
+                    only this fleet.
+                  </Typography>
+                ) : (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Email</TableCell>
+                        <TableCell>Username</TableCell>
+                        <TableCell>Role</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {adminsForCompany.map((u) => (
+                        <TableRow key={String(u._id)}>
+                          <TableCell>{u.email}</TableCell>
+                          <TableCell>{u.username || "—"}</TableCell>
+                          <TableCell>
+                            <Chip size="small" label="ADMIN" color="primary" variant="outlined" />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </Box>
+
+              <Box
+                sx={{
+                  p: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                  bgcolor: "background.paper",
+                }}
+              >
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  justifyContent="space-between"
+                  gap={1}
+                  mb={1.5}
+                  alignItems={{ sm: "center" }}
+                >
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Fleet assignment
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    disabled={busy || !selectedCompanyId || selectedCarIds.length === 0}
+                    onClick={() => assignCars(selectedCompanyId)}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Assign to {selectedCompany.name} ({selectedCarIds.length})
+                  </Button>
+                </Stack>
+
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  gap={1}
+                  mb={1.5}
+                  flexWrap="wrap"
+                >
+                  <TextField
+                    size="small"
+                    placeholder="Search model / number"
+                    value={carQuery}
+                    onChange={(e) => setCarQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ minWidth: 220, flex: 1 }}
+                  />
+                  <TextField
+                    size="small"
+                    select
+                    label="Show"
+                    value={carFilter}
+                    onChange={(e) => setCarFilter(e.target.value)}
+                    sx={{ minWidth: 180 }}
+                  >
+                    <MenuItem value="company">This company</MenuItem>
+                    <MenuItem value="unassigned">Unassigned only</MenuItem>
+                    <MenuItem value="other">Other companies</MenuItem>
+                    <MenuItem value="all">All cars</MenuItem>
+                  </TextField>
+                </Stack>
+
+                {unassignedCarCount > 0 && carFilter !== "unassigned" ? (
+                  <Alert
+                    severity="warning"
+                    sx={{ mb: 1.5 }}
+                    action={
+                      <Button
+                        color="inherit"
+                        size="small"
+                        onClick={() => setCarFilter("unassigned")}
+                        sx={{ textTransform: "none" }}
+                      >
+                        Show
+                      </Button>
+                    }
+                  >
+                    {unassignedCarCount} cars have no company — assign them here.
+                  </Alert>
+                ) : null}
+
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          size="small"
+                          indeterminate={
+                            filteredCars.some((c) =>
+                              selectedCarIds.includes(String(c._id))
+                            ) &&
+                            !filteredCars.every((c) =>
+                              selectedCarIds.includes(String(c._id))
+                            )
+                          }
+                          checked={
+                            filteredCars.length > 0 &&
+                            filteredCars.every((c) =>
+                              selectedCarIds.includes(String(c._id))
+                            )
+                          }
+                          onChange={toggleAllFiltered}
+                        />
+                      </TableCell>
+                      <TableCell>Car</TableCell>
+                      <TableCell>#</TableCell>
+                      <TableCell>Owner</TableCell>
+                      <TableCell>Site</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredCars.map((car) => {
+                      const id = String(car._id);
+                      const checked = selectedCarIds.includes(id);
+                      const ownerLabel = car.ownerId
+                        ? companyNameById[String(car.ownerId)] || shortId(car.ownerId)
+                        : "Unassigned";
+                      return (
+                        <TableRow
+                          key={id}
+                          hover
+                          selected={checked}
+                          onClick={() => toggleCar(id)}
+                          sx={{ cursor: "pointer" }}
+                        >
+                          <TableCell padding="checkbox">
+                            <Checkbox size="small" checked={checked} />
+                          </TableCell>
+                          <TableCell>{car.model}</TableCell>
+                          <TableCell>{car.carNumber}</TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              color={!car.ownerId ? "warning" : "default"}
+                              variant={!car.ownerId ? "filled" : "outlined"}
+                              label={ownerLabel}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {car.isActive === false ? (
+                              <Chip size="small" color="default" label="Hidden" />
+                            ) : (
+                              <Chip size="small" color="success" variant="outlined" label="Active" />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {filteredCars.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5}>
+                          <Typography color="text.secondary" variant="body2">
+                            No cars match this filter.
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                  </TableBody>
+                </Table>
+              </Box>
+            </Stack>
+          )}
+        </Box>
+      </Stack>
+
+      <Dialog
+        open={companyDialogOpen}
+        onClose={() => !busy && setCompanyDialogOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>New partner company</DialogTitle>
+        <DialogContent>
+          <Stack gap={1.5} sx={{ pt: 1 }}>
             <TextField
-              size="small"
-              label="New company name"
+              label="Company name"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
+              autoFocus
               fullWidth
             />
             <TextField
-              size="small"
-              label="Email"
+              label="Email (optional)"
               value={companyEmail}
               onChange={(e) => setCompanyEmail(e.target.value)}
               fullWidth
             />
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={createCompany}
-              disabled={!companyName}
-              sx={{ flexShrink: 0, textTransform: "none", whiteSpace: "nowrap" }}
-            >
-              Create company
-            </Button>
           </Stack>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Cars</TableCell>
-                <TableCell>ID</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {companies.map((c) => (
-                <TableRow key={String(c._id)}>
-                  <TableCell>{c.name}</TableCell>
-                  <TableCell>{c.email}</TableCell>
-                  <TableCell>{c.carCount}</TableCell>
-                  <TableCell
-                    title={String(c._id)}
-                    sx={{
-                      fontFamily: "monospace",
-                      fontSize: 12,
-                      maxWidth: 120,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {String(c._id)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCompanyDialogOpen(false)} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={createCompany}
+            disabled={busy || !companyName.trim()}
+            sx={{ textTransform: "none" }}
+          >
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
-          <Typography variant="h6" mb={1.25}>
-            Admin users
+      <Dialog
+        open={adminDialogOpen}
+        onClose={() => !busy && setAdminDialogOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>
+          Add admin
+          {selectedCompany ? ` — ${selectedCompany.name}` : ""}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            This login will only see cars and orders for this company.
           </Typography>
-          <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={2} flexWrap="wrap">
+          <Stack gap={1.5}>
             <TextField
-              size="small"
-              select
-              label="Owner company"
-              value={userOwnerId}
-              onChange={(e) => setUserOwnerId(e.target.value)}
-              sx={{ minWidth: { sm: 140 }, flex: "1 1 140px" }}
-            >
-              {companies.map((c) => (
-                <MenuItem key={String(c._id)} value={String(c._id)}>
-                  {c.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              size="small"
-              label="Admin email"
+              label="Email"
               value={userEmail}
               onChange={(e) => setUserEmail(e.target.value)}
-              sx={{ flex: "1 1 160px" }}
+              autoFocus
+              fullWidth
             />
             <TextField
-              size="small"
               type="password"
-              label="Password"
+              label="Password (min 6)"
               value={userPassword}
               onChange={(e) => setUserPassword(e.target.value)}
-              sx={{ flex: "1 1 120px" }}
+              fullWidth
             />
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={createUser}
-              disabled={!userEmail || !userPassword || !userOwnerId}
-              sx={{ flexShrink: 0, textTransform: "none", whiteSpace: "nowrap" }}
-            >
-              Create ADMIN
-            </Button>
+            <FormControlLabel
+              control={<Checkbox checked disabled />}
+              label={`Owner: ${selectedCompany?.name || "—"}`}
+            />
           </Stack>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Email</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell>Owner</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {users.map((u) => (
-                <TableRow key={String(u._id)}>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>
-                    {Number(u.role) === ROLE_SUPERADMIN
-                      ? "SUPERADMIN"
-                      : "ADMIN"}
-                  </TableCell>
-                  <TableCell>
-                    {u.ownerId
-                      ? companyNameById[String(u.ownerId)] || String(u.ownerId)
-                      : "—"}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
-      </Stack>
-
-      <Divider sx={{ my: 3 }} />
-
-      <Typography variant="h6" mb={1.25}>
-        Assign cars to owner
-      </Typography>
-      <Stack direction={{ xs: "column", sm: "row" }} gap={1} mb={2}>
-        <TextField
-          size="small"
-          select
-          label="Owner"
-          value={assignOwnerId}
-          onChange={(e) => setAssignOwnerId(e.target.value)}
-          sx={{ minWidth: 180 }}
-        >
-          {companies.map((c) => (
-            <MenuItem key={String(c._id)} value={String(c._id)}>
-              {c.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={assignCars}
-          disabled={!assignOwnerId || selectedCarIds.length === 0}
-          sx={{ textTransform: "none", whiteSpace: "nowrap" }}
-        >
-          Assign selected ({selectedCarIds.length})
-        </Button>
-      </Stack>
-
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell padding="checkbox" />
-            <TableCell>Model</TableCell>
-            <TableCell>#</TableCell>
-            <TableCell>Owner</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {cars.map((car) => {
-            const id = String(car._id);
-            const checked = selectedCarIds.includes(id);
-            return (
-              <TableRow
-                key={id}
-                hover
-                selected={checked}
-                onClick={() => toggleCar(id)}
-                sx={{ cursor: "pointer" }}
-              >
-                <TableCell padding="checkbox">{checked ? "✓" : ""}</TableCell>
-                <TableCell>{car.model}</TableCell>
-                <TableCell>{car.carNumber}</TableCell>
-                <TableCell>
-                  {car.ownerId
-                    ? companyNameById[String(car.ownerId)] || String(car.ownerId)
-                    : "— unassigned"}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAdminDialogOpen(false)} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={createUser}
+            disabled={
+              busy ||
+              !selectedCompanyId ||
+              !userEmail.trim() ||
+              userPassword.trim().length < 6
+            }
+            sx={{ textTransform: "none" }}
+          >
+            Create admin
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

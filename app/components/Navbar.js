@@ -352,7 +352,10 @@ export default function NavBar({
     if (typeof document !== "undefined") {
       document.cookie = `NEXT_LOCALE=${selectedLanguage}; path=/; max-age=31536000`;
     }
-    if (!isAdmin && pathname) {
+    // Keep /access/{token}/… URLs intact — locale lives in i18n only there.
+    const isAccessLink =
+      typeof pathname === "string" && pathname.startsWith("/access/");
+    if (!isAdmin && !isAccessLink && pathname) {
       router.push(switchPathLocale(pathname, selectedLanguage));
     }
     handleLanguageClose();
