@@ -1477,8 +1477,14 @@ const EditOrderModal = ({
                           >
                             <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>
                               {activeDiscount
-                                ? `Скидка ${activeDiscountValue} применена`
-                                : `Скидка ${dailyRates.find((d) => d.discountActive)?.discount || 0}% применена`}
+                                ? t("order.priceSummary.discountAppliedValue", {
+                                    value: activeDiscountValue,
+                                  })
+                                : t("order.priceSummary.discountAppliedPercent", {
+                                    percent:
+                                      dailyRates.find((d) => d.discountActive)
+                                        ?.discount || 0,
+                                  })}
                             </Typography>
                           </Box>
                         )}
@@ -1497,7 +1503,7 @@ const EditOrderModal = ({
                         >
                           <Box>
                             <Typography variant="caption" sx={{ fontSize: "inherit", color: "inherit" }}>
-                              Аренда: <b>€{baseRentalTotal}</b>
+                              {t("order.priceSummary.rental")} <b>€{baseRentalTotal}</b>
                             </Typography>
                           </Box>
                           {kaskoTotal > 0 && (
@@ -1510,31 +1516,37 @@ const EditOrderModal = ({
                           {childSeatsTotal > 0 && (
                             <Box>
                               <Typography variant="caption" sx={{ fontSize: "inherit", color: "inherit" }}>
-                                · Кресла: <b>€{childSeatsTotal}</b>
+                                · {t("order.priceSummary.childSeats")} <b>€{childSeatsTotal}</b>
                               </Typography>
                             </Box>
                           )}
                           {secondDriverTotal > 0 && (
                             <Box>
                               <Typography variant="caption" sx={{ fontSize: "inherit", color: "inherit" }}>
-                                · 2-й водитель: <b>€{secondDriverTotal}</b>
+                                · {t("order.priceSummary.secondDriver")} <b>€{secondDriverTotal}</b>
                               </Typography>
                             </Box>
                           )}
                           <Box>
                             <Typography variant="caption" sx={{ fontSize: "inherit", color: "inherit" }}>
-                              · Доставка: <b>€{deliveryTotal}</b>
+                              · {t("order.priceSummary.delivery")} <b>€{deliveryTotal}</b>
                               {(deliveryIn > 0 || deliveryOut > 0) &&
                                 deliveryIn !== deliveryOut && (
                                   <span style={{ opacity: 0.7 }}>
                                     {" "}
-                                    (туда €{deliveryIn} + обратно €{deliveryOut})
+                                    {t("order.priceSummary.deliverySplit", {
+                                      in: deliveryIn,
+                                      out: deliveryOut,
+                                    })}
                                   </span>
                                 )}
                               {deliveryTotal === 0 &&
                                 deliveryIn === 0 &&
                                 deliveryOut === 0 && (
-                                  <span style={{ opacity: 0.7 }}> (нет / бесплатно)</span>
+                                  <span style={{ opacity: 0.7 }}>
+                                    {" "}
+                                    {t("order.priceSummary.deliveryFree")}
+                                  </span>
                                 )}
                             </Typography>
                           </Box>
@@ -1557,8 +1569,10 @@ const EditOrderModal = ({
                                 }}
                               >
                                 {isPriceBreakdownExpanded
-                                  ? "Скрыть разбивку по дням"
-                                  : `Показать разбивку по дням (${dailyRates.length})`}
+                                  ? t("order.priceSummary.hideDailyBreakdown")
+                                  : t("order.priceSummary.showDailyBreakdown", {
+                                      count: dailyRates.length,
+                                    })}
                               </Button>
                             </Box>
 
@@ -1599,12 +1613,16 @@ const EditOrderModal = ({
                                   <thead>
                                     <tr>
                                       <th>#</th>
-                                      <th>Дата</th>
-                                      <th>Сезон</th>
-                                      <th>Тариф</th>
-                                      <th>Цена</th>
-                                      {hasDiscount && <th>Скидка</th>}
-                                      {hasDiscount && <th>Итог</th>}
+                                      <th>{t("order.priceSummary.colDate")}</th>
+                                      <th>{t("order.priceSummary.colSeason")}</th>
+                                      <th>{t("order.priceSummary.colRate")}</th>
+                                      <th>{t("order.priceSummary.colPrice")}</th>
+                                      {hasDiscount && (
+                                        <th>{t("order.priceSummary.colDiscount")}</th>
+                                      )}
+                                      {hasDiscount && (
+                                        <th>{t("order.priceSummary.colTotal")}</th>
+                                      )}
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -1669,22 +1687,25 @@ const EditOrderModal = ({
                     sx={{ p: 0, minWidth: "auto", fontSize: "0.7rem", textTransform: "none" }}
                   >
                     {isPriceHistoryExpanded
-                      ? "Скрыть историю расчётов"
-                      : `История расчётов (${storedBreakdown.history.length})`}
+                      ? t("order.priceSummary.hideHistory")
+                      : t("order.priceSummary.showHistory", {
+                          count: storedBreakdown.history.length,
+                        })}
                   </Button>
 
                   {isPriceHistoryExpanded && (
                     <Box sx={{ mt: 0.5, maxHeight: 200, overflowY: "auto" }}>
                       {[...storedBreakdown.history].reverse().map((entry, i) => {
-                        const SOURCE_LABELS = {
-                          client_booking: "Бронирование",
-                          admin_creation: "Создание",
-                          admin_edit: "Редактирование",
-                          admin_edit_confirmed: "Изм. подтверждённого",
-                          confirmation: "Подтверждение",
-                          unconfirm: "Снятие подтверждения",
-                          system: "Система",
-                        };
+                        const sourceKey = {
+                          client_booking: "order.priceSummary.sourceClientBooking",
+                          admin_creation: "order.priceSummary.sourceAdminCreation",
+                          admin_edit: "order.priceSummary.sourceAdminEdit",
+                          admin_edit_confirmed:
+                            "order.priceSummary.sourceAdminEditConfirmed",
+                          confirmation: "order.priceSummary.sourceConfirmation",
+                          unconfirm: "order.priceSummary.sourceUnconfirm",
+                          system: "order.priceSummary.sourceSystem",
+                        }[entry.source];
                         return (
                           <Box
                             key={i}
@@ -1701,7 +1722,12 @@ const EditOrderModal = ({
                               <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.7rem" }}>
                                 €{entry.totalPrice}
                                 {(entry.deliveryTotal || 0) > 0 && (
-                                  <span style={{ opacity: 0.7, fontWeight: 400 }}> + дост. €{entry.deliveryTotal}</span>
+                                  <span style={{ opacity: 0.7, fontWeight: 400 }}>
+                                    {" "}
+                                    {t("order.priceSummary.plusDelivery", {
+                                      amount: entry.deliveryTotal,
+                                    })}
+                                  </span>
                                 )}
                               </Typography>
                               <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.62rem" }}>
@@ -1709,7 +1735,7 @@ const EditOrderModal = ({
                               </Typography>
                             </Box>
                             <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.62rem" }}>
-                              {SOURCE_LABELS[entry.source] || entry.source || "—"}
+                              {sourceKey ? t(sourceKey) : entry.source || "—"}
                               {entry.frozenAt && " 🔒"}
                             </Typography>
                           </Box>

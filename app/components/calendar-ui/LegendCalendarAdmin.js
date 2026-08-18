@@ -308,7 +308,7 @@ function LegendCalendarAdmin({
               ref={legendGroupRef}
               id="calendar-admin-legend-trigger"
               component="div"
-              aria-label="Легенда статусов заказов. Открыть полный список."
+              aria-label={t("calendar.legend.openAria")}
               aria-expanded={legendExpanded}
               aria-haspopup="dialog"
               aria-controls={LEGEND_POPOVER_ID}
@@ -398,7 +398,7 @@ function LegendCalendarAdmin({
               <Box
                 component="div"
                 role="dialog"
-                aria-label="Легенда статусов заказов"
+                aria-label={t("calendar.legend.title")}
                 sx={{
                   overflowY: "auto",
                   overflowX: "hidden",
@@ -454,7 +454,14 @@ function LegendCalendarAdmin({
               />
             ))}
             {!client && (
-              <Tooltip title={legendExpanded ? "Свернуть легенду" : "Раскрыть легенду"} arrow>
+              <Tooltip
+                title={
+                  legendExpanded
+                    ? t("calendar.legend.collapse")
+                    : t("calendar.legend.expand")
+                }
+                arrow
+              >
                 <ButtonBase
                   onClick={() => setLegendExpanded((v) => !v)}
                   sx={{
@@ -475,7 +482,7 @@ function LegendCalendarAdmin({
                       variant="caption"
                       sx={{ color: "inherit", fontSize: "0.74rem" }}
                     >
-                      Legend
+                      {t("calendar.settingsPanel.legendSection")}
                     </Typography>
                   ) : null}
                   <Typography

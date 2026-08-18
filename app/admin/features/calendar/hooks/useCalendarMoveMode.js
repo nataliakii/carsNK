@@ -21,7 +21,7 @@ dayjs.extend(timezone);
 const ORDER_DRAG_MIME = "application/x-car-calendar-order-id";
 const BUSINESS_TZ = "Europe/Athens";
 
-function formatRangeRu(startStr, endStr) {
+function formatRange(startStr, endStr) {
   const fmt = (s) =>
     dayjs.tz(s, "YYYY-MM-DD", BUSINESS_TZ).format("DD.MM.YYYY");
   return `${fmt(startStr)} – ${fmt(endStr)}`;
@@ -213,11 +213,11 @@ export function useCalendarMoveMode({
     }
 
     const range = orderRangeStrings(order);
-    let toRange = formatRangeRu(range.start, range.end);
+    let toRange = formatRange(range.start, range.end);
     if (dayDelta !== 0) {
       const shifted = shiftOrderByDays(order, dayDelta);
       if (shifted) {
-        toRange = formatRangeRu(
+        toRange = formatRange(
           shifted.rentalStartDate,
           shifted.rentalEndDate
         );
@@ -374,10 +374,10 @@ export function useCalendarMoveMode({
         newCar: newCar || null,
         oldCar: oldCar || null,
         dayDelta: dayDelta || 0,
-        fromRange: formatRangeRu(range.start, range.end),
+        fromRange: formatRange(range.start, range.end),
         toRange: shifted
-          ? formatRangeRu(shifted.rentalStartDate, shifted.rentalEndDate)
-          : formatRangeRu(range.start, range.end),
+          ? formatRange(shifted.rentalStartDate, shifted.rentalEndDate)
+          : formatRange(range.start, range.end),
         shifted: shifted || null,
       });
     },
@@ -412,10 +412,10 @@ export function useCalendarMoveMode({
         dateStr && sourceDate ? calendarDayDelta(sourceDate, dateStr) : 0;
 
       if (!isLandingCompatibleOnCar(order, carId, delta)) {
-        showSingleSnackbar(
-          "Сюда нельзя: прошлое, конфликт или то же место",
-          { variant: "warning", autoHideDuration: 3500 }
-        );
+        showSingleSnackbar(t("calendar.move.dropBlocked"), {
+          variant: "warning",
+          autoHideDuration: 3500,
+        });
         return;
       }
 
@@ -475,6 +475,7 @@ export function useCalendarMoveMode({
       isLandingCompatibleOnCar,
       openMoveConfirm,
       showSingleSnackbar,
+      t,
     ]
   );
 
@@ -487,9 +488,9 @@ export function useCalendarMoveMode({
     setDragOverDate(null);
     setDragHud(null);
     if (wasLongPressMode) {
-      showSingleSnackbar("Режим перемещения отключён", { variant: "info" });
+      showSingleSnackbar(t("calendar.move.disabled"), { variant: "info" });
     }
-  }, [showSingleSnackbar]);
+  }, [showSingleSnackbar, t]);
 
   const cancelDragOnly = useCallback(() => {
     dropHandledRef.current = false;
@@ -596,7 +597,7 @@ export function useCalendarMoveMode({
     const shifted = confirmModal.shifted;
 
     if (!order?._id) {
-      showSingleSnackbar("❌ Нет данных для перемещения", { variant: "error" });
+      showSingleSnackbar(t("calendar.move.noData"), { variant: "error" });
       exitMoveMode();
       setConfirmModal(emptyConfirm());
       return;
@@ -607,7 +608,7 @@ export function useCalendarMoveMode({
     try {
       if (kind === "dates" || kind === "car+dates") {
         if (!shifted) {
-          showSingleSnackbar("Некорректный сдвиг дат", { variant: "error" });
+          showSingleSnackbar(t("calendar.move.invalidShift"), { variant: "error" });
           return;
         }
 
@@ -621,32 +622,35 @@ export function useCalendarMoveMode({
           await fetchAndUpdateOrders();
           const conflictMsg =
             result.conflicts?.length > 0
-              ? " (есть конфликты с неподтвержденными заказами)"
+              ? t("calendar.move.pendingConflicts")
               : "";
           const carPart =
             kind === "car+dates" && newCar?.model
-              ? ` → ${newCar.model}`
+              ? t("calendar.move.carPart", { car: newCar.model })
               : "";
           showSingleSnackbar(
-            `Готово: ${formatRangeRu(
-              shifted.rentalStartDate,
-              shifted.rentalEndDate
-            )}${carPart}${conflictMsg}`,
+            t("calendar.move.doneRange", {
+              range: formatRange(
+                shifted.rentalStartDate,
+                shifted.rentalEndDate
+              ),
+              car: carPart,
+              conflicts: conflictMsg,
+            }),
             { variant: "success" }
           );
         } else if (result?.status === 409) {
           showSingleSnackbar(
-            result.message ||
-              "Конфликт с подтвержденными заказами. Перенос невозможен.",
+            result.message || t("calendar.move.confirmedConflictDates"),
             { variant: "error", autoHideDuration: 5000 }
           );
         } else if (result?.status === 403) {
           showSingleSnackbar(
-            result.message || "Нет прав на изменение этого заказа",
+            result.message || t("calendar.move.noPermission"),
             { variant: "error", autoHideDuration: 5000 }
           );
         } else {
-          showSingleSnackbar(result.message || "Ошибка переноса", {
+          showSingleSnackbar(result.message || t("calendar.move.datesError"), {
             variant: "error",
           });
         }
@@ -655,7 +659,7 @@ export function useCalendarMoveMode({
 
       // kind === 'car'
       if (!newCar?._id) {
-        showSingleSnackbar("❌ Нет данных для перемещения", {
+        showSingleSnackbar(t("calendar.move.noData"), {
           variant: "error",
         });
         return;
@@ -671,26 +675,34 @@ export function useCalendarMoveMode({
         await fetchAndUpdateOrders();
         const conflictMsg =
           result.conflicts?.length > 0
-            ? " (есть конфликты с неподтвержденными заказами)"
+            ? t("calendar.move.pendingConflicts")
             : "";
-        showSingleSnackbar(`Заказ на ${newCar.model}${conflictMsg}`, {
-          variant: "success",
-        });
+        showSingleSnackbar(
+          t("calendar.move.movedToCar", {
+            car: newCar.model,
+            conflicts: conflictMsg,
+          }),
+          {
+            variant: "success",
+          }
+        );
       } else if (result?.status === 409) {
         showSingleSnackbar(
-          result.message ||
-            "Конфликт с подтвержденными заказами. Перемещение невозможно.",
+          result.message || t("calendar.move.confirmedConflictCar"),
           { variant: "error", autoHideDuration: 5000 }
         );
       } else {
-        showSingleSnackbar(result.message || "Ошибка перемещения заказа", {
+        showSingleSnackbar(result.message || t("calendar.move.carError"), {
           variant: "error",
         });
       }
     } catch (error) {
-      showSingleSnackbar(`Ошибка перемещения: ${error.message}`, {
-        variant: "error",
-      });
+      showSingleSnackbar(
+        t("calendar.move.error", { message: error.message }),
+        {
+          variant: "error",
+        }
+      );
     } finally {
       exitMoveMode();
     }
@@ -701,6 +713,7 @@ export function useCalendarMoveMode({
     showSingleSnackbar,
     exitMoveMode,
     applyChangeDates,
+    t,
   ]);
 
   const handleCloseConfirmModal = useCallback(() => {

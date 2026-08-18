@@ -185,7 +185,7 @@ export default function CalendarContainer({
 
   // i18n для динамического перевода месяцев и дней недели
   const { i18n, t } = useTranslation();
-  const currentLang = i18n.language || "en";
+  const currentLang = (i18n.language || "en").split("-")[0];
 
   // Названия месяцев (полные) по языкам проекта
   const monthNames = useMemo(

@@ -10,101 +10,111 @@ import { useTranslation } from "react-i18next";
 import { useMainContext } from "@app/Context";
 import { withLocalePrefix } from "@domain/locationSeo/locationSeoService";
 
-// Lazy-load icons (Footer is below fold)
-const CallIcon = dynamic(() => import("@mui/icons-material/Call"), { ssr: false });
-const EmailIcon = dynamic(() => import("@mui/icons-material/Email"), { ssr: false });
-const LocationOnIcon = dynamic(() => import("@mui/icons-material/LocationOn"), { ssr: false });
-const QrCode2Icon = dynamic(() => import("@mui/icons-material/QrCode2"), { ssr: false });
-const CodeIcon = dynamic(() => import("@mui/icons-material/Code"), { ssr: false });
-const LinkedInIcon = dynamic(() => import("@mui/icons-material/LinkedIn"), { ssr: false });
+const CallIcon = dynamic(() => import("@mui/icons-material/Call"), {
+  ssr: false,
+});
+const EmailIcon = dynamic(() => import("@mui/icons-material/Email"), {
+  ssr: false,
+});
+const QrCode2Icon = dynamic(() => import("@mui/icons-material/QrCode2"), {
+  ssr: false,
+});
+const CodeIcon = dynamic(() => import("@mui/icons-material/Code"), {
+  ssr: false,
+});
+const LinkedInIcon = dynamic(() => import("@mui/icons-material/LinkedIn"), {
+  ssr: false,
+});
+const ArrowOutwardIcon = dynamic(
+  () => import("@mui/icons-material/ArrowOutward"),
+  { ssr: false }
+);
 
-// ============================================================
-// STYLED COMPONENTS - Minimal & Mobile-First
-// ============================================================
+const BRAND_NAVY = "#0B1F3A";
+const BRAND_CYAN = "#00C8D4";
+const BRAND_RED = "#E53935";
+const BRAND_YELLOW = "#FFD400";
 
-const Section = styled("section")(({ theme }) => ({
-  padding: theme.spacing(4),
-  textAlign: "center",
-  background: theme.palette.secondary.main,
-  color: theme.palette.text.light,
-}));
+const FooterRoot = styled("footer")({
+  position: "relative",
+  overflow: "hidden",
+  color: "#ffffff",
+  background: `linear-gradient(165deg, #16345c 0%, ${BRAND_NAVY} 38%, #061222 100%)`,
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    background:
+      "radial-gradient(ellipse 70% 55% at 8% -8%, rgba(0,200,212,0.22), transparent 58%), radial-gradient(ellipse 45% 40% at 100% 100%, rgba(229,57,53,0.12), transparent 50%)",
+  },
+});
 
-const LogoImg = styled(Image)(() => ({
-  display: "block",
+const BrandBar = styled("div")({
+  height: 4,
+  background: `linear-gradient(90deg, ${BRAND_RED} 0%, ${BRAND_RED} 28%, ${BRAND_YELLOW} 28%, ${BRAND_YELLOW} 52%, ${BRAND_CYAN} 52%, ${BRAND_CYAN} 100%)`,
+});
+
+const Inner = styled(Box)(({ theme }) => ({
+  position: "relative",
+  zIndex: 1,
+  maxWidth: 1120,
   marginInline: "auto",
-}));
-
-const Slogan = styled(Typography)(({ theme }) => ({
-  marginTop: theme.spacing(1),
-  fontSize: "0.75rem",
-  letterSpacing: "0.18em",
-  textTransform: "uppercase",
-  color: "#ffffff",
-}));
-
-const ContactInfo = styled(Stack)(({ theme }) => ({
-  marginTop: theme.spacing(3),
-  fontSize: "0.9rem",
-  gap: theme.spacing(1.5),
-  alignItems: "center",
-}));
-
-const ContactLink = styled("a")(({ theme }) => ({
-  color: "#ffffff",
-  textDecoration: "none",
-  fontSize: "0.9rem",
-  "&:hover": {
-    textDecoration: "underline",
+  padding: theme.spacing(5, 3, 3),
+  [theme.breakpoints.up("md")]: {
+    padding: theme.spacing(6, 4, 3.5),
   },
 }));
 
-const ContactIcon = styled("span")(({ theme }) => ({
-  marginRight: theme.spacing(1),
-  verticalAlign: "middle",
+const SectionTitle = styled(Typography)({
+  fontSize: "0.68rem",
+  fontWeight: 700,
+  letterSpacing: "0.16em",
+  textTransform: "uppercase",
+  color: BRAND_CYAN,
+  marginBottom: 12,
+});
+
+const FooterLink = styled(Link)({
+  color: "rgba(255,255,255,0.82)",
+  textDecoration: "none",
+  fontSize: "0.86rem",
+  lineHeight: 1.45,
+  transition: "color 0.18s ease",
+  "&:hover": {
+    color: BRAND_CYAN,
+  },
+});
+
+const ContactAnchor = styled("a")({
+  color: "rgba(255,255,255,0.9)",
+  textDecoration: "none",
+  fontSize: "0.9rem",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  transition: "color 0.18s ease",
+  "&:hover": {
+    color: BRAND_CYAN,
+  },
   "& svg": {
-    fontSize: "1.1rem",
+    fontSize: "1.05rem",
+    color: BRAND_CYAN,
+  },
+});
+
+const CreditLink = styled(MuiLink)({
+  color: "rgba(255,255,255,0.55)",
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  fontSize: "0.72rem",
+  transition: "color 0.18s ease",
+  "&:hover": {
     color: "#ffffff",
   },
-}));
-
-const ContactItem = styled("div")(() => ({
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-}));
-
-const LegalLink = styled(Link)(({ theme }) => ({
-  fontSize: "0.7rem",
-  textTransform: "uppercase",
-  letterSpacing: "0.1em",
-  textDecoration: "none",
-  color: "#ffffff",
-  "&:hover": {
-    textDecoration: "underline",
-  },
-}));
-
-const CreditsSection = styled("div")(({ theme }) => ({
-  marginTop: theme.spacing(3),
-  fontSize: "0.7rem",
-  color: "#ffffff",
-}));
-
-const CreditLink = styled(MuiLink)(({ theme }) => ({
-  color: "#ffffff",
-  textDecoration: "none",
-  display: "flex",
-  alignItems: "center",
-  gap: theme.spacing(0.5),
-  fontSize: "0.7rem",
-  "&:hover": {
-    textDecoration: "underline",
-  },
-}));
-
-// ============================================================
-// FOOTER COMPONENT
-// ============================================================
+});
 
 function Footer() {
   const { company, lang } = useMainContext();
@@ -116,167 +126,236 @@ function Footer() {
   const tel = company?.tel || "+380 68 100 3771";
   const tel2 = company?.tel2 || "+353 85 270 96 05";
   const email = company?.email || "admin@bbqr.site";
-  const address = company?.address || "Antonioy Kelesi 12, Nea Kallikratia 630 80";
 
   const localeLink = (path) => withLocalePrefix(lang || "en", path);
+  const guideHref = `https://kalikratia.bbqr.site/${lang || "en"}`;
+
+  const legalLinks = [
+    { href: localeLink("/privacy-policy"), label: t("footer.privacyPolicy") },
+    { href: localeLink("/terms-of-service"), label: t("footer.termsOfService") },
+    { href: localeLink("/cookie-policy"), label: t("footer.cookiePolicy") },
+    { href: localeLink("/rental-terms"), label: t("footer.rentalTerms") },
+    { href: "/login", label: t("footer.adminLogin") },
+  ];
 
   return (
-    <Section>
-      {/* Logo */}
-      <LogoImg
-        src="/logo-hor-transparent-l.png"
-        width={320}
-        height={144}
-        alt="CarsNK"
-        style={{
-          width: "min(320px, 80vw)",
-          height: "auto",
-          borderRadius: 0,
-          objectFit: "contain",
-        }}
-      />
-
-      {/* Slogan */}
-      <Slogan>{slogan}</Slogan>
-
-      {/* Contacts */}
-      <ContactInfo>
-        {/* Phone */}
-        <ContactItem>
-          <ContactIcon>
-            <CallIcon />
-          </ContactIcon>
-          <ContactLink href={`tel:${tel}`}>{tel}</ContactLink>
-          {tel2 && (
-            <>
-              <span style={{ margin: "0 8px", opacity: 0.6 }}>·</span>
-              <ContactLink href={`tel:${tel2}`}>{tel2}</ContactLink>
-            </>
-          )}
-        </ContactItem>
-
-        {/* Email */}
-        <ContactItem>
-          <ContactIcon>
-            <EmailIcon />
-          </ContactIcon>
-          <ContactLink href={`mailto:${email}`}>{email}</ContactLink>
-        </ContactItem>
-
-        {/* Address — hidden for now
-        <ContactItem>
-          <ContactIcon>
-            <LocationOnIcon />
-          </ContactIcon>
-          <span style={{ color: "#ffffff" }}>{address}</span>
-        </ContactItem>
-        */}
-      </ContactInfo>
-
-      {/* Nea Kallikratia Guide banner */}
-      <Box
-        component="a"
-        href={`https://kalikratia.bbqr.site/${lang || "en"}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        sx={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 1.5,
-          mt: 3,
-          mb: 1,
-          px: 2,
-          py: 1.25,
-          borderRadius: "10px",
-          backgroundColor: "rgba(255,255,255,0.12)",
-          border: "1px solid rgba(255,255,255,0.25)",
-          textDecoration: "none",
-          color: "#ffffff",
-          fontSize: "0.8rem",
-          transition: "background-color 0.2s, border-color 0.2s",
-          "&:hover": {
-            backgroundColor: "rgba(255,255,255,0.2)",
-            borderColor: "rgba(255,255,255,0.4)",
-          },
-        }}
-      >
-        <Image
-          src="/nk/9.png"
-          alt="Nea Kallikratia Guide"
-          width={36}
-          height={36}
-          style={{ borderRadius: 6, objectFit: "cover" }}
-        />
-        <Typography component="span" sx={{ fontSize: "inherit", lineHeight: 1.3 }}>
-          {t("footer.kallikratiaBanner", {
-            defaultValue: "Don't Know Where to Go Halkidiki?",
-          })}{" "}
-          {t("footer.kallikratiaBannerLink", {
-            defaultValue: "Nea Kallikratia Guide",
-          })}
-        </Typography>
-      </Box>
-
-      {/* Legal Links - строка, не блок */}
-      <Stack
-        direction="row"
-        spacing={1}
-        justifyContent="center"
-        flexWrap="wrap"
-        sx={{ mt: 4 }}
-      >
-        <LegalLink href={localeLink("/privacy-policy")}>
-          {t("footer.privacyPolicy", { defaultValue: "Privacy" })}
-        </LegalLink>
-        <span>·</span>
-        <LegalLink href={localeLink("/terms-of-service")}>
-          {t("footer.termsOfService", { defaultValue: "Terms" })}
-        </LegalLink>
-        <span>·</span>
-        <LegalLink href={localeLink("/cookie-policy")}>
-          {t("footer.cookiePolicy", { defaultValue: "Cookies" })}
-        </LegalLink>
-        <span>·</span>
-        <LegalLink href={localeLink("/rental-terms")}>
-          {t("footer.rentalTerms", { defaultValue: "Rental" })}
-        </LegalLink>
-        <span>·</span>
-        <LegalLink href="/login">
-          {t("footer.adminLogin", { defaultValue: "Staff login" })}
-        </LegalLink>
-      </Stack>
-
-      {/* Credits - самый тихий слой */}
-      <CreditsSection>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={{ xs: 1.5, sm: 2 }}
-          alignItems="center"
-          justifyContent="center"
-          sx={{ mb: 2 }}
+    <FooterRoot>
+      <BrandBar />
+      <Inner>
+        <Box
+          sx={{
+            display: "grid",
+            gap: { xs: 4, md: 5 },
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "1fr 1fr",
+              md: "1.35fr 0.95fr 0.95fr 1.15fr",
+            },
+            alignItems: "start",
+          }}
         >
-          <CreditLink
-            href="https://www.bbqr.site"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <QrCode2Icon sx={{ fontSize: 20 }} />
-            BBQR - Solutions for Restaurants
-          </CreditLink>
+          <Stack spacing={1.25} sx={{ textAlign: { xs: "center", md: "left" } }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: { xs: "center", md: "flex-start" },
+              }}
+            >
+              <Image
+                src="/logo-hor-transparent-l.png"
+                width={280}
+                height={126}
+                alt="CarsNK"
+                style={{
+                  width: "min(280px, 78vw)",
+                  height: "auto",
+                  objectFit: "contain",
+                }}
+              />
+            </Box>
+            <Typography
+              sx={{
+                fontSize: "0.78rem",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.72)",
+                maxWidth: 320,
+                mx: { xs: "auto", md: 0 },
+              }}
+            >
+              {slogan}
+            </Typography>
+          </Stack>
 
-          <CreditLink
-            href="https://www.linkedin.com/in/natalia-kirejeva/"
+          <Box sx={{ textAlign: { xs: "center", sm: "left" } }}>
+            <SectionTitle>{t("footer.contactUs")}</SectionTitle>
+            <Stack spacing={1.15} alignItems={{ xs: "center", sm: "flex-start" }}>
+              <ContactAnchor href={`tel:${tel}`}>
+                <CallIcon />
+                {tel}
+              </ContactAnchor>
+              {tel2 ? (
+                <ContactAnchor href={`tel:${tel2}`}>
+                  <CallIcon />
+                  {tel2}
+                </ContactAnchor>
+              ) : null}
+              <ContactAnchor href={`mailto:${email}`}>
+                <EmailIcon />
+                {email}
+              </ContactAnchor>
+            </Stack>
+          </Box>
+
+          <Box sx={{ textAlign: { xs: "center", sm: "left" } }}>
+            <SectionTitle>{t("footer.explore")}</SectionTitle>
+            <Stack
+              component="nav"
+              aria-label={t("footer.explore")}
+              spacing={0.85}
+              alignItems={{ xs: "center", sm: "flex-start" }}
+            >
+              {legalLinks.map((item) => (
+                <FooterLink key={item.href} href={item.href}>
+                  {item.label}
+                </FooterLink>
+              ))}
+            </Stack>
+          </Box>
+
+          <Box
+            component="a"
+            href={guideHref}
             target="_blank"
             rel="noopener noreferrer"
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.25,
+              p: 2,
+              borderRadius: "14px",
+              textDecoration: "none",
+              color: "#fff",
+              background:
+                "linear-gradient(160deg, rgba(0,200,212,0.16) 0%, rgba(255,255,255,0.05) 100%)",
+              border: "1px solid rgba(0,200,212,0.32)",
+              boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
+              transition:
+                "transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
+              "&:hover": {
+                transform: "translateY(-2px)",
+                borderColor: "rgba(0,200,212,0.7)",
+                boxShadow: "0 14px 32px rgba(0,200,212,0.18)",
+              },
+            }}
           >
-            <CodeIcon sx={{ fontSize: 20 }} />
-            Developed by NataliaKi
-            <LinkedInIcon sx={{ fontSize: 18 }} />
-          </CreditLink>
-        </Stack>
-        © {currentYear} {name}. All rights reserved.
-      </CreditsSection>
-    </Section>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "10px",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  border: "1px solid rgba(255,255,255,0.18)",
+                }}
+              >
+                <Image
+                  src="/nk/9.png"
+                  alt="Nea Kallikratia Guide"
+                  width={48}
+                  height={48}
+                  style={{ objectFit: "cover", width: 48, height: 48 }}
+                />
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  sx={{
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    color: BRAND_CYAN,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {t("footer.kallikratiaBannerLink")}
+                </Typography>
+                <Typography
+                  sx={{
+                    mt: 0.35,
+                    fontSize: "0.82rem",
+                    lineHeight: 1.35,
+                    color: "rgba(255,255,255,0.88)",
+                  }}
+                >
+                  {t("footer.kallikratiaBanner")}
+                </Typography>
+              </Box>
+            </Stack>
+            <Typography
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 0.5,
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                color: "#fff",
+              }}
+            >
+              {t("footer.kallikratiaCta")}
+              <ArrowOutwardIcon sx={{ fontSize: 16, color: BRAND_CYAN }} />
+            </Typography>
+          </Box>
+        </Box>
+
+        <Box
+          sx={{
+            mt: { xs: 4, md: 5 },
+            pt: 2.25,
+            borderTop: "1px solid rgba(255,255,255,0.12)",
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1.5,
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: "0.72rem",
+              color: "rgba(255,255,255,0.5)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            © {currentYear} {name}. {t("footer.rights")}
+          </Typography>
+
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={{ xs: 1, sm: 2.5 }}
+            alignItems="center"
+          >
+            <CreditLink
+              href="https://www.bbqr.site"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <QrCode2Icon sx={{ fontSize: 16 }} />
+              BBQR
+            </CreditLink>
+            <CreditLink
+              href="https://www.linkedin.com/in/natalia-kirejeva/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <CodeIcon sx={{ fontSize: 16 }} />
+              {t("footer.developedBy")}
+              <LinkedInIcon sx={{ fontSize: 15 }} />
+            </CreditLink>
+          </Stack>
+        </Box>
+      </Inner>
+    </FooterRoot>
   );
 }
 

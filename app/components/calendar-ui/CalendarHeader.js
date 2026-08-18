@@ -19,6 +19,7 @@ dayjs.extend(isSameOrAfter);
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+import { useTranslation } from "react-i18next";
 import { CalendarNavButton, CalendarDayCell } from "../ui";
 import { calendarStyles } from "@/theme";
 
@@ -472,10 +473,14 @@ function DayHeaderCell({
   showMonthCue,
   monthCue,
 }) {
+  const { t } = useTranslation();
   const weekdayFull =
     (weekday2[currentLang] || weekday2.en)[day.dayjs.day()] ?? "";
   const weekdayShort = abbrevWeekdayLabel(weekdayFull);
   const isMonthStart = Boolean(day.isMonthStart);
+  const dateLabel = `${weekdayFull ? `${weekdayFull}, ` : ""}${day.dayjs.format(
+    "DD.MM.YYYY"
+  )}`;
 
   return (
     <CalendarDayCell
@@ -493,9 +498,7 @@ function DayHeaderCell({
       onMouseLeave={() =>
         calendarRef?.current?.removeAttribute("data-hover-col")
       }
-      title={`${weekdayFull ? `${weekdayFull}, ` : ""}${day.dayjs.format(
-        "D MMM YYYY"
-      )}`}
+      title={t("calendar.tooltips.viewDayOrders", { date: dateLabel })}
       sx={{
         py: 0,
         px: 0.25,

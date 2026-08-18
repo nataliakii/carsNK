@@ -194,7 +194,35 @@
     "unsavedChangesMessage": "Данные заказа изменены",
     "leaveWithoutSaving": "Выйти без сохранения",
     "leaveWithSaving": "Сохранить и выйти",
-    "unsavedSaveBlocked": "Нельзя сохранить: устраните конфликты или ошибки проверки."
+    "unsavedSaveBlocked": "Нельзя сохранить: устраните конфликты или ошибки проверки.",
+    "priceSummary": {
+      "rental": "Аренда:",
+      "delivery": "Доставка:",
+      "childSeats": "Кресла:",
+      "secondDriver": "2-й водитель:",
+      "deliveryFree": "(нет / бесплатно)",
+      "deliverySplit": "(туда €{{in}} + обратно €{{out}})",
+      "discountAppliedValue": "Скидка {{value}} применена",
+      "discountAppliedPercent": "Скидка {{percent}}% применена",
+      "showDailyBreakdown": "Показать разбивку по дням ({{count}})",
+      "hideDailyBreakdown": "Скрыть разбивку по дням",
+      "showHistory": "История расчётов ({{count}})",
+      "hideHistory": "Скрыть историю расчётов",
+      "colDate": "Дата",
+      "colSeason": "Сезон",
+      "colRate": "Тариф",
+      "colPrice": "Цена",
+      "colDiscount": "Скидка",
+      "colTotal": "Итог",
+      "plusDelivery": "+ дост. €{{amount}}",
+      "sourceClientBooking": "Бронирование",
+      "sourceAdminCreation": "Создание",
+      "sourceAdminEdit": "Редактирование",
+      "sourceAdminEditConfirmed": "Изм. подтверждённого",
+      "sourceConfirmation": "Подтверждение",
+      "sourceUnconfirm": "Снятие подтверждения",
+      "sourceSystem": "Система"
+    }
   },
   "car": {
     "viewDetails": "Подробнее",
@@ -425,7 +453,11 @@
       "detailPENDING_CLIENT": "Клиентский заказ ожидает подтверждения.",
       "detailPENDING_ADMIN": "Админский заказ (черновик). Ожидает подтверждения.",
       "bookedDatesTooltip": "Эти даты уже забронированы",
-      "clientBooked": "Занятые даты"
+      "clientBooked": "Занятые даты",
+      "title": "Легенда статусов заказов",
+      "openAria": "Легенда статусов заказов. Открыть полный список.",
+      "expand": "Раскрыть легенду",
+      "collapse": "Свернуть легенду"
     },
     "ordersByDate": {
       "starting": "Заказы, начинающиеся {{date}}",
@@ -457,6 +489,24 @@
     "dragHudCar": "На {{car}}",
     "dragHudHint": "Отпустите на другой день или машину",
     "dragHudDeltaDays": "{{signed}} дн.",
+    "dragHudCanDrop": "Можно отпустить",
+    "dragHudCannotDrop": "Сюда нельзя",
+    "move": {
+      "disabled": "Режим перемещения отключён",
+      "noData": "Нет данных для перемещения",
+      "invalidShift": "Некорректный сдвиг дат",
+      "dropBlocked": "Сюда нельзя: прошлое, конфликт или то же место",
+      "doneRange": "Готово: {{range}}{{car}}{{conflicts}}",
+      "carPart": " → {{car}}",
+      "pendingConflicts": " (есть конфликты с неподтвержденными заказами)",
+      "confirmedConflictDates": "Конфликт с подтвержденными заказами. Перенос невозможен.",
+      "confirmedConflictCar": "Конфликт с подтвержденными заказами. Перемещение невозможно.",
+      "noPermission": "Нет прав на изменение этого заказа",
+      "datesError": "Ошибка переноса",
+      "movedToCar": "Заказ на {{car}}{{conflicts}}",
+      "carError": "Ошибка перемещения заказа",
+      "error": "Ошибка перемещения: {{message}}"
+    },
     "tooltips": {
       "editCar": "Нажмите для редактирования информации об автомобиле",
       "moveOrder": "Нажмите для перемещения заказа",
@@ -473,7 +523,8 @@
       "conflicts": "Конфликтующие бронирования",
       "overlapHint": "На эту дату есть пересечение по машине",
       "moveHintSnackbar": "Перетащите заказ на другой день/машину, или на телефоне: удерживайте ~0.3с и тапните цель",
-      "moveConflictTime": "Перемещение отменено: конфликт по времени"
+      "moveConflictTime": "Перемещение отменено: конфликт по времени",
+      "viewDayOrders": "Нажмите, чтобы посмотреть заказы — {{date}}"
     }
   },
   "deliveryZonesPage": {
@@ -562,8 +613,12 @@
   },
   "footer": {
     "contactUs": "Контакты",
+    "explore": "Разделы",
+    "rights": "Все права защищены",
+    "developedBy": "Разработка: NataliaKi",
     "kallikratiaBanner": "Не знаете, куда поехать в Халкидики?",
     "kallikratiaBannerLink": "Nea Kallikratia Guide",
+    "kallikratiaCta": "Открыть гид",
     "privacyPolicy": "Политика конфиденциальности",
     "termsOfService": "Условия использования",
     "cookiePolicy": "Политика использования cookie",

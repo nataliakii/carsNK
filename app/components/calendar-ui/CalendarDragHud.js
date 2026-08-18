@@ -1,11 +1,13 @@
 "use client";
 
 import { Box, Typography } from "@mui/material";
+import { useTranslation } from "react-i18next";
 
 /**
  * Floating HUD while dragging an order on the admin calendar.
  */
 export default function CalendarDragHud({ hud }) {
+  const { t } = useTranslation();
   if (!hud || hud.x == null || hud.y == null) return null;
 
   const ok = Boolean(hud.canDrop);
@@ -68,7 +70,7 @@ export default function CalendarDragHud({ hud }) {
           opacity: 0.75,
         }}
       >
-        {ok ? "Можно отпустить" : "Сюда нельзя"}
+        {ok ? t("calendar.dragHudCanDrop") : t("calendar.dragHudCannotDrop")}
       </Typography>
     </Box>
   );

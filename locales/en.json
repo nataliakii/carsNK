@@ -195,7 +195,35 @@
     "unsavedChangesMessage": "Order data was changed. Exit without saving, stay, or save and exit?",
     "leaveWithoutSaving": "Exit without saving",
     "leaveWithSaving": "Save and exit",
-    "unsavedSaveBlocked": "Cannot save: fix conflicts or validation errors first."
+    "unsavedSaveBlocked": "Cannot save: fix conflicts or validation errors first.",
+    "priceSummary": {
+      "rental": "Rental:",
+      "delivery": "Delivery:",
+      "childSeats": "Child seats:",
+      "secondDriver": "2nd driver:",
+      "deliveryFree": "(none / free)",
+      "deliverySplit": "(pickup €{{in}} + return €{{out}})",
+      "discountAppliedValue": "Discount {{value}} applied",
+      "discountAppliedPercent": "Discount {{percent}}% applied",
+      "showDailyBreakdown": "Show daily breakdown ({{count}})",
+      "hideDailyBreakdown": "Hide daily breakdown",
+      "showHistory": "Calculation history ({{count}})",
+      "hideHistory": "Hide calculation history",
+      "colDate": "Date",
+      "colSeason": "Season",
+      "colRate": "Rate",
+      "colPrice": "Price",
+      "colDiscount": "Discount",
+      "colTotal": "Total",
+      "plusDelivery": "+ del. €{{amount}}",
+      "sourceClientBooking": "Booking",
+      "sourceAdminCreation": "Created",
+      "sourceAdminEdit": "Edited",
+      "sourceAdminEditConfirmed": "Confirmed order edited",
+      "sourceConfirmation": "Confirmation",
+      "sourceUnconfirm": "Unconfirmed",
+      "sourceSystem": "System"
+    }
   },
   "car": {
     "viewDetails": "View more details",
@@ -426,7 +454,11 @@
       "detailPENDING_CLIENT": "Client booking awaiting confirmation.",
       "detailPENDING_ADMIN": "Admin draft booking. Awaiting confirmation.",
       "bookedDatesTooltip": "These dates are already booked",
-      "clientBooked": "Booked dates"
+      "clientBooked": "Booked dates",
+      "title": "Order status legend",
+      "openAria": "Order status legend. Open full list.",
+      "expand": "Expand legend",
+      "collapse": "Collapse legend"
     },
     "ordersByDate": {
       "starting": "Orders starting {{date}}",
@@ -458,6 +490,24 @@
     "dragHudCar": "To {{car}}",
     "dragHudHint": "Drop on another day or car",
     "dragHudDeltaDays": "{{signed}} d",
+    "dragHudCanDrop": "Drop here",
+    "dragHudCannotDrop": "Can't drop here",
+    "move": {
+      "disabled": "Move mode off",
+      "noData": "Nothing to move",
+      "invalidShift": "Invalid date shift",
+      "dropBlocked": "Can't drop here: past, conflict, or same cell",
+      "doneRange": "Done: {{range}}{{car}}{{conflicts}}",
+      "carPart": " → {{car}}",
+      "pendingConflicts": " (conflicts with unconfirmed orders)",
+      "confirmedConflictDates": "Conflict with confirmed orders. Move not possible.",
+      "confirmedConflictCar": "Conflict with confirmed orders. Can't move to this car.",
+      "noPermission": "No permission to change this order",
+      "datesError": "Could not move dates",
+      "movedToCar": "Order on {{car}}{{conflicts}}",
+      "carError": "Could not move order",
+      "error": "Move failed: {{message}}"
+    },
     "tooltips": {
       "editCar": "Click to edit car details",
       "moveOrder": "Click to move the order",
@@ -474,7 +524,8 @@
       "conflicts": "Conflicting bookings",
       "overlapHint": "This date has an overlap on the car",
       "moveHintSnackbar": "Drag the order to another day/car, or on phone: hold ~0.3s then tap the target",
-      "moveConflictTime": "Move cancelled: time conflict"
+      "moveConflictTime": "Move cancelled: time conflict",
+      "viewDayOrders": "Click to view orders — {{date}}"
     }
   },
   "deliveryZonesPage": {
@@ -562,9 +613,13 @@
     }
   },
   "footer": {
-    "contactUs": "Contact Us",
-    "kallikratiaBanner": "Don't Know Where to Go Halkidiki?",
+    "contactUs": "Contact",
+    "explore": "Explore",
+    "rights": "All rights reserved",
+    "developedBy": "Developed by NataliaKi",
+    "kallikratiaBanner": "Don't know where to go in Halkidiki?",
     "kallikratiaBannerLink": "Nea Kallikratia Guide",
+    "kallikratiaCta": "Open the guide",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
     "cookiePolicy": "Cookie Policy",

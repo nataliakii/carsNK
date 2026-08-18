@@ -21,7 +21,7 @@ export default function CalendarDayCell({
   onMouseEnter, 
   onMouseLeave, 
   children,
-  title = "Нажмите для просмотра заказов",
+  title = "",
   sx = {}
 }) {
   return (

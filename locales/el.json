@@ -195,7 +195,35 @@
     "unsavedChangesMessage": "Τα δεδομένα της κράτησης άλλαξαν. Έξοδος χωρίς αποθήκευση, παραμονή ή αποθήκευση και έξοδος;",
     "leaveWithoutSaving": "Έξοδος χωρίς αποθήκευση",
     "leaveWithSaving": "Αποθήκευση και έξοδος",
-    "unsavedSaveBlocked": "Δεν είναι δυνατή η αποθήκευση: διορθώστε συγκρούσεις ή σφάλματα επικύρωσης."
+    "unsavedSaveBlocked": "Δεν είναι δυνατή η αποθήκευση: διορθώστε συγκρούσεις ή σφάλματα επικύρωσης.",
+    "priceSummary": {
+      "rental": "Ενοικίαση:",
+      "delivery": "Παράδοση:",
+      "childSeats": "Παιδικά καθίσματα:",
+      "secondDriver": "2ος οδηγός:",
+      "deliveryFree": "(όχι / δωρεάν)",
+      "deliverySplit": "(παραλαβή €{{in}} + επιστροφή €{{out}})",
+      "discountAppliedValue": "Εφαρμόστηκε έκπτωση {{value}}",
+      "discountAppliedPercent": "Εφαρμόστηκε έκπτωση {{percent}}%",
+      "showDailyBreakdown": "Εμφάνιση ανάλυσης ανά ημέρα ({{count}})",
+      "hideDailyBreakdown": "Απόκρυψη ανάλυσης ανά ημέρα",
+      "showHistory": "Ιστορικό υπολογισμών ({{count}})",
+      "hideHistory": "Απόκρυψη ιστορικού υπολογισμών",
+      "colDate": "Ημερομηνία",
+      "colSeason": "Σεζόν",
+      "colRate": "Τιμή",
+      "colPrice": "Κόστος",
+      "colDiscount": "Έκπτωση",
+      "colTotal": "Σύνολο",
+      "plusDelivery": "+ παρ. €{{amount}}",
+      "sourceClientBooking": "Κράτηση",
+      "sourceAdminCreation": "Δημιουργία",
+      "sourceAdminEdit": "Επεξεργασία",
+      "sourceAdminEditConfirmed": "Επεξεργασία επιβεβαιωμένης",
+      "sourceConfirmation": "Επιβεβαίωση",
+      "sourceUnconfirm": "Αναίρεση επιβεβαίωσης",
+      "sourceSystem": "Σύστημα"
+    }
   },
   "car": {
     "viewDetails": "Δείτε περισσότερες λεπτομέρειες",
@@ -427,7 +455,11 @@
       "detailPENDING_CLIENT": "Κράτηση πελάτη σε αναμονή επιβεβαίωσης.",
       "detailPENDING_ADMIN": "Πρόχειρη κράτηση διαχειριστή. Σε αναμονή επιβεβαίωσης.",
       "bookedDatesTooltip": "Αυτές οι ημερομηνίες είναι ήδη κρατημένες",
-      "clientBooked": "Κρατημένες ημερομηνίες"
+      "clientBooked": "Κρατημένες ημερομηνίες",
+      "title": "Υπόμνημα κατάστασης κρατήσεων",
+      "openAria": "Υπόμνημα κατάστασης κρατήσεων. Άνοιγμα πλήρους λίστας.",
+      "expand": "Ανάπτυξη υπομνήματος",
+      "collapse": "Σύμπτυξη υπομνήματος"
     },
     "ordersByDate": {
       "starting": "Κρατήσεις που ξεκινούν {{date}}",
@@ -459,6 +491,24 @@
     "dragHudCar": "Στο {{car}}",
     "dragHudHint": "Αφήστε σε άλλη ημέρα ή αυτοκίνητο",
     "dragHudDeltaDays": "{{signed}} ημ.",
+    "dragHudCanDrop": "Αφήστε εδώ",
+    "dragHudCannotDrop": "Δεν γίνεται εδώ",
+    "move": {
+      "disabled": "Η λειτουργία μετακίνησης απενεργοποιήθηκε",
+      "noData": "Δεν υπάρχουν δεδομένα για μετακίνηση",
+      "invalidShift": "Μη έγκυρη μετατόπιση ημερομηνιών",
+      "dropBlocked": "Δεν γίνεται εδώ: παρελθόν, σύγκρουση ή ίδιο σημείο",
+      "doneRange": "Έτοιμο: {{range}}{{car}}{{conflicts}}",
+      "carPart": " → {{car}}",
+      "pendingConflicts": " (συγκρούσεις με μη επιβεβαιωμένες κρατήσεις)",
+      "confirmedConflictDates": "Σύγκρουση με επιβεβαιωμένες κρατήσεις. Η μετακίνηση δεν είναι δυνατή.",
+      "confirmedConflictCar": "Σύγκρουση με επιβεβαιωμένες κρατήσεις. Δεν γίνεται μετακίνηση σε αυτό το αυτοκίνητο.",
+      "noPermission": "Δεν έχετε δικαίωμα αλλαγής αυτής της κράτησης",
+      "datesError": "Η μετακίνηση ημερομηνιών απέτυχε",
+      "movedToCar": "Κράτηση στο {{car}}{{conflicts}}",
+      "carError": "Η μετακίνηση κράτησης απέτυχε",
+      "error": "Η μετακίνηση απέτυχε: {{message}}"
+    },
     "tooltips": {
       "editCar": "Κλικ για επεξεργασία στοιχείων αυτοκινήτου",
       "moveOrder": "Κλικ για μετακίνηση κράτησης",
@@ -475,7 +525,8 @@
       "conflicts": "Αλληλεπικαλυπτόμενες κρατήσεις",
       "overlapHint": "Υπάρχει επικάλυψη για αυτή την ημερομηνία",
       "moveHintSnackbar": "Σύρετε την κράτηση σε άλλη ημέρα/αυτοκίνητο, ή στο τηλέφωνο: κρατήστε ~0.3δ και πατήστε τον στόχο",
-      "moveConflictTime": "Η μετακίνηση ακυρώθηκε: σύγκρουση ώρας"
+      "moveConflictTime": "Η μετακίνηση ακυρώθηκε: σύγκρουση ώρας",
+      "viewDayOrders": "Κλικ για προβολή κρατήσεων — {{date}}"
     }
   },
   "deliveryZonesPage": {
@@ -564,8 +615,12 @@
   },
   "footer": {
     "contactUs": "Επικοινωνία",
+    "explore": "Περιήγηση",
+    "rights": "Με επιφύλαξη παντός δικαιώματος",
+    "developedBy": "Ανάπτυξη: NataliaKi",
     "kallikratiaBanner": "Δεν ξέρετε πού να πάτε στη Χαλκιδική;",
     "kallikratiaBannerLink": "Nea Kallikratia Guide",
+    "kallikratiaCta": "Άνοιγμα οδηγού",
     "privacyPolicy": "Πολιτική Απορρήτου",
     "termsOfService": "Όροι Χρήσης",
     "cookiePolicy": "Πολιτική Cookie",
