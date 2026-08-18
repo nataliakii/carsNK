@@ -41,6 +41,7 @@
     "baseLon": "Base longitude",
     "baseCoordsHelper": "Used for Google distance from base in transfer requests.",
     "baseCoordsLabel": "Base coords: {{lat}}, {{lon}}",
+    "mainBrandLocked": "Public site brand name is CarsNK and cannot be changed.",
     "updated": "Company updated: {{name}}",
     "loadFailed": "Failed to load company"
   },

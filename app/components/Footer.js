@@ -111,7 +111,7 @@ function Footer() {
   const currentYear = new Date().getFullYear();
   const { t } = useTranslation();
 
-  const name = company?.name || "CarsNK";
+  const name = "CarsNK";
   const slogan = company?.slogan || "Car rental aggregator in Greece";
   const tel = company?.tel || "+380 68 100 3771";
   const tel2 = company?.tel2 || "+353 85 270 96 05";

@@ -19,6 +19,7 @@ export default function EditCompanyContactsDialog({
   tel,
   baseLat = "",
   baseLon = "",
+  lockName = false,
   onNameChange,
   onEmailChange,
   onTelChange,
@@ -43,8 +44,10 @@ export default function EditCompanyContactsDialog({
             label={t("companyProfile.companyName")}
             value={name}
             onChange={(e) => onNameChange(e.target.value)}
-            autoFocus
+            autoFocus={!lockName}
             fullWidth
+            disabled={lockName}
+            helperText={lockName ? t("companyProfile.mainBrandLocked") : undefined}
           />
           <TextField
             label={t("companyProfile.email")}

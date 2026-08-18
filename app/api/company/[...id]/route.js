@@ -5,6 +5,7 @@ import { getCompany } from "@/domain/services";
 import { requireAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
 import Company from "@models/company";
+import { COMPANY_ID } from "@config/company";
 import {
   getSessionOwnerId,
   isSuperAdminUser,
@@ -105,7 +106,10 @@ export async function PATCH(request, { params }) {
     if (!name) {
       return NextResponse.json({ error: "name cannot be empty" }, { status: 400 });
     }
-    updates.name = name;
+    // Public site footer/brand uses COMPANY_ID — do not rename it to a partner.
+    if (companyId !== String(COMPANY_ID)) {
+      updates.name = name;
+    }
   }
   if (body?.email != null) {
     updates.email = String(body.email).trim();

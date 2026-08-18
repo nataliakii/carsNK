@@ -959,6 +959,7 @@ export default function OwnersSection() {
         tel={editCompanyTel}
         baseLat={editCompanyBaseLat}
         baseLon={editCompanyBaseLon}
+        lockName={String(selectedCompanyId) === String(COMPANY_ID)}
         onNameChange={setEditCompanyName}
         onEmailChange={setEditCompanyEmail}
         onTelChange={setEditCompanyTel}
