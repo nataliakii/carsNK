@@ -30,8 +30,13 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import MyLocationIcon from "@mui/icons-material/MyLocation";
 import { useTranslation, Trans } from "react-i18next";
+import { useSession } from "next-auth/react";
 import { computeZoneDeliveryPrice } from "@/domain/delivery/deliveryPriceFormula";
+import { COMPANY_ID } from "@config/company";
+
+const ROLE_SUPERADMIN = 2;
 
 const EMPTY_FORM = {
   name: "",
@@ -65,6 +70,7 @@ function hasFixedPrice(zone) {
 
 export default function DeliveryZonesSection() {
   const { t } = useTranslation();
+  const { data: session } = useSession();
   const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,6 +79,18 @@ export default function DeliveryZonesSection() {
   const [notification, setNotification] = useState(null);
   const [pricePerKm, setPricePerKm] = useState("");
   const [pricePerKmSaved, setPricePerKmSaved] = useState("");
+  const [baseLat, setBaseLat] = useState("");
+  const [baseLon, setBaseLon] = useState("");
+  const [baseLatSaved, setBaseLatSaved] = useState("");
+  const [baseLonSaved, setBaseLonSaved] = useState("");
+  const [locating, setLocating] = useState(false);
+  const [savingBase, setSavingBase] = useState(false);
+
+  const companyId = useCallback(() => {
+    const role = Number(session?.user?.role);
+    if (role === ROLE_SUPERADMIN) return String(COMPANY_ID);
+    return session?.user?.ownerId ? String(session.user.ownerId) : String(COMPANY_ID);
+  }, [session]);
 
   const fetchZones = useCallback(async () => {
     try {
@@ -88,17 +106,24 @@ export default function DeliveryZonesSection() {
 
   const fetchCompany = useCallback(async () => {
     try {
-      const res = await fetch("/api/company");
+      const id = companyId();
+      const res = await fetch(`/api/company/${id}`, { cache: "no-store" });
       const data = await res.json();
-      if (data) {
+      if (data && !data.error) {
         const val = data.deliveryPricePerKm ?? 0;
         setPricePerKm(String(val));
         setPricePerKmSaved(String(val));
+        const lat = data?.coords?.lat != null ? String(data.coords.lat) : "";
+        const lon = data?.coords?.lon != null ? String(data.coords.lon) : "";
+        setBaseLat(lat);
+        setBaseLon(lon);
+        setBaseLatSaved(lat);
+        setBaseLonSaved(lon);
       }
     } catch (err) {
       console.error("Failed to fetch company:", err);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     fetchZones();
@@ -195,11 +220,12 @@ export default function DeliveryZonesSection() {
 
   const handleSavePricePerKm = async () => {
     try {
-      const res = await fetch("/api/company", {
+      const res = await fetch(`/api/company/${companyId()}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deliveryPricePerKm: Number(pricePerKm) || 0 }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setPricePerKmSaved(pricePerKm);
         setNotification({
@@ -207,14 +233,82 @@ export default function DeliveryZonesSection() {
           message: t("deliveryZonesPage.priceSaved"),
         });
       } else {
-        const data = await res.json();
         setNotification({
           severity: "error",
-          message: data.message || t("deliveryZonesPage.saveFailed"),
+          message: data.error || data.message || t("deliveryZonesPage.saveFailed"),
         });
       }
     } catch (err) {
       setNotification({ severity: "error", message: err.message });
+    }
+  };
+
+  const handleUseMyLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setNotification({
+        severity: "error",
+        message: t("deliveryZonesPage.locationUnavailable"),
+      });
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setBaseLat(String(pos.coords.latitude));
+        setBaseLon(String(pos.coords.longitude));
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        setNotification({
+          severity: "error",
+          message:
+            err?.code === 1
+              ? t("deliveryZonesPage.locationDenied")
+              : t("deliveryZonesPage.locationUnavailable"),
+        });
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  };
+
+  const handleSaveBaseAndRecalculate = async () => {
+    setSavingBase(true);
+    try {
+      const res = await fetch("/api/admin/delivery-zones/recalculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: baseLat, lon: baseLon }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setNotification({
+          severity: "error",
+          message: data.message || t("deliveryZonesPage.saveFailed"),
+        });
+        return;
+      }
+      setBaseLatSaved(baseLat);
+      setBaseLonSaved(baseLon);
+      if (Array.isArray(data.data)) setZones(data.data);
+      else fetchZones();
+      const failedCount = Number(data.failedCount || 0);
+      setNotification({
+        severity: failedCount > 0 ? "warning" : "success",
+        message:
+          failedCount > 0
+            ? t("deliveryZonesPage.distancesPartial", {
+                updated: data.updatedCount || 0,
+                failed: failedCount,
+              })
+            : t("deliveryZonesPage.distancesRecalculated", {
+                count: data.updatedCount || 0,
+              }),
+      });
+    } catch (err) {
+      setNotification({ severity: "error", message: err.message });
+    } finally {
+      setSavingBase(false);
     }
   };
 
@@ -260,7 +354,7 @@ export default function DeliveryZonesSection() {
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
           {t("deliveryZonesPage.costSection")}
         </Typography>
-        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1.5 }}>
+        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1.5 }} flexWrap="wrap">
           <TextField
             label={t("deliveryZonesPage.pricePerKm")}
             size="small"
@@ -279,11 +373,72 @@ export default function DeliveryZonesSection() {
             {t("deliveryZonesPage.save")}
           </Button>
         </Stack>
-        <Typography variant="caption" color="text.secondary" component="div">
+        <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 2 }}>
           <Trans
             i18nKey="deliveryZonesPage.formulaHint"
             components={{ bold: <b /> }}
           />
+        </Typography>
+
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          {t("deliveryZonesPage.baseSection")}
+        </Typography>
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1.5}
+          sx={{ mb: 1 }}
+          flexWrap="wrap"
+          useFlexGap
+        >
+          <TextField
+            label={t("deliveryZonesPage.baseLat")}
+            size="small"
+            type="number"
+            value={baseLat}
+            onChange={(e) => setBaseLat(e.target.value)}
+            sx={{ width: 180 }}
+            inputProps={{ step: "any" }}
+          />
+          <TextField
+            label={t("deliveryZonesPage.baseLon")}
+            size="small"
+            type="number"
+            value={baseLon}
+            onChange={(e) => setBaseLon(e.target.value)}
+            sx={{ width: 180 }}
+            inputProps={{ step: "any" }}
+          />
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<MyLocationIcon />}
+            onClick={handleUseMyLocation}
+            disabled={locating || savingBase}
+            sx={{ textTransform: "none" }}
+          >
+            {locating
+              ? t("deliveryZonesPage.locating")
+              : t("deliveryZonesPage.useMyLocation")}
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleSaveBaseAndRecalculate}
+            disabled={
+              savingBase ||
+              !String(baseLat).trim() ||
+              !String(baseLon).trim()
+            }
+            sx={{ textTransform: "none" }}
+          >
+            {savingBase
+              ? t("deliveryZonesPage.recalculating")
+              : t("deliveryZonesPage.saveBaseAndRecalculate")}
+          </Button>
+        </Stack>
+        <Typography variant="caption" color="text.secondary" component="div">
+          {t("deliveryZonesPage.baseHelper")}
         </Typography>
       </Paper>
 

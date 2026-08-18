@@ -117,6 +117,16 @@ export async function PATCH(request, { params }) {
   if (body?.tel != null) {
     updates.tel = String(body.tel).trim();
   }
+  if (body?.deliveryPricePerKm != null) {
+    const rate = Number(body.deliveryPricePerKm);
+    if (!Number.isFinite(rate) || rate < 0) {
+      return NextResponse.json(
+        { error: "deliveryPricePerKm must be >= 0" },
+        { status: 400 }
+      );
+    }
+    updates.deliveryPricePerKm = rate;
+  }
   if (body?.coords != null) {
     const parsedLat = parseCoord(body.coords?.lat, "lat");
     if (!parsedLat.ok) {

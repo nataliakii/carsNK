@@ -500,7 +500,19 @@
     "zoneCreated": "Η ζώνη δημιουργήθηκε",
     "zoneDeleted": "Η ζώνη διαγράφηκε",
     "priceSaved": "Η τιμή ανά χλμ αποθηκεύτηκε",
-    "saveFailed": "Αποτυχία αποθήκευσης"
+    "saveFailed": "Αποτυχία αποθήκευσης",
+    "baseSection": "Βάση",
+    "baseLat": "Γεωγραφικό πλάτος βάσης",
+    "baseLon": "Γεωγραφικό μήκος βάσης",
+    "useMyLocation": "Use my current location",
+    "locating": "Εντοπισμός…",
+    "locationDenied": "Δεν επιτρέπεται η τοποθεσία. Επιτρέψτε την πρόσβαση ή εισάγετε συντεταγμένες.",
+    "locationUnavailable": "Δεν ήταν δυνατός ο εντοπισμός.",
+    "saveBaseAndRecalculate": "Αποθήκευση βάσης και επανυπολογισμός",
+    "recalculating": "Επανυπολογισμός…",
+    "baseHelper": "Οι αποστάσεις είναι χλμ οδήγησης από αυτή τη βάση προς κάθε πόλη (Google). Οι σταθερές και δωρεάν τιμές δεν αλλάζουν.",
+    "distancesRecalculated": "Ενημερώθηκαν {{count}} αποστάσεις από τη νέα βάση.",
+    "distancesPartial": "Ενημερώθηκαν {{updated}}, απέτυχαν {{failed}}."
   },
   "timeAdjust": {
     "overridePending": "Η επιβεβαιωμένη κράτηση θα αντικαταστήσει την εκκρεμή",

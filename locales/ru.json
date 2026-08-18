@@ -498,7 +498,19 @@
     "zoneCreated": "Зона создана",
     "zoneDeleted": "Зона удалена",
     "priceSaved": "Цена за км сохранена",
-    "saveFailed": "Не удалось сохранить"
+    "saveFailed": "Не удалось сохранить",
+    "baseSection": "База",
+    "baseLat": "Широта базы",
+    "baseLon": "Долгота базы",
+    "useMyLocation": "Use my current location",
+    "locating": "Определение…",
+    "locationDenied": "Нет доступа к геолокации. Разрешите доступ или введите координаты вручную.",
+    "locationUnavailable": "Не удалось определить текущую локацию.",
+    "saveBaseAndRecalculate": "Сохранить базу и пересчитать расстояния",
+    "recalculating": "Пересчёт…",
+    "baseHelper": "Расстояния — километры езды от этой базы до каждого города (Google). Фикс. и бесплатные цены не меняются.",
+    "distancesRecalculated": "Обновлено {{count}} расстояний от новой базы.",
+    "distancesPartial": "Обновлено {{updated}} расстояний, {{failed}} не удалось."
   },
   "timeAdjust": {
     "overridePending": "Подтверждённый заказ переопределит ожидающую заявку",

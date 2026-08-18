@@ -146,7 +146,37 @@ async function fetchGoogleDistance(originName, destName, apiKey) {
   );
 }
 
-async function fetchGoogleDistanceQuery(origins, destinations, apiKey) {
+const MATRIX_DESTINATION_BATCH = 25;
+
+function parseDistanceElement(element) {
+  if (!element || element.status !== "OK") {
+    return {
+      ok: false,
+      message: element?.status
+        ? `Route not found (${element.status})`
+        : "Route not found",
+    };
+  }
+
+  const meters = Number(element.distance?.value);
+  const seconds = Number(element.duration?.value);
+  if (!Number.isFinite(meters) || meters < 0) {
+    return { ok: false, message: "Invalid distance from Google" };
+  }
+
+  return {
+    ok: true,
+    distanceKm: Math.round((meters / 1000) * 10) / 10,
+    durationMinutes: Number.isFinite(seconds)
+      ? Math.max(1, Math.round(seconds / 60))
+      : undefined,
+    distanceText: element.distance?.text || undefined,
+    durationText: element.duration?.text || undefined,
+    approximate: false,
+  };
+}
+
+async function fetchGoogleDistanceMatrix(origins, destinations, apiKey) {
   const url = new URL(
     "https://maps.googleapis.com/maps/api/distancematrix/json"
   );
@@ -174,32 +204,89 @@ async function fetchGoogleDistanceQuery(origins, destinations, apiKey) {
     };
   }
 
-  const element = payload?.rows?.[0]?.elements?.[0];
-  if (!element || element.status !== "OK") {
-    return {
+  const elements = payload?.rows?.[0]?.elements;
+  if (!Array.isArray(elements) || elements.length === 0) {
+    return { ok: false, message: "Route not found" };
+  }
+
+  return { ok: true, elements };
+}
+
+async function fetchGoogleDistanceQuery(origins, destinations, apiKey) {
+  const matrix = await fetchGoogleDistanceMatrix(origins, destinations, apiKey);
+  if (!matrix.ok) return matrix;
+  return parseDistanceElement(matrix.elements[0]);
+}
+
+/**
+ * Driving distances from base coordinates to many destinations (Google Matrix + catalog fallback).
+ * @param {{
+ *   baseCoords: { lat?: unknown, lon?: unknown, lng?: unknown },
+ *   destinations: { id: string, query: string, name?: string }[],
+ * }} params
+ * @returns {Promise<Record<string, { ok: boolean, distanceKm?: number, approximate?: boolean, message?: string }>>}
+ */
+export async function getDistancesFromBaseToDestinations({
+  baseCoords,
+  destinations,
+}) {
+  const byId = {};
+  const list = Array.isArray(destinations) ? destinations : [];
+  if (list.length === 0) return byId;
+
+  const lat = Number(baseCoords?.lat);
+  const lon = Number(baseCoords?.lon ?? baseCoords?.lng);
+  const hasBaseCoords =
+    Number.isFinite(lat) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    Number.isFinite(lon) &&
+    lon >= -180 &&
+    lon <= 180;
+
+  const apiKey = String(process.env.GOOGLE_MAPS_API_KEY || "").trim();
+  const origin = `${lat},${lon}`;
+  const pending = [...list];
+
+  if (apiKey && hasBaseCoords) {
+    for (let i = 0; i < pending.length; i += MATRIX_DESTINATION_BATCH) {
+      const batch = pending.slice(i, i + MATRIX_DESTINATION_BATCH);
+      const destinationsParam = batch.map((item) => item.query).join("|");
+      const matrix = await fetchGoogleDistanceMatrix(
+        origin,
+        destinationsParam,
+        apiKey
+      );
+      if (!matrix.ok) continue;
+      batch.forEach((item, index) => {
+        byId[item.id] = parseDistanceElement(matrix.elements[index]);
+      });
+    }
+  }
+
+  for (const item of list) {
+    if (byId[item.id]?.ok) continue;
+    const placeName = String(item.name || item.query || "").trim();
+    const curatedKm = getCuratedDistanceKm(placeName);
+    if (curatedKm != null) {
+      byId[item.id] = {
+        ok: true,
+        distanceKm: curatedKm,
+        approximate: true,
+      };
+      continue;
+    }
+    byId[item.id] = byId[item.id] || {
       ok: false,
-      message: element?.status
-        ? `Route not found (${element.status})`
-        : "Route not found",
+      message: !apiKey
+        ? "GOOGLE_MAPS_API_KEY is not configured"
+        : !hasBaseCoords
+          ? "Base coordinates are not configured"
+          : "Distance from base unavailable",
     };
   }
 
-  const meters = Number(element.distance?.value);
-  const seconds = Number(element.duration?.value);
-  if (!Number.isFinite(meters) || meters < 0) {
-    return { ok: false, message: "Invalid distance from Google" };
-  }
-
-  return {
-    ok: true,
-    distanceKm: Math.round((meters / 1000) * 10) / 10,
-    durationMinutes: Number.isFinite(seconds)
-      ? Math.max(1, Math.round(seconds / 60))
-      : undefined,
-    distanceText: element.distance?.text || undefined,
-    durationText: element.duration?.text || undefined,
-    approximate: false,
-  };
+  return byId;
 }
 
 export default getTransferDistance;

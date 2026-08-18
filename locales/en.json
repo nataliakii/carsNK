@@ -499,7 +499,19 @@
     "zoneCreated": "Zone created",
     "zoneDeleted": "Zone deleted",
     "priceSaved": "Price per km saved",
-    "saveFailed": "Failed to save"
+    "saveFailed": "Failed to save",
+    "baseSection": "Base location",
+    "baseLat": "Base latitude",
+    "baseLon": "Base longitude",
+    "useMyLocation": "Use my current location",
+    "locating": "Getting location…",
+    "locationDenied": "Location permission denied. Allow location access or enter coordinates manually.",
+    "locationUnavailable": "Could not get current location.",
+    "saveBaseAndRecalculate": "Save base and recalculate distances",
+    "recalculating": "Recalculating…",
+    "baseHelper": "Distances are driving km from this base to each city (Google). Fixed and free prices stay unchanged.",
+    "distancesRecalculated": "Updated {{count}} distances from the new base.",
+    "distancesPartial": "Updated {{updated}} distances, {{failed}} failed."
   },
   "timeAdjust": {
     "overridePending": "Confirmed order will override pending request",
