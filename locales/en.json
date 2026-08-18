@@ -24,7 +24,25 @@
     "websiteVisits": "Visits",
     "transfer": "Transfer",
     "transfers": "Transfers",
-    "owners": "Owners"
+    "owners": "Owners",
+    "companyProfile": "Company"
+  },
+  "companyProfile": {
+    "title": "Company contacts",
+    "subtitle": "Public contact details shown to customers and in notifications.",
+    "noEmail": "No email",
+    "copyId": "Copy company ID",
+    "editContacts": "Edit contacts",
+    "editDialogTitle": "Edit company contacts",
+    "companyName": "Company name",
+    "email": "Email",
+    "phone": "Phone",
+    "baseLat": "Base latitude",
+    "baseLon": "Base longitude",
+    "baseCoordsHelper": "Used for Google distance from base in transfer requests.",
+    "baseCoordsLabel": "Base coords: {{lat}}, {{lon}}",
+    "updated": "Company updated: {{name}}",
+    "loadFailed": "Failed to load company"
   },
   "catalog": {
     "noCarsMatchFilters": "No cars match the selected filters. Try changing search, class, transmission, or seats."
@@ -637,6 +655,10 @@
     "distance": "Distance: {{km}} km · ~{{minutes}} min",
     "distanceError": "Could not calculate distance",
     "distanceUnavailable": "Distance unavailable (check Google Maps API key)",
+    "baseFrom": "Base -> {{place}}: {{km}} km · ~{{minutes}} min",
+    "baseFromApprox": "Base -> {{place}}: ~{{km}} km · ~{{minutes}} min",
+    "baseTo": "Base -> {{place}}: {{km}} km · ~{{minutes}} min",
+    "baseToApprox": "Base -> {{place}}: ~{{km}} km · ~{{minutes}} min",
     "successTitle": "Your journey begins",
     "successBlessing": "May the gods of the road watch over you on the way.",
     "successQuotes": [

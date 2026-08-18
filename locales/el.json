@@ -24,7 +24,25 @@
     "websiteVisits": "Visits",
     "transfer": "Μεταφορά",
     "transfers": "Μεταφορές",
-    "owners": "Ιδιοκτήτες"
+    "owners": "Ιδιοκτήτες",
+    "companyProfile": "Εταιρεία"
+  },
+  "companyProfile": {
+    "title": "Στοιχεία επικοινωνίας",
+    "subtitle": "Δημόσια στοιχεία επικοινωνίας για πελάτες και ειδοποιήσεις.",
+    "noEmail": "Χωρίς email",
+    "copyId": "Αντιγραφή ID εταιρείας",
+    "editContacts": "Επεξεργασία επαφών",
+    "editDialogTitle": "Επεξεργασία επαφών εταιρείας",
+    "companyName": "Όνομα εταιρείας",
+    "email": "Email",
+    "phone": "Τηλέφωνο",
+    "baseLat": "Γεωγραφικό πλάτος βάσης",
+    "baseLon": "Γεωγραφικό μήκος βάσης",
+    "baseCoordsHelper": "Χρησιμοποιείται για τον υπολογισμό απόστασης από τη βάση στα αιτήματα μεταφοράς.",
+    "baseCoordsLabel": "Συντεταγμένες βάσης: {{lat}}, {{lon}}",
+    "updated": "Η εταιρεία ενημερώθηκε: {{name}}",
+    "loadFailed": "Αποτυχία φόρτωσης εταιρείας"
   },
   "catalog": {
     "noCarsMatchFilters": "Δεν υπάρχουν αυτοκίνητα με αυτά τα φίλτρα. Δοκιμάστε άλλη αναζήτηση ή φίλτρα."
@@ -638,6 +656,10 @@
     "distance": "Απόσταση: {{km}} km · ~{{minutes}} λεπτά",
     "distanceError": "Αποτυχία υπολογισμού απόστασης",
     "distanceUnavailable": "Η απόσταση δεν είναι διαθέσιμη",
+    "baseFrom": "Βάση -> {{place}}: {{km}} km · ~{{minutes}} λεπτά",
+    "baseFromApprox": "Βάση -> {{place}}: ~{{km}} km · ~{{minutes}} λεπτά",
+    "baseTo": "Βάση -> {{place}}: {{km}} km · ~{{minutes}} λεπτά",
+    "baseToApprox": "Βάση -> {{place}}: ~{{km}} km · ~{{minutes}} λεπτά",
     "successTitle": "Το ταξίδι ξεκινά",
     "successBlessing": "Οι θεοί του δρόμου να σας προστατεύουν.",
     "successQuotes": [

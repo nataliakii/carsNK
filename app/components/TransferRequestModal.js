@@ -38,6 +38,12 @@ export default function TransferRequestModal({
   const [distanceKm, setDistanceKm] = useState(null);
   const [durationMinutes, setDurationMinutes] = useState(null);
   const [distanceApproximate, setDistanceApproximate] = useState(false);
+  const [baseFromDistanceKm, setBaseFromDistanceKm] = useState(null);
+  const [baseFromDurationMinutes, setBaseFromDurationMinutes] = useState(null);
+  const [baseFromApproximate, setBaseFromApproximate] = useState(false);
+  const [baseToDistanceKm, setBaseToDistanceKm] = useState(null);
+  const [baseToDurationMinutes, setBaseToDurationMinutes] = useState(null);
+  const [baseToApproximate, setBaseToApproximate] = useState(false);
   const [distanceLoading, setDistanceLoading] = useState(false);
   const [distanceError, setDistanceError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -74,6 +80,12 @@ export default function TransferRequestModal({
     setDistanceKm(null);
     setDurationMinutes(null);
     setDistanceApproximate(false);
+    setBaseFromDistanceKm(null);
+    setBaseFromDurationMinutes(null);
+    setBaseFromApproximate(false);
+    setBaseToDistanceKm(null);
+    setBaseToDurationMinutes(null);
+    setBaseToApproximate(false);
     setDistanceError("");
     setError("");
     setSuccess(false);
@@ -121,6 +133,12 @@ export default function TransferRequestModal({
         setDistanceKm(null);
         setDurationMinutes(null);
         setDistanceApproximate(false);
+        setBaseFromDistanceKm(null);
+        setBaseFromDurationMinutes(null);
+        setBaseFromApproximate(false);
+        setBaseToDistanceKm(null);
+        setBaseToDurationMinutes(null);
+        setBaseToApproximate(false);
         setDistanceError("");
         return;
       }
@@ -137,16 +155,35 @@ export default function TransferRequestModal({
           setDistanceKm(null);
           setDurationMinutes(null);
           setDistanceApproximate(false);
+          setBaseFromDistanceKm(null);
+          setBaseFromDurationMinutes(null);
+          setBaseFromApproximate(false);
+          setBaseToDistanceKm(null);
+          setBaseToDurationMinutes(null);
+          setBaseToApproximate(false);
           setDistanceError(body.message || t("transfer.distanceError"));
           return;
         }
         setDistanceKm(body.distanceKm);
         setDurationMinutes(body.durationMinutes ?? null);
         setDistanceApproximate(Boolean(body.approximate));
+        setBaseFromDistanceKm(body.baseFromDistanceKm ?? null);
+        setBaseFromDurationMinutes(body.baseFromDurationMinutes ?? null);
+        setBaseFromApproximate(Boolean(body.baseFromApproximate));
+        setBaseToDistanceKm(body.baseToDistanceKm ?? null);
+        setBaseToDurationMinutes(body.baseToDurationMinutes ?? null);
+        setBaseToApproximate(Boolean(body.baseToApproximate));
+        setDistanceError(body.baseDistanceError || "");
       } catch {
         setDistanceKm(null);
         setDurationMinutes(null);
         setDistanceApproximate(false);
+        setBaseFromDistanceKm(null);
+        setBaseFromDurationMinutes(null);
+        setBaseFromApproximate(false);
+        setBaseToDistanceKm(null);
+        setBaseToDurationMinutes(null);
+        setBaseToApproximate(false);
         setDistanceError(t("transfer.distanceError"));
       } finally {
         setDistanceLoading(false);
@@ -188,6 +225,10 @@ export default function TransferRequestModal({
           locale: i18n.language || "",
           distanceKm,
           durationMinutes,
+          baseFromDistanceKm,
+          baseFromDurationMinutes,
+          baseToDistanceKm,
+          baseToDurationMinutes,
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -386,17 +427,49 @@ export default function TransferRequestModal({
             >
               {distanceLoading && <CircularProgress size={18} />}
               {!distanceLoading && distanceKm != null && (
-                <Typography variant="body2" color="text.secondary">
-                  {distanceApproximate
-                    ? t("transfer.distanceApprox", {
-                        km: distanceKm,
-                        minutes: durationMinutes ?? "—",
-                      })
-                    : t("transfer.distance", {
-                        km: distanceKm,
-                        minutes: durationMinutes ?? "—",
-                      })}
-                </Typography>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {distanceApproximate
+                      ? t("transfer.distanceApprox", {
+                          km: distanceKm,
+                          minutes: durationMinutes ?? "—",
+                        })
+                      : t("transfer.distance", {
+                          km: distanceKm,
+                          minutes: durationMinutes ?? "—",
+                        })}
+                  </Typography>
+                  {baseFromDistanceKm != null && (
+                    <Typography variant="body2" color="text.secondary">
+                      {baseFromApproximate
+                        ? t("transfer.baseFromApprox", {
+                            place: from,
+                            km: baseFromDistanceKm,
+                            minutes: baseFromDurationMinutes ?? "—",
+                          })
+                        : t("transfer.baseFrom", {
+                            place: from,
+                            km: baseFromDistanceKm,
+                            minutes: baseFromDurationMinutes ?? "—",
+                          })}
+                    </Typography>
+                  )}
+                  {baseToDistanceKm != null && (
+                    <Typography variant="body2" color="text.secondary">
+                      {baseToApproximate
+                        ? t("transfer.baseToApprox", {
+                            place: to,
+                            km: baseToDistanceKm,
+                            minutes: baseToDurationMinutes ?? "—",
+                          })
+                        : t("transfer.baseTo", {
+                            place: to,
+                            km: baseToDistanceKm,
+                            minutes: baseToDurationMinutes ?? "—",
+                          })}
+                    </Typography>
+                  )}
+                </Box>
               )}
               {!distanceLoading && distanceError && (
                 <Typography variant="body2" color="warning.main">

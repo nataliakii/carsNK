@@ -159,25 +159,32 @@ export default function NavBar({
   const isSuperAdmin = adminRole === ROLE.SUPERADMIN;
   const [partnerCompanyName, setPartnerCompanyName] = useState("");
 
-  useEffect(() => {
+  const refreshPartnerCompanyName = useCallback(() => {
     if (!isAdmin || isSuperAdmin || !session?.user?.ownerId) {
       setPartnerCompanyName("");
-      return undefined;
+      return;
     }
     const ownerId = String(session.user.ownerId);
-    let cancelled = false;
     fetch(`/api/company/${ownerId}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelled) setPartnerCompanyName(data?.name || "");
+        setPartnerCompanyName(data?.name || "");
       })
       .catch(() => {
-        if (!cancelled) setPartnerCompanyName("");
+        setPartnerCompanyName("");
       });
-    return () => {
-      cancelled = true;
-    };
   }, [isAdmin, isSuperAdmin, session?.user?.ownerId]);
+
+  useEffect(() => {
+    refreshPartnerCompanyName();
+  }, [refreshPartnerCompanyName]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handler = () => refreshPartnerCompanyName();
+    window.addEventListener("company-contacts-updated", handler);
+    return () => window.removeEventListener("company-contacts-updated", handler);
+  }, [refreshPartnerCompanyName]);
 
   // Обработчик logout
   const handleLogout = async () => {
@@ -590,6 +597,7 @@ export default function NavBar({
   const isAdminTransfersRoute = pathname?.startsWith("/admin/transfers");
   const isAdminVouchersRoute = pathname?.startsWith("/admin/vouchers");
   const isAdminOwnersRoute = pathname?.startsWith("/admin/owners");
+  const isAdminCompanyRoute = pathname?.startsWith("/admin/company");
   const isAdminAccessTokensRoute = pathname?.startsWith("/admin/access-tokens");
   const adminNavLinkSx = {
     px: { md: 0.65, lg: 1 },
@@ -958,6 +966,18 @@ export default function NavBar({
                           }}
                         >
                           {t("header.owners")}
+                        </Typography>
+                      </Link>
+                    )}
+                    {isAdmin && !isSuperAdmin && (
+                      <Link href="/admin/company">
+                        <Typography
+                          sx={{
+                            ...adminNavLinkSx,
+                            ...(isAdminCompanyRoute ? adminNavActiveSx : null),
+                          }}
+                        >
+                          {t("header.companyProfile")}
                         </Typography>
                       </Link>
                     )}
@@ -1541,6 +1561,16 @@ export default function NavBar({
                     onClick={() => setDrawerOpen(false)}
                   >
                     <ListItemText primary={t("header.owners")} />
+                  </ListItem>
+                )}
+                {isAdmin && !isSuperAdmin && (
+                  <ListItem
+                    button
+                    component={Link}
+                    href="/admin/company"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    <ListItemText primary={t("header.companyProfile")} />
                   </ListItem>
                 )}
                 {isSuperAdmin && (

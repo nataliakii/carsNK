@@ -137,7 +137,17 @@ export default function TransfersSection() {
                   {item.from} → {item.to}
                 </TableCell>
                 <TableCell>
-                  {item.distanceKm != null ? `${item.distanceKm} km` : "—"}
+                  <div>{item.distanceKm != null ? `${item.distanceKm} km` : "—"}</div>
+                  <div style={{ fontSize: 12, color: "#666" }}>
+                    {item.baseFromDistanceKm != null
+                      ? `Base→${item.from}: ${item.baseFromDistanceKm} km`
+                      : ""}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#666" }}>
+                    {item.baseToDistanceKm != null
+                      ? `Base→${item.to}: ${item.baseToDistanceKm} km`
+                      : ""}
+                  </div>
                 </TableCell>
                 <TableCell>{item.passengers}</TableCell>
                 <TableCell>

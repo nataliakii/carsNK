@@ -1,6 +1,7 @@
 import {
   toGooglePlaceQuery,
   estimateTransferDistanceFromCatalog,
+  getCuratedDistanceKm,
 } from "@/domain/transfers/transferLocations";
 
 /**
@@ -70,9 +71,82 @@ export async function getTransferDistance({ from, to }) {
   };
 }
 
+export async function getDistanceFromBase({ baseCoords, place }) {
+  const placeName = String(place || "").trim();
+  if (!placeName) {
+    return { ok: false, message: "place is required" };
+  }
+
+  const lat = Number(baseCoords?.lat);
+  const lon = Number(baseCoords?.lon ?? baseCoords?.lng);
+  const hasBaseCoords =
+    Number.isFinite(lat) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    Number.isFinite(lon) &&
+    lon >= -180 &&
+    lon <= 180;
+
+  const apiKey = String(process.env.GOOGLE_MAPS_API_KEY || "").trim();
+  if (apiKey && hasBaseCoords) {
+    const google = await fetchGoogleDistanceQuery(
+      `${lat},${lon}`,
+      toGooglePlaceQuery(placeName),
+      apiKey
+    );
+    if (google.ok) return google;
+  }
+
+  const curatedKm = getCuratedDistanceKm(placeName);
+  if (curatedKm != null) {
+    return {
+      ok: true,
+      distanceKm: curatedKm,
+      durationMinutes: Math.max(5, Math.round((Math.max(curatedKm, 1) / 55) * 60)),
+      distanceText: `~${curatedKm} km`,
+      durationText: undefined,
+      approximate: true,
+    };
+  }
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      message: "GOOGLE_MAPS_API_KEY is not configured",
+    };
+  }
+
+  if (!hasBaseCoords) {
+    return {
+      ok: false,
+      message: "Base coordinates are not configured",
+    };
+  }
+
+  return {
+    ok: false,
+    message: "Distance from base unavailable",
+  };
+}
+
+export async function getTransferBaseDistances({ baseCoords, from, to }) {
+  const [baseToFrom, baseToTo] = await Promise.all([
+    getDistanceFromBase({ baseCoords, place: from }),
+    getDistanceFromBase({ baseCoords, place: to }),
+  ]);
+
+  return { baseToFrom, baseToTo };
+}
+
 async function fetchGoogleDistance(originName, destName, apiKey) {
-  const origins = toGooglePlaceQuery(originName);
-  const destinations = toGooglePlaceQuery(destName);
+  return fetchGoogleDistanceQuery(
+    toGooglePlaceQuery(originName),
+    toGooglePlaceQuery(destName),
+    apiKey
+  );
+}
+
+async function fetchGoogleDistanceQuery(origins, destinations, apiKey) {
   const url = new URL(
     "https://maps.googleapis.com/maps/api/distancematrix/json"
   );

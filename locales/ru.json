@@ -24,7 +24,25 @@
     "websiteVisits": "Визиты",
     "transfer": "Трансфер",
     "transfers": "Трансферы",
-    "owners": "Владельцы"
+    "owners": "Владельцы",
+    "companyProfile": "Компания"
+  },
+  "companyProfile": {
+    "title": "Контакты компании",
+    "subtitle": "Публичные контакты для клиентов и уведомлений.",
+    "noEmail": "Нет email",
+    "copyId": "Скопировать ID компании",
+    "editContacts": "Изменить контакты",
+    "editDialogTitle": "Редактирование контактов",
+    "companyName": "Название компании",
+    "email": "Email",
+    "phone": "Телефон",
+    "baseLat": "Широта базы",
+    "baseLon": "Долгота базы",
+    "baseCoordsHelper": "Используется для расчета расстояния от базы в заявках на трансфер.",
+    "baseCoordsLabel": "Координаты базы: {{lat}}, {{lon}}",
+    "updated": "Компания обновлена: {{name}}",
+    "loadFailed": "Не удалось загрузить компанию"
   },
   "catalog": {
     "noCarsMatchFilters": "Нет машин по выбранным фильтрам. Измените поиск, класс, КПП или число мест."
@@ -636,6 +654,10 @@
     "distance": "Расстояние: {{km}} км · ~{{minutes}} мин",
     "distanceError": "Не удалось рассчитать расстояние",
     "distanceUnavailable": "Расстояние недоступно (нужен серверный Google Maps API key)",
+    "baseFrom": "База -> {{place}}: {{km}} км · ~{{minutes}} мин",
+    "baseFromApprox": "База -> {{place}}: ~{{km}} км · ~{{minutes}} мин",
+    "baseTo": "База -> {{place}}: {{km}} км · ~{{minutes}} мин",
+    "baseToApprox": "База -> {{place}}: ~{{km}} км · ~{{minutes}} мин",
     "successTitle": "Путь начинается",
     "successBlessing": "Пусть боги дороги хранят вас в пути.",
     "successQuotes": [

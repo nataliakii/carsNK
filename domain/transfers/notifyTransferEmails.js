@@ -36,6 +36,20 @@ function buildTransferDetailsLines(doc) {
   return [
     `From: ${doc.from}`,
     `To: ${doc.to}`,
+    doc.baseFromDistanceKm != null
+      ? `Base → ${doc.from}: ${doc.baseFromDistanceKm} km${
+          doc.baseFromDurationMinutes != null
+            ? ` (~${doc.baseFromDurationMinutes} min)`
+            : ""
+        }`
+      : null,
+    doc.baseToDistanceKm != null
+      ? `Base → ${doc.to}: ${doc.baseToDistanceKm} km${
+          doc.baseToDurationMinutes != null
+            ? ` (~${doc.baseToDurationMinutes} min)`
+            : ""
+        }`
+      : null,
     doc.distanceKm != null
       ? `Distance: ${doc.distanceKm} km${
           doc.durationMinutes != null ? ` (~${doc.durationMinutes} min)` : ""

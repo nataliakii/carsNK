@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { getTransferDistance } from "@/domain/transfers/getTransferDistance";
+import { connectToDB } from "@lib/database";
+import Company from "@models/company";
+import { COMPANY_ID } from "@config/company";
+import {
+  getTransferDistance,
+  getTransferBaseDistances,
+} from "@/domain/transfers/getTransferDistance";
 
 export const runtime = "nodejs";
 
@@ -21,7 +27,18 @@ export async function POST(request) {
     return json({ success: false, message: "from and to are required" }, 400);
   }
 
-  const result = await getTransferDistance({ from, to });
+  await connectToDB();
+  const company = await Company.findById(COMPANY_ID).lean();
+  const baseCoords = {
+    lat: company?.coords?.lat,
+    lon: company?.coords?.lon,
+  };
+
+  const [result, baseResult] = await Promise.all([
+    getTransferDistance({ from, to }),
+    getTransferBaseDistances({ baseCoords, from, to }),
+  ]);
+
   if (!result.ok) {
     const status = String(result.message || "").includes("GOOGLE_MAPS_API_KEY")
       ? 503
@@ -36,5 +53,23 @@ export async function POST(request) {
     distanceText: result.distanceText,
     durationText: result.durationText,
     approximate: Boolean(result.approximate),
+    baseFromDistanceKm: baseResult.baseToFrom.ok
+      ? baseResult.baseToFrom.distanceKm
+      : null,
+    baseFromDurationMinutes: baseResult.baseToFrom.ok
+      ? baseResult.baseToFrom.durationMinutes ?? null
+      : null,
+    baseFromApproximate: Boolean(baseResult.baseToFrom.approximate),
+    baseToDistanceKm: baseResult.baseToTo.ok
+      ? baseResult.baseToTo.distanceKm
+      : null,
+    baseToDurationMinutes: baseResult.baseToTo.ok
+      ? baseResult.baseToTo.durationMinutes ?? null
+      : null,
+    baseToApproximate: Boolean(baseResult.baseToTo.approximate),
+    baseDistanceError:
+      !baseResult.baseToFrom.ok || !baseResult.baseToTo.ok
+        ? baseResult.baseToFrom.message || baseResult.baseToTo.message
+        : "",
   });
 }

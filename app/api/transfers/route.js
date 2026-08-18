@@ -15,6 +15,22 @@ function formatTransferTelegram(doc) {
   const when = doc.datetime
     ? new Date(doc.datetime).toISOString().replace("T", " ").slice(0, 16)
     : "";
+  const baseFromLine =
+    doc.baseFromDistanceKm != null
+      ? `База → ${doc.from}: ${doc.baseFromDistanceKm} km${
+          doc.baseFromDurationMinutes != null
+            ? ` (~${doc.baseFromDurationMinutes} min)`
+            : ""
+        }`
+      : null;
+  const baseToLine =
+    doc.baseToDistanceKm != null
+      ? `База → ${doc.to}: ${doc.baseToDistanceKm} km${
+          doc.baseToDurationMinutes != null
+            ? ` (~${doc.baseToDurationMinutes} min)`
+            : ""
+        }`
+      : null;
   const distanceLine =
     doc.distanceKm != null
       ? `Расстояние: ${doc.distanceKm} km${
@@ -25,6 +41,8 @@ function formatTransferTelegram(doc) {
     "🚕 CarsNK — новая заявка на трансфер",
     `Откуда: ${doc.from}`,
     `Куда: ${doc.to}`,
+    baseFromLine,
+    baseToLine,
     distanceLine,
     `Когда: ${when}`,
     `Пассажиры: ${doc.passengers}`,
@@ -79,6 +97,26 @@ export async function POST(request) {
     Number.isFinite(Number(payload.durationMinutes))
       ? Number(payload.durationMinutes)
       : null;
+  const baseFromDistanceKm =
+    payload?.baseFromDistanceKm != null &&
+    Number.isFinite(Number(payload.baseFromDistanceKm))
+      ? Number(payload.baseFromDistanceKm)
+      : null;
+  const baseFromDurationMinutes =
+    payload?.baseFromDurationMinutes != null &&
+    Number.isFinite(Number(payload.baseFromDurationMinutes))
+      ? Number(payload.baseFromDurationMinutes)
+      : null;
+  const baseToDistanceKm =
+    payload?.baseToDistanceKm != null &&
+    Number.isFinite(Number(payload.baseToDistanceKm))
+      ? Number(payload.baseToDistanceKm)
+      : null;
+  const baseToDurationMinutes =
+    payload?.baseToDurationMinutes != null &&
+    Number.isFinite(Number(payload.baseToDurationMinutes))
+      ? Number(payload.baseToDurationMinutes)
+      : null;
 
   if (distanceKm == null) {
     const computed = await getTransferDistance({ from, to });
@@ -95,6 +133,10 @@ export async function POST(request) {
       to,
       distanceKm,
       durationMinutes,
+      baseFromDistanceKm,
+      baseFromDurationMinutes,
+      baseToDistanceKm,
+      baseToDurationMinutes,
       passengers: Math.min(50, Math.floor(passengers)),
       datetime,
       notes,

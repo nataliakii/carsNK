@@ -30,7 +30,6 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import SearchIcon from "@mui/icons-material/Search";
@@ -39,6 +38,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import Link from "next/link";
 import { COMPANY_ID } from "@config/company";
+import CompanyContactsCard from "@/app/admin/shared/components/CompanyContactsCard";
+import EditCompanyContactsDialog from "@/app/admin/shared/components/EditCompanyContactsDialog";
 
 const ROLE_ADMIN = 1;
 const ROLE_SUPERADMIN = 2;
@@ -76,6 +77,8 @@ export default function OwnersSection() {
   const [editCompanyName, setEditCompanyName] = useState("");
   const [editCompanyEmail, setEditCompanyEmail] = useState("");
   const [editCompanyTel, setEditCompanyTel] = useState("");
+  const [editCompanyBaseLat, setEditCompanyBaseLat] = useState("");
+  const [editCompanyBaseLon, setEditCompanyBaseLon] = useState("");
 
   const [editAdminOpen, setEditAdminOpen] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState(null);
@@ -174,15 +177,6 @@ export default function OwnersSection() {
     });
   }, [cars, carQuery, carFilter, selectedCompanyId]);
 
-  const copyText = async (text) => {
-    try {
-      await navigator.clipboard.writeText(String(text));
-      setOk("Copied");
-    } catch {
-      setError("Could not copy");
-    }
-  };
-
   const createCompany = async () => {
     setBusy(true);
     setError("");
@@ -242,6 +236,12 @@ export default function OwnersSection() {
     setEditCompanyName(selectedCompany.name || "");
     setEditCompanyEmail(selectedCompany.email || "");
     setEditCompanyTel(selectedCompany.tel || "");
+    setEditCompanyBaseLat(
+      selectedCompany?.coords?.lat != null ? String(selectedCompany.coords.lat) : ""
+    );
+    setEditCompanyBaseLon(
+      selectedCompany?.coords?.lon != null ? String(selectedCompany.coords.lon) : ""
+    );
     setEditCompanyOpen(true);
   };
 
@@ -251,19 +251,26 @@ export default function OwnersSection() {
     setError("");
     setOk("");
     try {
-      const res = await fetch(`/api/admin/owners/${selectedCompanyId}`, {
+      const res = await fetch(`/api/company/${selectedCompanyId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editCompanyName,
           email: editCompanyEmail,
           tel: editCompanyTel,
+          coords: {
+            lat: editCompanyBaseLat,
+            lon: editCompanyBaseLon,
+          },
         }),
       });
       const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.message || "Failed");
+      if (!res.ok) throw new Error(body.error || body.message || "Failed");
       setEditCompanyOpen(false);
-      setOk(`Company updated: ${body.company?.name}`);
+      setOk(`Company updated: ${body.name}`);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("company-contacts-updated"));
+      }
       await load();
     } catch (err) {
       setError(err.message || "Failed");
@@ -579,48 +586,12 @@ export default function OwnersSection() {
             <Alert severity="info">Select a company on the left.</Alert>
           ) : (
             <Stack gap={2}>
-              <Box
-                sx={{
-                  p: 2,
-                  border: "1px solid",
-                  borderColor: "divider",
-                  borderRadius: 2,
-                  bgcolor: "background.paper",
-                }}
-              >
-                <Stack
-                  direction={{ xs: "column", sm: "row" }}
-                  justifyContent="space-between"
-                  gap={1.5}
-                  alignItems={{ sm: "center" }}
-                >
-                  <Box>
-                    <Typography variant="h6" fontWeight={700}>
-                      {selectedCompany.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {selectedCompany.email || "No email"}
-                      {selectedCompany.tel ? ` · ${selectedCompany.tel}` : ""}
-                    </Typography>
-                    <Stack direction="row" alignItems="center" gap={0.5} mt={0.5}>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ fontFamily: "monospace" }}
-                      >
-                        ID {shortId(selectedCompany._id)}
-                      </Typography>
-                      <Tooltip title="Copy company ID">
-                        <IconButton
-                          size="small"
-                          onClick={() => copyText(selectedCompany._id)}
-                        >
-                          <ContentCopyIcon fontSize="inherit" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </Box>
-                  <Stack direction="row" gap={1} flexWrap="wrap">
+              <CompanyContactsCard
+                company={selectedCompany}
+                onEdit={openEditCompany}
+                canEdit
+                actions={
+                  <>
                     <Button
                       variant="outlined"
                       startIcon={<PersonAddIcon />}
@@ -628,14 +599,6 @@ export default function OwnersSection() {
                       sx={{ textTransform: "none" }}
                     >
                       Add admin
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      startIcon={<EditIcon />}
-                      onClick={openEditCompany}
-                      sx={{ textTransform: "none" }}
-                    >
-                      Edit company
                     </Button>
                     {String(selectedCompany._id) !== String(COMPANY_ID) ? (
                       <Button
@@ -649,9 +612,9 @@ export default function OwnersSection() {
                         Delete company
                       </Button>
                     ) : null}
-                  </Stack>
-                </Stack>
-              </Box>
+                  </>
+                }
+              />
 
               <Box
                 sx={{
@@ -988,50 +951,22 @@ export default function OwnersSection() {
         </DialogActions>
       </Dialog>
 
-      <Dialog
+      <EditCompanyContactsDialog
         open={editCompanyOpen}
-        onClose={() => !busy && setEditCompanyOpen(false)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>Edit company</DialogTitle>
-        <DialogContent>
-          <Stack gap={1.5} sx={{ pt: 1 }}>
-            <TextField
-              label="Company name"
-              value={editCompanyName}
-              onChange={(e) => setEditCompanyName(e.target.value)}
-              autoFocus
-              fullWidth
-            />
-            <TextField
-              label="Email"
-              value={editCompanyEmail}
-              onChange={(e) => setEditCompanyEmail(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Phone"
-              value={editCompanyTel}
-              onChange={(e) => setEditCompanyTel(e.target.value)}
-              fullWidth
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setEditCompanyOpen(false)} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={updateCompany}
-            disabled={busy || !editCompanyName.trim()}
-            sx={{ textTransform: "none" }}
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+        busy={busy}
+        name={editCompanyName}
+        email={editCompanyEmail}
+        tel={editCompanyTel}
+        baseLat={editCompanyBaseLat}
+        baseLon={editCompanyBaseLon}
+        onNameChange={setEditCompanyName}
+        onEmailChange={setEditCompanyEmail}
+        onTelChange={setEditCompanyTel}
+        onBaseLatChange={setEditCompanyBaseLat}
+        onBaseLonChange={setEditCompanyBaseLon}
+        onClose={() => setEditCompanyOpen(false)}
+        onSave={updateCompany}
+      />
 
       <Dialog
         open={editAdminOpen}
