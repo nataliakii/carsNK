@@ -428,6 +428,22 @@
       "bookedDatesTooltip": "These dates are already booked",
       "clientBooked": "Booked dates"
     },
+    "ordersByDate": {
+      "starting": "Orders starting {{date}}",
+      "ending": "Orders ending {{date}}",
+      "emptyStarting": "No orders starting on this date",
+      "emptyEnding": "No orders ending on this date",
+      "car": "Car",
+      "regNumber": "Plate",
+      "period": "Period",
+      "customer": "Customer",
+      "phone": "Phone",
+      "pickupPlace": "Pickup location",
+      "returnPlace": "Return location",
+      "flightNumber": "Flight number",
+      "close": "Close",
+      "print": "Print"
+    },
     "moveConfirmTitle": "Confirm move",
     "moveConfirmDates": "Move order from {{from}} to {{to}}{{delta}}?",
     "moveConfirmCarAndDates": "Move order to {{car}} ({{reg}}) and shift dates from {{from}} to {{to}}{{delta}}?",

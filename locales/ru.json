@@ -427,6 +427,22 @@
       "bookedDatesTooltip": "Эти даты уже забронированы",
       "clientBooked": "Занятые даты"
     },
+    "ordersByDate": {
+      "starting": "Заказы, начинающиеся {{date}}",
+      "ending": "Заказы, заканчивающиеся {{date}}",
+      "emptyStarting": "Нет заказов, начинающихся в эту дату",
+      "emptyEnding": "Нет заказов, заканчивающихся в эту дату",
+      "car": "Машина",
+      "regNumber": "Госномер",
+      "period": "Срок",
+      "customer": "Клиент",
+      "phone": "Телефон",
+      "pickupPlace": "Место получения",
+      "returnPlace": "Место возврата",
+      "flightNumber": "Номер рейса",
+      "close": "Закрыть",
+      "print": "Печать"
+    },
     "moveConfirmTitle": "Подтверждение перемещения",
     "moveConfirmDates": "Перенести заказ с {{from}} на {{to}}{{delta}}?",
     "moveConfirmCarAndDates": "Перенести заказ на {{car}} ({{reg}}) и сдвинуть даты с {{from}} на {{to}}{{delta}}?",

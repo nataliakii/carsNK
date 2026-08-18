@@ -13,6 +13,7 @@ import {
   Divider,
   Paper
 } from "@mui/material";
+import { useTranslation } from "react-i18next";
 import { formatDate, formatDateRange } from "@utils/businessTime";
 import ModalLayout from "./ModalLayout";
 import { ActionButton } from "../index";
@@ -36,6 +37,8 @@ const OrdersByDateModal = ({
   endedOrders = [],
   getRegNumberByCarNumber,
 }) => {
+  const { t } = useTranslation();
+  const dateLabel = date ? formatDate(date, "DD.MM.YY") : "";
   const cellSx = {
     whiteSpace: "nowrap",
   };
@@ -61,18 +64,18 @@ const OrdersByDateModal = ({
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell sx={{ ...cellSx, fontWeight: 600 }}>Машина</TableCell>
-            <TableCell sx={{ ...cellSx, fontWeight: 600 }}>Госномер</TableCell>
-            <TableCell sx={{ ...cellSx, fontWeight: 600 }}>Срок</TableCell>
-            <TableCell sx={{ ...cellSx, fontWeight: 600 }}>Клиент</TableCell>
-            <TableCell sx={{ ...cellSx, fontWeight: 600 }}>Телефон</TableCell>
+            <TableCell sx={{ ...cellSx, fontWeight: 600 }}>{t("calendar.ordersByDate.car")}</TableCell>
+            <TableCell sx={{ ...cellSx, fontWeight: 600 }}>{t("calendar.ordersByDate.regNumber")}</TableCell>
+            <TableCell sx={{ ...cellSx, fontWeight: 600 }}>{t("calendar.ordersByDate.period")}</TableCell>
+            <TableCell sx={{ ...cellSx, fontWeight: 600 }}>{t("calendar.ordersByDate.customer")}</TableCell>
+            <TableCell sx={{ ...cellSx, fontWeight: 600 }}>{t("calendar.ordersByDate.phone")}</TableCell>
             {isStartingOrders ? (
               <>
-                <TableCell sx={{ ...cellSx, fontWeight: 600 }}>Место получения</TableCell>
-                <TableCell sx={{ ...cellSx, fontWeight: 600 }}>Номер рейса</TableCell>
+                <TableCell sx={{ ...cellSx, fontWeight: 600 }}>{t("calendar.ordersByDate.pickupPlace")}</TableCell>
+                <TableCell sx={{ ...cellSx, fontWeight: 600 }}>{t("calendar.ordersByDate.flightNumber")}</TableCell>
               </>
             ) : (
-              <TableCell sx={{ ...cellSx, fontWeight: 600 }}>Место возврата</TableCell>
+              <TableCell sx={{ ...cellSx, fontWeight: 600 }}>{t("calendar.ordersByDate.returnPlace")}</TableCell>
             )}
           </TableRow>
         </TableHead>
@@ -157,14 +160,14 @@ const OrdersByDateModal = ({
             align="center"
             sx={{ fontWeight: 600, mb: 1 }}
           >
-            Заказы, начинающиеся {date && formatDate(date, "DD.MM.YY")}
+            {t("calendar.ordersByDate.starting", { date: dateLabel })}
           </Typography>
 
           <Divider sx={{ mb: 2 }} />
 
           {renderOrdersTable(
             startedOrders,
-            "Нет заказов, начинающихся в эту дату",
+            t("calendar.ordersByDate.emptyStarting"),
             true
           )}
         </Paper>
@@ -186,14 +189,14 @@ const OrdersByDateModal = ({
             align="center"
             sx={{ fontWeight: 600, mb: 1 }}
           >
-            Заказы, заканчивающиеся {date && formatDate(date, "DD.MM.YY")}
+            {t("calendar.ordersByDate.ending", { date: dateLabel })}
           </Typography>
 
           <Divider sx={{ mb: 2 }} />
 
           {renderOrdersTable(
             endedOrders,
-            "Нет заказов, заканчивающихся в эту дату",
+            t("calendar.ordersByDate.emptyEnding"),
             false
           )}
         </Paper>
@@ -215,14 +218,14 @@ const OrdersByDateModal = ({
         color="warning"
         size="small"
         onClick={onClose}
-        label="ЗАКРЫТЬ"
+        label={t("calendar.ordersByDate.close")}
       />
 
       <ActionButton
         color="secondary"
         size="small"
         onClick={() => window.print()}
-        label="ПЕЧАТЬ"
+        label={t("calendar.ordersByDate.print")}
       />
 
   </Box>
