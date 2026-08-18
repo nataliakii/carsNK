@@ -350,13 +350,7 @@ export default function NavBar({
     },
   };
 
-  const accessCompanyName =
-    !isAdmin && isAccessLink && company?.name
-      ? String(company.name).trim()
-      : "";
-  const headerIdentityLabel = isAdmin
-    ? adminIdentityLabel
-    : accessCompanyName;
+  const headerIdentityLabel = isAdmin ? adminIdentityLabel : "";
 
   // Локаль из URL имеет приоритет, чтобы отображаемый язык и ссылки всегда совпадали с страницей
   const pathSegments = pathname?.split("/").filter(Boolean) || [];
