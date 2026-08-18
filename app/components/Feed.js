@@ -15,6 +15,7 @@ import dynamic from "next/dynamic";
 import ScrollButton from "@/app/components/ui/buttons/ScrollButton";
 
 import Navbar from "@app/components/Navbar";
+import { usePathname } from "next/navigation";
 
 // Lazy load Footer (below fold, can load after initial render)
 const Footer = dynamic(() => import("@app/components/Footer"), {
@@ -22,19 +23,20 @@ const Footer = dynamic(() => import("@app/components/Footer"), {
 });
 
 function Feed({ children, ...props }) {
-  // unstable_noStore() не нужен в клиентском компоненте
+  const pathname = usePathname();
+  const isAccessLink =
+    typeof pathname === "string" && pathname.startsWith("/access/");
 
-  const shouldShowFooter = !props.isAdmin; // Скрываем Footer, если isAdmin === true
+  const shouldShowFooter = !props.isAdmin && !isAccessLink;
 
   // Admin AppBar is fixed at 60px — clear it so page titles are not hidden.
   // Cars page still adds its own offset for the fixed AdminTopBar below.
-  const mainPt = useMemo(
-    () =>
-      props.isAdmin
-        ? { xs: "60px", md: "60px" }
-        : { xs: "110px", md: "90px" },
-    [props.isAdmin]
-  );
+  const mainPt = useMemo(() => {
+    if (props.isAdmin || isAccessLink) {
+      return { xs: "60px", md: "60px" };
+    }
+    return { xs: "110px", md: "90px" };
+  }, [props.isAdmin, isAccessLink]);
 
   const [isDarkMode, setIsDarkMode] = useState(false);
 

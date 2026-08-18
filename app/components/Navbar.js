@@ -161,19 +161,28 @@ export default function NavBar({
 
   const refreshPartnerCompanyName = useCallback(() => {
     if (!isAdmin || isSuperAdmin || !session?.user?.ownerId) {
-      setPartnerCompanyName("");
+      if (!isSuperAdmin && session?.user?.companyName) {
+        setPartnerCompanyName(session.user.companyName);
+      } else {
+        setPartnerCompanyName("");
+      }
       return;
     }
     const ownerId = String(session.user.ownerId);
     fetch(`/api/company/${ownerId}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        setPartnerCompanyName(data?.name || "");
+        if (data?.name) setPartnerCompanyName(String(data.name).trim());
+        else if (session?.user?.companyName) {
+          setPartnerCompanyName(session.user.companyName);
+        }
       })
       .catch(() => {
-        setPartnerCompanyName("");
+        if (session?.user?.companyName) {
+          setPartnerCompanyName(session.user.companyName);
+        }
       });
-  }, [isAdmin, isSuperAdmin, session?.user?.ownerId]);
+  }, [isAdmin, isSuperAdmin, session?.user?.ownerId, session?.user?.companyName]);
 
   useEffect(() => {
     refreshPartnerCompanyName();
@@ -320,7 +329,34 @@ export default function NavBar({
 
   const adminIdentityLabel = isSuperAdmin
     ? t("header.superadmin")
-    : partnerCompanyName || session?.user?.email || t("header.adminRole");
+    : partnerCompanyName || session?.user?.companyName || t("header.adminRole");
+
+  const adminChipSx = {
+    maxWidth: { xs: 150, sm: 210, md: 280 },
+    height: 24,
+    fontWeight: 700,
+    fontSize: "0.72rem",
+    backgroundColor: isSuperAdmin
+      ? "rgba(255, 193, 7, 0.22)"
+      : "rgba(0, 200, 212, 0.22)",
+    color: isSuperAdmin ? "#ffc107" : "#7EF0F6",
+    border: isSuperAdmin
+      ? "1px solid rgba(255, 193, 7, 0.55)"
+      : "1px solid rgba(0, 200, 212, 0.55)",
+    "& .MuiChip-label": {
+      px: 0.9,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+  };
+
+  const accessCompanyName =
+    !isAdmin && isAccessLink && company?.name
+      ? String(company.name).trim()
+      : "";
+  const headerIdentityLabel = isAdmin
+    ? adminIdentityLabel
+    : accessCompanyName;
 
   // Локаль из URL имеет приоритет, чтобы отображаемый язык и ссылки всегда совпадали с страницей
   const pathSegments = pathname?.split("/").filter(Boolean) || [];
@@ -792,7 +828,7 @@ export default function NavBar({
                   "& > *": { minWidth: 0, flexShrink: 0 },
                 }}
               >
-                {!isAdmin && (
+                {!isAdmin && !isAccessLink && (
                   <>
                     <Link href={homeHref}>
                       <Typography
@@ -1059,48 +1095,45 @@ export default function NavBar({
                   }}
                 />
               </Link>
-              {isAdmin && (
-                <Stack
-                  direction="row"
-                  alignItems="center"
-                  spacing={0.75}
-                  sx={{ minWidth: 0 }}
-                >
-                  <Logo
-                    sx={{
-                      fontSize: "clamp(10px, 2vw, 14px)",
-                      lineHeight: 1,
-                      opacity: 0.85,
-                      flexShrink: 0,
-                    }}
+              {headerIdentityLabel ? (
+                isSuperAdmin ? (
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={0.75}
+                    sx={{ minWidth: 0 }}
                   >
-                    ADMIN
-                  </Logo>
+                    <Logo
+                      sx={{
+                        fontSize: "clamp(10px, 2vw, 14px)",
+                        lineHeight: 1,
+                        opacity: 0.85,
+                        flexShrink: 0,
+                      }}
+                    >
+                      ADMIN
+                    </Logo>
+                    <Chip
+                      label={headerIdentityLabel}
+                      size="small"
+                      title={headerIdentityLabel}
+                      sx={adminChipSx}
+                    />
+                  </Stack>
+                ) : (
                   <Chip
-                    label={adminIdentityLabel}
+                    label={headerIdentityLabel}
                     size="small"
-                    title={adminIdentityLabel}
+                    title={headerIdentityLabel}
                     sx={{
-                      maxWidth: { xs: 120, sm: 180, md: 240 },
-                      height: 22,
-                      fontWeight: 700,
-                      fontSize: "0.7rem",
-                      backgroundColor: isSuperAdmin
-                        ? "rgba(255, 193, 7, 0.22)"
-                        : "rgba(0, 194, 184, 0.18)",
-                      color: isSuperAdmin ? "#ffc107" : "secondary.main",
-                      border: isSuperAdmin
-                        ? "1px solid rgba(255, 193, 7, 0.55)"
-                        : "1px solid rgba(0, 194, 184, 0.45)",
-                      "& .MuiChip-label": {
-                        px: 0.9,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      },
+                      ...adminChipSx,
+                      height: 26,
+                      fontSize: "0.8rem",
+                      maxWidth: { xs: 160, sm: 240, md: 320 },
                     }}
                   />
-                </Stack>
-              )}
+                )
+              ) : null}
             </Box>
           </Stack>
         </Toolbar>
@@ -1428,33 +1461,26 @@ export default function NavBar({
                   }}
                 />
               </Link>
-              {isAdmin && (
-                <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
-                  <Logo sx={{ fontSize: 12 }}>ADMIN</Logo>
+              {headerIdentityLabel ? (
+                isSuperAdmin ? (
+                  <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
+                    <Logo sx={{ fontSize: 12 }}>ADMIN</Logo>
+                    <Chip
+                      label={headerIdentityLabel}
+                      size="small"
+                      title={headerIdentityLabel}
+                      sx={{ ...adminChipSx, maxWidth: 180 }}
+                    />
+                  </Stack>
+                ) : (
                   <Chip
-                    label={adminIdentityLabel}
+                    label={headerIdentityLabel}
                     size="small"
-                    title={adminIdentityLabel}
-                    sx={{
-                      maxWidth: 140,
-                      height: 22,
-                      fontWeight: 700,
-                      fontSize: "0.7rem",
-                      backgroundColor: isSuperAdmin
-                        ? "rgba(255, 193, 7, 0.22)"
-                        : "rgba(0, 194, 184, 0.18)",
-                      color: isSuperAdmin ? "#ffc107" : "secondary.main",
-                      border: isSuperAdmin
-                        ? "1px solid rgba(255, 193, 7, 0.55)"
-                        : "1px solid rgba(0, 194, 184, 0.45)",
-                      "& .MuiChip-label": {
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      },
-                    }}
+                    title={headerIdentityLabel}
+                    sx={{ ...adminChipSx, maxWidth: 220, height: 26, fontSize: "0.8rem" }}
                   />
-                </Stack>
-              )}
+                )
+              ) : null}
             </Stack>
             <IconButton onClick={() => setDrawerOpen(false)}>
               <CloseIcon />
@@ -1661,7 +1687,7 @@ export default function NavBar({
         />
       )}
 
-      {!isAdmin && (
+      {!isAdmin && !isAccessLink && (
         <TransferRequestModal
           open={transferModalOpen}
           onClose={() => setTransferModalOpen(false)}
