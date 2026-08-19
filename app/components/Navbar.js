@@ -351,6 +351,10 @@ export default function NavBar({
   };
 
   const headerIdentityLabel = isAdmin ? adminIdentityLabel : "";
+  const accessCompanyName =
+    !isAdmin && isAccessLink && company?.name
+      ? String(company.name).trim()
+      : "";
 
   // Локаль из URL имеет приоритет, чтобы отображаемый язык и ссылки всегда совпадали с страницей
   const pathSegments = pathname?.split("/").filter(Boolean) || [];
@@ -1067,6 +1071,26 @@ export default function NavBar({
             </Stack>
 
             <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+              {isAccessLink ? (
+                <Typography
+                  component="span"
+                  title={accessCompanyName}
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: "clamp(16px, 2.4vw, 22px)",
+                    letterSpacing: "0.02em",
+                    color: "#7EF0F6",
+                    lineHeight: 1.2,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    maxWidth: { xs: "58vw", sm: 420 },
+                  }}
+                >
+                  {accessCompanyName}
+                </Typography>
+              ) : (
+                <>
               <Link
                 href={homeHref}
                 style={{
@@ -1128,6 +1152,8 @@ export default function NavBar({
                   />
                 )
               ) : null}
+                </>
+              )}
             </Box>
           </Stack>
         </Toolbar>
