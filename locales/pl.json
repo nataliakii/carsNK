@@ -355,6 +355,30 @@
       "sendFailed": "Nie udało się wysłać wiadomości. Spróbuj ponownie później."
     }
   },
+  "forBusiness": {
+    "eyebrow": "Dla firm",
+    "title": "CarsNK jako platforma wypożyczalni",
+    "intro": "Wprowadź flotę online: klienci rezerwują na stronie, a Ty prowadzisz codzienną pracę w jednym panelu admina — od pierwszego zgłoszenia do zwrotu auta.",
+    "cta": "Porozmawiajmy o platformie",
+    "features": {
+      "notifications": {
+        "title": "Natychmiastowe powiadomienia",
+        "text": "Gdy klient złoży rezerwację, admin dostaje czytelne powiadomienie z autem, datami i danymi kontaktowymi — nic nie umknie."
+      },
+      "calendar": {
+        "title": "Przejrzysty kalendarz floty",
+        "text": "Wszystkie auta i rezerwacje na jednej osi czasu. Wolne dni, nakładania i nadchodzący tydzień widać od razu."
+      },
+      "move": {
+        "title": "Przenoszenie rezerwacji w kilka kliknięć",
+        "text": "Trzeba przesunąć daty lub zmienić auto? Przeciągnij rezerwację w kalendarzu — harmonogram zaktualizuje się od razu."
+      },
+      "platform": {
+        "title": "Cały proces w jednym miejscu",
+        "text": "Zamówienia, strefy dostawy, transfery, vouchery i dane firmy w tym samym adminie — mniej chaosu, więcej kontroli nad flotą."
+      }
+    }
+  },
   "footer": {
     "contactUs": "Skontaktuj się z nami",
     "kallikratiaBanner": "Nie wiesz, gdzie iść na Chalkidiki?",

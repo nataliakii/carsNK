@@ -612,6 +612,30 @@
       "sendFailed": "Failed to send message. Please try again later."
     }
   },
+  "forBusiness": {
+    "eyebrow": "For business",
+    "title": "CarsNK as a rental platform",
+    "intro": "Put your fleet online: customers book on the website, and you run day-to-day operations from one admin panel — from the first request to the return.",
+    "cta": "Talk to us about the platform",
+    "features": {
+      "notifications": {
+        "title": "Instant notifications",
+        "text": "As soon as a customer places a booking, the admin gets a clear alert with car, dates, and contact details — nothing slips through."
+      },
+      "calendar": {
+        "title": "Clear fleet calendar",
+        "text": "See all cars and bookings on one timeline. Spot free days, overlaps, and the week ahead without switching between spreadsheets."
+      },
+      "move": {
+        "title": "Move bookings in a couple of clicks",
+        "text": "Need to shift dates or switch the car? Drag bookings on the calendar — the schedule updates right away."
+      },
+      "platform": {
+        "title": "One place for the whole workflow",
+        "text": "Orders, delivery zones, transfers, vouchers, and company contacts live in the same admin — less chaos, more control over the fleet."
+      }
+    }
+  },
   "footer": {
     "contactUs": "Contact",
     "explore": "Explore",

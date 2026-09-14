@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Feed from "@app/components/Feed";
 import CarGrid from "@app/components/CarGrid";
+import ForBusinessSection from "@app/components/ForBusinessSection";
 import JsonLdScript from "@app/components/seo/JsonLdScript";
 import SeoHeroSliderCard from "@app/components/seo/SeoHeroSliderCard";
 import {
@@ -78,6 +79,7 @@ export default async function LocalizedHomePage({ params }) {
           imageUrls={heroImages}
         /> */}
         <CarGrid />
+        <ForBusinessSection />
       </Feed>
     </>
   );

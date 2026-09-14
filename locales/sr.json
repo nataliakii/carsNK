@@ -223,6 +223,30 @@
       "sendFailed": "Slanje poruke nije uspelo. Molimo pokušajte kasnije."
     }
   },
+  "forBusiness": {
+    "eyebrow": "Za biznis",
+    "title": "CarsNK kao platforma za rentiranje",
+    "intro": "Stavite flotu online: klijenti rezervišu na sajtu, a vi vodite svakodnevni rad iz jednog admin panela — od prvog upita do povratka vozila.",
+    "cta": "Razgovarajmo o platformi",
+    "features": {
+      "notifications": {
+        "title": "Trenutna obaveštenja",
+        "text": "Čim klijent napravi rezervaciju, admin dobija jasno obaveštenje sa vozilom, datumima i kontaktima — ništa neće proći neprimećeno."
+      },
+      "calendar": {
+        "title": "Pregledan kalendar flote",
+        "text": "Sva vozila i rezervacije na jednoj vremenskoj liniji. Slobodni dani, preklapanja i naredna nedelja vide se odmah."
+      },
+      "move": {
+        "title": "Pomeranje rezervacija u par klikova",
+        "text": "Treba pomeriti datume ili promeniti auto? Prevucite rezervaciju na kalendaru — raspored se ažurira odmah."
+      },
+      "platform": {
+        "title": "Ceo tok rada na jednom mestu",
+        "text": "Porudžbine, zone isporuke, transferi, vaučeri i podaci firme u istom adminu — manje haosa, više kontrole nad flotom."
+      }
+    }
+  },
   "footer": {
     "contactUs": "Kontakt",
     "kallikratiaBanner": "Ne znate kuda da odete u Halkidiki?",

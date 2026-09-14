@@ -223,6 +223,30 @@
       "sendFailed": "Trimiterea mesajului a eșuat. Vă rugăm să încercați mai târziu."
     }
   },
+  "forBusiness": {
+    "eyebrow": "Pentru business",
+    "title": "CarsNK ca platformă de închiriere",
+    "intro": "Puneți flota online: clienții rezervă pe site, iar dvs. gestionați activitatea zilnică dintr-un singur panou admin — de la prima cerere până la returnare.",
+    "cta": "Discutați despre platformă",
+    "features": {
+      "notifications": {
+        "title": "Notificări instant",
+        "text": "De îndată ce clientul face o rezervare, adminul primește o alertă clară cu mașina, datele și contactele — nimic nu se pierde."
+      },
+      "calendar": {
+        "title": "Calendar clar al flotei",
+        "text": "Toate mașinile și rezervările pe o singură linie temporală. Zile libere, suprapuneri și săptămâna următoare se văd imediat."
+      },
+      "move": {
+        "title": "Mutarea rezervărilor în câteva clicuri",
+        "text": "Trebuie să mutați datele sau să schimbați mașina? Trageți rezervarea în calendar — programul se actualizează imediat."
+      },
+      "platform": {
+        "title": "Tot fluxul de lucru într-un singur loc",
+        "text": "Comenzi, zone de livrare, transferuri, vouchere și datele firmei în același admin — mai puțin haos, mai mult control asupra flotei."
+      }
+    }
+  },
   "footer": {
     "contactUs": "Contact",
     "kallikratiaBanner": "Nu știți unde să mergeți în Halkidiki?",

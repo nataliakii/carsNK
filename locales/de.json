@@ -223,6 +223,30 @@
       "sendFailed": "Nachricht konnte nicht gesendet werden. Bitte versuchen Sie es später erneut."
     }
   },
+  "forBusiness": {
+    "eyebrow": "Für Unternehmen",
+    "title": "CarsNK als Mietplattform",
+    "intro": "Bringen Sie Ihre Flotte online: Kunden buchen auf der Website, Sie steuern den Alltag aus einem Admin-Panel — von der ersten Anfrage bis zur Rückgabe.",
+    "cta": "Über die Plattform sprechen",
+    "features": {
+      "notifications": {
+        "title": "Sofortige Benachrichtigungen",
+        "text": "Sobald ein Kunde bucht, erhält der Admin eine klare Meldung mit Auto, Daten und Kontaktdaten — nichts geht verloren."
+      },
+      "calendar": {
+        "title": "Übersichtlicher Flottenkalender",
+        "text": "Alle Autos und Buchungen auf einer Zeitleiste. Freie Tage, Überschneidungen und die nächste Woche auf einen Blick."
+      },
+      "move": {
+        "title": "Buchungen in wenigen Klicks verschieben",
+        "text": "Daten ändern oder das Auto tauschen? Ziehen Sie die Buchung im Kalender — der Plan aktualisiert sich sofort."
+      },
+      "platform": {
+        "title": "Alles an einem Ort",
+        "text": "Aufträge, Lieferzonen, Transfers, Voucher und Firmendaten im selben Admin — weniger Chaos, mehr Kontrolle über die Flotte."
+      }
+    }
+  },
   "footer": {
     "contactUs": "Kontakt",
     "kallikratiaBanner": "Wissen Sie nicht, wohin in Chalkidiki?",
