@@ -30,10 +30,19 @@
     "vouchers": "Ваучери",
     "accessLinks": "Посилання доступу",
     "vouchersAndLinks": "Ваучери та інструменти",
-    "viewAsExit": "Вийти з компанії"
+    "viewAsExit": "Вийти з компанії",
+    "region": "Регіон",
+    "searchFrom": "З",
+    "searchTo": "До",
+    "searchDates": "Пошук за датами",
+    "clearSearchDates": "Очистити дати"
   },
   "catalog": {
-    "noCarsMatchFilters": "Немає авто за обраними фільтрами. Змініть пошук, клас, КПП або кількість місць."
+    "noCarsMatchFilters": "Немає авто за обраними фільтрами. Змініть пошук, регіон, клас, КПП або кількість місць.",
+    "noCarsMatchDateSearch": "Немає доступних авто на обрані дати. Спробуйте інші дати або скиньте пошук.",
+    "searchResultsTitle": "{{count}} авто доступно {{from}} – {{to}}",
+    "searchRegionLabel": "Регіон: {{region}}",
+    "searchPriceLabel": "{{price}}€ за {{days}} дн."
   },
   "basic": {
     "close": "закрити",

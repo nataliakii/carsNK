@@ -30,10 +30,19 @@
     "vouchers": "Vouchery",
     "accessLinks": "Linki dostępu",
     "vouchersAndLinks": "Vouchery i narzędzia",
-    "viewAsExit": "Wyjdź z firmy"
+    "viewAsExit": "Wyjdź z firmy",
+    "region": "Region",
+    "searchFrom": "Od",
+    "searchTo": "Do",
+    "searchDates": "Szukaj dat",
+    "clearSearchDates": "Wyczyść daty"
   },
   "catalog": {
-    "noCarsMatchFilters": "Brak aut dla wybranych filtrów. Zmień wyszukiwanie, klasę, skrzynię lub miejsca."
+    "noCarsMatchFilters": "Brak aut dla wybranych filtrów. Zmień wyszukiwanie, region, klasę, skrzynię lub miejsca.",
+    "noCarsMatchDateSearch": "Brak dostępnych aut na wybrane daty. Spróbuj innych dat lub wyczyść wyszukiwanie.",
+    "searchResultsTitle": "{{count}} aut dostępnych {{from}} – {{to}}",
+    "searchRegionLabel": "Region: {{region}}",
+    "searchPriceLabel": "{{price}}€ za {{days}} dni"
   },
   "basic": {
     "close": "zamknąć",

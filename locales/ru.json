@@ -31,7 +31,12 @@
     "vouchers": "Ваучеры",
     "accessLinks": "Ссылки доступа",
     "vouchersAndLinks": "Ваучеры и инструменты",
-    "viewAsExit": "Выйти из компании"
+    "viewAsExit": "Выйти из компании",
+    "region": "Регион",
+    "searchFrom": "С",
+    "searchTo": "По",
+    "searchDates": "Найти по датам",
+    "clearSearchDates": "Очистить даты"
   },
   "inbox": {
     "title": "Необработанные заказы",
@@ -74,7 +79,11 @@
     "emailLangLabel": "Язык писем: {{lang}}"
   },
   "catalog": {
-    "noCarsMatchFilters": "Нет машин по выбранным фильтрам. Измените поиск, класс, КПП или число мест."
+    "noCarsMatchFilters": "Нет машин по выбранным фильтрам. Измените поиск, регион, класс, КПП или число мест.",
+    "noCarsMatchDateSearch": "Нет доступных машин на выбранные даты. Попробуйте другие даты или сбросьте поиск.",
+    "searchResultsTitle": "{{count}} авто доступно {{from}} – {{to}}",
+    "searchRegionLabel": "Регион: {{region}}",
+    "searchPriceLabel": "{{price}}€ за {{days}} дн."
   },
   "basic": {
     "close": "закрыть",

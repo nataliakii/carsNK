@@ -15,6 +15,11 @@
     "transmission": "Choose Transmission",
     "seats": "Seats",
     "seatsOption": "{{count}} seats",
+    "region": "Region",
+    "searchFrom": "From",
+    "searchTo": "To",
+    "searchDates": "Search dates",
+    "clearSearchDates": "Clear dates",
     "logout": "Logout",
     "superadmin": "Superadmin",
     "adminRole": "Admin",
@@ -148,7 +153,11 @@
     "deleteCityConfirm": "Delete city {{name}} from the catalog?"
   },
   "catalog": {
-    "noCarsMatchFilters": "No cars match the selected filters. Try changing search, class, transmission, or seats."
+    "noCarsMatchFilters": "No cars match the selected filters. Try changing search, region, class, transmission, or seats.",
+    "noCarsMatchDateSearch": "No cars are available for the selected dates. Try different dates or clear the date search.",
+    "searchResultsTitle": "{{count}} cars available {{from}} – {{to}}",
+    "searchRegionLabel": "Region: {{region}}",
+    "searchPriceLabel": "{{price}}€ for {{days}} days"
   },
   "basic": {
     "close": "close",

@@ -255,7 +255,8 @@ export function buildLocalizedSitemap(cars: SitemapCar[] = []): MetadataRoute.Si
 
   // ── Category × Location SEO pages (localized slug per locale) ──
   if (!isSpain) {
-  for (const locale of supportedLocales) {
+  const greeceLocales = getSupportedLocales();
+  for (const locale of greeceLocales) {
     const seoPageSlugs = getAllSeoPageSlugs(locale);
     for (const seoPage of seoPageSlugs) {
       const alternates = buildHreflangAlternates(
@@ -276,7 +277,7 @@ export function buildLocalizedSitemap(cars: SitemapCar[] = []): MetadataRoute.Si
   }
 
   // ── Brand × Location SEO pages (localized slug per locale) ──
-  for (const locale of supportedLocales) {
+  for (const locale of greeceLocales) {
     const brandPages = buildAllBrandPageSlugs(publicCars, locale);
     for (const brandPage of brandPages) {
       const brandAlternates = buildHreflangAlternates(
@@ -293,17 +294,16 @@ export function buildLocalizedSitemap(cars: SitemapCar[] = []): MetadataRoute.Si
       });
     }
   }
-  }
 
   // ── Programmatic rent-{car}-{location} pages (localized slug per locale) ──
-  for (const locale of supportedLocales) {
+  for (const locale of greeceLocales) {
     const progSlugs = buildAllProgrammaticSlugs(
       publicCars.map((c) => String(c.slug).trim()),
       locale
     );
     for (const prog of progSlugs) {
       const progAlternates: Record<string, string> = {};
-      for (const loc of supportedLocales) {
+      for (const loc of greeceLocales) {
         const slug = buildProgrammaticSlug(
         prog.carSlug,
         getLocationSeoSlug(prog.locationId as LocationId, loc)
@@ -319,6 +319,7 @@ export function buildLocalizedSitemap(cars: SitemapCar[] = []): MetadataRoute.Si
         alternates: { languages: buildHreflangAlternates(progAlternates) },
       });
     }
+  }
   }
 
   const filteredEntries = entries.filter((entry) =>

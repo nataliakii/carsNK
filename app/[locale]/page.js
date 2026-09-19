@@ -27,7 +27,7 @@ export async function generateMetadata({ params }) {
   return buildHubMetadata(params.locale);
 }
 
-export default async function LocalizedHomePage({ params }) {
+export default async function LocalizedHomePage({ params, searchParams }) {
   const locale = normalizeRoutableLocale(params.locale);
   if (!isRoutableLocale(params.locale)) {
     notFound();
@@ -41,6 +41,8 @@ export default async function LocalizedHomePage({ params }) {
 
   // Public homepage never shows inactive / testing cars, even if an admin is logged in.
   const publicCars = filterPublicCars(carsData);
+  const initialPickup =
+    typeof searchParams?.pickup === "string" ? searchParams.pickup : "";
 
   const country = getSiteCountryConfig();
   const seoLocale = getSeoLocale(locale);
@@ -77,6 +79,7 @@ export default async function LocalizedHomePage({ params }) {
         isMain={true}
         company={companyData}
         locale={locale}
+        initialPickup={initialPickup}
       >
         {/* <SeoHeroSliderCard
           title={hubSeo.h1}

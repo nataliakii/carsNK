@@ -58,6 +58,7 @@ const CalendarPicker = ({
   discountStart,
   discountEnd,
   onPriceCalculated, // Callback для передачи просчитанной цены
+  presetSearchDates = null,
 }) => {
   const { t, i18n } = useTranslation();
   const { company, platform } = useMainContext();
@@ -243,6 +244,48 @@ const CalendarPicker = ({
     setStartEndDates(startEnd);
 
   }, [orders, carId]);
+
+  // Apply catalog date-search range onto this car's calendar (all available cars).
+  const appliedPresetKeyRef = useRef("");
+  useEffect(() => {
+    const startKey = presetSearchDates?.start
+      ? dayjs(presetSearchDates.start).format("YYYY-MM-DD")
+      : null;
+    const endKey = presetSearchDates?.end
+      ? dayjs(presetSearchDates.end).format("YYYY-MM-DD")
+      : null;
+    const presetKey = startKey && endKey ? `${startKey}|${endKey}` : "";
+
+    if (!presetKey) {
+      if (appliedPresetKeyRef.current) {
+        appliedPresetKeyRef.current = "";
+        setSelectedRange([null, null]);
+        setShowBookButton(false);
+        setBookedDates({ start: null, end: null });
+      }
+      return;
+    }
+
+    if (appliedPresetKeyRef.current === presetKey) return;
+    appliedPresetKeyRef.current = presetKey;
+
+    const start = dayjs.tz(startKey, "YYYY-MM-DD", calendarTz).startOf("day");
+    const end = dayjs.tz(endKey, "YYYY-MM-DD", calendarTz).startOf("day");
+    if (!start.isValid() || !end.isValid() || end.isBefore(start, "day")) {
+      return;
+    }
+
+    setSelectedRange([start, end]);
+    setCurrentDate(start);
+    setBookedDates({ start, end });
+    setShowBookButton(true);
+  }, [
+    presetSearchDates?.start,
+    presetSearchDates?.end,
+    carId,
+    calendarTz,
+    setBookedDates,
+  ]);
 
   // ДОБАВИТЬ ЭТОТ useEffect ЗДЕСЬ:
   useEffect(() => {

@@ -3,7 +3,10 @@ import {
   getLocationById,
   getLocationPathFromLocation,
 } from "@domain/locationSeo/locationSeoService";
-import { resolveBookingLocationFromPathname } from "../bookingLocationPathResolver";
+import {
+  resolveBookingLocationFromPathname,
+  resolveBookingLocationFromPickupParam,
+} from "../bookingLocationPathResolver";
 import { DEFAULT_BOOKING_LOCATION } from "../locationOptions";
 
 function getExpectedBookingLocation(locationId) {
@@ -50,5 +53,24 @@ describe("resolveBookingLocationFromPathname", () => {
   test("returns null for non-location paths", () => {
     expect(resolveBookingLocationFromPathname("/en/cars")).toBeNull();
     expect(resolveBookingLocationFromPathname("/en")).toBeNull();
+  });
+});
+
+describe("resolveBookingLocationFromPickupParam", () => {
+  test("resolves airport and city canonical ids", () => {
+    expect(
+      resolveBookingLocationFromPickupParam(LOCATION_IDS.THESSALONIKI_AIRPORT)
+    ).toBe("Airport");
+    expect(resolveBookingLocationFromPickupParam(LOCATION_IDS.NIKITI)).toBe(
+      "Nikiti"
+    );
+    expect(resolveBookingLocationFromPickupParam(LOCATION_IDS.HALKIDIKI)).toBe(
+      DEFAULT_BOOKING_LOCATION
+    );
+  });
+
+  test("returns null for empty / unknown", () => {
+    expect(resolveBookingLocationFromPickupParam("")).toBeNull();
+    expect(resolveBookingLocationFromPickupParam("not-a-place")).toBeNull();
   });
 });

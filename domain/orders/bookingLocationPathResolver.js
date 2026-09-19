@@ -37,6 +37,23 @@ function mapLocationToBookingOption(location) {
   );
 }
 
+/**
+ * Resolve homepage ?pickup={canonicalSlug} (from getHomepageSearchUrl CTAs)
+ * to a booking/region filter option name.
+ */
+export function resolveBookingLocationFromPickupParam(pickupSlug) {
+  const slug = String(pickupSlug || "").trim();
+  if (!slug) return null;
+
+  const location =
+    getLocationById("en", slug) ||
+    getLocationByAnySlug("en", slug) ||
+    resolveLocationFromSingleSegmentSlug("en", slug) ||
+    getLocationByLocaleAndSlug("en", slug);
+
+  return mapLocationToBookingOption(location);
+}
+
 export function resolveBookingLocationFromPathname(pathname) {
   if (!pathname) return null;
 

@@ -30,10 +30,19 @@
     "vouchers": "Vaučeri",
     "accessLinks": "Linkovi za pristup",
     "vouchersAndLinks": "Vaučeri i alati",
-    "viewAsExit": "Izađi iz kompanije"
+    "viewAsExit": "Izađi iz kompanije",
+    "region": "Region",
+    "searchFrom": "Od",
+    "searchTo": "Do",
+    "searchDates": "Pretraga datuma",
+    "clearSearchDates": "Obriši datume"
   },
   "catalog": {
-    "noCarsMatchFilters": "Nema auta za izabrane filtere. Promenite pretragu, klasu, menjač ili broj sedišta."
+    "noCarsMatchFilters": "Nema auta za izabrane filtere. Promenite pretragu, region, klasu, menjač ili broj sedišta.",
+    "noCarsMatchDateSearch": "Nema dostupnih auta za izabrane datume. Probajte druge datume ili obrišite pretragu.",
+    "searchResultsTitle": "{{count}} auta dostupno {{from}} – {{to}}",
+    "searchRegionLabel": "Region: {{region}}",
+    "searchPriceLabel": "{{price}}€ za {{days}} dana"
   },
   "basic": {
     "close": "zatvori",

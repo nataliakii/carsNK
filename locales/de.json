@@ -30,10 +30,19 @@
     "vouchers": "Vouchers",
     "accessLinks": "Zugangslinks",
     "vouchersAndLinks": "Vouchers & Tools",
-    "viewAsExit": "Firma verlassen"
+    "viewAsExit": "Firma verlassen",
+    "region": "Region",
+    "searchFrom": "Von",
+    "searchTo": "Bis",
+    "searchDates": "Daten suchen",
+    "clearSearchDates": "Daten löschen"
   },
   "catalog": {
-    "noCarsMatchFilters": "Keine Autos passen zu den Filtern. Suche, Klasse, Getriebe oder Sitze ändern."
+    "noCarsMatchFilters": "Keine Autos passen zu den Filtern. Suche, Region, Klasse, Getriebe oder Sitze ändern.",
+    "noCarsMatchDateSearch": "Keine Autos für die gewählten Daten verfügbar. Andere Daten wählen oder Suche zurücksetzen.",
+    "searchResultsTitle": "{{count}} Autos verfügbar {{from}} – {{to}}",
+    "searchRegionLabel": "Region: {{region}}",
+    "searchPriceLabel": "{{price}}€ für {{days}} Tage"
   },
   "basic": {
     "close": "schließen",

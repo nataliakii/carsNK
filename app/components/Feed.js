@@ -35,7 +35,7 @@ function Feed({ children, ...props }) {
     if (props.isAdmin || isAccessLink) {
       return { xs: "64px", md: "64px" };
     }
-    return { xs: "118px", md: "98px" };
+    return { xs: "168px", md: "128px" };
   }, [props.isAdmin, isAccessLink]);
 
   // Admin calendar passes fillsViewport; accept fillViewport typo too.
@@ -104,9 +104,10 @@ function Feed({ children, ...props }) {
       carsData: props.cars,
       ordersData: props.orders,
       companyData: props.company,
+      initialPickup: props.initialPickup || "",
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [carsLength, firstCarId, ordersLength, firstOrderId, companyId]
+    [carsLength, firstCarId, ordersLength, firstOrderId, companyId, props.initialPickup]
   );
 
   return (
@@ -117,6 +118,7 @@ function Feed({ children, ...props }) {
             carsData={contextProps.carsData}
             ordersData={contextProps.ordersData}
             companyData={contextProps.companyData}
+            initialPickup={contextProps.initialPickup}
           >
             <Navbar isMain={props.isMain} isAdmin={props.isAdmin} />
             {/* main paddingTop keeps content below fixed Navbar + filters; responsive values */}

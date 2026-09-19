@@ -359,12 +359,66 @@ export default function NavBar({
     arrayOfAvailableSeats,
     carSearchQuery,
     setCarSearchQuery,
+    selectedRegion,
+    setSelectedRegion,
+    arrayOfAvailableRegions,
+    searchDates,
+    setSearchDates,
+    clearSearchDates,
     lang,
     setLang,
     changeLanguage, // Добавляем функцию смены языка
     company,
     platform,
   } = useMainContext();
+
+  const [draftSearchStart, setDraftSearchStart] = useState("");
+  const [draftSearchEnd, setDraftSearchEnd] = useState("");
+
+  useEffect(() => {
+    setDraftSearchStart(searchDates?.start || "");
+    setDraftSearchEnd(searchDates?.end || "");
+  }, [searchDates?.start, searchDates?.end]);
+
+  const filterDateFieldSx = {
+    minWidth: { xs: 130, sm: 148 },
+    maxWidth: { xs: "48%", sm: 168 },
+    flex: { xs: "1 1 130px", sm: "0 0 auto" },
+    height: 40,
+    alignSelf: "flex-end",
+    "& .MuiInputBase-root": {
+      color: "#fff",
+      fontSize: "0.85rem",
+      height: 40,
+      backgroundColor: "rgba(255,255,255,0.04)",
+      borderRadius: "10px",
+    },
+    "& .MuiOutlinedInput-input": {
+      py: 0,
+    },
+    "& .MuiInputLabel-root": {
+      color: "rgba(255,255,255,0.72)",
+      fontSize: "0.85rem",
+    },
+    "& .MuiInputLabel-root.Mui-focused": {
+      color: BRAND.pink,
+    },
+    "& .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(255,255,255,0.28)",
+    },
+    "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
+      borderColor: BRAND.pinkLight,
+    },
+    "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: BRAND.pink,
+      borderWidth: 1,
+    },
+    '& input[type="date"]::-webkit-calendar-picker-indicator': {
+      filter: "invert(1)",
+      opacity: 0.75,
+      cursor: "pointer",
+    },
+  };
 
   const enabledLocales = platform?.enabledLocales?.length
     ? platform.enabledLocales
@@ -454,6 +508,26 @@ export default function NavBar({
 
   const handleCarSearchClear = () => {
     setCarSearchQuery("");
+  };
+
+  const handleRegionChange = (event) => {
+    const selectedValue = event.target.value;
+    setSelectedRegion(selectedValue === "" ? "All" : selectedValue);
+  };
+
+  const handleApplyDateSearch = () => {
+    if (!draftSearchStart || !draftSearchEnd) return;
+    if (draftSearchEnd < draftSearchStart) return;
+    setSearchDates({ start: draftSearchStart, end: draftSearchEnd });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleClearDateSearch = () => {
+    setDraftSearchStart("");
+    setDraftSearchEnd("");
+    clearSearchDates();
   };
 
   const handleLanguageClick = (event) => {
@@ -1448,6 +1522,99 @@ export default function NavBar({
                       }
                     />
                   </Box>
+                )}
+
+                {arrayOfAvailableRegions.length > 0 && (
+                  <Box
+                    sx={{
+                      flex: { xs: "1 1 120px", sm: "0 0 auto" },
+                      minWidth: { xs: 120, sm: 160 },
+                      maxWidth: { xs: "48%", sm: 220 },
+                      "& .MuiFormControl-root": {
+                        m: 0,
+                        minWidth: "100% !important",
+                        maxWidth: "100% !important",
+                      },
+                    }}
+                  >
+                    <SelectedFieldClass
+                      name="region"
+                      label={t("header.region")}
+                      options={arrayOfAvailableRegions}
+                      value={selectedRegion}
+                      handleChange={handleRegionChange}
+                      formatMenuItemLabel={(opt) => opt}
+                    />
+                  </Box>
+                )}
+
+                <TextField
+                  size="small"
+                  type="date"
+                  name="searchStart"
+                  label={t("header.searchFrom")}
+                  value={draftSearchStart}
+                  onChange={(e) => setDraftSearchStart(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{
+                    min: new Date().toISOString().slice(0, 10),
+                    "aria-label": t("header.searchFrom"),
+                  }}
+                  sx={filterDateFieldSx}
+                />
+                <TextField
+                  size="small"
+                  type="date"
+                  name="searchEnd"
+                  label={t("header.searchTo")}
+                  value={draftSearchEnd}
+                  onChange={(e) => setDraftSearchEnd(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{
+                    min: draftSearchStart || new Date().toISOString().slice(0, 10),
+                    "aria-label": t("header.searchTo"),
+                  }}
+                  sx={filterDateFieldSx}
+                />
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handleApplyDateSearch}
+                  disabled={
+                    !draftSearchStart ||
+                    !draftSearchEnd ||
+                    draftSearchEnd < draftSearchStart
+                  }
+                  sx={{
+                    height: 40,
+                    alignSelf: "flex-end",
+                    textTransform: "none",
+                    fontWeight: 700,
+                    px: 2,
+                    borderRadius: "10px",
+                    backgroundColor: BRAND.pink,
+                    "&:hover": { backgroundColor: BRAND.pinkLight },
+                    "&.Mui-disabled": {
+                      backgroundColor: "rgba(255,255,255,0.12)",
+                      color: "rgba(255,255,255,0.35)",
+                    },
+                  }}
+                >
+                  {t("header.searchDates")}
+                </Button>
+                {(searchDates?.start || draftSearchStart) && (
+                  <IconButton
+                    size="small"
+                    aria-label={t("header.clearSearchDates")}
+                    onClick={handleClearDateSearch}
+                    sx={{
+                      alignSelf: "flex-end",
+                      mb: 0.25,
+                      color: "rgba(255,255,255,0.75)",
+                    }}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
                 )}
               </Stack>
             </Stack>

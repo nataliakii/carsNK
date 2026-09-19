@@ -31,7 +31,12 @@
     "vouchers": "Bonos",
     "accessLinks": "Enlaces de acceso",
     "vouchersAndLinks": "Bonos y herramientas",
-    "viewAsExit": "Salir de la empresa"
+    "viewAsExit": "Salir de la empresa",
+    "region": "Región",
+    "searchFrom": "Desde",
+    "searchTo": "Hasta",
+    "searchDates": "Buscar fechas",
+    "clearSearchDates": "Borrar fechas"
   },
   "inbox": {
     "title": "Pedidos sin procesar",
@@ -148,7 +153,11 @@
     "deleteCityConfirm": "¿Eliminar {{name}} del catálogo?"
   },
   "catalog": {
-    "noCarsMatchFilters": "No cars match the selected filters. Try changing search, class, transmission, or seats."
+    "noCarsMatchFilters": "Ningún coche coincide con los filtros. Prueba cambiar búsqueda, región, clase, transmisión o plazas.",
+    "noCarsMatchDateSearch": "No hay coches disponibles para las fechas seleccionadas. Prueba otras fechas o borra la búsqueda.",
+    "searchResultsTitle": "{{count}} coches disponibles {{from}} – {{to}}",
+    "searchRegionLabel": "Región: {{region}}",
+    "searchPriceLabel": "{{price}}€ por {{days}} días"
   },
   "basic": {
     "close": "close",

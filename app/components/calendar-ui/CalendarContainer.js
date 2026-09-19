@@ -43,9 +43,9 @@ import { useFirstColumnWidth } from "@/hooks/useFirstColumnWidth";
 const BASE_ROW_HEIGHT_PX = 27;
 /** Day column width for 1m / 2m — period changes column count + table scroll */
 const BASE_DAY_WIDTH_PX = 34;
-/** 12-day period: wider columns + taller rows so order cards are readable */
-const SHORT_PERIOD_DAY_WIDTH_PX = 56;
-const SHORT_PERIOD_ROW_HEIGHT_PX = 40;
+/** 15-day toolbar period: wider columns + taller rows so order cards are readable */
+const SHORT_PERIOD_DAY_WIDTH_PX = 68;
+const SHORT_PERIOD_ROW_HEIGHT_PX = 46;
 
 function getDensityLayoutSx() {
   return {

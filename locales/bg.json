@@ -30,10 +30,19 @@
     "vouchers": "Ваучери",
     "accessLinks": "Връзки за достъп",
     "vouchersAndLinks": "Ваучери и инструменти",
-    "viewAsExit": "Изход от компания"
+    "viewAsExit": "Изход от компания",
+    "region": "Регион",
+    "searchFrom": "От",
+    "searchTo": "До",
+    "searchDates": "Търсене по дати",
+    "clearSearchDates": "Изчисти дати"
   },
   "catalog": {
-    "noCarsMatchFilters": "Няма коли за избраните филтри. Променете търсенето, класа, скоростите или местата."
+    "noCarsMatchFilters": "Няма коли за избраните филтри. Променете търсенето, региона, класа, скоростите или местата.",
+    "noCarsMatchDateSearch": "Няма налични коли за избраните дати. Опитайте други дати или изчистете търсенето.",
+    "searchResultsTitle": "{{count}} коли налични {{from}} – {{to}}",
+    "searchRegionLabel": "Регион: {{region}}",
+    "searchPriceLabel": "{{price}}€ за {{days}} дни"
   },
   "basic": {
     "close": "затвори",

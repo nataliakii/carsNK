@@ -204,6 +204,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
   discountStart, 
   discountEnd,
   isFirstCar = false, // Only first car above-the-fold gets priority loading
+  presetSearchDates = null,
 }) {
   const { t, i18n } = useTranslation();
   const pathname = usePathname();
@@ -376,6 +377,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
               discountEnd={discountEnd}
               onDateChange={handleDateChange}
               onPriceCalculated={setCalculatedPrice}
+              presetSearchDates={presetSearchDates}
               />
             </Suspense>
             {/* Информация о дискаунте с логикой как в PricingTiers */}

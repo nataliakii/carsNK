@@ -31,7 +31,12 @@
     "vouchers": "Βάουτσερ",
     "accessLinks": "Σύνδεσμοι πρόσβασης",
     "vouchersAndLinks": "Βάουτσερ & εργαλεία",
-    "viewAsExit": "Έξοδος από εταιρεία"
+    "viewAsExit": "Έξοδος από εταιρεία",
+    "region": "Περιοχή",
+    "searchFrom": "Από",
+    "searchTo": "Έως",
+    "searchDates": "Αναζήτηση ημερομηνιών",
+    "clearSearchDates": "Καθαρισμός ημερομηνιών"
   },
   "inbox": {
     "title": "Μη επεξεργασμένες παραγγελίες",
@@ -67,7 +72,11 @@
     "emailLangLabel": "Email language: {{lang}}"
   },
   "catalog": {
-    "noCarsMatchFilters": "Δεν υπάρχουν αυτοκίνητα με αυτά τα φίλτρα. Δοκιμάστε άλλη αναζήτηση ή φίλτρα."
+    "noCarsMatchFilters": "Δεν υπάρχουν αυτοκίνητα με αυτά τα φίλτρα. Δοκιμάστε άλλη αναζήτηση, περιοχή ή φίλτρα.",
+    "noCarsMatchDateSearch": "Δεν υπάρχουν διαθέσιμα αυτοκίνητα για τις επιλεγμένες ημερομηνίες. Δοκιμάστε άλλες ημερομηνίες.",
+    "searchResultsTitle": "{{count}} αυτοκίνητα διαθέσιμα {{from}} – {{to}}",
+    "searchRegionLabel": "Περιοχή: {{region}}",
+    "searchPriceLabel": "{{price}}€ για {{days}} ημέρες"
   },
   "basic": {
     "close": "κλείσιμο",

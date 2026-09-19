@@ -30,10 +30,19 @@
     "vouchers": "Vouchere",
     "accessLinks": "Linkuri de acces",
     "vouchersAndLinks": "Vouchere și instrumente",
-    "viewAsExit": "Ieși din companie"
+    "viewAsExit": "Ieși din companie",
+    "region": "Regiune",
+    "searchFrom": "De la",
+    "searchTo": "Până la",
+    "searchDates": "Caută date",
+    "clearSearchDates": "Șterge datele"
   },
   "catalog": {
-    "noCarsMatchFilters": "Nicio mașină nu se potrivește filtrelor. Schimbă căutarea, clasa, cutia sau locurile."
+    "noCarsMatchFilters": "Nicio mașină nu se potrivește filtrelor. Schimbă căutarea, regiunea, clasa, cutia sau locurile.",
+    "noCarsMatchDateSearch": "Nicio mașină disponibilă pentru datele selectate. Încearcă alte date sau resetează căutarea.",
+    "searchResultsTitle": "{{count}} mașini disponibile {{from}} – {{to}}",
+    "searchRegionLabel": "Regiune: {{region}}",
+    "searchPriceLabel": "{{price}}€ pentru {{days}} zile"
   },
   "basic": {
     "close": "închide",

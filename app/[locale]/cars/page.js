@@ -87,7 +87,7 @@ export default async function CarsIndexPage({ params }) {
       orders={ordersData}
       company={companyData}
       locale={locale}
-      isMain={false}
+      isMain={true}
     >
       <SeoIntroBlock
         title={dictionary.links.carsListTitle}

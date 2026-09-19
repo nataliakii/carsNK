@@ -18,6 +18,13 @@ import {
 } from "@utils/action";
 import { COMPANY_ID } from "@config/company";
 import { buildPendingConfirmBlockMap } from "@/domain/orders/buildPendingConfirmBlockMap";
+import { SELECTED_LOCATION_STORAGE_KEY } from "@/domain/orders/locationOptions";
+import { resolveBookingLocationFromPickupParam } from "@/domain/orders/bookingLocationPathResolver";
+import {
+  normalizeSearchDates,
+  readStoredSearchDates,
+  writeStoredSearchDates,
+} from "@utils/carDateSearch";
 
 const MainContext = createContext({
   cars: [],
@@ -34,6 +41,13 @@ const MainContext = createContext({
   platform: null,
   carSearchQuery: "",
   setCarSearchQuery: () => {},
+  selectedRegion: "All",
+  setSelectedRegion: () => {},
+  arrayOfAvailableRegions: [],
+  ownerIdsByRegion: {},
+  searchDates: { start: null, end: null },
+  setSearchDates: () => {},
+  clearSearchDates: () => {},
   pendingConfirmBlockById: {}, // Map pending order ID -> block message
   conflictHighlightById: {}, // Map orderId -> { level: "block"|"warning", message: string, sourceOrderId?: string }
   setConflictHighlightsFromResult: () => {},
@@ -49,6 +63,7 @@ export const MainContextProvider = ({
   carsData,
   ordersData,
   companyData,
+  initialPickup,
   children,
 }) => {
   const { i18n } = useTranslation();
@@ -230,6 +245,83 @@ export const MainContextProvider = ({
   const [selectedTransmission, setSelectedTransmission] = useState("All"); // Новый фильтр по коробке передач
   const [selectedSeats, setSelectedSeats] = useState("All");
   const [carSearchQuery, setCarSearchQuery] = useState("");
+  const [selectedRegion, setSelectedRegionState] = useState("All");
+  const [arrayOfAvailableRegions, setArrayOfAvailableRegions] = useState([]);
+  const [ownerIdsByRegion, setOwnerIdsByRegion] = useState({});
+  const [searchDates, setSearchDatesState] = useState({
+    start: null,
+    end: null,
+  });
+
+  const setSelectedRegion = useCallback((value) => {
+    const next = value === "" || value == null ? "All" : String(value);
+    setSelectedRegionState(next);
+    if (typeof window !== "undefined") {
+      if (next && next !== "All") {
+        localStorage.setItem(SELECTED_LOCATION_STORAGE_KEY, next);
+      }
+    }
+  }, []);
+
+  const setSearchDates = useCallback((next) => {
+    const normalized = normalizeSearchDates(next);
+    setSearchDatesState(normalized);
+    writeStoredSearchDates(normalized);
+  }, []);
+
+  const clearSearchDates = useCallback(() => {
+    setSearchDatesState({ start: null, end: null });
+    writeStoredSearchDates({ start: null, end: null });
+  }, []);
+
+  // Restore catalog search dates + region from storage / ?pickup= CTA.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedDates = readStoredSearchDates();
+    if (storedDates.start && storedDates.end) {
+      setSearchDatesState(storedDates);
+    }
+
+    const fromPickup = resolveBookingLocationFromPickupParam(initialPickup);
+    if (fromPickup) {
+      setSelectedRegionState(fromPickup);
+      localStorage.setItem(SELECTED_LOCATION_STORAGE_KEY, fromPickup);
+      return;
+    }
+
+    const storedRegion = localStorage.getItem(SELECTED_LOCATION_STORAGE_KEY);
+    if (storedRegion && storedRegion.trim()) {
+      setSelectedRegionState(storedRegion.trim());
+    }
+  }, [initialPickup]);
+
+  // Marketplace regions for the Region filter (company operating areas).
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/public/marketplace-regions", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (cancelled || !body?.success) return;
+        const names = Array.isArray(body.names)
+          ? body.names.filter(Boolean)
+          : [];
+        setArrayOfAvailableRegions(names);
+        setOwnerIdsByRegion(
+          body.ownerIdsByRegion && typeof body.ownerIdsByRegion === "object"
+            ? body.ownerIdsByRegion
+            : {}
+        );
+        setSelectedRegionState((prev) => {
+          if (!prev || prev === "All") return prev;
+          return names.includes(prev) ? prev : "All";
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const arrayOfAvailableClasses = useMemo(() => {
     return [...new Set(cars.map((car) => car.class))];
   }, [cars]);
@@ -526,6 +618,13 @@ export const MainContextProvider = ({
       arrayOfAvailableSeats,
       carSearchQuery,
       setCarSearchQuery,
+      selectedRegion,
+      setSelectedRegion,
+      arrayOfAvailableRegions,
+      ownerIdsByRegion,
+      searchDates,
+      setSearchDates,
+      clearSearchDates,
       lang,
       setLang,
       changeLanguage, // Добавляем функцию смены языка
@@ -555,6 +654,13 @@ export const MainContextProvider = ({
       selectedSeats,
       arrayOfAvailableSeats,
       carSearchQuery,
+      selectedRegion,
+      setSelectedRegion,
+      arrayOfAvailableRegions,
+      ownerIdsByRegion,
+      searchDates,
+      setSearchDates,
+      clearSearchDates,
       lang,
       changeLanguage,
       company,
