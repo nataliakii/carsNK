@@ -39,8 +39,10 @@ import translationsRo from "./ro.json";
 import translationsSr from "./sr.json";
 import translationsUk from "./uk.json";
 import translationsPl from "./pl.json";
+import translationsEs from "./es.json";
+import { ALL_UI_LOCALE_CODES } from "@/domain/platform/uiLocales";
 
-const supportedLngs = ["en", "el", "ru", "uk", "de", "bg", "ro", "sr", "pl"];
+const supportedLngs = [...ALL_UI_LOCALE_CODES];
 
 const resources = {
   en: { translation: translationsEn },
@@ -52,6 +54,7 @@ const resources = {
   sr: { translation: translationsSr },
   uk: { translation: translationsUk },
   pl: { translation: translationsPl },
+  es: { translation: translationsEs },
 };
 
 // Функция для определения языка браузера

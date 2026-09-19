@@ -28,6 +28,8 @@ const DEFAULT_SETTINGS = {
   showConflictBadges: true,
   highlightToday: true,
   autoScrollToToday: true,
+  /** When on, claimed transfers appear on matching rental-fleet cars. */
+  showFleetTransfers: false,
 };
 
 const VALID_DAY_RANGE = new Set(["15d", "1m", "2m"]);
@@ -81,6 +83,10 @@ function normalizeSettings(parsed) {
       typeof merged.autoScrollToToday === "boolean"
         ? merged.autoScrollToToday
         : DEFAULT_SETTINGS.autoScrollToToday,
+    showFleetTransfers:
+      typeof merged.showFleetTransfers === "boolean"
+        ? merged.showFleetTransfers
+        : DEFAULT_SETTINGS.showFleetTransfers,
   };
 }
 
@@ -165,6 +171,13 @@ export function useCalendarViewSettings() {
     }));
   }, []);
 
+  const setShowFleetTransfers = useCallback((showFleetTransfers) => {
+    setSettings((s) => ({
+      ...s,
+      showFleetTransfers: Boolean(showFleetTransfers),
+    }));
+  }, []);
+
   /** Called when BigCalendar navigation toggles view (full ↔ range15). */
   const applyViewModeFromCalendar = useCallback((viewMode) => {
     setSettings((s) => {
@@ -189,6 +202,7 @@ export function useCalendarViewSettings() {
     setShowConflictBadges,
     setHighlightToday,
     setAutoScrollToToday,
+    setShowFleetTransfers,
     viewModeForCalendar,
     applyViewModeFromCalendar,
   };

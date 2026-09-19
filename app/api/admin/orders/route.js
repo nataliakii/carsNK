@@ -1,9 +1,9 @@
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@lib/authOptions";
 import { Order } from "@models/order";
 import { connectToDB } from "@lib/database";
 import { withOrderVisibility } from "@/middleware/withOrderVisibility";
 import { ensureOrdersPulledFromOldDb } from "@/domain/sync/oldOrdersSync";
+import { getServerSessionWithViewAs } from "@lib/adminAuth";
+import { buildOrdersOwnerFilter } from "@/domain/owners/ownerScope";
 
 /**
  * GET /api/admin/orders
@@ -14,7 +14,7 @@ import { ensureOrdersPulledFromOldDb } from "@/domain/sync/oldOrdersSync";
  */
 async function handler(request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSessionWithViewAs(request);
     
     if (!session || !session.user?.isAdmin) {
       return new Response(
@@ -33,8 +33,9 @@ async function handler(request) {
     await ensureOrdersPulledFromOldDb();
 
     const adminRole = session.user?.role ?? 0;
+    const ownerFilter = buildOrdersOwnerFilter(session);
 
-    const orders = await Order.find({})
+    const orders = await Order.find(ownerFilter)
       .populate({
         path: "car",
         select: "_id model regNumber carNumber",

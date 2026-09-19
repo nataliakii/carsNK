@@ -96,5 +96,15 @@ describe("ownerScope", () => {
         ownerB
       )
     ).toBe(ownerB);
+    expect(
+      resolveOwnerIdForCreate(
+        {
+          isAdmin: true,
+          role: ROLE.SUPERADMIN,
+          viewAsCompanyId: ownerA,
+        },
+        ownerB
+      )
+    ).toBe(ownerA);
   });
 });

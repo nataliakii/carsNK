@@ -5,9 +5,11 @@ import {
   LOCATION_IDS,
   LOCATION_ROUTE_SEGMENT,
   REQUIRED_CONTENT_LOCALES,
+  ROUTABLE_LOCALES,
   STATIC_PAGE_KEYS,
   SUPPORTED_LOCALES,
   type LocationId,
+  type RoutableLocale,
   type StaticPageKey,
   type SupportedLocale,
 } from "./locationSeoKeys";
@@ -44,8 +46,15 @@ import type {
   LocationSeoRepoItem,
   LocationSeoResolved,
 } from "./types";
+import { getSiteCountryConfig } from "@config/siteCountry";
+import {
+  getSpainCarTemplates,
+  getSpainHubSeo,
+  getSpainStaticPageSeo,
+} from "./spainSeoContent";
 
 const SUPPORTED_LOCALE_SET = new Set<string>(SUPPORTED_LOCALES);
+const ROUTABLE_LOCALE_SET = new Set<string>(ROUTABLE_LOCALES);
 
 const staticPagePathMap: Record<StaticPageKey, string> = {
   [STATIC_PAGE_KEYS.CONTACTS]: "/contacts",
@@ -272,31 +281,61 @@ export function isSupportedLocale(localeCandidate: string | undefined | null): b
   return SUPPORTED_LOCALE_SET.has(localeCandidate.toLowerCase().split("-")[0]);
 }
 
+/** Locale prefixes allowed in public URLs, including extra UI languages without SEO copy. */
+export function isRoutableLocale(localeCandidate: string | undefined | null): boolean {
+  if (!localeCandidate) return false;
+  return ROUTABLE_LOCALE_SET.has(localeCandidate.toLowerCase().split("-")[0]);
+}
+
 export function normalizeLocale(localeCandidate: string | undefined | null): SupportedLocale {
   if (!localeCandidate) return DEFAULT_LOCALE;
   return normalizeLocaleCandidate(localeCandidate);
+}
+
+/** Keep extra UI locales (e.g. es) in the URL; unknown values fall back to en. */
+export function normalizeRoutableLocale(
+  localeCandidate: string | undefined | null
+): RoutableLocale {
+  if (!localeCandidate) return DEFAULT_LOCALE;
+  const normalized = localeCandidate.toLowerCase().split("-")[0];
+  if (ROUTABLE_LOCALE_SET.has(normalized)) {
+    return normalized as RoutableLocale;
+  }
+  return DEFAULT_LOCALE;
+}
+
+/** SEO dictionaries exist only for SUPPORTED_LOCALES; extra UI locales use English copy. */
+export function getSeoLocale(
+  localeCandidate: string | undefined | null
+): SupportedLocale {
+  return normalizeLocale(localeCandidate);
 }
 
 export function getSupportedLocales(): SupportedLocale[] {
   return [...SUPPORTED_LOCALES];
 }
 
+export function getRoutableLocales(): RoutableLocale[] {
+  return [...ROUTABLE_LOCALES];
+}
+
 export function getDefaultLocale(): SupportedLocale {
   return DEFAULT_LOCALE;
 }
 
-export function detectBestLocale(input: LocaleDetectionInput = {}): SupportedLocale {
-  const cookieLocale = input.cookieLocale ? normalizeLocale(input.cookieLocale) : null;
-  if (cookieLocale && isSupportedLocale(cookieLocale)) {
-    return cookieLocale;
+export function detectBestLocale(input: LocaleDetectionInput = {}): RoutableLocale {
+  const cookieRaw = input.cookieLocale
+    ? input.cookieLocale.toLowerCase().split("-")[0]
+    : "";
+  if (cookieRaw && isRoutableLocale(cookieRaw)) {
+    return normalizeRoutableLocale(cookieRaw);
   }
 
   if (input.acceptLanguageHeader) {
     const accepted = parseAcceptLanguage(input.acceptLanguageHeader);
     for (const item of accepted) {
-      const normalized = normalizeLocale(item);
-      if (isSupportedLocale(normalized)) {
-        return normalized;
+      if (isRoutableLocale(item)) {
+        return normalizeRoutableLocale(item);
       }
     }
   }
@@ -310,6 +349,9 @@ export function getLocaleDictionary(localeCandidate: string | undefined | null) 
 }
 
 export function getHubSeo(localeCandidate: string | undefined | null) {
+  if (!getSiteCountryConfig().showLegacySeoLocations) {
+    return getSpainHubSeo(localeCandidate);
+  }
   const locale = normalizeLocale(localeCandidate);
   return {
     locale,
@@ -321,6 +363,9 @@ export function getStaticPageSeo(
   localeCandidate: string | undefined | null,
   staticPageKey: StaticPageKey
 ) {
+  if (!getSiteCountryConfig().showLegacySeoLocations) {
+    return getSpainStaticPageSeo(localeCandidate, staticPageKey);
+  }
   const locale = normalizeLocale(localeCandidate);
   const pageSeo = localeSeoDictionary[locale].staticPages[staticPageKey];
   if (!pageSeo) {
@@ -514,7 +559,10 @@ export function getLocationAlternatesById(locationId: LocationId): LocationAlter
 }
 
 export function getHubAlternates(): LocationAlternateMap {
-  return SUPPORTED_LOCALES.reduce((acc, locale) => {
+  const locales = getSiteCountryConfig().showLegacySeoLocations
+    ? [...SUPPORTED_LOCALES]
+    : (["en", "es", "de", "ru"] as const);
+  return locales.reduce((acc, locale) => {
     acc[locale] = getLocaleRootPath(locale);
     return acc;
   }, {} as LocationAlternateMap);
@@ -528,7 +576,7 @@ export function getCarAlternates(carSlug: string): LocationAlternateMap {
 }
 
 export function getLocaleRootPath(localeCandidate: string | undefined | null): string {
-  const locale = normalizeLocale(localeCandidate);
+  const locale = normalizeRoutableLocale(localeCandidate);
   return `/${locale}`;
 }
 
@@ -709,6 +757,10 @@ export function getLocaleRouteParams(): Array<{ locale: SupportedLocale }> {
   return SUPPORTED_LOCALES.map((locale) => ({ locale }));
 }
 
+export function getRoutableLocaleParams(): Array<{ locale: RoutableLocale }> {
+  return ROUTABLE_LOCALES.map((locale) => ({ locale }));
+}
+
 export function getPathWithoutLocalePrefix(pathname: string): string {
   const normalizedPath = normalizePath(pathname);
   if (normalizedPath === "/") return "/";
@@ -716,7 +768,7 @@ export function getPathWithoutLocalePrefix(pathname: string): string {
   const segments = normalizedPath.split("/").filter(Boolean);
   const [first, ...rest] = segments;
 
-  if (!first || !isSupportedLocale(first)) {
+  if (!first || !isRoutableLocale(first)) {
     return normalizedPath;
   }
 
@@ -728,7 +780,7 @@ export function withLocalePrefix(
   localeCandidate: string | undefined | null,
   pathname: string
 ): string {
-  const locale = normalizeLocale(localeCandidate);
+  const locale = normalizeRoutableLocale(localeCandidate);
   const strippedPath = getPathWithoutLocalePrefix(pathname);
   if (strippedPath === "/") {
     return `/${locale}`;
@@ -740,7 +792,8 @@ export function switchPathLocale(
   pathname: string,
   nextLocaleCandidate: string | undefined | null
 ): string {
-  const nextLocale = normalizeLocale(nextLocaleCandidate);
+  const nextLocale = normalizeRoutableLocale(nextLocaleCandidate);
+  const seoLocale = getSeoLocale(nextLocale);
   const stripped = getPathWithoutLocalePrefix(pathname);
   const segments = stripped.split("/").filter(Boolean);
 
@@ -752,7 +805,7 @@ export function switchPathLocale(
     );
     if (repoItem) {
       const nextSlug =
-        repoItem.slugByLocale[nextLocale] ||
+        repoItem.slugByLocale[seoLocale] ||
         repoItem.slugByLocale[DEFAULT_LOCALE] ||
         repoItem.canonicalSlug;
       return `/${nextLocale}/${LOCATION_ROUTE_SEGMENT}/${nextSlug}`;
@@ -769,7 +822,7 @@ export function switchPathLocale(
       const segs = getLocationPathSegments(repoItem.id);
       if (segs && segs[0] === region && segs[1] === area) {
         const nextSlug =
-          repoItem.slugByLocale[nextLocale] ||
+          repoItem.slugByLocale[seoLocale] ||
           repoItem.slugByLocale[DEFAULT_LOCALE] ||
           repoItem.canonicalSlug;
         return `/${nextLocale}/${LOCATION_ROUTE_SEGMENT}/${region}/${area}/${nextSlug}`;
@@ -787,7 +840,7 @@ export function switchPathLocale(
       const segs = getLocationPathSegments(repoItem.id);
       if (segs && segs.length === 2 && segs[0] === region) {
         const nextSlug =
-          repoItem.slugByLocale[nextLocale] ||
+          repoItem.slugByLocale[seoLocale] ||
           repoItem.slugByLocale[DEFAULT_LOCALE] ||
           repoItem.canonicalSlug;
         return `/${nextLocale}/${LOCATION_ROUTE_SEGMENT}/${region}/${nextSlug}`;
@@ -810,6 +863,9 @@ export function buildCarSeoText(
 ) {
   const locale = normalizeLocale(localeCandidate);
   const dictionary = localeSeoDictionary[locale];
+  const carTemplates = !getSiteCountryConfig().showLegacySeoLocations
+    ? getSpainCarTemplates(localeCandidate)
+    : dictionary.car;
 
   const templateValues: Record<string, string> = {
     carModel: input.carModel,
@@ -820,17 +876,23 @@ export function buildCarSeoText(
   };
 
   return {
-    seoTitle: fillTemplate(dictionary.car.seoTitleTemplate, templateValues),
-    seoDescription: fillTemplate(dictionary.car.seoDescriptionTemplate, templateValues),
-    introText: fillTemplate(dictionary.car.introTemplate, templateValues),
-    h1Text: fillTemplate(dictionary.car.carH1Template, templateValues),
-    introLongText: fillTemplate(dictionary.car.introLongTemplate, templateValues),
+    seoTitle: fillTemplate(carTemplates.seoTitleTemplate, templateValues),
+    seoDescription: fillTemplate(
+      carTemplates.seoDescriptionTemplate,
+      templateValues
+    ),
+    introText: fillTemplate(carTemplates.introTemplate, templateValues),
+    h1Text: fillTemplate(carTemplates.carH1Template, templateValues),
+    introLongText: fillTemplate(carTemplates.introLongTemplate, templateValues),
     quickSpecsTitle: dictionary.car.quickSpecsTitle,
     featuresTitle: fillTemplate(dictionary.car.featuresTitle, templateValues),
     whyRentTitle: fillTemplate(dictionary.car.whyRentTitle, templateValues),
     whyRentBullets: dictionary.car.whyRentBullets || [],
     pillarLinksTitle: dictionary.car.pillarLinksTitle,
-    breadcrumbCarRentalLocation: fillTemplate(dictionary.car.breadcrumbCarRentalLocation, templateValues),
+    breadcrumbCarRentalLocation: fillTemplate(
+      dictionary.car.breadcrumbCarRentalLocation,
+      templateValues
+    ),
   };
 }
 
@@ -932,7 +994,7 @@ export function isLocalePrefixedPath(pathname: string): boolean {
   if (normalizedPath === "/") return false;
 
   const firstSegment = normalizedPath.split("/").filter(Boolean)[0];
-  return isSupportedLocale(firstSegment || null);
+  return isRoutableLocale(firstSegment || null);
 }
 
 export function getStaticPagePathMap(): Record<StaticPageKey, string> {

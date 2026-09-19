@@ -4,6 +4,8 @@ import { authOptions } from "@lib/authOptions";
 import Feed from "@app/components/Feed";
 import { getCars, getCompany, getAllOrders } from "@/domain/services";
 import { COMPANY_ID } from "@/config/company";
+import { applyAdminViewAsFromCookies } from "@/domain/owners/adminViewAs";
+import { getEffectiveOwnerId } from "@/domain/owners/ownerScope";
 import DeliveryZonesSection from "./DeliveryZonesSection";
 
 /**
@@ -13,9 +15,13 @@ import DeliveryZonesSection from "./DeliveryZonesSection";
 export default async function DeliveryZonesPage() {
   unstable_noStore();
 
-  const session = await getServerSession(authOptions);
+  const rawSession = await getServerSession(authOptions);
+  const session = await applyAdminViewAsFromCookies(rawSession);
+  const scopedOwnerId = getEffectiveOwnerId(session?.user);
+  const companyId = scopedOwnerId || COMPANY_ID;
+
   const [company, cars, orders] = await Promise.all([
-    getCompany(COMPANY_ID),
+    getCompany(companyId),
     getCars({ session }),
     getAllOrders({ session }),
   ]);

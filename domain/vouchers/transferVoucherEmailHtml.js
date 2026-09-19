@@ -72,7 +72,7 @@ export function buildTransferVoucherEmailHtml(rawVoucher, options = {}) {
   ].join("");
 
   return `<!DOCTYPE html>
-<html lang="el">
+<html lang="${esc(opts.locale || "el")}">
 <head><meta charset="UTF-8"><title>${esc(title.primary)}</title></head>
 <body style="margin:0;padding:16px;font-family:Arial,Helvetica,sans-serif;color:#1f2b38;background:#fff">
   <div style="max-width:800px;margin:0 auto">

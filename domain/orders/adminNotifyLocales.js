@@ -8,7 +8,7 @@
 import { fromServerUTC } from "@/domain/time/athensTime";
 import { getBusinessDaySpanFromStoredDates } from "./numberOfDays";
 
-const SUPPORTED = ["en", "ru", "uk", "el", "de", "bg", "ro", "sr", "pl"];
+const SUPPORTED = ["en", "es", "ru", "uk", "el", "de", "bg", "ro", "sr", "pl"];
 
 /** @type {Record<string, Record<string, string>>} */
 const DICT = {
@@ -477,6 +477,9 @@ const LOCALE_ALIASES = {
   german: "de",
   deutsch: "de",
   english: "en",
+  spanish: "es",
+  español: "es",
+  espanol: "es",
   russian: "ru",
   ukrainian: "uk",
   greek: "el",

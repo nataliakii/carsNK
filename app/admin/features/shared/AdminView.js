@@ -40,7 +40,7 @@ const CalendarSection = dynamic(
 );
 
 const OrdersTableSection = dynamic(
-  () => import("@app/admin/features/orders/OrdersTableSection"),
+  () => import("@app/admin/features/orders/OrdersHubSection"),
   { 
     loading: () => <FeatureLoader i18nKey="admin.loadingOrdersTable" />,
     ssr: false 
@@ -93,8 +93,20 @@ const FEATURES = {
  * @param {string} props.viewType - тип view: 'cars' | 'orders-big-calendar' | 'orders-table'
  */
 export default function AdminView({ company, cars, orders, viewType }) {
+  const isCalendar =
+    viewType === "orders-big-calendar" ||
+    viewType === "calendar" ||
+    viewType === "orders-calendar";
+
   return (
-    <Feed cars={cars} orders={orders} company={company} isAdmin isMain={false}>
+    <Feed
+      cars={cars}
+      orders={orders}
+      company={company}
+      isAdmin
+      isMain={false}
+      fillsViewport={isCalendar}
+    >
       <AdminViewContent viewType={viewType} />
     </Feed>
   );
@@ -170,7 +182,16 @@ function AdminViewContent({ viewType }) {
       <Box
         sx={
           featureConfig.feature === "calendar"
-            ? { my: 0, overflow: "visible", minHeight: "calc(100dvh - 60px)" }
+            ? {
+                flex: "1 1 0%",
+                height: 0,
+                minHeight: 0,
+                minWidth: 0,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                my: 0,
+              }
             : { my: 3 }
         }
       >

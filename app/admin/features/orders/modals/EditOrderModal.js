@@ -65,12 +65,11 @@ import { RenderSelectField } from "@/app/components/ui/inputs/Fields";
 import { useTranslation } from "react-i18next";
 import {
   LOCATION_DIVIDER_BEFORE,
-  ORDERED_LOCATION_OPTIONS,
 } from "@/domain/orders/locationOptions";
 import { ORDER_STATUS } from "@/domain/orders/orderStatus";
 import { DriftBadge } from "@/app/components/ui/badges";
 import { isOrderEditDirty } from "@/app/admin/features/orders/utils/orderEditDirty";
-import { isThessalonikiCityBookingLocation } from "@/domain/orders/halkidikiBookingLocations";
+import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
 import { buildBookingPriceSummaryFromBreakdown } from "@/domain/orders/bookingPriceSummary";
 import { buildDeliveryHelperText } from "@/domain/orders/bookingDeliveryPresentation";
 import {
@@ -117,6 +116,12 @@ const EditOrderModal = ({
   onRequestClose = null,
 }) => {
   const { allOrders, fetchAndUpdateOrders, company } = useMainContext();
+  const {
+    names: companyLocations,
+    requiresDetail,
+  } = useCompanyBookingLocations(
+    order?.ownerId || order?.car?.ownerId || company?._id
+  );
   const { data: session } = useSession();
   const { t, i18n } = useTranslation();
   const theme = useTheme();
@@ -441,7 +446,12 @@ const EditOrderModal = ({
 
   // Сегодня (Athens timezone) для ограничения выбора начала аренды
   const todayStr = athensNow().format("YYYY-MM-DD");
-  const locations = ORDERED_LOCATION_OPTIONS;
+  const locations = useMemo(() => {
+    const extras = [editedOrder?.placeIn, editedOrder?.placeOut]
+      .map((name) => String(name || "").trim())
+      .filter(Boolean);
+    return Array.from(new Set([...companyLocations, ...extras]));
+  }, [companyLocations, editedOrder?.placeIn, editedOrder?.placeOut]);
   // const locations = company.locations.map((loc) => loc.name);
   const renderLocationOption = (listItemProps, option) => {
     const hasDivider = option === LOCATION_DIVIDER_BEFORE;
@@ -1106,12 +1116,8 @@ const EditOrderModal = ({
     String(editedOrder?.placeIn || "")
       .trim()
       .toLowerCase() === "airport";
-  const isPickupThessaloniki = isThessalonikiCityBookingLocation(
-    editedOrder?.placeIn
-  );
-  const isReturnThessaloniki = isThessalonikiCityBookingLocation(
-    editedOrder?.placeOut
-  );
+  const isPickupThessaloniki = requiresDetail(editedOrder?.placeIn);
+  const isReturnThessaloniki = requiresDetail(editedOrder?.placeOut);
   const sendConfirmationEmailDisabledReason = !hasCustomerEmail
     ? t("order.sendConfirmationEmailNoEmail")
     : resendState.hasPrevious && !resendState.hasChanges

@@ -7,6 +7,7 @@ import { connectToDB } from "@lib/database";
 import Company from "@models/company";
 import { COMPANY_ID } from "@config/company";
 import { ensureCarsNkCompany } from "./ensureCarsNkCompany";
+import { isCompanyInSiteCountry } from "@/domain/platform/companyCountryScope";
 
 function toPlainCompanyData(company) {
   if (!company) return null;
@@ -26,5 +27,17 @@ export async function getCompany(companyId) {
   if (!company && String(companyId) === String(COMPANY_ID)) {
     company = await ensureCarsNkCompany(Company);
   }
+  return toPlainCompanyData(company);
+}
+
+export async function getCompanyBySlug(slug) {
+  const value = String(slug || "").trim().toLowerCase();
+  if (!value) return null;
+  await connectToDB();
+  const company = await Company.findOne({
+    slug: value,
+    storefrontEnabled: { $ne: false },
+  }).lean();
+  if (!company || !isCompanyInSiteCountry(company)) return null;
   return toPlainCompanyData(company);
 }

@@ -34,7 +34,7 @@ import {
 import { getOrderAccess } from "./orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { ROLE } from "./admin-rbac";
-import { DEVELOPER_EMAIL } from "@config/email";
+import { getInternalNotificationEmail } from "@config/email";
 import { COMPANY_ID } from "@config/company";
 import Company from "@models/company";
 import { connectToDB } from "@lib/database";
@@ -42,6 +42,8 @@ import { renderCustomerOrderConfirmationEmail, renderAdminOrderNotificationEmail
 import { pickCustomerEmailLocale, normalizeEmailLocale } from "@locales/customerEmail";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
 import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
+import AuditLog from "@models/auditLog";
+import mongoose from "mongoose";
 import {
   normalizeNotifyLocale,
   resolveNotifyLanguagesFromCompanyDoc,
@@ -163,6 +165,27 @@ function sanitizePayload(payload, access, includePII, target) {
  * @param {string} params.intent
  * @param {NotificationSource} params.source
  */
+function mapAuditAction(action, user) {
+  if (action === "CONFIRM" || action === "UNCONFIRM") {
+    return "CHANGE_ORDER_STATUS";
+  }
+  if (user?.role === ROLE.SUPERADMIN) {
+    return "SUPERADMIN_ACTION";
+  }
+  return "OTHER";
+}
+
+function auditUserRole(user) {
+  if (user?.role === ROLE.SUPERADMIN) return "superadmin";
+  if (user?.isAdmin || user?.role === ROLE.ADMIN) return "admin";
+  return "system";
+}
+
+/**
+ * Audit log hook — persists a redacted row. Never stores licence URLs,
+ * licence numbers, signed URLs, or the full order payload.
+ * Write failure must not fail the booking.
+ */
 async function auditLog({ order, user, action, access, intent, source }) {
   const logEntry = {
     timestamp: new Date().toISOString(),
@@ -183,16 +206,39 @@ async function auditLog({ order, user, action, access, intent, source }) {
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[AUDIT]", JSON.stringify(logEntry, null, 2));
-    return;
   }
 
-  // TODO: Интеграция с внешним audit storage
-  // - MongoDB collection (AuditLog)
-  // - S3 bucket
-  // - External service (Datadog, Sentry, etc.)
-  // 
-  // Example:
-  // await AuditLog.create(logEntry);
+  try {
+    const rawUserId = user?.id || user?._id;
+    const userId =
+      rawUserId && mongoose.Types.ObjectId.isValid(String(rawUserId))
+        ? rawUserId
+        : undefined;
+
+    await AuditLog.create({
+      action: mapAuditAction(action, user),
+      userId,
+      userRole: auditUserRole(user),
+      userEmail: typeof user?.email === "string" ? user.email : undefined,
+      orderData: {
+        orderId: order?._id,
+        orderNumber: order?.orderNumber ? String(order.orderNumber) : undefined,
+        carNumber: order?.carNumber || order?.regNumber || undefined,
+        carModel: order?.carModel || undefined,
+        rentalStartDate: order?.rentalStartDate || undefined,
+        rentalEndDate: order?.rentalEndDate || undefined,
+      },
+      metadata: {
+        intent,
+        source,
+        notificationAction: action,
+      },
+      severity: intent === "CRITICAL_EDIT" ? "high" : "low",
+      result: "success",
+    });
+  } catch (err) {
+    console.error("[AUDIT] persist failed:", err?.message || err);
+  }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -268,10 +314,10 @@ async function sendTelegramNotification(target, payload, reason, priority, messa
 /**
  * Отправляет уведомление по email.
  * Получатель по target (политика уже не даёт COMPANY_EMAIL при EMAIL_TESTING):
- * - CUSTOMER и payload.email → to = клиент, cc = DEVELOPER_EMAIL
- * - COMPANY_EMAIL и companyEmail → to = компания, cc = DEVELOPER_EMAIL
- * - Иначе → to = DEVELOPER_EMAIL, cc пусто
- * DEVELOPER_EMAIL всегда в to или в cc.
+ * - CUSTOMER и payload.email → to = клиент, cc = internal ops inbox
+ * - COMPANY_EMAIL и companyEmail → to = компания, cc = internal ops inbox
+ * - Иначе → to = internal ops inbox, cc пусто
+ * Internal ops inbox is always in to or cc.
  *
  * @param {string} target - Из getOrderNotifications (SUPERADMIN, COMPANY_EMAIL, etc.)
  * @param {NotificationPayload} payload
@@ -298,12 +344,12 @@ async function sendEmailNotification(
   let cc;
   if (sendToCustomer) {
     to = [customerEmail];
-    cc = [DEVELOPER_EMAIL];
+    cc = [getInternalNotificationEmail()];
   } else if (sendToCompany) {
     to = [companyEmail];
-    cc = [DEVELOPER_EMAIL];
+    cc = [getInternalNotificationEmail()];
   } else {
-    to = [DEVELOPER_EMAIL];
+    to = [getInternalNotificationEmail()];
     cc = [];
   }
 
@@ -359,7 +405,7 @@ async function sendEmailNotification(
   const toList = Array.isArray(to) ? to.filter(Boolean) : [];
   const ccList = Array.isArray(cc) ? cc.filter(Boolean) : [];
   if (toList.length === 0 && !sendToCustomer) {
-    toList.push(DEVELOPER_EMAIL);
+    toList.push(getInternalNotificationEmail());
   }
 
   try {

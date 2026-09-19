@@ -27,3 +27,9 @@ export {
   buildConflictMap,
   getCarCalendarOrderDerivedState,
 } from "./functions";
+
+export {
+  buildTransferCalendarOverlays,
+  carsForTransferOverlay,
+  CALENDAR_TRANSFER_STATUSES,
+} from "./transferOverlays";

@@ -8,7 +8,7 @@
     "calendars": "Календари",
     "table": "Таблица с поръчки",
     "calendar": "Календар",
-    "deliveryZones": "Зони за доставка",
+    "deliveryZones": "Доставка и цени",
     "orders": "Поръчки",
     "orderList": "Списък с поръчки",
     "carClass": "Изберете клас",
@@ -24,7 +24,13 @@
     "websiteVisits": "Visits",
     "transfer": "Трансфер",
     "transfers": "Трансфери",
-    "owners": "Собственици"
+    "owners": "Компании",
+    "carRentals": "Наеми коли",
+    "platform": "Платформа",
+    "vouchers": "Ваучери",
+    "accessLinks": "Връзки за достъп",
+    "vouchersAndLinks": "Ваучери и инструменти",
+    "viewAsExit": "Изход от компания"
   },
   "catalog": {
     "noCarsMatchFilters": "Няма коли за избраните филтри. Променете търсенето, класа, скоростите или местата."
@@ -225,7 +231,7 @@
   },
   "forBusiness": {
     "eyebrow": "За бизнеса",
-    "title": "CarsNK като платформа за наем",
+    "title": "rovaro като платформа за наем",
     "intro": "Изведете автопарка онлайн: клиентите резервират в сайта, а вие управлявате ежедневната работа от един админ панел — от първата заявка до връщането.",
     "cta": "Да говорим за платформата",
     "features": {
@@ -281,9 +287,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Благодарим за резервацията – CarsNK",
+    "title": "Благодарим за резервацията – rovaro",
     "greeting": "Уважаеми/а {{CustomerName}},",
-    "thankYouChoose": "Благодарим ви, че избрахте **CarsNK**.",
+    "thankYouChoose": "Благодарим ви, че избрахте **rovaro**.",
     "weReceived": "Получихме заявката ви за резервация и високо ценим доверието ви. Екипът ни преглежда детайлите и ще се свърже с вас скоро, за да потвърди резервацията и да уточни всичко според очакванията ви.",
     "availabilityDisclaimer": "Този имейл не гарантира, че автомобилът е наличен за тези дати на посочената цена. Официалното потвърждение ще ви изпрати нашият мениджър, след като се свърже с вас и отново провери наличността.",
     "reservationDetails": "**Детайли за резервацията:**",
@@ -308,7 +314,7 @@
     "totalAmountLabel": "Обща сума",
     "excludeCityDeliveryNote": "Без доставка до града.",
     "officialTitle": "Официално потвърждение на резервацията",
-    "officialIntro": "Вашата резервация е официално потвърдена от CarsNK.",
+    "officialIntro": "Вашата резервация е официално потвърдена от rovaro.",
     "officialPdfNote": "Към този имейл е приложен официалният PDF с потвърждение. Моля, запазете го за получаване на автомобила.",
     "generatedAtLabel": "Генерирано на",
     "customerLabel": "Клиент",
@@ -328,7 +334,7 @@
     "step3": "3. След потвърждение ще получите финално писмо с цялата необходима информация.",
     "questionsParagraph": "Ако имате въпроси, отговорете на този имейл — с удоволствие ще ви помогнем лично.",
     "kindRegards": "С уважение,",
-    "team": "**Екип на CarsNK**",
+    "team": "**Екип на rovaro**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {
@@ -413,6 +419,9 @@
     "activeTitle": "Active discount",
     "activeValue": "Active discount: {{value}}",
     "notApplied": "No discount applied",
+    "howItWorksTitle": "How this discount works",
+    "howItWorksGlobal": "Pick any date range and a %. It applies to all cars for those days.",
+    "howItWorksPerCar": "To change the price of one car only, edit that car in Cars settings — not here.",
     "startDate": "Discount start date",
     "endDate": "Discount end date",
     "activeToday": "Discount is active today",

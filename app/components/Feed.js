@@ -29,14 +29,29 @@ function Feed({ children, ...props }) {
 
   const shouldShowFooter = !props.isAdmin && !isAccessLink;
 
-  // Admin AppBar is fixed at 60px — clear it so page titles are not hidden.
+  // Admin AppBar is fixed at 64px — clear it so page titles are not hidden.
   // Cars page still adds its own offset for the fixed AdminTopBar below.
   const mainPt = useMemo(() => {
     if (props.isAdmin || isAccessLink) {
-      return { xs: "60px", md: "60px" };
+      return { xs: "64px", md: "64px" };
     }
-    return { xs: "110px", md: "90px" };
+    return { xs: "118px", md: "98px" };
   }, [props.isAdmin, isAccessLink]);
+
+  // Admin calendar passes fillsViewport; accept fillViewport typo too.
+  const fillViewport = Boolean(props.fillsViewport || props.fillViewport);
+
+  // If a previous calendar visit left inline overflow:hidden on html/body,
+  // restore document scroll on any normal (non-calendar) Feed mount.
+  useEffect(() => {
+    if (fillViewport) return;
+    const html = document.documentElement;
+    const body = document.body;
+    if (html.style.overflow === "hidden") html.style.overflow = "";
+    if (body.style.overflow === "hidden") body.style.overflow = "";
+    if (html.style.height === "100%") html.style.height = "";
+    if (body.style.height === "100%") body.style.height = "";
+  }, [fillViewport]);
 
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -105,11 +120,43 @@ function Feed({ children, ...props }) {
           >
             <Navbar isMain={props.isMain} isAdmin={props.isAdmin} />
             {/* main paddingTop keeps content below fixed Navbar + filters; responsive values */}
-            <Box component="main" sx={{ pt: mainPt }}>
-              {children}
+            <Box
+              component="main"
+              sx={{
+                pt: mainPt,
+                ...(fillViewport
+                  ? {
+                      height: "100dvh",
+                      maxHeight: "100dvh",
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                      boxSizing: "border-box",
+                      minHeight: 0,
+                    }
+                  : null),
+              }}
+            >
+              {fillViewport ? (
+                <Box
+                  sx={{
+                    flex: "1 1 0%",
+                    height: 0,
+                    minHeight: 0,
+                    minWidth: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                  }}
+                >
+                  {children}
+                </Box>
+              ) : (
+                children
+              )}
             </Box>
             {shouldShowFooter && <Footer />}
-            <ScrollButton />
+            {!fillViewport && <ScrollButton />}
           </MainContextProvider>
         </I18nextProvider>
       </ThemeProvider>

@@ -8,7 +8,7 @@
     "calendars": "Календарі",
     "table": "Таблиця замовлень",
     "calendar": "Календар",
-    "deliveryZones": "Зони доставки",
+    "deliveryZones": "Доставка і ціни",
     "orders": "Замовлення",
     "orderList": "Список замовлень",
     "carClass": "Оберіть клас авто",
@@ -24,7 +24,13 @@
     "websiteVisits": "Візити",
     "transfer": "Трансфер",
     "transfers": "Трансфери",
-    "owners": "Власники"
+    "owners": "Компанії",
+    "carRentals": "Оренда авто",
+    "platform": "Платформа",
+    "vouchers": "Ваучери",
+    "accessLinks": "Посилання доступу",
+    "vouchersAndLinks": "Ваучери та інструменти",
+    "viewAsExit": "Вийти з компанії"
   },
   "catalog": {
     "noCarsMatchFilters": "Немає авто за обраними фільтрами. Змініть пошук, клас, КПП або кількість місць."
@@ -306,6 +312,9 @@
     "activeTitle": "Active discount",
     "activeValue": "Active discount: {{value}}",
     "notApplied": "No discount applied",
+    "howItWorksTitle": "How this discount works",
+    "howItWorksGlobal": "Pick any date range and a %. It applies to all cars for those days.",
+    "howItWorksPerCar": "To change the price of one car only, edit that car in Cars settings — not here.",
     "startDate": "Discount start date",
     "endDate": "Discount end date",
     "activeToday": "Discount is active today",
@@ -362,7 +371,7 @@
   },
   "forBusiness": {
     "eyebrow": "Для бізнесу",
-    "title": "CarsNK як платформа для прокату",
+    "title": "rovaro як платформа для прокату",
     "intro": "Виведіть автопарк в онлайн: клієнти бронюють на сайті, а ви ведете щоденну роботу в одній адмінці — від першої заявки до повернення авто.",
     "cta": "Обговорити платформу",
     "features": {
@@ -413,9 +422,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Дякуємо за бронювання – CarsNK",
+    "title": "Дякуємо за бронювання – rovaro",
     "greeting": "Шановний(а) {{CustomerName}},",
-    "thankYouChoose": "Дякуємо за вибір **CarsNK**.",
+    "thankYouChoose": "Дякуємо за вибір **rovaro**.",
     "weReceived": "Ми отримали ваш запит на бронювання і високо цінуємо надану нам довіру. Наша команда вже обробляє деталі замовлення і зв'яжеться з вами найближчим часом для підтвердження та уточнення всіх деталей.",
     "availabilityDisclaimer": "Цим листом ми не гарантуємо, що автомобіль є в наявності на зазначені дати за вказаною ціною. Офіційне підтвердження надішле наш менеджер після того, як зв’яжеться з вами та ще раз перевірить наявність.",
     "reservationDetails": "**Деталі замовлення:**",
@@ -440,7 +449,7 @@
     "totalAmountLabel": "Загальна вартість",
     "excludeCityDeliveryNote": "Без урахування доставки до міста.",
     "officialTitle": "Офіційне підтвердження бронювання",
-    "officialIntro": "Ваше бронювання офіційно підтверджено компанією CarsNK.",
+    "officialIntro": "Ваше бронювання офіційно підтверджено компанією rovaro.",
     "officialPdfNote": "Офіційний PDF-документ підтвердження додано до цього листа. Збережіть його для отримання автомобіля.",
     "generatedAtLabel": "Сформовано",
     "customerLabel": "Клієнт",
@@ -460,7 +469,7 @@
     "step3": "3. Після підтвердження ви отримаєте фінальний лист з усією необхідною інформацією.",
     "questionsParagraph": "Якщо у вас виникнуть питання, будь ласка, відповідайте на цей лист — ми з радістю допоможемо вам особисто.",
     "kindRegards": "З повагою,",
-    "team": "**Команда CarsNK**",
+    "team": "**Команда rovaro**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {

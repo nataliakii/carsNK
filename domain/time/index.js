@@ -23,9 +23,19 @@ export {
   formatTime,
   formatDateTime,
   fromStorage,
-  toStorage,
+  toStorageUTC as toStorage,
   isPast,
   isToday,
-  isFuture,
-  now,
+  nowInBusiness as now,
 } from "./businessTime";
+
+export {
+  resolveBusinessTimezone,
+  canonicalizeTimezone,
+  LEGACY_FALLBACK_TZ,
+} from "./resolveBusinessTimezone";
+export {
+  parseLocalInTimezone,
+  createBusinessDateTime,
+  fromUtcInTimezone,
+} from "./businessInstant";

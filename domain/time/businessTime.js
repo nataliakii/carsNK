@@ -32,9 +32,9 @@ export const BUSINESS_TZ = "Europe/Athens";
  * formatDate(order.rentalStartDate, "DD.MM.YY")
  * // Результат: "15.01.26" (Athens)
  */
-export function formatDate(dbDate, format = "DD.MM.YYYY") {
+export function formatDate(dbDate, format = "DD.MM.YYYY", timezone = BUSINESS_TZ) {
   if (!dbDate) return "";
-  return dayjs(dbDate).tz(BUSINESS_TZ).format(format);
+  return dayjs(dbDate).tz(timezone || BUSINESS_TZ).format(format);
 }
 
 /**
@@ -50,9 +50,9 @@ export function formatDate(dbDate, format = "DD.MM.YYYY") {
  * formatTime(order.timeIn)
  * // Результат: "14:00" (Athens)
  */
-export function formatTime(dbDate, format = "HH:mm") {
+export function formatTime(dbDate, format = "HH:mm", timezone = BUSINESS_TZ) {
   if (!dbDate) return "";
-  return dayjs(dbDate).tz(BUSINESS_TZ).format(format);
+  return dayjs(dbDate).tz(timezone || BUSINESS_TZ).format(format);
 }
 
 /**
@@ -62,9 +62,9 @@ export function formatTime(dbDate, format = "HH:mm") {
  * @param {string} format - Формат вывода (по умолчанию "DD.MM.YYYY HH:mm")
  * @returns {string} Отформатированная дата+время в греческой таймзоне
  */
-export function formatDateTime(dbDate, format = "DD.MM.YYYY HH:mm") {
+export function formatDateTime(dbDate, format = "DD.MM.YYYY HH:mm", timezone = BUSINESS_TZ) {
   if (!dbDate) return "";
-  return dayjs(dbDate).tz(BUSINESS_TZ).format(format);
+  return dayjs(dbDate).tz(timezone || BUSINESS_TZ).format(format);
 }
 
 /**

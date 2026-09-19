@@ -2,6 +2,12 @@ import { connectToDB } from "@lib/database";
 import { requireAdmin } from "@/lib/adminAuth";
 import { DeliveryZone } from "@models/DeliveryZone";
 import { sortDeliveryZones } from "@/domain/delivery/sortDeliveryZones";
+import { COMPANY_ID } from "@config/company";
+import {
+  getSessionOwnerId,
+  isSuperAdminUser,
+  normalizeOwnerId,
+} from "@/domain/owners/ownerScope";
 
 function normalizeFixedPriceInput(value) {
   if (value === undefined) {
@@ -19,14 +25,40 @@ function normalizeFixedPriceInput(value) {
   return { ok: true, present: true, value: numericValue };
 }
 
+function resolveOwnerId(user, requestedOwnerId) {
+  if (isSuperAdminUser(user)) {
+    return normalizeOwnerId(requestedOwnerId) || String(COMPANY_ID);
+  }
+  return getSessionOwnerId(user) || String(COMPANY_ID);
+}
+
+function buildZoneOwnerFilter(ownerId) {
+  const id = String(ownerId);
+  if (id === String(COMPANY_ID)) {
+    return {
+      $or: [{ ownerId: id }, { ownerId: null }, { ownerId: { $exists: false } }],
+    };
+  }
+  return { ownerId: id };
+}
+
 export async function GET(request) {
   try {
     await connectToDB();
-    const { errorResponse } = await requireAdmin(request);
+    const { session, errorResponse } = await requireAdmin(request);
     if (errorResponse) return errorResponse;
 
-    const zones = await DeliveryZone.find().lean();
-    return Response.json({ success: true, data: sortDeliveryZones(zones) });
+    const url = new URL(request.url);
+    const ownerId = resolveOwnerId(
+      session.user,
+      url.searchParams.get("ownerId")
+    );
+    const zones = await DeliveryZone.find(buildZoneOwnerFilter(ownerId)).lean();
+    return Response.json({
+      success: true,
+      ownerId,
+      data: sortDeliveryZones(zones),
+    });
   } catch (error) {
     console.error("[delivery-zones GET]", error);
     return Response.json(
@@ -39,11 +71,12 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     await connectToDB();
-    const { errorResponse } = await requireAdmin(request);
+    const { session, errorResponse } = await requireAdmin(request);
     if (errorResponse) return errorResponse;
 
     const body = await request.json();
     const { name, distanceKm, fixedPrice, isFreeDelivery, coordinates } = body;
+    const ownerId = resolveOwnerId(session.user, body?.ownerId);
     const normalizedDistanceKm = Number(distanceKm);
     const normalizedFixedPrice = normalizeFixedPriceInput(fixedPrice);
 
@@ -68,7 +101,10 @@ export async function POST(request) {
 
     const slug = name.trim().toLowerCase().replace(/\s+/g, "-");
 
-    const existing = await DeliveryZone.findOne({ slug });
+    const existing = await DeliveryZone.findOne({
+      ...buildZoneOwnerFilter(ownerId),
+      slug,
+    });
     if (existing) {
       return Response.json(
         { success: false, message: `Zone "${name}" already exists` },
@@ -77,6 +113,7 @@ export async function POST(request) {
     }
 
     const zone = await DeliveryZone.create({
+      ownerId,
       name: name.trim(),
       slug,
       distanceKm: normalizedDistanceKm,

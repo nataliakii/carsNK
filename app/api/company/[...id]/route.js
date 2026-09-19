@@ -141,18 +141,166 @@ export async function PATCH(request, { params }) {
       lon: parsedLon.value,
     };
   }
+  if (body?.slug != null) {
+    const { ensureUniqueCompanySlug } = await import("@/domain/platform/companySlug");
+    const desired = String(body.slug || "").trim() || String(body.name || "").trim();
+    updates.slug = await ensureUniqueCompanySlug(Company, desired, companyId);
+  }
+  if (body?.storefrontEnabled != null) {
+    updates.storefrontEnabled = Boolean(body.storefrontEnabled);
+  }
+  if (body?.listedOnMarketplace != null) {
+    updates.listedOnMarketplace = Boolean(body.listedOnMarketplace);
+  }
+  // Country is fixed to the deployment site — ignore client overrides.
+  if (body?.country != null) {
+    const { getSiteCountryCode } = await import("@config/siteCountry");
+    updates.country = getSiteCountryCode();
+  }
+  if (body?.bufferTime != null) {
+    const n = Number(body.bufferTime);
+    if (!Number.isFinite(n) || n < 0 || n > 24) {
+      return NextResponse.json({ error: "bufferTime must be 0–24" }, { status: 400 });
+    }
+    updates.bufferTime = n;
+  }
+  if (body?.minRentalDuration != null) {
+    const n = Number(body.minRentalDuration);
+    if (!Number.isFinite(n) || n < 1) {
+      return NextResponse.json({ error: "minRentalDuration must be >= 1" }, { status: 400 });
+    }
+    updates.minRentalDuration = n;
+  }
+  if (body?.defaultStart != null) {
+    updates.defaultStart = String(body.defaultStart).trim();
+  }
+  if (body?.defaultEnd != null) {
+    updates.defaultEnd = String(body.defaultEnd).trim();
+  }
+  if (body?.workingHours != null && typeof body.workingHours === "object") {
+    const start = String(body.workingHours.start || "08:00").trim();
+    const end = String(body.workingHours.end || "22:00").trim();
+    updates.workingHours = { start, end };
+  }
+  if (body?.langAdmin != null) {
+    const { normalizeNotifyLocale } = await import(
+      "@/domain/orders/adminNotifyLocales"
+    );
+    updates.langAdmin = normalizeNotifyLocale(body.langAdmin);
+  }
+  if (body?.langSuperadmin != null && isSuperAdminUser(user)) {
+    const { normalizeNotifyLocale } = await import(
+      "@/domain/orders/adminNotifyLocales"
+    );
+    updates.langSuperadmin = normalizeNotifyLocale(body.langSuperadmin);
+  }
+  if (Array.isArray(body?.cityIds)) {
+    const ids = body.cityIds
+      .map((id) => String(id || "").trim())
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    updates.cityIds = ids;
+  }
+  if (body?.orderRadiusKm !== undefined) {
+    if (body.orderRadiusKm === null || body.orderRadiusKm === "") {
+      updates.orderRadiusKm = null;
+    } else {
+      const n = Number(body.orderRadiusKm);
+      if (!Number.isFinite(n) || n < 0 || n > 5000) {
+        return NextResponse.json(
+          { error: "orderRadiusKm must be 0–5000 or empty" },
+          { status: 400 }
+        );
+      }
+      updates.orderRadiusKm = n;
+    }
+  }
+  if (body?.meetingContacts != null) {
+    const { meetingContactsUpdatePayload } = await import(
+      "@/domain/company/meetingContacts"
+    );
+    Object.assign(updates, meetingContactsUpdatePayload(body.meetingContacts));
+  } else {
+    if (body?.meetingContactPhone != null) {
+      updates.meetingContactPhone = String(body.meetingContactPhone).trim();
+    }
+    if (body?.meetingContactName != null) {
+      updates.meetingContactName = String(body.meetingContactName).trim();
+    }
+    if (body?.meetingContactChannel != null) {
+      updates.meetingContactChannel = String(body.meetingContactChannel).trim();
+    }
+  }
 
-  if (!Object.keys(updates).length) {
-    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+  if (body?.prepaymentPercent !== undefined) {
+    if (body.prepaymentPercent === null || body.prepaymentPercent === "") {
+      updates.prepaymentPercent = null;
+    } else {
+      const n = Number(body.prepaymentPercent);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        return NextResponse.json(
+          { error: "prepaymentPercent must be 0–100 or empty" },
+          { status: 400 }
+        );
+      }
+      updates.prepaymentPercent = n;
+    }
+  }
+
+  if (body?.rentalPayments != null && typeof body.rentalPayments === "object") {
+    const timingRaw = String(body.rentalPayments.timing || "after_confirm")
+      .trim()
+      .toLowerCase();
+    updates.rentalPayments = {
+      stripeEnabled: Boolean(body.rentalPayments.stripeEnabled),
+      timing:
+        timingRaw === "before_confirm" ? "before_confirm" : "after_confirm",
+    };
   }
 
   try {
     await connectToDB();
-    const company = await Company.findByIdAndUpdate(
-      companyId,
-      { $set: updates },
-      { new: true }
-    ).lean();
+
+    if (body?.deliveryPricing !== undefined) {
+      const { normalizeDeliveryPricingInput } = await import(
+        "@/domain/delivery/deliveryPricingPolicy"
+      );
+      const existing = await Company.findById(companyId)
+        .select("deliveryPricing deliveryPricePerKm")
+        .lean();
+      const normalized = normalizeDeliveryPricingInput(
+        body.deliveryPricing,
+        existing || {}
+      );
+      if (!normalized.ok) {
+        return NextResponse.json({ error: normalized.message }, { status: 400 });
+      }
+      if (normalized.value === null) {
+        updates.$unset = { ...(updates.$unset || {}), deliveryPricing: 1 };
+      } else {
+        updates.deliveryPricing = normalized.value;
+        if (
+          normalized.value.inside?.mode === "perKm" &&
+          Number.isFinite(normalized.value.inside.amount)
+        ) {
+          updates.deliveryPricePerKm = normalized.value.inside.amount;
+        }
+      }
+    }
+
+    const unset = updates.$unset;
+    delete updates.$unset;
+    if (!Object.keys(updates).length && !unset) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+    }
+
+    const updateDoc = {};
+    if (Object.keys(updates).length) updateDoc.$set = updates;
+    if (unset) updateDoc.$unset = unset;
+
+    const company = await Company.findByIdAndUpdate(companyId, updateDoc, {
+      new: true,
+    }).lean();
 
     if (!company) {
       return NextResponse.json({ error: "Company not found" }, { status: 404 });

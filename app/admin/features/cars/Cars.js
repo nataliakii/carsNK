@@ -14,6 +14,8 @@ import Loading from "@app/loading";
 import Error from "@app/error";
 import CarItem from "./CarItem";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
+import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 
 function resolveCompanyName(car, companyNameById, fallbackCompany) {
   const oid = car?.ownerId ? String(car.ownerId) : "";
@@ -29,17 +31,25 @@ function Cars({ onCarDelete, setUpdateStatus }) {
   const { cars, isLoading, error, company } = useMainContext();
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
+  const { active: viewAsActive } = useAdminViewAs();
+  const showSuperAdminFilters = isSuperAdmin && !viewAsActive;
+  const { country: adminCountry } = useAdminCountryFilter();
 
   const [companies, setCompanies] = useState([]);
   const [companyNameById, setCompanyNameById] = useState({});
   const [ownerFilter, setOwnerFilter] = useState("");
 
   useEffect(() => {
-    if (!isSuperAdmin) return undefined;
+    if (!showSuperAdminFilters) return undefined;
     let cancelled = false;
+    setCompanies([]);
     (async () => {
       try {
-        const res = await fetch("/api/admin/owners");
+        const qs =
+          adminCountry === "ALL"
+            ? "country=ALL"
+            : `country=${encodeURIComponent(adminCountry)}`;
+        const res = await fetch(`/api/admin/owners?${qs}`);
         if (!res.ok) return;
         const body = await res.json();
         if (!cancelled && body?.success && Array.isArray(body.companies)) {
@@ -49,6 +59,7 @@ function Cars({ onCarDelete, setUpdateStatus }) {
             if (c?._id) map[String(c._id)] = c.name || String(c._id);
           }
           setCompanyNameById((prev) => ({ ...prev, ...map }));
+          setOwnerFilter("");
         }
       } catch {
         /* ignore */
@@ -57,7 +68,7 @@ function Cars({ onCarDelete, setUpdateStatus }) {
     return () => {
       cancelled = true;
     };
-  }, [isSuperAdmin]);
+  }, [showSuperAdminFilters, adminCountry]);
 
   // Resolve company names for cars (works for company admin too)
   useEffect(() => {
@@ -108,13 +119,21 @@ function Cars({ onCarDelete, setUpdateStatus }) {
 
   const sortedCars = useMemo(() => {
     let list = [...cars];
+    if (showSuperAdminFilters && adminCountry !== "ALL") {
+      const allowed = new Set(companies.map((c) => String(c._id)));
+      list = list.filter((c) => {
+        const oid = c?.ownerId ? String(c.ownerId) : "";
+        if (!oid) return true; // keep unassigned visible
+        return allowed.has(oid);
+      });
+    }
     if (ownerFilter) {
       list = list.filter(
         (c) => String(c.ownerId || "") === String(ownerFilter)
       );
     }
     return list.sort((a, b) => a.model.localeCompare(b.model));
-  }, [cars, ownerFilter]);
+  }, [cars, ownerFilter, showSuperAdminFilters, adminCountry, companies]);
 
   useEffect(() => {
     const savedScroll = localStorage.getItem("carsScrollY");
@@ -135,7 +154,7 @@ function Cars({ onCarDelete, setUpdateStatus }) {
     <Box
       sx={{ width: "100%", maxWidth: 1100, mx: "auto", px: { xs: 1, sm: 2 } }}
     >
-      {isSuperAdmin && companies.length > 0 && (
+      {showSuperAdminFilters && companies.length > 0 && (
         <FormControl
           size="small"
           sx={{ mb: 1.5, minWidth: 220, mt: { xs: 6, md: 6 } }}
@@ -161,7 +180,7 @@ function Cars({ onCarDelete, setUpdateStatus }) {
         container
         spacing={1.25}
         sx={{
-          mt: isSuperAdmin && companies.length > 0 ? 0 : { xs: 6, md: 6 },
+          mt: showSuperAdminFilters && companies.length > 0 ? 0 : { xs: 6, md: 6 },
           alignItems: "stretch",
         }}
       >

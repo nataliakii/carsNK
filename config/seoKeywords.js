@@ -1,3 +1,5 @@
+import { isGreeceSite } from "@config/brand";
+
 /**
  * Multilingual SEO Keywords Configuration
  *
@@ -289,7 +291,58 @@ export function getKeywordsForLanguages(langs) {
  * @returns {string[]} Primary keywords
  */
 export function getPrimaryKeywords(perLang = 5) {
+  if (!isGreeceSite()) {
+    return getSpainPrimaryKeywords(perLang);
+  }
   return Object.values(seoKeywords).flatMap((keywords) =>
+    keywords.slice(0, perLang)
+  );
+}
+
+const spainSeoKeywords = {
+  en: [
+    "car rental Spain",
+    "car hire Spain",
+    "rent a car Spain",
+    "cheap car rental Spain",
+    "car rental Madrid",
+    "car hire Barcelona",
+    "rent a car Valencia",
+    "car rental Malaga",
+    "local car rental Spain",
+    "rovaro",
+    "rovaro car rental",
+  ],
+  es: [
+    "alquiler de coches España",
+    "alquiler de autos España",
+    "rent a car España",
+    "alquiler coche Madrid",
+    "alquiler coche Barcelona",
+    "alquiler coche Valencia",
+    "alquiler coche Málaga",
+    "alquiler barato España",
+    "coches locales España",
+    "rovaro",
+    "rovaro alquiler",
+  ],
+  de: [
+    "Mietwagen Spanien",
+    "Auto mieten Spanien",
+    "Autovermietung Spanien",
+    "Mietwagen Madrid",
+    "Mietwagen Barcelona",
+  ],
+  ru: [
+    "аренда авто Испания",
+    "прокат машин Испания",
+    "аренда авто Мадрид",
+    "аренда авто Барселона",
+  ],
+};
+
+function getSpainPrimaryKeywords(perLang = 5) {
+  return Object.values(spainSeoKeywords).flatMap((keywords) =>
     keywords.slice(0, perLang)
   );
 }

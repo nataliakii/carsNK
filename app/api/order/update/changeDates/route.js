@@ -8,6 +8,15 @@ import { getTimeBucket } from "@/domain/time/athensTime";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import { getBusinessRentalDaysByMinutes } from "@/domain/orders/numberOfDays";
 import { toBusinessStartOfDay, toStoredBusinessDate } from "@/domain/time/businessDate";
+import {
+  AVAILABILITY_PURPOSE,
+  checkOrderIntervalConflicts,
+} from "@/domain/booking/availabilityEngine";
+import { resolveBookingMode } from "@/domain/booking/bookingMode";
+import { LEGACY_FALLBACK_TZ } from "@/domain/time/resolveBusinessTimezone";
+import { localSnapshotFromUtc } from "@/domain/time/businessInstant";
+import Company from "@models/company";
+import { COMPANY_ID } from "@config/company";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -15,78 +24,23 @@ import timezone from "dayjs/plugin/timezone";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-function getBusinessDaySpan(start, end) {
-  return getBusinessRentalDaysByMinutes(start, end);
+function getBusinessDaySpan(start, end, timezone) {
+  return getBusinessRentalDaysByMinutes(start, end, timezone);
 }
 
-// ИСПРАВЛЕННАЯ функция проверки конфликтов
-function checkConflictsFixed(allOrders, newStart, newEnd) {
-  const conflictingOrders = [];
-  const conflictDates = { start: null, end: null };
-
-  for (const existingOrder of allOrders) {
-    const existingStart = dayjs(existingOrder.timeIn);
-    const existingEnd = dayjs(existingOrder.timeOut);
-
-    // КЛЮЧЕВАЯ ЛОГИКА: заказы НЕ конфликтуют если "касаются" по времени
-    const newEndsWhenExistingStarts = newEnd.isSame(existingStart);
-    const newStartsWhenExistingEnds = newStart.isSame(existingEnd);
-
-    // Если заказы касаются - это НЕ конфликт
-    if (newEndsWhenExistingStarts || newStartsWhenExistingEnds) {
-      continue;
-    }
-
-    // Проверяем реальное пересечение периодов
-    const hasOverlap =
-      newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart);
-
-    if (hasOverlap) {
-      conflictingOrders.push(existingOrder);
-
-      // Определяем конкретные конфликтные времена
-      if (newStart.isBefore(existingEnd) && newStart.isAfter(existingStart)) {
-        conflictDates.start = existingStart.toISOString();
-      }
-      if (newEnd.isAfter(existingStart) && newEnd.isBefore(existingEnd)) {
-        conflictDates.end = existingEnd.toISOString();
-      }
-    }
-  }
-
-  if (conflictingOrders.length === 0) {
-    return { status: null, data: null }; // Нет конфликтов
-  }
-
-  // Проверяем подтвержденность конфликтующих заказов
-  const confirmedConflicts = conflictingOrders.filter(
-    (order) => order.confirmed
-  );
-
-  if (confirmedConflicts.length > 0) {
-    // Конфликт с подтвержденными заказами - блокируем
-    return {
-      status: 409,
-      data: {
-        conflictMessage: `Time has conflict with confirmed bookings`,
-        conflictDates,
-        conflictingOrders: confirmedConflicts,
-      },
-    };
-  } else {
-    // Конфликт только с неподтвержденными заказами
-    return {
-      status: 202,
-      data: {
-        conflictMessage: `Time has conflict with unconfirmed bookings`,
-        conflictDates,
-        conflictOrdersIds: conflictingOrders.map((order) =>
-          order._id.toString()
-        ),
-        conflictingOrders,
-      },
-    };
-  }
+function checkConflictsFixed(allOrders, newStart, newEnd, options = {}) {
+  const pickupAtUtc = dayjs.isDayjs(newStart) ? newStart.toDate() : new Date(newStart);
+  const returnAtUtc = dayjs.isDayjs(newEnd) ? newEnd.toDate() : new Date(newEnd);
+  return checkOrderIntervalConflicts({
+    existingOrders: allOrders,
+    pickupAtUtc,
+    returnAtUtc,
+    timezone: options.timezone || LEGACY_FALLBACK_TZ,
+    excludeOrderId: options.excludeOrderId,
+    bufferHours: options.bufferHours || 0,
+    bookingMode: options.bookingMode,
+    purpose: AVAILABILITY_PURPOSE.ADMIN_EDIT,
+  });
 }
 
 export const PUT = async (req) => {
@@ -204,14 +158,14 @@ export const PUT = async (req) => {
       carDoc = await Car.findById(order.car);
     }
 
-    // Конвертация дат и времени
+    const orderTz = order.timezone || LEGACY_FALLBACK_TZ;
     const newStartDate = rentalStartDate
-      ? toBusinessStartOfDay(rentalStartDate)
-      : toBusinessStartOfDay(order.rentalStartDate);
+      ? toBusinessStartOfDay(rentalStartDate, orderTz)
+      : toBusinessStartOfDay(order.rentalStartDate, orderTz);
 
     const newEndDate = rentalEndDate
-      ? toBusinessStartOfDay(rentalEndDate)
-      : toBusinessStartOfDay(order.rentalEndDate);
+      ? toBusinessStartOfDay(rentalEndDate, orderTz)
+      : toBusinessStartOfDay(order.rentalEndDate, orderTz);
     const newTimeIn = timeIn ? dayjs(timeIn) : dayjs(order.timeIn);
     const newTimeOut = timeOut ? dayjs(timeOut) : dayjs(order.timeOut);
 
@@ -231,7 +185,7 @@ export const PUT = async (req) => {
     });
 
     // Ensure rental duration is positive
-    if (getBusinessDaySpan(start, end) <= 0) {
+    if (getBusinessDaySpan(start, end, orderTz) <= 0) {
       return new Response(
         JSON.stringify({
           message: "Start and end dates cannot be the same.",
@@ -270,8 +224,15 @@ export const PUT = async (req) => {
       }))
     );
 
-    // ИСПОЛЬЗУЕМ ИСПРАВЛЕННУЮ функцию проверки конфликтов
-    const { status, data } = checkConflictsFixed(allOrders, start, end);
+    const bufferCompany = await Company.findById(
+      order.ownerId || COMPANY_ID
+    ).lean();
+    const { status, data } = checkConflictsFixed(allOrders, start, end, {
+      timezone: orderTz,
+      excludeOrderId: String(_id),
+      bufferHours: Number(bufferCompany?.bufferTime) || 0,
+      bookingMode: resolveBookingMode({ order }),
+    });
 
     console.log("Conflict check result:", { status, data });
 
@@ -302,7 +263,7 @@ export const PUT = async (req) => {
         case 202:
           // Update the order and add new pending orderConflicts
           let totalPrice202 = order.totalPrice; // 🔧 FIX: Preserve existing price by default
-          let days202 = getBusinessDaySpan(start, end);
+          let days202 = getBusinessDaySpan(start, end, orderTz);
           
           // Check if dates or price-affecting fields changed (not just time)
           const datesChanged202 =
@@ -325,12 +286,16 @@ export const PUT = async (req) => {
               days202 = result.days;
             }
           }
-          order.rentalStartDate = toStoredBusinessDate(start);
-          order.rentalEndDate = toStoredBusinessDate(end);
+          order.rentalStartDate = toStoredBusinessDate(start, orderTz);
+          order.rentalEndDate = toStoredBusinessDate(end, orderTz);
           order.numberOfDays = days202;
           order.totalPrice = totalPrice202;
           order.timeIn = start.toDate();
           order.timeOut = end.toDate();
+          order.pickupAtUtc = start.toDate();
+          order.returnAtUtc = end.toDate();
+          order.localPickup = localSnapshotFromUtc(start.toDate(), orderTz);
+          order.localReturn = localSnapshotFromUtc(end.toDate(), orderTz);
           order.placeIn = placeIn || order.placeIn;
           order.placeOut = placeOut || order.placeOut;
           if (placeInDetail !== undefined) {

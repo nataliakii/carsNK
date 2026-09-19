@@ -1,44 +1,45 @@
 "use client";
 import { createTheme, alpha } from "@mui/material/styles";
+import { getActiveBrand } from "@config/brand";
+
+const active = getActiveBrand();
+const isRovaro = active.id === "rovaro";
+
 /**
- * CarsNK brand palette (from logo)
- *
- * Navy:    #0B1F3A  — logo square background
- * Cyan:    #00C8D4  — NK letters (primary brand)
- * Red:     #E53935  — left accent bar
- * Yellow:  #FFD400  — right accent bar
+ * Theme palette follows deployment country:
+ * - GR → CarsNK navy/cyan
+ * - otherwise → rovaro magenta/black
  */
 // ============================================
 // БАЗОВЫЕ ЦВЕТА ПАЛИТРЫ
 // ============================================
 export const palette = {
-  /** Brand cyan (NK) — links, focus, primary CTAs */
   primary: {
-    main: "#00C8D4",
-    light: "#4DDBE4",
-    dark: "#009AA3",
-    contrastText: "#0B1F3A",
+    main: active.primary,
+    light: active.primaryLight,
+    dark: active.primaryDark,
+    contrastText: isRovaro ? active.white : active.secondary,
   },
-  /** Logo navy — footer, nav, secondary surfaces */
   secondary: {
-    main: "#0B1F3A",
-    light: "#1A3358",
-    dark: "#061222",
-    contrastText: "#ffffff",
+    main: active.secondary,
+    light: active.secondaryLight,
+    dark: active.secondaryDark,
+    contrastText: active.white,
   },
   brand: {
-    navy: "#0B1F3A",
-    cyan: "#00C8D4",
-    red: "#E53935",
-    yellow: "#FFD400",
+    navy: active.secondary,
+    cyan: active.primary,
+    pink: active.pink,
+    red: active.accent,
+    yellow: active.accentAlt,
   },
   analogous: {
-    rose: "#E53935",
-    roseLight: "#EF6A66",
-    roseDark: "#B71C1C",
-    amber: "#FFD400",
-    amberLight: "#FFE04D",
-    amberDark: "#C9A600",
+    rose: active.accent,
+    roseLight: active.primaryLight,
+    roseDark: active.primaryDark,
+    amber: active.accentAlt,
+    amberLight: isRovaro ? "#FFD98A" : "#FFE04D",
+    amberDark: isRovaro ? "#D4A03A" : "#C9A600",
   },
   triadic: {
     olive: "#5C7A1A",
@@ -47,65 +48,74 @@ export const palette = {
     green: "#1B9E5A",
     greenLight: "#3DBF78",
     greenDark: "#0F6E3D",
-    yellowBright: "#FFD400",
-    yellow: "#FFD400",
-    yellowLight: "#FFE566",
+    yellowBright: active.accentAlt,
+    yellow: active.accentAlt,
+    yellowLight: isRovaro ? "#FFD98A" : "#FFE566",
   },
-  neutral: {
-    white: "#ffffff",
-    black: "#0a0a0a",
-    gray50: "#F4F8FA",
-    gray100: "#EAF1F5",
-    gray200: "#D5E0E8",
-    gray300: "#B8C7D2",
-    gray400: "#8FA3B3",
-    gray500: "#6B8294",
-    gray600: "#516677",
-    gray700: "#3C4F5C",
-    gray800: "#283843",
-    gray900: "#0B1F3A",
-  },
+  neutral: isRovaro
+    ? {
+        white: "#ffffff",
+        black: active.black,
+        gray50: "#FAFAFA",
+        gray100: "#F3F3F3",
+        gray200: "#E5E5E5",
+        gray300: "#D0D0D0",
+        gray400: "#A3A3A3",
+        gray500: "#6B6B6B",
+        gray600: "#525252",
+        gray700: "#3D3D3D",
+        gray800: "#262626",
+        gray900: active.black,
+      }
+    : {
+        white: "#ffffff",
+        black: "#0a0a0a",
+        gray50: "#F4F8FA",
+        gray100: "#EAF1F5",
+        gray200: "#D5E0E8",
+        gray300: "#B8C7D2",
+        gray400: "#8FA3B3",
+        gray500: "#6B8294",
+        gray600: "#516677",
+        gray700: "#3C4F5C",
+        gray800: "#283843",
+        gray900: "#0B1F3A",
+      },
   status: {
     success: "#1B9E5A",
-    warning: "#FFD400",
+    warning: active.accentAlt,
     error: "#E53935",
-    info: "#00C8D4",
+    info: active.primary,
   },
-  // ============================================
-  // КОНТРАСТНЫЕ ФОНЫ С ПРЕДОПРЕДЕЛЁННЫМИ ЦВЕТАМИ
-  // ============================================
-  // Тёмный фон #1 - навбар / фильтры (logo navy)
   backgroundDark1: {
-    bg: "#0B1F3A",
+    bg: active.secondary,
     text: "#ffffff",
-    textSecondary: "#A8B8C8",
-    primary: "#FF6B6B",
-    secondary: "#4DDBE4",
-    accent: "#FFD400",
+    textSecondary: isRovaro ? "#B3B3B3" : "#A8B8C8",
+    primary: active.primaryLight,
+    secondary: active.primary,
+    accent: active.accent,
     success: "#3DBF78",
-    warning: "#FFD400",
+    warning: active.accentAlt,
   },
-  // Тёмный фон #2 - глубокий navy
   backgroundDark2: {
-    bg: "#061222",
+    bg: active.blackSoft || active.secondaryDark,
     text: "#ffffff",
-    textSecondary: "#8FA3B3",
-    primary: "#FF8A8A",
-    secondary: "#00C8D4",
-    accent: "#FFD400",
+    textSecondary: isRovaro ? "#A3A3A3" : "#8FA3B3",
+    primary: active.primaryLight,
+    secondary: active.primary,
+    accent: active.accent,
     success: "#3DBF78",
-    warning: "#FFE566",
+    warning: isRovaro ? "#FFD98A" : "#FFE566",
   },
-  // Светлый фон - карточки, модали
   backgroundLight: {
     bg: "#ffffff",
-    text: "#0B1F3A",
-    textSecondary: "#516677",
-    primary: "#00C8D4",
-    secondary: "#0B1F3A",
-    accent: "#E53935",
+    text: isRovaro ? active.black : "#0B1F3A",
+    textSecondary: isRovaro ? "#525252" : "#516677",
+    primary: active.primary,
+    secondary: active.secondary,
+    accent: active.accent,
     success: "#1B9E5A",
-    warning: "#C9A600",
+    warning: isRovaro ? "#D4A03A" : "#C9A600",
   },
 };
 
@@ -264,7 +274,7 @@ const buttonStyles = {
         borderRadius: 8,
         textTransform: "none",
         fontWeight: 600,
-        fontFamily: "'PT Sans', sans-serif",
+        fontFamily: "Nunito, sans-serif",
         padding: "10px 24px",
         transition: "all 0.2s ease-in-out",
       },
@@ -392,73 +402,73 @@ export const customButtonStyles = {
 // ТИПОГРАФИКА
 // ============================================
 const typography = {
-  fontFamily: "'PT Sans', 'Roboto', 'Helvetica', 'Arial', sans-serif",
+  fontFamily: "Nunito, Roboto, 'Helvetica', 'Arial', sans-serif",
   h1: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontWeight: 700,
     fontSize: "clamp(2rem, 5vw, 3.5rem)",
     lineHeight: 1.2,
     letterSpacing: "-0.02em",
   },
   h2: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontWeight: 700,
     fontSize: "clamp(1.5rem, 4vw, 2.5rem)",
     lineHeight: 1.3,
     letterSpacing: "-0.01em",
   },
   h3: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontWeight: 600,
     fontSize: "clamp(1.25rem, 3vw, 2rem)",
     lineHeight: 1.4,
   },
   h4: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontWeight: 600,
     fontSize: "clamp(1.1rem, 2.5vw, 1.5rem)",
     lineHeight: 1.4,
   },
   h5: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontWeight: 600,
     fontSize: "1.1rem",
     lineHeight: 1.5,
   },
   h6: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontWeight: 600,
     fontSize: "1rem",
     lineHeight: 1.5,
   },
   body1: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontSize: "clamp(1rem, 1.25vw, 1.125rem)",
     lineHeight: 1.7,
   },
   body2: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontSize: "clamp(0.875rem, 1vw, 1rem)",
     lineHeight: 1.6,
   },
   // Новые варианты для больших читабельных текстов
   bodyLarge: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontSize: "clamp(1.125rem, 1.5vw, 1.375rem)",
     lineHeight: 1.7,
   },
   bodyExtraLarge: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontSize: "clamp(1.25rem, 1.75vw, 1.5rem)",
     lineHeight: 1.7,
   },
   button: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontWeight: 600,
     textTransform: "none",
   },
   caption: {
-    fontFamily: "'PT Sans', sans-serif",
+    fontFamily: "Nunito, sans-serif",
     fontSize: "0.75rem",
     lineHeight: 1.5,
   },
@@ -564,7 +574,7 @@ export const lightTheme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: {
-          fontFamily: "'PT Sans', sans-serif",
+          fontFamily: "Nunito, sans-serif",
         },
       },
     },
@@ -700,20 +710,21 @@ export default lightTheme;
 // СТИЛИ ДЛЯ BIGCALENDAR (централизованные)
 // ============================================
 export const calendarStyles = {
-  // Корневой контейнер
+  // Корневой контейнер — заполняет оставшуюся высоту под тулбаром
   root: {
     display: "flex",
     flexDirection: "column",
-    overflowX: "hidden",
-    overflowY: "hidden",
+    overflow: "hidden",
     pt: 0,
-    // Убираем maxWidth чтобы не обрезать контент
     width: "100%",
     boxSizing: "border-box",
     // Keep below CalendarToolbar so sticky/overflow never steals toolbar clicks
     zIndex: 1,
-    height: "100%",
-    // Добавляем padding справа для 31-го дня
+    flex: "1 1 0%",
+    // height:0 + flex:1 — классический трюк: flex-item не раздувается контентом
+    height: 0,
+    minHeight: 0,
+    minWidth: 0,
     pr: { xs: 0.5, sm: 1 },
   },
   
@@ -731,26 +742,55 @@ export const calendarStyles = {
     },
   },
   
-  // TableContainer
+  // TableContainer — единственный скроллер (обе оси)
   tableContainer: {
-    flex: 1,
+    flex: "1 1 0%",
+    width: "100%",
+    minWidth: 0,
+    // height:0 заставляет брать высоту от flex, а не от таблицы
+    height: 0,
     minHeight: 0,
-    overflowX: "auto",
-    overflowY: "auto",
-    scrollBehavior: "smooth",
+    maxHeight: "100%",
+    overflow: "auto",
+    overscrollBehavior: "contain",
+    WebkitOverflowScrolling: "touch",
+    scrollBehavior: "auto",
+    // Visible scrollbars so overflow is obvious on macOS overlay scroll
+    scrollbarGutter: "stable",
+    // Always-on classic scrollbars (macOS overlay often hides them)
+    "&::-webkit-scrollbar": {
+      width: 12,
+      height: 12,
+    },
+    "&::-webkit-scrollbar-thumb": {
+      backgroundColor: "rgba(0,0,0,0.4)",
+      borderRadius: 8,
+      border: "2px solid transparent",
+      backgroundClip: "padding-box",
+    },
+    "&::-webkit-scrollbar-track": {
+      backgroundColor: "rgba(0,0,0,0.08)",
+    },
+    "&::-webkit-scrollbar-corner": {
+      backgroundColor: "rgba(0,0,0,0.08)",
+    },
   },
   
-  // Шапка — первая ячейка (год/месяц)
+  // Шапка — первая ячейка (год/месяц) — sticky corner
   headerFirstCell: {
     position: "sticky",
     left: 0,
-    zIndex: 5,
+    top: 0,
+    zIndex: 6,
     fontWeight: "bold",
     // Width controlled by CSS variable --resource-col-width (set dynamically)
     // Fallback to 120px if variable not set
     minWidth: "var(--resource-col-width, 120px)",
     height: 82,
     py: 0,
+    // Survive sticky scroll (clean uses box-shadow, not border)
+    boxShadow:
+      "1px 0 0 0 var(--color-calendar-border, rgba(255,255,255,0.12)), 0 1px 0 0 var(--color-calendar-border, rgba(0,0,0,0.12))",
   },
   
   // Шапка — ячейки дней (ширина в px задаётся --calendar-day-width)
@@ -766,6 +806,7 @@ export const calendarStyles = {
     boxSizing: "border-box",
     fontWeight: "bold",
     cursor: "pointer",
+    boxShadow: "0 1px 0 0 var(--color-calendar-border, rgba(0,0,0,0.12))",
   },
   
   // Первый столбец (названия машин)
@@ -794,6 +835,7 @@ export const calendarStyles = {
     boxSizing: "border-box",
     cursor: "pointer",
     transition: "background-color 0.2s ease",
+    boxShadow: "1px 0 0 0 rgba(0,0,0,0.2)",
     "&:hover": {
       backgroundColor: "secondary.dark",
     },

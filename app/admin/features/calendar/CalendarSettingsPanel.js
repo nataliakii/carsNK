@@ -40,6 +40,7 @@ export default function CalendarSettingsPanel({
   setShowConflictBadges,
   setHighlightToday,
   setAutoScrollToToday,
+  setShowFleetTransfers,
 }) {
   const { t } = useTranslation();
   const [bufferModalOpen, setBufferModalOpen] = useState(false);
@@ -149,6 +150,33 @@ export default function CalendarSettingsPanel({
                 </Typography>
               }
             />
+
+            {typeof setShowFleetTransfers === "function" ? (
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={Boolean(settings.showFleetTransfers)}
+                    onChange={(e) => setShowFleetTransfers(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">
+                      {t("calendar.settingsPanel.showFleetTransfers", {
+                        defaultValue: "Show transfers on fleet cars",
+                      })}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("calendar.settingsPanel.showFleetTransfersHint", {
+                        defaultValue:
+                          "Only transfers with an assigned rental-fleet car appear on that car’s row.",
+                      })}
+                    </Typography>
+                  </Box>
+                }
+              />
+            ) : null}
 
             <Divider />
 

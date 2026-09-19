@@ -39,25 +39,24 @@ import { calculateTotalPrice } from "@utils/action";
 import { getSecondDriverPriceLabelValue } from "@utils/secondDriverPricing";
 // 🎯 Athens timezone utilities — ЕДИНСТВЕННЫЙ источник правды для времени
 import {
-  ATHENS_TZ,
-  createAthensDateTime,
   toServerUTC,
   fromServerUTC,
   formatTimeHHMM,
   generateOrderNumber,
 } from "@/domain/time/athensTime";
+import { createBusinessDateTime } from "@/domain/time/businessInstant";
+import { resolveBusinessTimezone } from "@/domain/time/resolveBusinessTimezone";
 import {
   DEFAULT_BOOKING_LOCATION,
   LOCATION_DIVIDER_BEFORE,
   SELECTED_LOCATION_STORAGE_KEY,
 } from "@/domain/orders/locationOptions";
 import {
-  HALKIDIKI_BOOKING_LOCATION_OPTIONS,
-  canonicalizeCustomerBookingLocation,
-  isAllowedCustomerBookingLocation,
-  isThessalonikiCityBookingLocation,
-  resolveCustomerBookingLocationOrDefault,
-} from "@/domain/orders/halkidikiBookingLocations";
+  isAllowedBookingLocation,
+  canonicalizeBookingLocation,
+  resolveBookingLocationOrDefault,
+} from "@/domain/platform/bookingLocations";
+import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
 import { normalizeDeliveryPricingLocation } from "@/domain/orders/bookingPricingOptions";
 import {
   buildBookingPriceSummary,
@@ -71,7 +70,6 @@ import "@/styles/animations.css";
 // Extend dayjs with plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
-const TIME_ZONE = ATHENS_TZ; // Для обратной совместимости
 // DEBUG: ограничение логов по машине и дате (YYYY-MM-DD)
 // Пример: const DEBUG_CAR_ID = "670bb226223dd911f0595286"; const DEBUG_DATE = "2025-11-30";
 const DEBUG_CAR_ID = null;
@@ -104,7 +102,19 @@ const BookingModal = ({
   const [calcLoading, setCalcLoading] = useState(false);
   const { t } = useTranslation();
   const secondDriverPriceLabelValue = getSecondDriverPriceLabelValue();
-  const { company, companyLoading, companyError, lang } = useMainContext();
+  const { company, companyLoading, companyError, lang, platform } = useMainContext();
+  const TIME_ZONE = resolveBusinessTimezone({
+    company,
+    countryCode: company?.country || platform?.country,
+    platformSettings: platform,
+    forNewOrder: true,
+  });
+  const {
+    names: placeOptions,
+    defaultName: defaultBookingLocation,
+    requiresDetail,
+    isAirport,
+  } = useCompanyBookingLocations(car?.ownerId || company?._id);
   // carId (_id) is always unique in MongoDB. Fallback: carNumber, regNumber.
   const carApiIdentifier = car?._id?.toString?.() || car?.carNumber || car?.regNumber || "";
 
@@ -136,12 +146,7 @@ const BookingModal = ({
   });
   const [timeErrors, setTimeErrors] = useState(null);
   const [orderNumber, setOrderNumber] = useState("");
-  const [drivingLicenceUrls, setDrivingLicenceUrls] = useState([]);
-  const placeOptions = HALKIDIKI_BOOKING_LOCATION_OPTIONS;
-
-  const isAirportLocation = (loc) =>
-    typeof loc === "string" && loc.trim().toLowerCase() === "airport";
-  // const placeOptions = company?.locations?.map((loc) => loc.name) || [];
+  const isAirportLocation = (loc) => isAirport(loc);
   const [placeIn, setPlaceIn] = useState("");
   const [placeOut, setPlaceOut] = useState("");
   const [placeInDetail, setPlaceInDetail] = useState("");
@@ -171,16 +176,18 @@ const BookingModal = ({
       const normalizedPlaceOut = normalizeDeliveryPricingLocation(placeOut);
       const timeInAthens =
         startTime && presetDates?.startDate
-          ? createAthensDateTime(
+          ? createBusinessDateTime(
               dayjs(presetDates.startDate).tz(TIME_ZONE).format("YYYY-MM-DD"),
-              formatTimeHHMM(dayjs(startTime))
+              formatTimeHHMM(dayjs(startTime)),
+              TIME_ZONE
             )
           : null;
       const timeOutAthens =
         endTime && presetDates?.endDate
-          ? createAthensDateTime(
+          ? createBusinessDateTime(
               dayjs(presetDates.endDate).tz(TIME_ZONE).format("YYYY-MM-DD"),
-              formatTimeHHMM(dayjs(endTime))
+              formatTimeHHMM(dayjs(endTime)),
+              TIME_ZONE
             )
           : null;
       const timeInServer = timeInAthens ? toServerUTC(timeInAthens) : undefined;
@@ -227,6 +234,7 @@ const BookingModal = ({
       endTime,
       placeIn,
       placeOut,
+      TIME_ZONE,
     ]
   );
 
@@ -239,12 +247,12 @@ const BookingModal = ({
   }, [fetchTotalPrice]);
 
   useEffect(() => {
-    if (!isThessalonikiCityBookingLocation(placeIn)) setPlaceInDetail("");
-  }, [placeIn]);
+    if (!requiresDetail(placeIn)) setPlaceInDetail("");
+  }, [placeIn, requiresDetail]);
 
   useEffect(() => {
-    if (!isThessalonikiCityBookingLocation(placeOut)) setPlaceOutDetail("");
-  }, [placeOut]);
+    if (!requiresDetail(placeOut)) setPlaceOutDetail("");
+  }, [placeOut, requiresDetail]);
 
   // Лог: даты бронирования, отображаемые в BookingModal (start/end + времена)
   useEffect(() => {
@@ -351,6 +359,7 @@ const BookingModal = ({
     car?._id,
     car?.regNumber,
     car?.carNumber,
+    TIME_ZONE,
   ]);
 
   // Определение граничных заказов и установка дефолтных/смещённых времен
@@ -480,22 +489,10 @@ const BookingModal = ({
       resetForm(); // Сбросить форму при каждом открытии модального окна
       setInsurance("TPL"); // Всегда по умолчанию внутренний код ОСАГО
       setChildSeats(0); // Всегда по умолчанию 0
-      setOrderNumber(generateOrderNumber());
-      const savedLocation =
-        typeof window !== "undefined"
-          ? localStorage.getItem(SELECTED_LOCATION_STORAGE_KEY)
-          : null;
-      const nextLocation = resolveCustomerBookingLocationOrDefault(
-        savedLocation || DEFAULT_BOOKING_LOCATION
-      );
-      setPlaceIn(nextLocation);
-      setPlaceOut(nextLocation);
-      // Подтягиваем franchise из базы/prop автомобиля при открытии модалки
-      // 1) если пришёл вместе с car — используем его
+      setOrderNumber(generateOrderNumber(TIME_ZONE));
       if (car && typeof car.franchise !== "undefined") {
         setFranchiseOrder(Number(car.franchise) || 0);
       } else if (car && car._id) {
-        // 2) иначе пробуем получить из API
         fetch(`/api/car/${car._id}`)
           .then((res) => (res.ok ? res.json() : null))
           .then((data) => {
@@ -503,14 +500,27 @@ const BookingModal = ({
               setFranchiseOrder(Number(data.franchise) || 0);
             }
           })
-          .catch(() => {
-            // игнорируем, оставим 0 по умолчанию
-          });
+          .catch(() => {});
       } else {
         setFranchiseOrder(0);
       }
     }
-  }, [open, car]);
+  }, [open, car, TIME_ZONE]);
+
+  useEffect(() => {
+    if (!open || !placeOptions.length) return;
+    const savedLocation =
+      typeof window !== "undefined"
+        ? localStorage.getItem(SELECTED_LOCATION_STORAGE_KEY)
+        : null;
+    const nextLocation = resolveBookingLocationOrDefault(
+      savedLocation || defaultBookingLocation || DEFAULT_BOOKING_LOCATION,
+      placeOptions,
+      defaultBookingLocation || DEFAULT_BOOKING_LOCATION
+    );
+    setPlaceIn(nextLocation);
+    setPlaceOut(nextLocation);
+  }, [open, placeOptions, defaultBookingLocation]);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
@@ -529,35 +539,35 @@ const BookingModal = ({
     if (timeErrors) newErrors.time = timeErrors;
     const pin = String(placeIn || "").trim();
     const pout = String(placeOut || "").trim();
-    if (!isAllowedCustomerBookingLocation(pin)) {
+    if (!isAllowedBookingLocation(pin, placeOptions)) {
       newErrors.placeIn =
         t("order.locationOutsideServiceArea") ||
-        "Choose pickup from the list (including Thessaloniki or Airport if needed)";
+        "Choose pickup from the list of cities this company serves";
     }
-    if (!isAllowedCustomerBookingLocation(pout)) {
+    if (!isAllowedBookingLocation(pout, placeOptions)) {
       newErrors.placeOut =
         t("order.locationOutsideServiceArea") ||
-        "Choose return from the list (including Thessaloniki or Airport if needed)";
+        "Choose return from the list of cities this company serves";
     }
-    const canonIn = canonicalizeCustomerBookingLocation(pin);
-    const canonOut = canonicalizeCustomerBookingLocation(pout);
+    const canonIn = canonicalizeBookingLocation(pin, placeOptions);
+    const canonOut = canonicalizeBookingLocation(pout, placeOptions);
     if (
       canonIn &&
-      isThessalonikiCityBookingLocation(canonIn) &&
+      requiresDetail(canonIn) &&
       String(placeInDetail || "").trim().length < 3
     ) {
       newErrors.placeInDetail =
         t("order.thessalonikiDetailRequired") ||
-        "For Thessaloniki, enter hotel or full address (min. 3 characters).";
+        "Enter hotel or full address (min. 3 characters).";
     }
     if (
       canonOut &&
-      isThessalonikiCityBookingLocation(canonOut) &&
+      requiresDetail(canonOut) &&
       String(placeOutDetail || "").trim().length < 3
     ) {
       newErrors.placeOutDetail =
         t("order.thessalonikiDetailRequired") ||
-        "For Thessaloniki, enter hotel or full address (min. 3 characters).";
+        "Enter hotel or full address (min. 3 characters).";
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -577,10 +587,10 @@ const BookingModal = ({
 
       // Извлекаем HH:mm и создаём заново в Athens БЕЗ конвертации из таймзоны браузера
       const timeInAthens = startDateStr
-        ? createAthensDateTime(startDateStr, formatTimeHHMM(dayjs(startTime)))
+        ? createBusinessDateTime(startDateStr, formatTimeHHMM(dayjs(startTime)), TIME_ZONE)
         : null;
       const timeOutAthens = endDateStr
-        ? createAthensDateTime(endDateStr, formatTimeHHMM(dayjs(endTime)))
+        ? createBusinessDateTime(endDateStr, formatTimeHHMM(dayjs(endTime)), TIME_ZONE)
         : null;
 
       // Конвертируем в UTC для сохранения в БД
@@ -615,7 +625,6 @@ const BookingModal = ({
         placeOutDetail: String(placeOutDetail || "").trim(),
         flightNumber: flightNumber,
         locale: lang || "en",
-        drivingLicenceUrls,
       };
 
       const response = await addOrderNew(orderData);
@@ -682,7 +691,6 @@ const BookingModal = ({
     setPlaceInDetail("");
     setPlaceOutDetail("");
     setFlightNumber("");
-    setDrivingLicenceUrls([]);
     setDaysAndTotal(createEmptyBookingPriceSummary());
     setCalcLoading(false);
   };
@@ -1073,7 +1081,7 @@ const BookingModal = ({
                         />
                       </Box>
                     ) : placeIn &&
-                      isThessalonikiCityBookingLocation(placeIn) ? (
+                      requiresDetail(placeIn) ? (
                       <Box
                         sx={{
                           display: "flex",
@@ -1181,7 +1189,7 @@ const BookingModal = ({
                       />
                     )}
                     {placeOut &&
-                    isThessalonikiCityBookingLocation(placeOut) ? (
+                    requiresDetail(placeOut) ? (
                       <Box
                         sx={{
                           display: "flex",
@@ -1409,7 +1417,6 @@ const BookingModal = ({
                       Viber: viber,
                       Whatsapp: whatsapp,
                       Telegram: telegram,
-                      drivingLicenceUrls,
                     }}
                     onFieldChange={(field, value) => {
                       switch (field) {
@@ -1440,9 +1447,6 @@ const BookingModal = ({
                         case "Telegram":
                           setTelegram(Boolean(value));
                           break;
-                        case "drivingLicenceUrls":
-                          setDrivingLicenceUrls(Array.isArray(value) ? value : []);
-                          break;
                         default:
                           break;
                       }
@@ -1455,16 +1459,7 @@ const BookingModal = ({
                     disabled={isSubmitting}
                     secondDriverPriceLabelValue={secondDriverPriceLabelValue}
                     errors={errors}
-                    drivingLicenceEmphasized
-                    compactDrivingLicenceUpload
-                    drivingLicenceUploadButtonLabel={t(
-                      "order.drivingLicenceAddPhotoFull"
-                    )}
-                    drivingLicenceUploadButtonSideNote={t(
-                      "order.drivingLicenceMaxPhotosCompact"
-                    )}
-                    showDrivingLicencePreviewHint={false}
-                    drivingLicenceFrameLabel={t("order.drivingLicence")}
+                    showDrivingLicenceUpload={false}
                   />
                 </Box>
                 {/* Поле «Согласие с условиями аренды» — пока закомментировано

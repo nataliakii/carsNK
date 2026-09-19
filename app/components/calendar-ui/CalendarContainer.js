@@ -41,8 +41,11 @@ import { useFirstColumnWidth } from "@/hooks/useFirstColumnWidth";
 // View layout (toolbar): фиксированный normal density
 // ============================================
 const BASE_ROW_HEIGHT_PX = 27;
-/** Fixed day column width — period (15d/1m/2m) changes column count + table scroll */
+/** Day column width for 1m / 2m — period changes column count + table scroll */
 const BASE_DAY_WIDTH_PX = 34;
+/** 12-day period: wider columns + taller rows so order cards are readable */
+const SHORT_PERIOD_DAY_WIDTH_PX = 56;
+const SHORT_PERIOD_ROW_HEIGHT_PX = 40;
 
 function getDensityLayoutSx() {
   return {
@@ -101,7 +104,10 @@ function BigCalendarLayout({
         </Box>
       )}
 
-      {/* TableContainer */}
+      {/*
+        Flex scroll board: root + TableContainer both use flex:1 + height:0 so the
+        table never expands the page; overflow:auto on TableContainer is the only pan.
+      */}
       <TableContainer
         ref={containerRef}
         sx={{
@@ -132,6 +138,8 @@ export default function CalendarContainer({
   viewMode: viewModeProp,
   onViewModeChange,
   dayRange = "1m",
+  /** Optional read-only overlays (e.g. fleet transfers) merged into calendar orders. */
+  extraOrders = null,
 }) {
   // ─────────────────────────────────────────
   // 🔍 DEV INSTRUMENTATION (removed in production build)
@@ -265,6 +273,13 @@ export default function CalendarContainer({
   const { ordersByCarId, fetchAndUpdateOrders, allOrders, updateCarInContext } =
     useMainContext();
 
+  const displayOrders = useMemo(() => {
+    const base = Array.isArray(allOrders) ? allOrders : [];
+    const extra = Array.isArray(extraOrders) ? extraOrders : [];
+    if (!extra.length) return base;
+    return [...base, ...extra];
+  }, [allOrders, extraOrders]);
+
   const sortedCars = useMemo(() => {
     return [...cars].sort((a, b) => a.model.localeCompare(b.model));
   }, [cars]);
@@ -307,7 +322,16 @@ export default function CalendarContainer({
   // =======================
   // 📦 Orders & selection
   // =======================
-  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [selectedOrders, setSelectedOrdersRaw] = useState([]);
+  const setSelectedOrders = useCallback((arg) => {
+    const withoutTransfers = (list) =>
+      (Array.isArray(list) ? list : []).filter((o) => !o?.isTransferOverlay);
+    if (typeof arg === "function") {
+      setSelectedOrdersRaw((prev) => withoutTransfers(arg(prev)));
+    } else {
+      setSelectedOrdersRaw(withoutTransfers(arg));
+    }
+  }, []);
   const [startEndDates, setStartEndDates] = useState([]);
   const [isConflictOrder, setIsConflictOrder] = useState(false);
   const [headerOrdersModal, setHeaderOrdersModal] = useState({
@@ -336,6 +360,13 @@ export default function CalendarContainer({
   // 🧩 UI modals
   // =======================
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (open && selectedOrders.length === 0) {
+      setOpen(false);
+    }
+  }, [open, selectedOrders.length]);
+
   const editCloseGuardsRef = useRef(new Map());
   const [unsavedEditDialogOpen, setUnsavedEditDialogOpen] = useState(false);
   const [unsavedEditSaving, setUnsavedEditSaving] = useState(false);
@@ -535,6 +566,45 @@ export default function CalendarContainer({
     enabled: autoScrollToToday,
   });
 
+  /**
+   * Keep pointer-wheel / trackpad pan inside the calendar board.
+   * Without this, delta often bubbles to the document and the grid feels "stuck".
+   */
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return undefined;
+
+    const onWheel = (e) => {
+      const canY = el.scrollHeight > el.clientHeight + 1;
+      const canX = el.scrollWidth > el.clientWidth + 1;
+      if (!canY && !canX) return;
+
+      // Shift+wheel → horizontal (common spreadsheet habit)
+      const deltaX = e.shiftKey && e.deltaY && !e.deltaX ? e.deltaY : e.deltaX;
+      const deltaY = e.shiftKey && e.deltaY && !e.deltaX ? 0 : e.deltaY;
+
+      let used = false;
+      if (deltaY && canY) {
+        const prev = el.scrollTop;
+        el.scrollTop += deltaY;
+        if (el.scrollTop !== prev) used = true;
+      }
+      if (deltaX && canX) {
+        const prev = el.scrollLeft;
+        el.scrollLeft += deltaX;
+        if (el.scrollLeft !== prev) used = true;
+      }
+
+      // Always contain overscroll while the pointer is over the board
+      if (used || canY || canX) {
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [sortedCars.length, days.length]);
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container || sortedCars.length === 0 || days.length === 0) return;
@@ -552,8 +622,20 @@ export default function CalendarContainer({
         cell.focus();
       }
     }
-    if (typeof cell.scrollIntoView === "function") {
-      cell.scrollIntoView({ block: "nearest", inline: "nearest" });
+    // Scroll only the TableContainer — never the window (scrollIntoView can jump the page).
+    const cRect = container.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    const padTop = 90; // sticky thead approx
+    const padLeft = 8;
+    if (cellRect.top < cRect.top + padTop) {
+      container.scrollTop -= cRect.top + padTop - cellRect.top;
+    } else if (cellRect.bottom > cRect.bottom - 8) {
+      container.scrollTop += cellRect.bottom - (cRect.bottom - 8);
+    }
+    if (cellRect.left < cRect.left + padLeft) {
+      container.scrollLeft -= cRect.left + padLeft - cellRect.left;
+    } else if (cellRect.right > cRect.right - 8) {
+      container.scrollLeft += cellRect.right - (cRect.right - 8);
     }
   }, [activeCell, sortedCars.length, days.length]);
 
@@ -653,19 +735,24 @@ export default function CalendarContainer({
   // 📦 Orders handlers
   // =======================
   const ordersByCarIdWithAllorders = useCallback((carId, orders) => {
-    return orders?.filter((order) => order.car === carId);
+    const id = carId != null ? String(carId) : "";
+    if (!id || !orders?.length) return [];
+    return orders.filter((order) => {
+      const oid = order?.car?._id ?? order?.car;
+      return oid != null && String(oid) === id;
+    });
   }, []);
 
   const getOrdersForCell = useCallback(
     (carId, dateStr) => {
-      const scoped = ordersByCarIdWithAllorders(carId, allOrders) || [];
+      const scoped = ordersByCarIdWithAllorders(carId, displayOrders) || [];
       return scoped.filter((order) => {
         const startStr = formatDate(order.rentalStartDate, "YYYY-MM-DD");
         const endStr = formatDate(order.rentalEndDate, "YYYY-MM-DD");
         return startStr <= dateStr && dateStr <= endStr;
       });
     },
-    [ordersByCarIdWithAllorders, allOrders]
+    [ordersByCarIdWithAllorders, displayOrders]
   );
 
   const handleSaveOrder = useCallback(
@@ -692,23 +779,23 @@ export default function CalendarContainer({
   // 📊 Derived state (orders)
   // =======================
   useEffect(() => {
-    const { startEnd } = extractArraysOfStartEndConfPending(allOrders);
+    const { startEnd } = extractArraysOfStartEndConfPending(displayOrders);
     setStartEndDates(startEnd);
-  }, [allOrders]);
+  }, [displayOrders]);
 
   // 🔧 PERF FIX: Memoize derived array to prevent recalculation on every render
   // Previously computed on every render, causing O(n) operations each time
   const filteredStartEndDates = useMemo(() => {
-    if (!allOrders) return [];
-    return allOrders.map((order) => ({
+    if (!displayOrders) return [];
+    return displayOrders.map((order) => ({
       startStr: order.startDateISO || order.start,
       endStr: order.endDateISO || order.end,
       orderId: order._id,
     }));
-  }, [allOrders]);
+  }, [displayOrders]);
   const conflictMap = useMemo(
-    () => buildConflictMap(sortedCars, allOrders),
-    [sortedCars, allOrders]
+    () => buildConflictMap(sortedCars, displayOrders),
+    [sortedCars, displayOrders]
   );
 
   // Calculate first column width based on longest vehicle name
@@ -727,8 +814,11 @@ export default function CalendarContainer({
 
   const calendarMetricsSx = useMemo(() => {
     const dayCount = Math.max(days.length, 1);
-    const dayPx = BASE_DAY_WIDTH_PX;
-    const rowPx = BASE_ROW_HEIGHT_PX;
+    const isShortPeriod = dayRange === "15d";
+    const dayPx = isShortPeriod ? SHORT_PERIOD_DAY_WIDTH_PX : BASE_DAY_WIDTH_PX;
+    const rowPx = isShortPeriod
+      ? SHORT_PERIOD_ROW_HEIGHT_PX
+      : BASE_ROW_HEIGHT_PX;
 
     return {
       "--calendar-day-count": String(dayCount),
@@ -736,7 +826,7 @@ export default function CalendarContainer({
       "--calendar-table-min-width": `calc(var(--resource-col-width, 160px) + ${dayCount} * ${dayPx}px)`,
       "--calendar-row-height": `${rowPx}px`,
     };
-  }, [days.length]);
+  }, [days.length, dayRange]);
 
   const hasBlockingModal = useMemo(
     () =>
@@ -801,7 +891,9 @@ export default function CalendarContainer({
           const day = days[dayIndex];
           if (!car || !day) return;
           const dateStr = day.dayjs.format("YYYY-MM-DD");
-          const ordersForCell = getOrdersForCell(car._id, dateStr);
+          const ordersForCell = getOrdersForCell(car._id, dateStr).filter(
+            (o) => !o?.isTransferOverlay
+          );
           if (ordersForCell.length > 0) {
             setSelectedOrders(ordersForCell);
             setOpen(true);
@@ -867,10 +959,10 @@ export default function CalendarContainer({
       setHeaderOrdersModal({
         open: true,
         date: day.dayjs,
-        orders: allOrders,
+        orders: displayOrders,
       });
     },
-    [allOrders]
+    [displayOrders]
   );
 
   // 🔧 PERF FIX: Memoize selectedDate to prevent dayjs re-parsing every render
@@ -1018,7 +1110,7 @@ export default function CalendarContainer({
       isDraggingOrder,
       dragOverCarId,
       draggingOrderId,
-      allOrders,
+      allOrders: displayOrders,
       ordersByCarId,
       todayIndex,
       filteredStartEndDates,
@@ -1041,7 +1133,7 @@ export default function CalendarContainer({
       isDraggingOrder,
       dragOverCarId,
       draggingOrderId,
-      allOrders,
+      displayOrders,
       ordersByCarId,
       todayIndex,
       filteredStartEndDates,
@@ -1185,7 +1277,18 @@ export default function CalendarContainer({
   );
 
   return (
-    <>
+    <Box
+      sx={{
+        flex: "1 1 0%",
+        height: 0,
+        minHeight: 0,
+        minWidth: 0,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        width: "100%",
+      }}
+    >
       <BigCalendarLayout
         showLegend={showInlineLegend}
         showBufferInLegend={showBufferInLegend}
@@ -1203,6 +1306,6 @@ export default function CalendarContainer({
 
       <CalendarOverlays data={overlaysData} actions={overlaysActions} />
       <CalendarDragHud hud={dragHud} />
-    </>
+    </Box>
   );
 }

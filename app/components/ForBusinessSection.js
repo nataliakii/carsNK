@@ -10,9 +10,7 @@ import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsAc
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import OpenWithOutlinedIcon from "@mui/icons-material/OpenWithOutlined";
 import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
-
-const BRAND_NAVY = "#0B1F3A";
-const BRAND_CYAN = "#00C8D4";
+import { BRAND, isGreeceSite } from "@config/brand";
 
 const fadeUp = keyframes`
   from {
@@ -25,24 +23,30 @@ const fadeUp = keyframes`
   }
 `;
 
+const greece = isGreeceSite();
+const accentGlow = greece
+  ? "radial-gradient(ellipse 65% 50% at 12% -10%, rgba(0,200,212,0.18), transparent 55%), radial-gradient(ellipse 40% 35% at 95% 90%, rgba(0,200,212,0.08), transparent 50%)"
+  : "radial-gradient(ellipse 65% 50% at 12% -10%, rgba(227,0,82,0.22), transparent 55%), radial-gradient(ellipse 40% 35% at 95% 90%, rgba(227,0,82,0.08), transparent 50%)";
+
 const SectionRoot = styled("section")({
   position: "relative",
   overflow: "hidden",
   color: "#ffffff",
-  background: `linear-gradient(165deg, #16345c 0%, ${BRAND_NAVY} 42%, #061222 100%)`,
+  background: `linear-gradient(165deg, #1a1a1a 0%, ${BRAND.black} 42%, #000000 100%)`,
   "&::before": {
     content: '""',
     position: "absolute",
     inset: 0,
     pointerEvents: "none",
-    background:
-      "radial-gradient(ellipse 65% 50% at 12% -10%, rgba(0,200,212,0.2), transparent 55%), radial-gradient(ellipse 40% 35% at 95% 90%, rgba(0,200,212,0.08), transparent 50%)",
+    background: accentGlow,
   },
 });
 
 const AccentBar = styled("div")({
   height: 3,
-  background: `linear-gradient(90deg, #E53935 0%, #E53935 28%, #FFD400 28%, #FFD400 52%, ${BRAND_CYAN} 52%, ${BRAND_CYAN} 100%)`,
+  background: greece
+    ? "linear-gradient(90deg, #E53935 0%, #FFD400 50%, #00C8D4 100%)"
+    : BRAND.pink,
 });
 
 const Inner = styled(Box)(({ theme }) => ({
@@ -69,7 +73,7 @@ const FeatureItem = styled(Box)(({ theme }) => ({
   },
   "&:hover": {
     transform: "translateX(4px)",
-    borderColor: "rgba(0,200,212,0.35)",
+    borderColor: "rgba(227,0,82,0.45)",
   },
 }));
 
@@ -80,31 +84,19 @@ const IconWrap = styled(Box)({
   borderRadius: 10,
   display: "grid",
   placeItems: "center",
-  color: BRAND_CYAN,
-  background: "rgba(0,200,212,0.12)",
-  border: "1px solid rgba(0,200,212,0.35)",
+  color: BRAND.pink,
+  background: "rgba(227,0,82,0.12)",
+  border: "1px solid rgba(227,0,82,0.4)",
   "& svg": {
     fontSize: 22,
   },
 });
 
 const FEATURES = [
-  {
-    key: "notifications",
-    Icon: NotificationsActiveOutlinedIcon,
-  },
-  {
-    key: "calendar",
-    Icon: CalendarMonthOutlinedIcon,
-  },
-  {
-    key: "move",
-    Icon: OpenWithOutlinedIcon,
-  },
-  {
-    key: "platform",
-    Icon: HubOutlinedIcon,
-  },
+  { key: "notifications", Icon: NotificationsActiveOutlinedIcon },
+  { key: "calendar", Icon: CalendarMonthOutlinedIcon },
+  { key: "move", Icon: OpenWithOutlinedIcon },
+  { key: "platform", Icon: HubOutlinedIcon },
 ];
 
 export default function ForBusinessSection() {
@@ -137,7 +129,7 @@ export default function ForBusinessSection() {
                 fontWeight: 700,
                 letterSpacing: "0.16em",
                 textTransform: "uppercase",
-                color: BRAND_CYAN,
+                color: BRAND.pink,
               }}
             >
               {t("forBusiness.eyebrow")}
@@ -148,7 +140,8 @@ export default function ForBusinessSection() {
               sx={{
                 m: 0,
                 mb: 1.5,
-                fontWeight: 700,
+                fontWeight: 800,
+                fontFamily: "Nunito, sans-serif",
                 fontSize: { xs: "1.55rem", md: "2rem" },
                 lineHeight: 1.2,
                 letterSpacing: "-0.02em",
@@ -175,15 +168,15 @@ export default function ForBusinessSection() {
               sx={{
                 px: 2.75,
                 py: 1.15,
-                fontWeight: 700,
+                fontWeight: 800,
                 textTransform: "none",
                 borderRadius: 1.5,
-                backgroundColor: BRAND_CYAN,
-                color: BRAND_NAVY,
-                boxShadow: "0 6px 22px rgba(0,200,212,0.28)",
+                backgroundColor: BRAND.pink,
+                color: BRAND.white,
+                boxShadow: "0 6px 22px rgba(227,0,82,0.32)",
                 "&:hover": {
-                  backgroundColor: "#4DDBE4",
-                  boxShadow: "0 8px 26px rgba(0,200,212,0.38)",
+                  backgroundColor: BRAND.pinkLight,
+                  boxShadow: "0 8px 26px rgba(227,0,82,0.4)",
                 },
               }}
             >

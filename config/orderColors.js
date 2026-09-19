@@ -110,6 +110,18 @@ export const ORDER_COLORS = {
     labelEn: "Offline (off-site)",
     hatch: true,
   },
+
+  // Claimed transfer overlaid on a rental-fleet car
+  TRANSFER: {
+    key: "TRANSFER",
+    main: "#E91E8C",
+    light: "#F062AB",
+    dark: "#C2185B",
+    text: "#AD1457",
+    bg: alpha("#E91E8C", 0.18),
+    label: "Трансфер",
+    labelEn: "Transfer",
+  },
 };
 
 /** CSS repeating gradient for offline calendar cells */

@@ -13,8 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useSnackbar } from "notistack";
 import { useMainContext } from "@app/Context";
 import { ActionButton } from "@app/components/ui/buttons";
-import sendEmail from "@utils/sendEmail";
-import { DEVELOPER_EMAIL } from "@config/email";
+import { getPublicContactEmail } from "@config/email";
 
 function Contacts() {
   const { t } = useTranslation();
@@ -28,7 +27,7 @@ function Contacts() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const companyEmail = DEVELOPER_EMAIL;
+  const companyEmail = getPublicContactEmail();
 
   const validateEmail = (email) => {
     if (!email) return true;
@@ -78,20 +77,22 @@ function Contacts() {
     setErrors({});
 
     try {
-      await sendEmail(
-        {
-          email,
-          title: `Сообщение из формы на сайте :${subject}`,
-          message: `${t("contact.emailNameLabel", {
-            defaultValue: "Имя",
-          })}: ${name}\n${t("order.email", {
-            defaultValue: "Email",
-          })}: ${email}\n\n${t("contact.message", {
-            defaultValue: "Сообщение",
-          })}:\n${message}`,
-        },
-        companyEmail
-      );
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, subject, message }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message ||
+            errorData.error ||
+            t("contact.errors.sendFailed", {
+              defaultValue:
+                "Не удалось отправить сообщение. Пожалуйста, попробуйте позже.",
+            })
+        );
+      }
 
       enqueueSnackbar(
         t("contact.success", {

@@ -7,8 +7,9 @@ import SeoHeroSliderCard from "@app/components/seo/SeoHeroSliderCard";
 import {
   getHubSeo,
   getLocationById,
-  isSupportedLocale,
-  normalizeLocale,
+  isRoutableLocale,
+  normalizeRoutableLocale,
+  getSeoLocale,
 } from "@domain/locationSeo/locationSeoService";
 import { LOCATION_IDS } from "@domain/locationSeo/locationSeoKeys";
 import { COMPANY_ID } from "@config/company";
@@ -19,20 +20,21 @@ import { getCars, getCompany, getActiveOrders } from "@/domain/services";
 import { filterPublicCars } from "@/domain/owners/ownerScope";
 import { buildHubJsonLd } from "@/services/seo/jsonLdBuilder";
 import { buildHubMetadata } from "@/services/seo/metadataBuilder";
+import { getSiteCountryConfig } from "@config/siteCountry";
+import { getSpainPrimaryLocationForJsonLd } from "@domain/locationSeo/spainSeoContent";
 
 export async function generateMetadata({ params }) {
-  const locale = normalizeLocale(params.locale);
-  return buildHubMetadata(locale);
+  return buildHubMetadata(params.locale);
 }
 
 export default async function LocalizedHomePage({ params }) {
-  const locale = normalizeLocale(params.locale);
-  if (!isSupportedLocale(locale)) {
+  const locale = normalizeRoutableLocale(params.locale);
+  if (!isRoutableLocale(params.locale)) {
     notFound();
   }
   const session = await getServerSession(authOptions);
   const [carsData, ordersData, companyData] = await Promise.all([
-    getCars({ session }),
+    getCars({ session, marketplaceOnly: true }),
     getActiveOrders({ session }),
     getCompany(COMPANY_ID),
   ]);
@@ -40,8 +42,12 @@ export default async function LocalizedHomePage({ params }) {
   // Public homepage never shows inactive / testing cars, even if an admin is logged in.
   const publicCars = filterPublicCars(carsData);
 
+  const country = getSiteCountryConfig();
+  const seoLocale = getSeoLocale(locale);
   const hubSeo = getHubSeo(locale);
-  const primaryLocation = getLocationById(locale, LOCATION_IDS.HALKIDIKI);
+  const primaryLocation = country.showLegacySeoLocations
+    ? getLocationById(seoLocale, LOCATION_IDS.HALKIDIKI)
+    : getSpainPrimaryLocationForJsonLd(locale);
 
   const hubJsonLd = primaryLocation
     ? buildHubJsonLd({

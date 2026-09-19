@@ -12,8 +12,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { addOrderNew } from "@utils/action";
 import SuccessMessage from "../common/SuccessMessage";
-import sendEmail from "@utils/sendEmail";
-import { DEVELOPER_EMAIL } from "@config/email";
 import { setTimeToDatejs } from "@/domain/calendar";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -165,51 +163,12 @@ const BookingModal = ({
 
       const response = await addOrderNew(orderData);
 
-      const prepareEmailData = (orderData, status) => {
-        const formattedStartDate = dayjs
-          .utc(orderData.rentalStartDate)
-          .format("DD.MM.YYYY");
-        const formattedEndDate = dayjs
-          .utc(orderData.rentalEndDate)
-          .format("DD.MM.YYYY");
-        let title =
-          status === "success"
-            ? `Новое бронирование ${orderData.carNumber} ${orderData.carModel}`
-            : `Бронирование с неподтвержденными датами ${orderData.carNumber} ${orderData.carModel}`;
-        let statusMessage =
-          status === "success"
-            ? "Создано бронирование в свободные даты."
-            : "Бронирование в ожидании подтверждения.";
-        return {
-          emailCompany: DEVELOPER_EMAIL,
-          email: orderData.email,
-          title: title,
-          message: `${statusMessage}\nБронь с ${formattedStartDate} по ${formattedEndDate}. \n Кол-во дней : ${orderData.numberOfDays}  \n Сумма : ${response.data.totalPrice} евро. \n \n Данные машины :   ${orderData.carModel} regNumber : ${car.regNumber} \n \n Данные клиента : \n  Мейл : ${orderData.email}, \n Тел : ${orderData.phone} \n имя: ${orderData.customerName}`,
-        };
-      };
-
-      const sendConfirmationEmail = async (formData) => {
-        try {
-          const emailResponse = await sendEmail(
-            formData,
-            DEVELOPER_EMAIL,
-            company.useEmail
-          );
-          setSuccessfullySent(emailResponse.status === 200);
-        } catch (emailError) {
-          setSuccessfullySent(false);
-        }
-      };
-
       switch (response.status) {
         case "success":
           setSubmittedOrder(response.data);
           setIsSubmitted(true);
           reportGoogleAdsPurchaseFromOrder(response.data);
           fetchAndUpdateOrders();
-          await sendConfirmationEmail(
-            prepareEmailData(response.data, "success")
-          );
           break;
         case "pending":
           setSubmittedOrder(response.data);
@@ -217,9 +176,6 @@ const BookingModal = ({
           setMessage(response.message);
           setIsSubmitted(true);
           fetchAndUpdateOrders();
-          await sendConfirmationEmail(
-            prepareEmailData(response.data, "pending")
-          );
           break;
         case "conflict":
           setErrors({ submit: response.message });

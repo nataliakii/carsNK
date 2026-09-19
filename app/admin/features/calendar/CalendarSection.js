@@ -6,6 +6,7 @@ import { Box, Button, Typography } from "@mui/material";
 import BigCalendar from "@/app/components/calendar-ui/BigCalendar";
 import { useCalendar } from "./useCalendar";
 import { useCalendarViewSettings } from "./hooks/useCalendarViewSettings";
+import { useFleetTransferOverlays } from "./hooks/useFleetTransferOverlays";
 import CalendarToolbar from "./CalendarToolbar";
 import CalendarSettingsPanel from "./CalendarSettingsPanel";
 import BulkAddOfflineOrdersModal from "@app/admin/features/orders/modals/BulkAddOfflineOrdersModal";
@@ -13,6 +14,12 @@ import BulkAddOfflineOrdersModal from "@app/admin/features/orders/modals/BulkAdd
 /**
  * CalendarSection - секция большого календаря
  * Feature component - lazy-loaded
+ *
+ * Scroll model:
+ * Feed fillsViewport gives a fixed viewport under the navbar.
+ * This section only flex-fills that space (no second calc(100dvh…)).
+ * TableContainer inside BigCalendar is the only pan surface
+ * (sticky day header + sticky car column).
  */
 export default function CalendarSection() {
   const { cars, hasCars } = useCalendar();
@@ -27,9 +34,15 @@ export default function CalendarSection() {
     setShowConflictBadges,
     setHighlightToday,
     setAutoScrollToToday,
+    setShowFleetTransfers,
     viewModeForCalendar,
     applyViewModeFromCalendar,
   } = useCalendarViewSettings();
+
+  const { extraOrders } = useFleetTransferOverlays({
+    enabled: settings.showFleetTransfers,
+    cars,
+  });
 
   return (
     <Box
@@ -40,8 +53,11 @@ export default function CalendarSection() {
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        height: "calc(100dvh - 60px)",
-        minHeight: 420,
+        flex: "1 1 0%",
+        height: "100%",
+        maxHeight: "100%",
+        minHeight: 0,
+        minWidth: 0,
         overflow: "hidden",
       }}
     >
@@ -51,7 +67,9 @@ export default function CalendarSection() {
         legendPlacement={settings.legendPlacement}
         showBufferInLegend={settings.showBufferInLegend}
         showDeliveryInLegend={settings.showDeliveryInLegend}
+        showFleetTransfers={settings.showFleetTransfers}
         onDayRangeChange={setDayRange}
+        onShowFleetTransfersChange={setShowFleetTransfers}
         onOpenCalendarSettings={() => setSettingsPanelOpen(true)}
         onBulkOfflineOrders={() => setBulkOfflineOpen(true)}
       />
@@ -65,6 +83,7 @@ export default function CalendarSection() {
         setShowConflictBadges={setShowConflictBadges}
         setHighlightToday={setHighlightToday}
         setAutoScrollToToday={setAutoScrollToToday}
+        setShowFleetTransfers={setShowFleetTransfers}
       />
       <BulkAddOfflineOrdersModal
         open={bulkOfflineOpen}
@@ -72,10 +91,13 @@ export default function CalendarSection() {
       />
       <Box
         sx={{
-          flex: 1,
+          flex: "1 1 0%",
+          height: 0,
           minHeight: 0,
+          minWidth: 0,
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
         }}
       >
         {!hasCars ? (
@@ -127,6 +149,7 @@ export default function CalendarSection() {
             viewMode={viewModeForCalendar}
             onViewModeChange={applyViewModeFromCalendar}
             dayRange={settings.dayRange}
+            extraOrders={extraOrders}
           />
         )}
       </Box>

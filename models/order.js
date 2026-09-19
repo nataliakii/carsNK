@@ -43,11 +43,11 @@ const OrderSchema = new mongoose.Schema({
   },
   placeIn: {
     type: String,
-    default: "Nea Kallikratia",
+    default: "",
   },
   placeOut: {
     type: String,
-    default: "Nea Kallikratia",
+    default: "",
   },
   placeInDetail: {
     type: String,
@@ -435,6 +435,41 @@ const OrderSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: null,
   },
+
+  bookingMode: { type: String, default: undefined },
+  countryCode: { type: String, default: "", uppercase: true, trim: true },
+  currency: { type: String, default: "", uppercase: true, trim: true },
+  timezone: { type: String, default: "", trim: true },
+  pickupAtUtc: { type: Date, default: null },
+  returnAtUtc: { type: Date, default: null },
+  localPickup: {
+    date: { type: String, default: "" },
+    time: { type: String, default: "" },
+  },
+  localReturn: {
+    date: { type: String, default: "" },
+    time: { type: String, default: "" },
+  },
+  /** Future FSM snapshot — optional; see domain/booking/bookingStatus.js */
+  bookingStatus: { type: String, default: undefined },
+  pricingVersion: { type: Number, default: null },
+  priceCalculatedAt: { type: Date, default: null },
+  /**
+   * Server-authoritative minor-unit breakdown. Complements PriceBreakdown
+   * (legacy major-unit doc); does not replace it.
+   */
+  authoritativePrice: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  /**
+   * Online / on-site payment snapshot (Stripe Checkout for prepayment).
+   * Uses Mixed for HMR-safe evolution; shape mirrors Transfer.payment.
+   */
+  payment: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
 });
 
 function buildHistoryEntry(breakdown) {
@@ -461,7 +496,8 @@ OrderSchema.pre("save", async function (next) {
   const calculationEnd = this.timeOut ?? this.rentalEndDate;
   this.numberOfDays = getBusinessRentalDaysByMinutes(
     calculationStart,
-    calculationEnd
+    calculationEnd,
+    this.timezone
   );
 
   // ─── CONFIRMING (transitioning TO confirmed) ───
@@ -520,7 +556,8 @@ OrderSchema.pre("save", async function (next) {
           calculationEnd,
           this.insurance,
           childSeatsValue,
-          Boolean(this.secondDriver)
+          Boolean(this.secondDriver),
+          this.timezone
         );
 
         let deliveryData = {};
@@ -615,7 +652,8 @@ OrderSchema.pre("save", async function (next) {
       calculationEnd,
       this.insurance,
       childSeatsValue,
-      Boolean(this.secondDriver)
+      Boolean(this.secondDriver),
+      this.timezone
     );
 
     let deliveryData = {};
@@ -630,7 +668,15 @@ OrderSchema.pre("save", async function (next) {
       ? deliveryTotal
       : 0;
     const grandTotal = Math.round((total + normalizedDeliveryTotal) * 100) / 100;
-    this.totalPrice = grandTotal;
+    if (
+      this.authoritativePrice &&
+      Number.isFinite(Number(this.authoritativePrice.grossMinor))
+    ) {
+      this.totalPrice =
+        Number(this.authoritativePrice.grossMinor) / 100;
+    } else {
+      this.totalPrice = grandTotal;
+    }
 
     if (breakdown && this._id) {
       try {
@@ -747,6 +793,36 @@ if (Order?.schema && !Order.schema.path("companyEmailDecision")) {
     },
     companyEmailDecisionAt: {
       type: Date,
+      default: null,
+    },
+  });
+}
+
+if (Order?.schema && !Order.schema.path("authoritativePrice")) {
+  Order.schema.add({
+    bookingMode: { type: String },
+    countryCode: { type: String, default: "", uppercase: true, trim: true },
+    currency: { type: String, default: "", uppercase: true, trim: true },
+    timezone: { type: String, default: "", trim: true },
+    pickupAtUtc: { type: Date, default: null },
+    returnAtUtc: { type: Date, default: null },
+    localPickup: {
+      date: { type: String, default: "" },
+      time: { type: String, default: "" },
+    },
+    localReturn: {
+      date: { type: String, default: "" },
+      time: { type: String, default: "" },
+    },
+    bookingStatus: { type: String },
+    pricingVersion: { type: Number, default: null },
+    priceCalculatedAt: { type: Date, default: null },
+    authoritativePrice: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    payment: {
+      type: mongoose.Schema.Types.Mixed,
       default: null,
     },
   });

@@ -27,11 +27,18 @@ import {
   createDefaultTransferVoucherData,
   formatDateDisplay,
   formatVoucherLabel,
+  getVoucherMarketLocales,
   normalizeTransferVoucherData,
+  resolveVoucherLocaleForMarket,
+  TRANSFER_VOUCHER_LOCALES,
   voucherFieldLabel,
   voucherUiText,
 } from "@/domain/vouchers/transferVoucher";
 import { buildCompanyVoucherDefaults } from "@/domain/vouchers/companyStamp";
+
+function normalizeVoucherLocale(value) {
+  return TRANSFER_VOUCHER_LOCALES.includes(value) ? value : "el";
+}
 
 const DRAFT_KEY = "natali_transfer_voucher_draft_v1";
 const EMAILS_KEY = "natali_transfer_voucher_emails_v1";
@@ -449,22 +456,20 @@ export default function TransferVouchersSection({
         }
       );
     }
-    // Prefer server-built defaults when still on the initial company
+    const built = buildCompanyVoucherDefaults(c, locale);
+    // Keep server stamp path for the initially loaded company when present
     if (
       initialDefaults &&
       company &&
-      String(c._id) === String(company._id)
+      String(c._id) === String(company._id) &&
+      initialDefaults.stampSrc
     ) {
       return {
-        companyHeaderTitle: initialDefaults.companyHeaderTitle || "",
-        companyInfo: initialDefaults.companyInfo || "",
-        stampSrc:
-          initialDefaults.stampSrc ||
-          c.voucherStampSrc ||
-          "",
+        ...built,
+        stampSrc: initialDefaults.stampSrc || built.stampSrc,
       };
     }
-    return buildCompanyVoucherDefaults(c, locale);
+    return built;
   };
 
   const storageSuffix = isTokenMode
@@ -473,15 +478,15 @@ export default function TransferVouchersSection({
   const { i18n } = useTranslation();
   const { changeLanguage } = useMainContext();
 
-  const voucherLocaleFromSite = (lng) => {
-    const code = String(lng || "el").toLowerCase().slice(0, 2);
-    return code === "el" ? "el" : "en";
-  };
+  const marketFor = (c) => getVoucherMarketLocales(c?.country);
+  const voucherLocaleFromSite = (lng, c = activeCompany) =>
+    resolveVoucherLocaleForMarket(lng, c?.country);
 
   const [form, setForm] = useState(() => {
     const base = createDefaultTransferVoucherData();
-    const siteLocale = voucherLocaleFromSite(i18n?.language);
-    const branding = brandingFor(company || companyList[0], siteLocale);
+    const initialCompany = company || companyList[0] || null;
+    const siteLocale = voucherLocaleFromSite(i18n?.language, initialCompany);
+    const branding = brandingFor(initialCompany, siteLocale);
     return normalizeTransferVoucherData({
       ...base,
       ...branding,
@@ -499,18 +504,19 @@ export default function TransferVouchersSection({
       normalizeTransferVoucherData({
         ...form,
         bilingual: false,
-        locale: form.locale === "en" ? "en" : "el",
+        locale: normalizeVoucherLocale(form.locale),
       }),
     [form]
   );
 
   const draftKey = `${DRAFT_KEY}${storageSuffix}`;
   const emailsKey = `${EMAILS_KEY}${storageSuffix}`;
+  const market = marketFor(activeCompany);
 
   const applyCompany = (nextCompany) => {
     if (!nextCompany) return;
     setActiveCompany(nextCompany);
-    const locale = voucherLocaleFromSite(i18n?.language);
+    const locale = voucherLocaleFromSite(i18n?.language, nextCompany);
     const branding = brandingFor(nextCompany, locale);
     setForm((prev) =>
       normalizeTransferVoucherData({
@@ -522,10 +528,10 @@ export default function TransferVouchersSection({
     );
   };
 
-  // Keep voucher EL/EN in sync with the site language switcher.
+  // Keep voucher locale in sync with the site language switcher (within market pair).
   useEffect(() => {
     const apply = (lng) => {
-      const next = voucherLocaleFromSite(lng);
+      const next = voucherLocaleFromSite(lng, activeCompany);
       setForm((prev) => {
         if (prev.locale === next && !prev.bilingual) return prev;
         const branding = brandingFor(activeCompany, next);
@@ -544,7 +550,7 @@ export default function TransferVouchersSection({
     i18n.on("languageChanged", onChange);
     return () => i18n.off("languageChanged", onChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18n, activeCompany?._id]);
+  }, [i18n, activeCompany?._id, activeCompany?.country]);
 
   useEffect(() => {
     const branding = brandingFor(activeCompany, voucherLocaleFromSite(i18n.language));
@@ -619,7 +625,7 @@ export default function TransferVouchersSection({
   const withCompanyBranding = (payload) => {
     const branding = brandingFor(
       activeCompany,
-      payload.locale === "en" ? "en" : "el"
+      normalizeVoucherLocale(payload.locale)
     );
     return normalizeTransferVoucherData({
       ...payload,
@@ -634,7 +640,7 @@ export default function TransferVouchersSection({
   const handleSave = async () => {
     setBusy("save");
     setStatus(null);
-    const locale = form.locale === "en" ? "en" : "el";
+    const locale = normalizeVoucherLocale(form.locale);
     try {
       const voucher = withCompanyBranding(form);
 
@@ -681,7 +687,7 @@ export default function TransferVouchersSection({
   };
 
   const handleSend = async () => {
-    const locale = form.locale === "en" ? "en" : "el";
+    const locale = normalizeVoucherLocale(form.locale);
     const target = String(email || "").trim().toLowerCase();
     if (!target.includes("@")) {
       setStatus({
@@ -725,9 +731,9 @@ export default function TransferVouchersSection({
     }
   };
 
-  const uiLocale = form.locale === "en" ? "en" : "el";
+  const uiLocale = normalizeVoucherLocale(form.locale);
   const setLocale = (next) => {
-    const locale = next === "en" ? "en" : "el";
+    const locale = resolveVoucherLocaleForMarket(next, activeCompany?.country);
     const branding = brandingFor(activeCompany, locale);
     setForm((prev) =>
       normalizeTransferVoucherData({
@@ -745,7 +751,7 @@ export default function TransferVouchersSection({
   };
 
   const handleReset = () => {
-    const locale = voucherLocaleFromSite(i18n?.language);
+    const locale = voucherLocaleFromSite(i18n?.language, activeCompany);
     const branding = brandingFor(activeCompany, locale);
     setForm(
       normalizeTransferVoucherData({
@@ -830,18 +836,19 @@ export default function TransferVouchersSection({
             aria-label={voucherUiText("language", uiLocale)}
             sx={{ alignSelf: { xs: "stretch", sm: "center" } }}
           >
-            <ToggleButton
-              value="el"
-              sx={{ textTransform: "none", px: 1.5, flex: { xs: 1, sm: "none" } }}
-            >
-              Ελληνικά
-            </ToggleButton>
-            <ToggleButton
-              value="en"
-              sx={{ textTransform: "none", px: 1.5, flex: { xs: 1, sm: "none" } }}
-            >
-              English
-            </ToggleButton>
+            {market.locales.map((code) => (
+              <ToggleButton
+                key={code}
+                value={code}
+                sx={{
+                  textTransform: "none",
+                  px: 1.5,
+                  flex: { xs: 1, sm: "none" },
+                }}
+              >
+                {market.tabLabels[code] || code}
+              </ToggleButton>
+            ))}
           </ToggleButtonGroup>
 
           <Box

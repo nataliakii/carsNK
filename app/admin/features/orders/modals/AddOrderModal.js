@@ -43,22 +43,22 @@ import {
 import { buildDeliveryHelperText } from "@/domain/orders/bookingDeliveryPresentation";
 // 🎯 Athens timezone utilities — ЕДИНСТВЕННЫЙ источник правды для времени
 import {
-  createAthensDateTime,
   toServerUTC,
   formatTimeHHMM,
   generateOrderNumber,
 } from "@/domain/time/athensTime";
+import { createBusinessDateTime } from "@/domain/time/businessInstant";
+import { resolveBusinessTimezone } from "@/domain/time/resolveBusinessTimezone";
 import {
   LOCATION_DIVIDER_BEFORE,
-  ORDERED_LOCATION_OPTIONS,
 } from "@/domain/orders/locationOptions";
 import { getBusinessRentalDaysByMinutes } from "@/domain/orders/numberOfDays";
 import { RenderTextField } from "@/app/components/ui/inputs/Fields";
 import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
 import {
-  canonicalizeCustomerBookingLocation,
-  isThessalonikiCityBookingLocation,
-} from "@/domain/orders/halkidikiBookingLocations";
+  canonicalizeBookingLocation,
+} from "@/domain/platform/bookingLocations";
+import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
 import { normalizeDeliveryPricingLocation } from "@/domain/orders/bookingPricingOptions";
 import OrderUnsavedCloseDialog from "@/app/admin/features/orders/components/OrderUnsavedCloseDialog";
 import {
@@ -71,17 +71,25 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
-  const { fetchAndUpdateOrders, company } =
+  const { fetchAndUpdateOrders, company, platform } =
     useMainContext();
+  const TIME_ZONE = resolveBusinessTimezone({
+    company,
+    countryCode: company?.country || platform?.country,
+    platformSettings: platform,
+    forNewOrder: true,
+  });
+  const {
+    names: locations,
+    defaultName,
+    requiresDetail,
+  } = useCompanyBookingLocations(car?.ownerId || company?._id);
   const { t, i18n } = useTranslation();
   const secondDriverPriceLabelValue = getSecondDriverPriceLabelValue();
   // Use Mongo _id as primary identifier for price calc to avoid
   // ambiguity with duplicated/changed regNumber or carNumber.
   const carApiIdentifier =
     car?._id?.toString?.() || car?.regNumber || car?.carNumber || "";
-
-  const locations = ORDERED_LOCATION_OPTIONS;
-  // const locations = company.locations.map((loc) => loc.name);
 
   const {
     defaultStartHour,
@@ -92,8 +100,8 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
 
   const getInitialOrderDetails = useCallback(
     () => ({
-      placeIn: "Nea Kallikratia",
-      placeOut: "Nea Kallikratia",
+      placeIn: defaultName || "",
+      placeOut: defaultName || "",
       placeInDetail: "",
       placeOutDetail: "",
       customerName: "",
@@ -111,11 +119,11 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
       ChildSeats: 0,
       insurance: "TPL",
       franchiseOrder: car?.franchise ?? 0,
-      orderNumber: generateOrderNumber(),
+      orderNumber: generateOrderNumber(TIME_ZONE),
       flightNumber: "",
       drivingLicenceUrls: [],
     }),
-    [car?.franchise]
+    [car?.franchise, defaultName, TIME_ZONE]
   );
 
   const [bookDates, setBookedDates] = useState({ start: null, end: null });
@@ -151,16 +159,18 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
         );
         const timeInAthens =
           startTime && bookDates.start
-            ? createAthensDateTime(
+            ? createBusinessDateTime(
                 bookDates.start,
-                formatTimeHHMM(dayjs(startTime))
+                formatTimeHHMM(dayjs(startTime)),
+                TIME_ZONE
               )
             : null;
         const timeOutAthens =
           endTime && bookDates.end
-            ? createAthensDateTime(
+            ? createBusinessDateTime(
                 bookDates.end,
-                formatTimeHHMM(dayjs(endTime))
+                formatTimeHHMM(dayjs(endTime)),
+                TIME_ZONE
               )
             : null;
         const timeInServer = timeInAthens ? toServerUTC(timeInAthens) : undefined;
@@ -207,6 +217,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
     endTime,
     orderDetails.placeIn,
     orderDetails.placeOut,
+    TIME_ZONE,
   ]);
 
   // Автоматически подставлять вычисленную стоимость в поле totalPrice
@@ -377,10 +388,10 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
   useEffect(() => {
     setOrderDetails((prev) => {
       const clearIn =
-        !isThessalonikiCityBookingLocation(prev.placeIn) &&
+        !requiresDetail(prev.placeIn) &&
         String(prev.placeInDetail || "").trim();
       const clearOut =
-        !isThessalonikiCityBookingLocation(prev.placeOut) &&
+        !requiresDetail(prev.placeOut) &&
         String(prev.placeOutDetail || "").trim();
       if (!clearIn && !clearOut) return prev;
       return {
@@ -489,11 +500,11 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
 
     const pin = String(orderDetails.placeIn || "").trim();
     const pout = String(orderDetails.placeOut || "").trim();
-    const cin = canonicalizeCustomerBookingLocation(pin);
-    const cout = canonicalizeCustomerBookingLocation(pout);
+    const cin = canonicalizeBookingLocation(pin, locations);
+    const cout = canonicalizeBookingLocation(pout, locations);
     if (
       cin &&
-      isThessalonikiCityBookingLocation(cin) &&
+      requiresDetail(cin) &&
       String(orderDetails.placeInDetail || "").trim().length < 3
     ) {
       setStatusMessage({
@@ -505,7 +516,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
     }
     if (
       cout &&
-      isThessalonikiCityBookingLocation(cout) &&
+      requiresDetail(cout) &&
       String(orderDetails.placeOutDetail || "").trim().length < 3
     ) {
       setStatusMessage({
@@ -518,13 +529,15 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
 
     // 🎯 Используем athensTime utilities для timezone-корректного создания времени
     // Извлекаем HH:mm и создаём заново в Athens БЕЗ конвертации из таймзоны браузера
-    const timeInAthens = createAthensDateTime(
+    const timeInAthens = createBusinessDateTime(
       bookDates.start,
-      formatTimeHHMM(dayjs(startTime))
+      formatTimeHHMM(dayjs(startTime)),
+      TIME_ZONE
     );
-    const timeOutAthens = createAthensDateTime(
+    const timeOutAthens = createBusinessDateTime(
       bookDates.end,
-      formatTimeHHMM(dayjs(endTime))
+      formatTimeHHMM(dayjs(endTime)),
+      TIME_ZONE
     );
 
     // Конвертируем в UTC для сохранения в БД
@@ -808,7 +821,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
                 sx={{ flex: 1, minWidth: 0 }}
                 helperText={pickupDeliveryHelperText || undefined}
               />
-              {isThessalonikiCityBookingLocation(orderDetails.placeIn) && (
+              {requiresDetail(orderDetails.placeIn) && (
                 <BookingTextField
                   label={t("order.thessalonikiHotelOrAddress")}
                   value={orderDetails.placeInDetail || ""}
@@ -846,7 +859,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
                 sx={{ flex: 1, minWidth: 0 }}
                 helperText={returnDeliveryHelperText || undefined}
               />
-              {isThessalonikiCityBookingLocation(orderDetails.placeOut) && (
+              {requiresDetail(orderDetails.placeOut) && (
                 <BookingTextField
                   label={t("order.thessalonikiHotelOrAddress")}
                   value={orderDetails.placeOutDetail || ""}
@@ -1093,13 +1106,15 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
                 {(() => {
                   let days = daysAndTotal.days;
                   if (bookDates.start && bookDates.end) {
-                    const fallbackStart = createAthensDateTime(
+                    const fallbackStart = createBusinessDateTime(
                       bookDates.start,
-                      formatTimeHHMM(dayjs(startTime))
+                      formatTimeHHMM(dayjs(startTime)),
+                      TIME_ZONE
                     );
-                    const fallbackEnd = createAthensDateTime(
+                    const fallbackEnd = createBusinessDateTime(
                       bookDates.end,
-                      formatTimeHHMM(dayjs(endTime))
+                      formatTimeHHMM(dayjs(endTime)),
+                      TIME_ZONE
                     );
                     days = getBusinessRentalDaysByMinutes(
                       fallbackStart,

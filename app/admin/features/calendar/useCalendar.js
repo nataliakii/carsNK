@@ -1,55 +1,92 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { useMainContext } from "@app/Context";
+import { ROLE } from "@/domain/orders/admin-rbac";
+import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
+import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 
 /**
  * useCalendar - хук для Big Calendar в админке
- * 
- * Содержит:
- * - Данные машин и заказов для календаря
- * - Производные значения для отображения
+ *
+ * Superadmin country switcher (navbar Spain/Greece/All) filters calendar rows
+ * the same way as the Cars page: by company.country → car.ownerId.
  */
 export function useCalendar() {
-  const {
-    cars,
-    allOrders,
-    isLoading,
-  } = useMainContext();
+  const { cars: allCars, allOrders, isLoading } = useMainContext();
+  const { data: session } = useSession();
+  const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
+  const { active: viewAsActive } = useAdminViewAs();
+  const showCountryFilter = isSuperAdmin && !viewAsActive;
+  const { country: adminCountry } = useAdminCountryFilter();
 
-  // ─────────────────────────────────────────────────────────────
-  // DERIVED VALUES
-  // ─────────────────────────────────────────────────────────────
-  
-  // Sorted cars for calendar rows
+  const [companyIdsForCountry, setCompanyIdsForCountry] = useState(null);
+
+  useEffect(() => {
+    if (!showCountryFilter || adminCountry === "ALL") {
+      setCompanyIdsForCountry(null);
+      return undefined;
+    }
+    let cancelled = false;
+    setCompanyIdsForCountry(new Set());
+    (async () => {
+      try {
+        const qs = `country=${encodeURIComponent(adminCountry)}`;
+        const res = await fetch(`/api/admin/owners?${qs}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const body = await res.json();
+        if (cancelled || !body?.success || !Array.isArray(body.companies)) {
+          return;
+        }
+        setCompanyIdsForCountry(
+          new Set(body.companies.map((c) => String(c._id)))
+        );
+      } catch {
+        /* ignore — keep previous filter */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showCountryFilter, adminCountry]);
+
+  const cars = useMemo(() => {
+    const list = Array.isArray(allCars) ? allCars : [];
+    if (!showCountryFilter || adminCountry === "ALL" || !companyIdsForCountry) {
+      return list;
+    }
+    return list.filter((car) => {
+      const oid = car?.ownerId ? String(car.ownerId) : "";
+      // Match Cars page: keep unassigned visible under a country filter.
+      if (!oid) return true;
+      return companyIdsForCountry.has(oid);
+    });
+  }, [allCars, showCountryFilter, adminCountry, companyIdsForCountry]);
+
   const sortedCars = useMemo(
-    () => [...(Array.isArray(cars) ? cars : [])].sort((a, b) =>
-      String(a?.model || "").localeCompare(String(b?.model || ""))
-    ),
+    () =>
+      [...cars].sort((a, b) =>
+        String(a?.model || "").localeCompare(String(b?.model || ""))
+      ),
     [cars]
   );
 
-  const hasCars = useMemo(
-    () => Array.isArray(cars) && cars.length > 0,
-    [cars]
-  );
-  const hasOrders = useMemo(() => allOrders.length > 0, [allOrders]);
+  const hasCars = cars.length > 0;
+  const hasOrders = allOrders.length > 0;
 
-  // ─────────────────────────────────────────────────────────────
-  // RETURN
-  // ─────────────────────────────────────────────────────────────
-  
   return {
-    // Data
     cars,
     sortedCars,
     orders: allOrders,
-    allOrders, // Backward compatibility
+    allOrders,
     hasCars,
     hasOrders,
     isLoading,
+    adminCountry,
   };
 }
 
 export default useCalendar;
-

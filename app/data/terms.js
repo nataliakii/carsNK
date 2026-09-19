@@ -4,7 +4,7 @@ exports.terms = {
     subtitle1: "",
     subtitle1bold: "GENERAL TERMS",
     text1:
-      "1. The driver must be at least 23 years old.\n2. The driver must hold a valid driving licence that has been in force for at least 12 months.\n3. Any fines, charges or penalties arising from the driver’s use of the vehicle are payable by the renter.\n4. After the agreed rental period ends, CarsNK allows a free one-hour grace period for returning the vehicle. A later return is charged as at least one full extra rental day.\n5. The fuel level is recorded in the rental agreement at pick-up. The vehicle must be returned with the same quantity of fuel.\n6. If the vehicle is returned with less fuel, the renter pays for the missing litres at the current fuel price plus a €5 refuelling fee.\n7. The rented vehicle must not be used:",
+      "1. The driver must be at least 23 years old.\n2. The driver must hold a valid driving licence that has been in force for at least 12 months.\n3. Any fines, charges or penalties arising from the driver’s use of the vehicle are payable by the renter.\n4. After the agreed rental period ends, rovaro allows a free one-hour grace period for returning the vehicle. A later return is charged as at least one full extra rental day.\n5. The fuel level is recorded in the rental agreement at pick-up. The vehicle must be returned with the same quantity of fuel.\n6. If the vehicle is returned with less fuel, the renter pays for the missing litres at the current fuel price plus a €5 refuelling fee.\n7. The rented vehicle must not be used:",
     subtitle2bold: null,
     ul4: [
       "to carry prohibited or hazardous goods;",
@@ -42,7 +42,7 @@ exports.terms = {
     subtitle1: "",
     subtitle1bold: "ΓΕΝΙΚΟΙ ΟΡΟΙ",
     text1:
-      "1. Ο οδηγός πρέπει να είναι τουλάχιστον 23 ετών.\n2. Ο οδηγός πρέπει να διαθέτει ισχύουσα άδεια οδήγησης που έχει εκδοθεί τουλάχιστον 12 μήνες πριν.\n3. Πρόστιμα, τέλη και κυρώσεις που προκύπτουν από τη χρήση του οχήματος από τον οδηγό βαρύνουν τον μισθωτή.\n4. Μετά τη λήξη της συμφωνημένης περιόδου μίσθωσης, η CarsNK παρέχει μία δωρεάν ώρα ανοχής για την επιστροφή του οχήματος. Καθυστερημένη επιστροφή χρεώνεται τουλάχιστον ως μία επιπλέον πλήρης ημέρα ενοικίασης.\n5. Η στάθμη καυσίμου καταγράφεται στη σύμβαση κατά την παραλαβή. Το όχημα πρέπει να επιστραφεί με την ίδια ποσότητα καυσίμου.\n6. Αν το όχημα επιστραφεί με λιγότερο καύσιμο, ο μισθωτής πληρώνει τα λίτρα που λείπουν στην τρέχουσα τιμή καυσίμου, συν τέλος ανεφοδιασμού 5 €.\n7. Απαγορεύεται η χρήση του ενοικιαζόμενου οχήματος:",
+      "1. Ο οδηγός πρέπει να είναι τουλάχιστον 23 ετών.\n2. Ο οδηγός πρέπει να διαθέτει ισχύουσα άδεια οδήγησης που έχει εκδοθεί τουλάχιστον 12 μήνες πριν.\n3. Πρόστιμα, τέλη και κυρώσεις που προκύπτουν από τη χρήση του οχήματος από τον οδηγό βαρύνουν τον μισθωτή.\n4. Μετά τη λήξη της συμφωνημένης περιόδου μίσθωσης, η rovaro παρέχει μία δωρεάν ώρα ανοχής για την επιστροφή του οχήματος. Καθυστερημένη επιστροφή χρεώνεται τουλάχιστον ως μία επιπλέον πλήρης ημέρα ενοικίασης.\n5. Η στάθμη καυσίμου καταγράφεται στη σύμβαση κατά την παραλαβή. Το όχημα πρέπει να επιστραφεί με την ίδια ποσότητα καυσίμου.\n6. Αν το όχημα επιστραφεί με λιγότερο καύσιμο, ο μισθωτής πληρώνει τα λίτρα που λείπουν στην τρέχουσα τιμή καυσίμου, συν τέλος ανεφοδιασμού 5 €.\n7. Απαγορεύεται η χρήση του ενοικιαζόμενου οχήματος:",
     subtitle2bold: null,
     ul4: [
       "για μεταφορά απαγορευμένων ή επικίνδυνων εμπορευμάτων·",
@@ -81,7 +81,7 @@ exports.terms = {
     subtitle1: "",
     subtitle1bold: "ОБЩИЕ УСЛОВИЯ",
     text1:
-      "1. Водителю должно быть не менее 23 лет.\n2. Водитель обязан иметь действующие права, выданные не менее чем за 12 месяцев до начала аренды.\n3. Штрафы, сборы и иные санкции, связанные с управлением автомобилем, оплачивает арендатор.\n4. После окончания согласованного срока аренды CarsNK предоставляет 1 час бесплатного льготного времени на возврат автомобиля. При более позднем возврате взимается плата не менее чем за полные дополнительные сутки аренды.\n5. Уровень топлива фиксируется в договоре при выдаче автомобиля. Машину необходимо вернуть с тем же количеством топлива.\n6. Если топлива меньше, арендатор оплачивает недостающие литры по текущей цене, а также сбор за заправку 5 €.\n7. Арендованный автомобиль запрещается использовать:",
+      "1. Водителю должно быть не менее 23 лет.\n2. Водитель обязан иметь действующие права, выданные не менее чем за 12 месяцев до начала аренды.\n3. Штрафы, сборы и иные санкции, связанные с управлением автомобилем, оплачивает арендатор.\n4. После окончания согласованного срока аренды rovaro предоставляет 1 час бесплатного льготного времени на возврат автомобиля. При более позднем возврате взимается плата не менее чем за полные дополнительные сутки аренды.\n5. Уровень топлива фиксируется в договоре при выдаче автомобиля. Машину необходимо вернуть с тем же количеством топлива.\n6. Если топлива меньше, арендатор оплачивает недостающие литры по текущей цене, а также сбор за заправку 5 €.\n7. Арендованный автомобиль запрещается использовать:",
     subtitle2bold: null,
     ul4: [
       "для перевозки запрещённых или опасных грузов;",

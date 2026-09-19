@@ -2,12 +2,20 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import { ATHENS_TZ, fromServerUTC } from "@/domain/time/athensTime";
+import {
+  canonicalizeTimezone,
+  LEGACY_FALLBACK_TZ,
+} from "@/domain/time/resolveBusinessTimezone";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MINUTES_IN_RENTAL_DAY = 24 * 60;
+
+function resolveTz(timezone) {
+  return canonicalizeTimezone(timezone) || LEGACY_FALLBACK_TZ || ATHENS_TZ;
+}
 
 function toMinuteOfDay(value) {
   return value.hour() * 60 + value.minute() + value.second() / 60;
@@ -28,21 +36,24 @@ function calculateBusinessWallClockMinutes(start, end) {
 }
 
 /**
- * Normalizes any date-like value to a dayjs object in Athens timezone.
- * Date-only strings are interpreted as Athens midnight.
+ * Normalizes any date-like value to a dayjs object in the business timezone.
+ * Date-only strings are interpreted as midnight in that timezone.
+ * Default timezone remains Europe/Athens for historical callers.
  *
  * @param {Date|string|import("dayjs").Dayjs} value
+ * @param {string} [timezone]
  * @returns {import("dayjs").Dayjs|null}
  */
-export function toBusinessDateTime(value) {
+export function toBusinessDateTime(value, timezone) {
   if (value == null) return null;
+  const tz = resolveTz(timezone);
 
   if (dayjs.isDayjs(value)) {
-    return value.isValid() ? value.tz(ATHENS_TZ) : null;
+    return value.isValid() ? value.tz(tz) : null;
   }
 
   if (value instanceof Date) {
-    const parsedDate = dayjs(value).tz(ATHENS_TZ);
+    const parsedDate = dayjs.utc(value).tz(tz);
     return parsedDate.isValid() ? parsedDate : null;
   }
 
@@ -51,15 +62,17 @@ export function toBusinessDateTime(value) {
     if (!trimmed) return null;
 
     if (DATE_ONLY_PATTERN.test(trimmed)) {
-      const parsedDateOnly = dayjs.tz(trimmed, "YYYY-MM-DD", ATHENS_TZ);
+      const parsedDateOnly = dayjs.tz(trimmed, "YYYY-MM-DD", tz);
       return parsedDateOnly.isValid() ? parsedDateOnly : null;
     }
 
-    const parsedDateTime = dayjs(trimmed).tz(ATHENS_TZ);
+    const parsedDateTime = /Z|[+-]\d{2}:\d{2}$/.test(trimmed)
+      ? dayjs.utc(trimmed).tz(tz)
+      : dayjs(trimmed).tz(tz);
     return parsedDateTime.isValid() ? parsedDateTime : null;
   }
 
-  const parsedFallback = dayjs(value).tz(ATHENS_TZ);
+  const parsedFallback = dayjs(value).tz(tz);
   return parsedFallback.isValid() ? parsedFallback : null;
 }
 
@@ -80,10 +93,11 @@ export function toBusinessDateTime(value) {
  */
 export function getBusinessRentalDaysByMinutes(
   rentalStartDateTime,
-  rentalEndDateTime
+  rentalEndDateTime,
+  timezone
 ) {
-  const start = toBusinessDateTime(rentalStartDateTime);
-  const end = toBusinessDateTime(rentalEndDateTime);
+  const start = toBusinessDateTime(rentalStartDateTime, timezone);
+  const end = toBusinessDateTime(rentalEndDateTime, timezone);
 
   if (!start || !end || !start.isValid() || !end.isValid()) return 0;
 
@@ -100,13 +114,17 @@ export function getBusinessRentalDaysByMinutes(
  * @param {Date|string} rentalEndDate
  * @returns {number}
  */
-export function getBusinessDaySpanFromStoredDates(rentalStartDate, rentalEndDate) {
+export function getBusinessDaySpanFromStoredDates(
+  rentalStartDate,
+  rentalEndDate,
+  timezone
+) {
   if (!rentalStartDate || !rentalEndDate) return 0;
 
-  const start = fromServerUTC(rentalStartDate);
-  const end = fromServerUTC(rentalEndDate);
+  const start = fromServerUTC(rentalStartDate, timezone);
+  const end = fromServerUTC(rentalEndDate, timezone);
 
-  return getBusinessRentalDaysByMinutes(start, end);
+  return getBusinessRentalDaysByMinutes(start, end, timezone);
 }
 
 /**

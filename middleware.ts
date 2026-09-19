@@ -18,14 +18,14 @@ import {
   getPathWithoutLocalePrefix,
   getStaticPagePath,
   isLocalePrefixedPath,
-  isSupportedLocale,
-  normalizeLocale,
+  isRoutableLocale,
+  normalizeRoutableLocale,
   withLocalePrefix,
 } from "@domain/locationSeo/locationSeoService";
 import { WEBSITE_VISIT_SESSION_COOKIE } from "@domain/visitors/websiteVisitNotification";
 
 const PUBLIC_FILE_REGEX = /\.[^/]+$/;
-const EXCLUDED_PREFIXES = ["/api", "/admin", "/access", "/_next"];
+const EXCLUDED_PREFIXES = ["/api", "/admin", "/access", "/_next", "/transfer", "/login"];
 const EXCLUDED_PATHS = new Set([
   "/favicon.ico",
   "/favicon.png",
@@ -207,7 +207,7 @@ export function middleware(request: NextRequest) {
   // Locale-prefixed request: enforce normalized path + locale cookie.
   if (isLocalePrefixedPath(normalizedPathname)) {
     const firstSegment = normalizedPathname.split("/").filter(Boolean)[0];
-    const locale = normalizeLocale(firstSegment || null);
+    const locale = normalizeRoutableLocale(firstSegment || null);
 
     // /{locale}/car-rental-... -> /{locale}/locations/{slug}
     const stripped = getPathWithoutLocalePrefix(normalizedPathname);
@@ -242,7 +242,7 @@ export function middleware(request: NextRequest) {
     }
 
     // Normalize unsupported /{xx}/... locale prefixes to detected locale.
-    if (!isSupportedLocale(firstSegment || null)) {
+    if (!isRoutableLocale(firstSegment || null)) {
       const nextPath = withLocalePrefix(detectedLocale, stripped);
       const target = withSearchParams(nextPath, request);
       const url = new URL(target, request.url);

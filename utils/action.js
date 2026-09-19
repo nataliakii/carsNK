@@ -1,6 +1,5 @@
 import { revalidateTag } from "next/cache";
 import { API_PATHS } from "@config/apiPaths";
-import sendEmail from "./sendEmail";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -1194,11 +1193,11 @@ function normalizeApiUrl(url) {
  * @param {Object} options
  * @param {"privacy-policy"|"terms-of-service"|"cookie-policy"} options.docType - Document type
  * @param {string} [options.lang="en"] - Language code
- * @param {"EU"|"IE"|"UA"} [options.jur="EU"] - Jurisdiction
+ * @param {"EU"|"IE"|"UA"} [options.jur] - Jurisdiction (default IE / NEXT_PUBLIC_LEGAL_JUR)
  * @returns {Promise<LegalDocResponse>}
  * @throws {Error} If API fails and no cache exists
  */
-export async function getLegalDoc({ docType, lang = "en", jur = "EU" }) {
+export async function getLegalDoc({ docType, lang = "en", jur } = {}) {
   // Validate docType
   const validDocTypes = ["privacy-policy", "terms-of-service", "cookie-policy"];
   if (!validDocTypes.includes(docType)) {
@@ -1213,12 +1212,25 @@ export async function getLegalDoc({ docType, lang = "en", jur = "EU" }) {
     throw new Error("NEXT_PUBLIC_LEGAL_API environment variable is not set");
   }
 
-  // Normalize URL
-  const baseUrl = normalizeApiUrl(legalApiBase);
-  const apiUrl = `${baseUrl}/legal/${docType}?lang=${lang}&jur=${jur}`;
+  const {
+    getLegalJurisdiction,
+    getLegalTemplateContext,
+  } = await import("@config/legalEntity");
+  const jurisdiction = jur || getLegalJurisdiction();
+  const templateContext = getLegalTemplateContext();
 
-  // Cache key for localStorage
-  const cacheKey = `legal:${docType}:${lang}:${jur}`;
+  // Normalize URL — AWS templates need company + service context
+  const baseUrl = normalizeApiUrl(legalApiBase);
+  const params = new URLSearchParams({
+    lang: String(lang || "en"),
+    jur: String(jurisdiction),
+    company: JSON.stringify(templateContext.company),
+    service: JSON.stringify(templateContext.service),
+  });
+  const apiUrl = `${baseUrl}/legal/${docType}?${params.toString()}`;
+
+  // Cache key includes template identity so brand/legal changes bust stale HTML
+  const cacheKey = `legal:${docType}:${lang}:${jurisdiction}:${templateContext.company.tradingName}:${templateContext.company.legalName}`;
 
   // Try to get cached data
   let cachedData = null;

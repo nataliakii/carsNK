@@ -10,11 +10,30 @@
 import { useState, useEffect } from "react";
 import { getLegalDoc } from "@utils/action";
 
-export default function LegalPageContent({ docType, jur = "EU", forcedLang = null }) {
+export default function LegalPageContent({ docType, jur = null, forcedLang = null }) {
   const [lang, setLang] = useState(null); // null = not yet determined
+  const [resolvedJur, setResolvedJur] = useState(jur);
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (jur) {
+      setResolvedJur(jur);
+      return;
+    }
+    let cancelled = false;
+    import("@config/legalEntity")
+      .then(({ getLegalJurisdiction }) => {
+        if (!cancelled) setResolvedJur(getLegalJurisdiction());
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedJur("IE");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [jur]);
 
   // Route locale has priority. For unsupported document locales, fallback to English.
   useEffect(() => {
@@ -38,10 +57,10 @@ export default function LegalPageContent({ docType, jur = "EU", forcedLang = nul
     setLang("en");
   }, [forcedLang]);
 
-  // Fetch document when language is determined
+  // Fetch document when language + jurisdiction are determined
   useEffect(() => {
     // Don't fetch until language is determined
-    if (lang === null) return;
+    if (lang === null || !resolvedJur) return;
 
     let cancelled = false;
 
@@ -49,7 +68,7 @@ export default function LegalPageContent({ docType, jur = "EU", forcedLang = nul
       try {
         setLoading(true);
         setError(null);
-        const data = await getLegalDoc({ docType, lang, jur });
+        const data = await getLegalDoc({ docType, lang, jur: resolvedJur });
         if (!cancelled) {
           setDoc(data);
         }
@@ -69,7 +88,7 @@ export default function LegalPageContent({ docType, jur = "EU", forcedLang = nul
     return () => {
       cancelled = true;
     };
-  }, [docType, lang, jur]);
+  }, [docType, lang, resolvedJur]);
 
   const contentPadding = { maxWidth: 820, margin: "0 auto", padding: "24px 20px 48px" };
 

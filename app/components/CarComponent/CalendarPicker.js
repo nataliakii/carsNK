@@ -26,17 +26,15 @@ import { analyzeDates } from "@utils/analyzeDates";
 import Tooltip from "@mui/material/Tooltip";
 import { useTranslation } from "react-i18next";
 import ClearIcon from "@mui/icons-material/Clear";
-
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import "dayjs/locale/ru";
 import "dayjs/locale/el";
-// Extend dayjs with plugins
+import { useMainContext } from "@app/Context";
+import { resolveBusinessTimezone } from "@/domain/time/resolveBusinessTimezone";
+
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
-// Set the default timezone
-dayjs.tz.setDefault("Europe/Athens");
 
 // DEBUG: укажите дату вида 'YYYY-MM-DD' и при необходимости конкретный carId,
 // чтобы включить точечные логи только для выбранной машины и даты.
@@ -62,6 +60,14 @@ const CalendarPicker = ({
   onPriceCalculated, // Callback для передачи просчитанной цены
 }) => {
   const { t, i18n } = useTranslation();
+  const { company, platform } = useMainContext();
+  const calendarTz = resolveBusinessTimezone({
+    company,
+    countryCode: company?.country || platform?.country,
+    platformSettings: platform,
+    forNewOrder: true,
+  });
+  dayjs.tz.setDefault(calendarTz);
   const theme = useTheme();
   const isSmallLandscape = useMediaQuery(
     "(max-width:900px) and (orientation: landscape)"

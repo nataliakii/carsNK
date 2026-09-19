@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { connectToDB } from "@lib/database";
-import Transfer from "@models/Transfer";
 import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
-import { getTransferDistance } from "@/domain/transfers/getTransferDistance";
 import { notifyTransferEmails } from "@/domain/transfers/notifyTransferEmails";
+import {
+  createTransferOrder,
+  omitUntrustedTransferMetrics,
+} from "@/domain/transfers/createTransferOrder";
+import { BRAND } from "@config/brand";
+import { formatMinor } from "@/domain/money/minorUnits";
+import {
+  consumePublicPostOrError,
+  transferRateLimitOptions,
+} from "@/services/publicPostRateLimit";
 
 export const runtime = "nodejs";
 
@@ -15,42 +23,31 @@ function formatTransferTelegram(doc) {
   const when = doc.datetime
     ? new Date(doc.datetime).toISOString().replace("T", " ").slice(0, 16)
     : "";
-  const baseFromLine =
-    doc.baseFromDistanceKm != null
-      ? `База → ${doc.from}: ${doc.baseFromDistanceKm} km${
-          doc.baseFromDurationMinutes != null
-            ? ` (~${doc.baseFromDurationMinutes} min)`
-            : ""
-        }`
-      : null;
-  const baseToLine =
-    doc.baseToDistanceKm != null
-      ? `База → ${doc.to}: ${doc.baseToDistanceKm} km${
-          doc.baseToDurationMinutes != null
-            ? ` (~${doc.baseToDurationMinutes} min)`
-            : ""
-        }`
+  const brand = BRAND?.name || "Platform";
+  const quote = doc.quoteSnapshot;
+  const priceLine =
+    quote?.customerPriceMinor != null
+      ? `Price: ${formatMinor(quote.customerPriceMinor, quote.currency || "EUR")} (${quote.pricingMethod})`
       : null;
   const distanceLine =
     doc.distanceKm != null
-      ? `Расстояние: ${doc.distanceKm} km${
+      ? `Distance: ${doc.distanceKm} km${
           doc.durationMinutes != null ? ` (~${doc.durationMinutes} min)` : ""
         }`
       : null;
   return [
-    "🚕 CarsNK — новая заявка на трансфер",
-    `Откуда: ${doc.from}`,
-    `Куда: ${doc.to}`,
-    baseFromLine,
-    baseToLine,
+    `🚕 ${brand} — new transfer request`,
+    `From: ${doc.from}`,
+    `To: ${doc.to}`,
     distanceLine,
-    `Когда: ${when}`,
-    `Пассажиры: ${doc.passengers}`,
-    doc.customerName ? `Имя: ${doc.customerName}` : null,
-    doc.phone ? `Телефон: ${doc.phone}` : null,
+    priceLine,
+    `When: ${when}`,
+    `Passengers: ${doc.passengers}`,
+    `Status: ${doc.status}`,
+    doc.customerName ? `Name: ${doc.customerName}` : null,
+    doc.phone ? `Phone: ${doc.phone}` : null,
     doc.email ? `Email: ${doc.email}` : null,
-    doc.notes ? `Заметки: ${doc.notes}` : null,
-    "https://carsnk.gr",
+    doc.notes ? `Notes: ${doc.notes}` : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -64,87 +61,24 @@ export async function POST(request) {
     return json({ success: false, message: "Invalid JSON" }, 400);
   }
 
-  const from = String(payload?.from || "").trim();
-  const to = String(payload?.to || "").trim();
-  const notes = String(payload?.notes || "").trim();
-  const customerName = String(payload?.customerName || "").trim();
-  const phone = String(payload?.phone || "").trim();
-  const email = String(payload?.email || "").trim();
-  const locale = String(payload?.locale || "").trim();
-  const passengers = Number(payload?.passengers);
-  const datetimeRaw = payload?.datetime;
-
-  if (!from || !to) {
-    return json({ success: false, message: "from and to are required" }, 400);
-  }
-  if (!email || !email.includes("@")) {
-    return json({ success: false, message: "email is required" }, 400);
-  }
-  if (!Number.isFinite(passengers) || passengers < 1) {
-    return json({ success: false, message: "passengers must be >= 1" }, 400);
-  }
-  const datetime = datetimeRaw ? new Date(datetimeRaw) : null;
-  if (!datetime || Number.isNaN(datetime.getTime())) {
-    return json({ success: false, message: "datetime is required" }, 400);
-  }
-
-  let distanceKm =
-    payload?.distanceKm != null && Number.isFinite(Number(payload.distanceKm))
-      ? Number(payload.distanceKm)
-      : null;
-  let durationMinutes =
-    payload?.durationMinutes != null &&
-    Number.isFinite(Number(payload.durationMinutes))
-      ? Number(payload.durationMinutes)
-      : null;
-  const baseFromDistanceKm =
-    payload?.baseFromDistanceKm != null &&
-    Number.isFinite(Number(payload.baseFromDistanceKm))
-      ? Number(payload.baseFromDistanceKm)
-      : null;
-  const baseFromDurationMinutes =
-    payload?.baseFromDurationMinutes != null &&
-    Number.isFinite(Number(payload.baseFromDurationMinutes))
-      ? Number(payload.baseFromDurationMinutes)
-      : null;
-  const baseToDistanceKm =
-    payload?.baseToDistanceKm != null &&
-    Number.isFinite(Number(payload.baseToDistanceKm))
-      ? Number(payload.baseToDistanceKm)
-      : null;
-  const baseToDurationMinutes =
-    payload?.baseToDurationMinutes != null &&
-    Number.isFinite(Number(payload.baseToDurationMinutes))
-      ? Number(payload.baseToDurationMinutes)
-      : null;
-
-  if (distanceKm == null) {
-    const computed = await getTransferDistance({ from, to });
-    if (computed.ok) {
-      distanceKm = computed.distanceKm;
-      durationMinutes = computed.durationMinutes ?? null;
-    }
-  }
+  const safePayload = omitUntrustedTransferMetrics(payload);
 
   try {
     await connectToDB();
-    const doc = await Transfer.create({
-      from,
-      to,
-      distanceKm,
-      durationMinutes,
-      baseFromDistanceKm,
-      baseFromDurationMinutes,
-      baseToDistanceKm,
-      baseToDurationMinutes,
-      passengers: Math.min(50, Math.floor(passengers)),
-      datetime,
-      notes,
-      customerName,
-      phone,
-      email,
-      locale,
-    });
+    const limited = await consumePublicPostOrError(
+      request,
+      transferRateLimitOptions()
+    );
+    if (limited) return json(limited.body, limited.status);
+    const result = await createTransferOrder(safePayload);
+    if (!result.ok) {
+      return json(
+        { success: false, message: result.message, code: result.code },
+        result.status || 400
+      );
+    }
+
+    const doc = result.transfer;
 
     try {
       await sendTelegramDirect(formatTransferTelegram(doc));
@@ -152,18 +86,38 @@ export async function POST(request) {
       console.error("[transfer] telegram failed", err?.message || err);
     }
 
-    try {
-      await notifyTransferEmails(doc);
-    } catch (err) {
-      console.error("[transfer] email failed", err?.message || err);
+    if (doc.status !== "MANUAL_QUOTE_REQUIRED") {
+      try {
+        await notifyTransferEmails(doc.toObject ? doc.toObject() : doc);
+      } catch (err) {
+        console.error("[transfer] email failed", err?.message || err);
+      }
+    } else {
+      try {
+        await notifyTransferEmails(doc.toObject ? doc.toObject() : doc);
+      } catch (err) {
+        console.error("[transfer] email failed", err?.message || err);
+      }
     }
 
+    const quote = result.quote;
     return json(
       {
         success: true,
         id: doc._id.toString(),
+        status: doc.status,
+        requiresManualQuote: result.requiresManualQuote,
         distanceKm: doc.distanceKm,
         durationMinutes: doc.durationMinutes,
+        vehicleCategory: doc.vehicleCategory,
+        quote: quote
+          ? {
+              customerPriceMinor: quote.customerPriceMinor,
+              currency: quote.currency,
+              pricingMethod: quote.pricingMethod,
+              isProvisional: quote.isProvisional,
+            }
+          : null,
       },
       201
     );

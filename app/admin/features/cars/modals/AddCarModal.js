@@ -41,6 +41,7 @@ import { useTranslation } from "react-i18next";
 import { getCarModelSuggestions } from "@config/carCatalog";
 import { useSession } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 
 const AddCarModal = ({
   open,
@@ -53,6 +54,8 @@ const AddCarModal = ({
   const { resubmitCars, company } = useMainContext();
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
+  const { active: viewAsActive, company: viewAsCompany } = useAdminViewAs();
+  const showOwnerPicker = isSuperAdmin && !viewAsActive;
 
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState(DEFAULT_IMAGE);
@@ -119,9 +122,11 @@ const AddCarModal = ({
       }
       formData.append("pricingTiers", JSON.stringify(carData.pricingTiers));
 
-      // Admin: server forces session.ownerId. Superadmin: optional company pick.
-      if (isSuperAdmin && ownerId) {
+      // Admin / view-as: server forces owner. Superadmin: optional company pick.
+      if (showOwnerPicker && ownerId) {
         formData.append("ownerId", ownerId);
+      } else if (viewAsActive && viewAsCompany?._id) {
+        formData.append("ownerId", String(viewAsCompany._id));
       }
 
       if (selectedImage) {
@@ -215,11 +220,11 @@ const AddCarModal = ({
   }, [open]);
 
   useEffect(() => {
-    if (!open || !isSuperAdmin) return undefined;
+    if (!open || !showOwnerPicker) return undefined;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/admin/owners");
+        const res = await fetch("/api/admin/owners?country=ALL");
         if (!res.ok) return;
         const body = await res.json();
         if (!cancelled && body?.success && Array.isArray(body.companies)) {
@@ -235,7 +240,14 @@ const AddCarModal = ({
     return () => {
       cancelled = true;
     };
-  }, [open, isSuperAdmin]);
+  }, [open, showOwnerPicker]);
+
+  useEffect(() => {
+    if (viewAsActive && viewAsCompany?._id) {
+      setOwnerId(String(viewAsCompany._id));
+      setCompanies([]);
+    }
+  }, [viewAsActive, viewAsCompany]);
 
   const autoCompleteOptions = useMemo(() => {
     return getCarModelSuggestions(dbCarModels);
@@ -298,7 +310,7 @@ const AddCarModal = ({
         )}
         <form id="add-car-form" onSubmit={handleSubmit}>
               <Grid container spacing={2}>
-                {isSuperAdmin && (
+                {showOwnerPicker && (
                   <Grid item xs={12}>
                     <FormControl fullWidth required size="small">
                       <InputLabel id="add-car-company">Company</InputLabel>
@@ -311,6 +323,7 @@ const AddCarModal = ({
                         {companies.map((c) => (
                           <MenuItem key={String(c._id)} value={String(c._id)}>
                             {c.name || String(c._id)}
+                            {c.country ? ` (${c.country})` : ""}
                           </MenuItem>
                         ))}
                       </Select>

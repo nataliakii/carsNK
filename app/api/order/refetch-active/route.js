@@ -5,13 +5,12 @@
  * rentalEndDate >= today (Athens). Visibility applied via service.
  */
 
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@lib/authOptions";
 import { getActiveOrders } from "@/domain/services";
+import { getServerSessionWithViewAs } from "@lib/adminAuth";
 
 export const POST = async (request) => {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSessionWithViewAs(request);
     const orders = await getActiveOrders({ session });
     return new Response(JSON.stringify(orders), {
       status: 200,

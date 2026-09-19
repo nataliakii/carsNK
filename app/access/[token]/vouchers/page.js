@@ -8,6 +8,7 @@ import {
   buildCompanyVoucherDefaults,
   getCompanyVoucherStampSrc,
 } from "@/domain/vouchers/companyStamp";
+import { getVoucherMarketLocales } from "@/domain/vouchers/transferVoucher";
 import Feed from "@app/components/Feed";
 import TransferVouchersSection from "@/app/admin/vouchers/TransferVouchersSection";
 
@@ -20,7 +21,7 @@ export const metadata = {
  * Passwordless voucher page:
  * /access/[token]/vouchers
  * Token must include scope vouchers.transfer and binds to one company (stamp).
- * Language comes from the site language switcher (EL/EN) without changing the URL.
+ * Language tabs follow company country (ES → es/en, else el/en).
  */
 export default async function AccessVouchersPage({ params }) {
   unstable_noStore();
@@ -35,7 +36,8 @@ export default async function AccessVouchersPage({ params }) {
   const company = await Company.findById(access.ownerId).lean();
   if (!company) notFound();
 
-  const defaults = buildCompanyVoucherDefaults(company);
+  const primary = getVoucherMarketLocales(company.country).primary;
+  const defaults = buildCompanyVoucherDefaults(company, primary);
   const safeCompany = JSON.parse(
     JSON.stringify({
       _id: String(company._id),
@@ -44,6 +46,7 @@ export default async function AccessVouchersPage({ params }) {
       tel: company.tel,
       email: company.email,
       address: company.address,
+      country: String(company.country || "").toUpperCase() || "",
     })
   );
 

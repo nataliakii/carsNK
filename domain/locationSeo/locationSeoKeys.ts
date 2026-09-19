@@ -12,6 +12,14 @@ export const SUPPORTED_LOCALES = [
   "pl",
 ] as const;
 
+/** Extra UI locales (no dedicated Greece SEO copy). URL prefix is kept; SEO falls back to English. */
+export const EXTRA_UI_LOCALES = ["es"] as const;
+
+export const ROUTABLE_LOCALES = [
+  ...SUPPORTED_LOCALES,
+  ...EXTRA_UI_LOCALES,
+] as const;
+
 export const REQUIRED_CONTENT_LOCALES = ["en", "ru", "uk", "el"] as const;
 
 export const LOCALE_COOKIE_NAME = "NEXT_LOCALE" as const;
@@ -125,6 +133,8 @@ export const STATIC_PAGE_KEYS = {
 } as const;
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+export type ExtraUiLocale = (typeof EXTRA_UI_LOCALES)[number];
+export type RoutableLocale = (typeof ROUTABLE_LOCALES)[number];
 export type RequiredContentLocale = (typeof REQUIRED_CONTENT_LOCALES)[number];
 export type LocationId = (typeof LOCATION_IDS)[keyof typeof LOCATION_IDS];
 export type LocationType = (typeof LOCATION_TYPES)[number];

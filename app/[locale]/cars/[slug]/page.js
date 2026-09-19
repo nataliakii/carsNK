@@ -23,7 +23,9 @@ import {
   getLocationPathFromLocation,
   getLocationSeoSlug,
   getSupportedLocales,
-  isSupportedLocale,
+  isRoutableLocale,
+  normalizeRoutableLocale,
+  getSeoLocale,
   normalizeLocale,
 } from "@domain/locationSeo/locationSeoService";
 import { LOCATION_IDS } from "@domain/locationSeo/locationSeoKeys";
@@ -124,10 +126,11 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function LocalizedCarPage({ params }) {
-  const locale = normalizeLocale(params.locale);
-  if (!isSupportedLocale(locale)) {
+  const routeLocale = normalizeRoutableLocale(params.locale);
+  if (!isRoutableLocale(params.locale)) {
     notFound();
   }
+  const locale = getSeoLocale(routeLocale);
 
   const session = await getServerSession(authOptions);
 
@@ -373,7 +376,7 @@ export default async function LocalizedCarPage({ params }) {
         cars={allCarsData}
         orders={ordersData}
         company={companyData}
-        locale={locale}
+        locale={routeLocale}
       >
         {/* 1. Breadcrumbs */}
         <SeoBreadcrumbNav items={breadcrumbItems} />

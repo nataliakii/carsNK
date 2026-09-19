@@ -3,6 +3,7 @@ import cloudinary, {
   ensureCloudinaryConfigured,
 } from "@utils/cloudinary";
 import { buildOrderDrivingLicenceFolderPath } from "@/domain/orders/orderDrivingLicenceFolder";
+import { requireAdmin } from "@/lib/adminAuth";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -34,6 +35,14 @@ function uploadBufferToCloudinary(buffer, folder) {
 }
 
 export async function POST(req) {
+  const { errorResponse } = await requireAdmin(req);
+  if (errorResponse) {
+    return NextResponse.json(
+      { success: false, message: "Forbidden" },
+      { status: 403 }
+    );
+  }
+
   try {
     const cfg = ensureCloudinaryConfigured();
     if (!cfg.ok) {

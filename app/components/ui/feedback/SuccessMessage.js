@@ -25,7 +25,7 @@ const SuccessMessage = ({
   message = null,
 }) => {
   const { t } = useTranslation();
-  // ...
+  const displayTz = submittedOrder?.timezone || "Europe/Athens";
   return (
     <Box>
       {message ? (
@@ -63,7 +63,7 @@ const SuccessMessage = ({
               submittedOrder?.rentalStartDate ||
               presetDates?.startDate
           )
-            .tz("Europe/Athens")
+            .tz(displayTz)
             .format("DD.MM.YY")}
           (
           {dayjs(
@@ -71,7 +71,7 @@ const SuccessMessage = ({
               submittedOrder?.rentalStartDate ||
               presetDates?.startDate
           )
-            .tz("Europe/Athens")
+            .tz(displayTz)
             .format("HH:mm")}
           )
         </Box>{" "}
@@ -82,7 +82,7 @@ const SuccessMessage = ({
               submittedOrder?.rentalEndDate ||
               presetDates?.endDate
           )
-            .tz("Europe/Athens")
+            .tz(displayTz)
             .format("DD.MM.YY")}
           (
           {dayjs(
@@ -90,7 +90,7 @@ const SuccessMessage = ({
               submittedOrder?.rentalEndDate ||
               presetDates?.endDate
           )
-            .tz("Europe/Athens")
+            .tz(displayTz)
             .format("HH:mm")}
           )
         </Box>

@@ -6,9 +6,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  useMediaQuery,
-  useTheme,
 } from "@mui/material";
+import { getActiveBrand } from "@config/brand";
+
+/** Shared height with Navbar search TextField (MUI size=small). */
+export const FILTER_CONTROL_HEIGHT = 40;
 
 const SelectedFieldClass = ({
   name,
@@ -21,61 +23,67 @@ const SelectedFieldClass = ({
   /** Optional: custom label per option (e.g. seat counts). Default: capitalize first letter. */
   formatMenuItemLabel,
 }) => {
-  const theme = useTheme();
-  // detect small landscape phones
-  const isLandscapeSmall = useMediaQuery(
-    "(max-width:900px) and (orientation: landscape)"
-  );
-
-  // Цвета для тёмного фона
-  const darkBg = theme.palette.backgroundDark1 || {};
-  const textColor = darkBg.text || "#ffffff";
-  const accentColor = darkBg.secondary || "#4dd4d4"; // Светло-бирюзовый для акцентов
+  const brand = getActiveBrand();
+  const accent = brand.primary;
+  const accentLight = brand.primaryLight;
 
   return (
     <FormControl
+      size="small"
       fullWidth={false}
       required={required}
       sx={{
-        mt: 1,
-        minWidth: { xs: 160, sm: 280 },
-        maxWidth: { xs: 180, sm: 300 },
+        m: 0,
+        mt: 0,
+        minWidth: { xs: 120, sm: 160 },
+        maxWidth: { xs: 200, sm: 220 },
         "& .MuiInputBase-root": {
-          color: textColor,
-          fontSize: { xs: "0.85rem", sm: "1rem" },
+          color: "#fff",
+          fontSize: "0.85rem",
+          height: FILTER_CONTROL_HEIGHT,
+          backgroundColor: "rgba(255,255,255,0.04)",
+          borderRadius: "10px",
+        },
+        "& .MuiOutlinedInput-input": {
+          py: 0,
+          display: "flex",
+          alignItems: "center",
         },
         "& .MuiInputLabel-root": {
-          color: textColor,
-          fontSize: { xs: "0.75rem", sm: "1rem" },
+          color: "rgba(255,255,255,0.72)",
+          fontSize: "0.85rem",
         },
         "& .MuiInputLabel-root.Mui-focused": {
-          color: accentColor, // Бирюзовый при фокусе
+          color: accent,
         },
         "& .MuiSelect-icon": {
-          color: textColor,
+          color: "rgba(255,255,255,0.85)",
         },
         "& .MuiOutlinedInput-notchedOutline": {
-          borderColor: darkBg.textSecondary || "#b0b0b0",
+          borderColor: "rgba(255,255,255,0.28)",
         },
         "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
-          borderColor: accentColor, // Бирюзовый при hover
+          borderColor: accentLight,
         },
         "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline":
           {
-            borderColor: accentColor, // Бирюзовый при фокусе
-            borderWidth: 2,
+            borderColor: accent,
+            borderWidth: 1,
           },
       }}
       disabled={isLoading}
     >
-      <InputLabel id={`${name}-label`}>{label}</InputLabel>
+      <InputLabel id={`${name}-label`} shrink>
+        {label}
+      </InputLabel>
       <Select
         labelId={`${name}-label`}
-        size={isLandscapeSmall ? "small" : "medium"}
+        size="small"
         name={name}
         value={value || "All"}
         onChange={handleChange}
         label={label}
+        notched
       >
         <MenuItem value="All">All</MenuItem>
         {options.map((option) => (

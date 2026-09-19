@@ -8,7 +8,7 @@
     "calendars": "Kalendari",
     "table": "Tabela narudžbina",
     "calendar": "Kalendar",
-    "deliveryZones": "Zone isporuke",
+    "deliveryZones": "Dostava i cene",
     "orders": "Narudžbine",
     "orderList": "Lista narudžbina",
     "carClass": "Izaberite klasu vozila",
@@ -24,7 +24,13 @@
     "websiteVisits": "Visits",
     "transfer": "Transfer",
     "transfers": "Transferi",
-    "owners": "Vlasnici"
+    "owners": "Kompanije",
+    "carRentals": "Iznajmljivanje",
+    "platform": "Platforma",
+    "vouchers": "Vaučeri",
+    "accessLinks": "Linkovi za pristup",
+    "vouchersAndLinks": "Vaučeri i alati",
+    "viewAsExit": "Izađi iz kompanije"
   },
   "catalog": {
     "noCarsMatchFilters": "Nema auta za izabrane filtere. Promenite pretragu, klasu, menjač ili broj sedišta."
@@ -225,7 +231,7 @@
   },
   "forBusiness": {
     "eyebrow": "Za biznis",
-    "title": "CarsNK kao platforma za rentiranje",
+    "title": "rovaro kao platforma za rentiranje",
     "intro": "Stavite flotu online: klijenti rezervišu na sajtu, a vi vodite svakodnevni rad iz jednog admin panela — od prvog upita do povratka vozila.",
     "cta": "Razgovarajmo o platformi",
     "features": {
@@ -258,8 +264,8 @@
     "adminLogin": "Prijava za osoblje"
   },
   "seo": {
-    "title": "CarsNK - Rent a car Halkidiki, Grčka",
-    "description": "Rent a car u Halkidikiju, Grčka — CarsNK. Povoljno iznajmljivanje auta bez depozita. Fleksibilni uslovi preuzimanja i vraćanja. Najbolji rent a car u Halkidikiju, Nea Kalikratija, Kasandra, Sitonija.",
+    "title": "rovaro - Rent a car Halkidiki, Grčka",
+    "description": "Rent a car u Halkidikiju, Grčka — rovaro. Povoljno iznajmljivanje auta bez depozita. Fleksibilni uslovi preuzimanja i vraćanja. Najbolji rent a car u Halkidikiju, Nea Kalikratija, Kasandra, Sitonija.",
     "keywords": "rent a car Halkidiki, iznajmljivanje auta Grčka, najam vozila Halkidiki, jeftini rent a car, bez depozita"
   },
   "orderNotification": {
@@ -281,9 +287,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Hvala na rezervaciji – CarsNK",
+    "title": "Hvala na rezervaciji – rovaro",
     "greeting": "Poštovani/a {{CustomerName}},",
-    "thankYouChoose": "Hvala vam što ste izabrali **CarsNK**.",
+    "thankYouChoose": "Hvala vam što ste izabrali **rovaro**.",
     "weReceived": "Primili smo vaš zahtev za rezervaciju i cenimo vaše poverenje. Naš tim trenutno pregleda detalje i uskoro ćemo vas kontaktirati radi potvrde rezervacije i usklađivanja svega sa vašim očekivanjima.",
     "availabilityDisclaimer": "Ovaj e-mail ne garantuje da je vozilo dostupno na navedene datume po navedenoj ceni. Zvaničnu potvrdu će vam poslati naš menadžer nakon što vas kontaktira i ponovo proveri dostupnost.",
     "reservationDetails": "**Detalji rezervacije:**",
@@ -308,7 +314,7 @@
     "totalAmountLabel": "Ukupan iznos",
     "excludeCityDeliveryNote": "Bez dostave do grada.",
     "officialTitle": "Zvanična potvrda rezervacije",
-    "officialIntro": "Vaša rezervacija je zvanično potvrđena od strane CarsNK.",
+    "officialIntro": "Vaša rezervacija je zvanično potvrđena od strane rovaro.",
     "officialPdfNote": "Zvanični PDF sa potvrdom je priložen ovoj poruci. Sačuvajte ga radi preuzimanja vozila.",
     "generatedAtLabel": "Generisano",
     "customerLabel": "Klijent",
@@ -328,7 +334,7 @@
     "step3": "3. Nakon potvrde dobijate konačnu poruku sa svim potrebnim informacijama.",
     "questionsParagraph": "Ako imate pitanja, odgovorite na ovu poruku — rado ćemo vam pomoći lično.",
     "kindRegards": "S poštovanjem,",
-    "team": "**Tim CarsNK**",
+    "team": "**Tim rovaro**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {
@@ -413,6 +419,9 @@
     "activeTitle": "Active discount",
     "activeValue": "Active discount: {{value}}",
     "notApplied": "No discount applied",
+    "howItWorksTitle": "How this discount works",
+    "howItWorksGlobal": "Pick any date range and a %. It applies to all cars for those days.",
+    "howItWorksPerCar": "To change the price of one car only, edit that car in Cars settings — not here.",
     "startDate": "Discount start date",
     "endDate": "Discount end date",
     "activeToday": "Discount is active today",

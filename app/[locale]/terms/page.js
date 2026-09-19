@@ -1,7 +1,7 @@
 import { permanentRedirect } from "next/navigation";
-import { normalizeLocale } from "@domain/locationSeo/locationSeoService";
+import { normalizeRoutableLocale } from "@domain/locationSeo/locationSeoService";
 
 export default function LocalizedTermsAliasPage({ params }) {
-  const locale = normalizeLocale(params.locale);
+  const locale = normalizeRoutableLocale(params.locale);
   permanentRedirect(`/${locale}/rental-terms`);
 }

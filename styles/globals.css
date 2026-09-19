@@ -1,46 +1,39 @@
 /**
  * Глобальные стили
- * Цвета синхронизированы с theme.js (CarsNK logo palette)
- *
- * - Primary cyan: #00C8D4 (NK)
- * - Secondary navy: #0B1F3A
- * - Accent red: #E53935 / yellow: #FFD400
+ * Цвета переключаются по data-brand на <html>:
+ * - carsnk (Greece) — navy/cyan
+ * - rovaro (non-Greece) — black/magenta
  */
 
 /* ============================================
-   GOOGLE FONTS - PT Sans
-   ВАЖНО: display=optional вместо swap для CLS
-   - swap вызывает layout shift при загрузке шрифта
-   - optional: если шрифт не загружен за ~100ms, используется fallback
+   GOOGLE FONTS
    ============================================ */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,500;0,700;0,800;0,900;1,500;1,700&display=optional');
 @import url('https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=optional');
 
 /* ============================================
-   CSS ПЕРЕМЕННЫЕ - Единый источник цветов
+   CSS ПЕРЕМЕННЫЕ — CarsNK (Greece default)
    ============================================ */
-:root {
-  /* Primary — logo cyan */
+:root,
+html[data-brand="carsnk"] {
   --color-primary: #00C8D4;
   --color-primary-light: #4DDBE4;
   --color-primary-dark: #009AA3;
-  
-  /* Secondary — logo navy */
   --color-secondary: #0B1F3A;
   --color-secondary-light: #1A3358;
   --color-secondary-dark: #061222;
-  
-  /* Analogous — logo accents */
   --color-rose: #E53935;
   --color-rose-light: #EF6A66;
   --color-amber: #FFD400;
   --color-amber-light: #FFE04D;
-  
+  --font-brand: 'PT Sans', system-ui, sans-serif;
+
   /* Triadic */
   --color-olive: #5C7A1A;
   --color-olive-light: #7A9E2E;
   --color-green: #1B9E5A;
   --color-green-light: #3DBF78;
-  
+
   /* Neutrals */
   --color-white: #ffffff;
   --color-black: #0a0a0a;
@@ -98,12 +91,37 @@
   /* UI элементы */
   --color-ui-border: #e0e0e0;
   --color-ui-divider: #eeeeee;
-  
+
   /* Legacy - для обратной совместимости */
   --foreground-rgb: 33, 33, 33;
   --background-start-rgb: 255, 255, 255;
   --background-end-rgb: 250, 250, 250;
   --foreground-rgb-bright: 137, 0, 0;
+}
+
+html[data-brand="rovaro"] {
+  --color-primary: #E30052;
+  --color-primary-light: #FF4D7A;
+  --color-primary-dark: #B80042;
+  --color-secondary: #0A0A0A;
+  --color-secondary-light: #2A2A2A;
+  --color-secondary-dark: #000000;
+  --color-rose: #E30052;
+  --color-rose-light: #FF4D7A;
+  --color-amber: #FFC857;
+  --color-amber-light: #FFD98A;
+  --font-brand: 'Nunito', system-ui, sans-serif;
+  --color-info: #E30052;
+  --color-order-confirmed: #E30052;
+  --color-calendar-selected: #E30052;
+  --color-btn-book: #E30052;
+  --color-btn-book-light: #FF4D7A;
+  --color-btn-book-dark: #B80042;
+  --color-btn-submit: #E30052;
+  --color-btn-submit-light: #FF4D7A;
+  --color-btn-submit-dark: #B80042;
+  --color-gray-900: #0A0A0A;
+  --color-text-primary: #0A0A0A;
 }
 
 /* ============================================
@@ -713,14 +731,14 @@ body .MuiAutocomplete-popper .MuiPaper-root {
 /* Portrait телефон — отступ сверху */
 @media (max-width: 600px) and (orientation: portrait) {
   .bigcalendar-root {
-    padding-top: 56px !important;
+    padding-top: 0 !important;
   }
 }
 
 /* Landscape телефон — компактные ячейки (уважаем CSS vars зума) */
 @media (max-width: 900px) and (orientation: landscape) {
   .bigcalendar-root {
-    padding-top: 38px !important;
+    padding-top: 0 !important;
   }
   
   /* Обычные ячейки (не первый столбец) — минимальная высота */

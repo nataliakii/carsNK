@@ -12,6 +12,10 @@ import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
 
 jest.mock("@/lib/email/sendDirect", () => ({ sendEmailDirect: jest.fn() }));
 jest.mock("@/lib/telegram/sendDirect", () => ({ sendTelegramDirect: jest.fn() }));
+jest.mock("@models/auditLog", () => ({
+  __esModule: true,
+  default: { create: jest.fn().mockResolvedValue({}) },
+}));
 
 describe("order date consistency across channels", () => {
   const originalEmailTesting = process.env.EMAIL_TESTING;

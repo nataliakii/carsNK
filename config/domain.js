@@ -1,16 +1,71 @@
 /**
- * Dual-domain setup for CarsNK.
+ * Domain / canonical URL by deployment country.
  *
- * Both hosts serve the same app (no cross-domain redirect):
- *   - carsnk.gr          (primary / SEO canonical — always)
+ * GR (CarsNK):
+ *   - carsnk.gr          (primary / SEO canonical)
  *   - cars.bbqr.site     (peer mirror; opens as-is)
  *
- * Only www → apex redirects within the same domain.
- * Sitemap, Open Graph, emails, booking links use getBaseUrl() → carsnk.gr.
+ * ES (rovaro):
+ *   - rovaro.autos       (primary / SEO canonical)
+ *
+ * Only www → apex redirects within the same brand.
+ * Sitemap, Open Graph, emails, booking links use getBaseUrl().
  */
 
-const DEFAULT_CANONICAL_URL = "https://carsnk.gr";
-const PEER_HOSTS = new Set(["cars.bbqr.site", "www.cars.bbqr.site"]);
+import { getSiteCountryCode } from "./siteCountry.js";
+
+const DEFAULT_CANONICAL_BY_COUNTRY = {
+  GR: "https://carsnk.gr",
+  ES: "https://rovaro.autos",
+};
+
+const PEER_HOSTS_BY_COUNTRY = {
+  GR: new Set(["cars.bbqr.site", "www.cars.bbqr.site"]),
+  ES: new Set([]),
+};
+
+const SERVING_APEX_BY_COUNTRY = {
+  GR: ["carsnk.gr", "cars.bbqr.site"],
+  ES: ["rovaro.autos"],
+};
+
+const WWW_TO_APEX_BY_COUNTRY = {
+  GR: {
+    "www.carsnk.gr": "carsnk.gr",
+    "www.cars.bbqr.site": "cars.bbqr.site",
+  },
+  ES: {
+    "www.rovaro.autos": "rovaro.autos",
+  },
+};
+
+function countryCode() {
+  try {
+    return getSiteCountryCode();
+  } catch {
+    return "GR";
+  }
+}
+
+function defaultCanonicalUrl() {
+  const code = countryCode();
+  return DEFAULT_CANONICAL_BY_COUNTRY[code] || DEFAULT_CANONICAL_BY_COUNTRY.GR;
+}
+
+function peerHosts() {
+  const code = countryCode();
+  return PEER_HOSTS_BY_COUNTRY[code] || PEER_HOSTS_BY_COUNTRY.GR;
+}
+
+function servingApexHosts() {
+  const code = countryCode();
+  return SERVING_APEX_BY_COUNTRY[code] || SERVING_APEX_BY_COUNTRY.GR;
+}
+
+function wwwToApexMap() {
+  const code = countryCode();
+  return WWW_TO_APEX_BY_COUNTRY[code] || WWW_TO_APEX_BY_COUNTRY.GR;
+}
 
 function normalizeHost(host) {
   return String(host || "")
@@ -21,23 +76,15 @@ function normalizeHost(host) {
 
 function envCanonicalUrl() {
   const fromEnv = String(process.env.NEXT_PUBLIC_SITE_URL || "").trim();
-  if (!fromEnv) return DEFAULT_CANONICAL_URL;
+  const fallback = defaultCanonicalUrl();
+  if (!fromEnv) return fallback;
   try {
     const u = new URL(fromEnv.includes("://") ? fromEnv : `https://${fromEnv}`);
     return u.origin;
   } catch {
-    return DEFAULT_CANONICAL_URL;
+    return fallback;
   }
 }
-
-/** Apex hosts that serve the app (no redirect away). */
-const SERVING_APEX_HOSTS = ["carsnk.gr", "cars.bbqr.site"];
-
-/** www → apex (same brand only). */
-const WWW_TO_APEX = {
-  "www.carsnk.gr": "carsnk.gr",
-  "www.cars.bbqr.site": "cars.bbqr.site",
-};
 
 export const DOMAIN_CONFIG = {
   get canonical() {
@@ -45,30 +92,41 @@ export const DOMAIN_CONFIG = {
   },
   /** All hosts allowed to serve the app */
   get servingHosts() {
-    return [...SERVING_APEX_HOSTS, ...Object.keys(WWW_TO_APEX)];
+    return [...servingApexHosts(), ...Object.keys(wwwToApexMap())];
   },
   /** @deprecated use servingHosts — kept for older imports */
   get allowedDomains() {
     return this.servingHosts;
   },
-  wwwToApex: WWW_TO_APEX,
+  get wwwToApex() {
+    return wwwToApexMap();
+  },
 };
 
 /**
- * SEO / emails / sitemap / OG — always primary brand host.
- * Never returns cars.bbqr.site even if NEXT_PUBLIC_SITE_URL was mis-set.
+ * SEO / emails / sitemap / OG — primary brand host for this deployment.
+ * Peer mirrors (e.g. cars.bbqr.site on GR) never become the canonical.
  */
 export function getBaseUrl() {
+  const fallback = defaultCanonicalUrl();
   let origin = envCanonicalUrl();
   try {
     const host = normalizeHost(new URL(origin).host);
-    if (PEER_HOSTS.has(host)) {
-      origin = DEFAULT_CANONICAL_URL;
+    if (peerHosts().has(host)) {
+      origin = fallback;
+    }
+    // If ES deploy still has carsnk.gr in env, force rovaro.autos
+    if (countryCode() === "ES" && (host === "carsnk.gr" || host === "www.carsnk.gr")) {
+      origin = DEFAULT_CANONICAL_BY_COUNTRY.ES;
+    }
+    // If GR deploy somehow points at rovaro.autos, force carsnk.gr
+    if (countryCode() === "GR" && (host === "rovaro.autos" || host === "www.rovaro.autos")) {
+      origin = DEFAULT_CANONICAL_BY_COUNTRY.GR;
     }
   } catch {
-    origin = DEFAULT_CANONICAL_URL;
+    origin = fallback;
   }
-  return String(origin || DEFAULT_CANONICAL_URL).replace(/\/+$/, "");
+  return String(origin || fallback).replace(/\/+$/, "");
 }
 
 export function absoluteUrl(path = "/") {
@@ -87,13 +145,13 @@ export function getAllowedDomainHosts() {
 }
 
 export function getServingApexHosts() {
-  return SERVING_APEX_HOSTS.map(normalizeHost);
+  return servingApexHosts().map(normalizeHost);
 }
 
 /** If host is www.*, returns apex host; otherwise null. */
 export function getApexHostFor(hostname) {
   const host = normalizeHost(hostname);
-  return WWW_TO_APEX[host] || null;
+  return wwwToApexMap()[host] || null;
 }
 
 export function isServingHost(hostname) {
@@ -103,7 +161,11 @@ export function isServingHost(hostname) {
 
 /** Peer mirror host (not SEO canonical). */
 export function isPeerMirrorHost(hostname) {
-  return PEER_HOSTS.has(normalizeHost(hostname));
+  return peerHosts().has(normalizeHost(hostname));
 }
 
-export { DEFAULT_CANONICAL_URL, SERVING_APEX_HOSTS };
+/** @deprecated use getBaseUrl() — GR default kept for older imports */
+export const DEFAULT_CANONICAL_URL = DEFAULT_CANONICAL_BY_COUNTRY.GR;
+export const SERVING_APEX_HOSTS = SERVING_APEX_BY_COUNTRY.GR;
+
+export const ROVARO_CANONICAL_URL = DEFAULT_CANONICAL_BY_COUNTRY.ES;

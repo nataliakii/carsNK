@@ -8,6 +8,44 @@ jest.mock("@models/car", () => ({
   Car: { findById: jest.fn(), findOne: jest.fn() },
 }));
 jest.mock("@lib/database", () => ({ connectToDB: jest.fn().mockResolvedValue(undefined) }));
+jest.mock("@/services/publicPostRateLimit", () => ({
+  consumePublicPostOrError: jest.fn().mockResolvedValue(null),
+  rentalQuoteRateLimitOptions: jest.fn().mockReturnValue({}),
+}));
+jest.mock("@models/company", () => ({
+  __esModule: true,
+  default: {
+    findById: jest.fn().mockReturnValue({
+      lean: () => Promise.resolve({ country: "GR", bufferTime: 2 }),
+    }),
+  },
+}));
+jest.mock("@/domain/delivery/calculateDeliveryPrice", () => ({
+  calculateDeliveryPrice: jest.fn().mockResolvedValue({
+    deliveryTotal: 0,
+    deliveryIn: 0,
+    deliveryOut: 0,
+  }),
+}));
+jest.mock("@models/company", () => ({
+  __esModule: true,
+  default: {
+    findById: jest.fn(() => ({
+      lean: () => Promise.resolve({ country: "GR", bufferTime: 2 }),
+    })),
+  },
+}));
+jest.mock("@/domain/delivery/calculateDeliveryPrice", () => ({
+  calculateDeliveryPrice: jest.fn().mockResolvedValue({
+    deliveryTotal: 0,
+    deliveryIn: 0,
+    deliveryOut: 0,
+  }),
+}));
+jest.mock("@/services/publicPostRateLimit", () => ({
+  consumePublicPostOrError: jest.fn().mockResolvedValue(null),
+  rentalQuoteRateLimitOptions: jest.fn().mockReturnValue({}),
+}));
 
 const originalConsoleLog = console.log;
 beforeAll(() => {
@@ -18,11 +56,13 @@ afterAll(() => {
 });
 
 const { Car } = require("@models/car");
+const { consumePublicPostOrError } = require("@/services/publicPostRateLimit");
 const { POST } = require("../route");
 
 describe("calcTotalPrice car lookup", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    consumePublicPostOrError.mockResolvedValue(null);
   });
 
   test("uses carId first when valid ObjectId - _id is always unique in MongoDB", async () => {

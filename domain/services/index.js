@@ -4,5 +4,5 @@
  */
 
 export { getCars, getCarById, getCarBySlug } from "./carService";
-export { getCompany } from "./companyService";
+export { getCompany, getCompanyBySlug } from "./companyService";
 export { getActiveOrders, getAllOrders } from "./orderService";

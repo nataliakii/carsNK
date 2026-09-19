@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { connectToDB } from "@lib/database";
 import Company from "@models/company";
 import { COMPANY_ID } from "@config/company";
+import { getCachedDrivingRoute } from "@/domain/transfers/routeCache";
+import { buildLocationSnapshot } from "@/domain/transfers/locationSnapshot";
+import { getTransferBaseDistances } from "@/domain/transfers/getTransferDistance";
 import {
-  getTransferDistance,
-  getTransferBaseDistances,
-} from "@/domain/transfers/getTransferDistance";
+  consumePublicPostOrError,
+  transferRateLimitOptions,
+} from "@/services/publicPostRateLimit";
 
 export const runtime = "nodejs";
 
@@ -28,14 +31,35 @@ export async function POST(request) {
   }
 
   await connectToDB();
+  const limited = await consumePublicPostOrError(
+    request,
+    transferRateLimitOptions()
+  );
+  if (limited) return json(limited.body, limited.status);
   const company = await Company.findById(COMPANY_ID).lean();
   const baseCoords = {
     lat: company?.coords?.lat,
     lon: company?.coords?.lon,
   };
 
+  const origin = buildLocationSnapshot({
+    placeName: from,
+    rawInput: from,
+    ...(payload.origin || {}),
+  });
+  const destination = buildLocationSnapshot({
+    placeName: to,
+    rawInput: to,
+    ...(payload.destination || {}),
+  });
+
   const [result, baseResult] = await Promise.all([
-    getTransferDistance({ from, to }),
+    getCachedDrivingRoute({
+      origin,
+      destination,
+      fromLabel: from,
+      toLabel: to,
+    }),
     getTransferBaseDistances({ baseCoords, from, to }),
   ]);
 
@@ -50,9 +74,10 @@ export async function POST(request) {
     success: true,
     distanceKm: result.distanceKm,
     durationMinutes: result.durationMinutes,
-    distanceText: result.distanceText,
-    durationText: result.durationText,
     approximate: Boolean(result.approximate),
+    fromCache: Boolean(result.fromCache),
+    provider: result.provider,
+    cacheKey: result.cacheKey,
     baseFromDistanceKm: baseResult.baseToFrom.ok
       ? baseResult.baseToFrom.distanceKm
       : null,

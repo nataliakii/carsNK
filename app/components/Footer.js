@@ -9,6 +9,8 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { useMainContext } from "@app/Context";
 import { withLocalePrefix } from "@domain/locationSeo/locationSeoService";
+import RovaroLogo from "@app/components/brand/RovaroLogo";
+import { BRAND, isGreeceSite } from "@config/brand";
 
 const CallIcon = dynamic(() => import("@mui/icons-material/Call"), {
   ssr: false,
@@ -30,29 +32,30 @@ const ArrowOutwardIcon = dynamic(
   { ssr: false }
 );
 
-const BRAND_NAVY = "#0B1F3A";
-const BRAND_CYAN = "#00C8D4";
-const BRAND_RED = "#E53935";
-const BRAND_YELLOW = "#FFD400";
+const greece = isGreeceSite();
+const accentGlow = greece
+  ? "radial-gradient(ellipse 65% 50% at 10% -10%, rgba(0,200,212,0.18), transparent 55%), radial-gradient(ellipse 40% 35% at 100% 100%, rgba(0,200,212,0.08), transparent 50%)"
+  : "radial-gradient(ellipse 65% 50% at 10% -10%, rgba(227,0,82,0.22), transparent 55%), radial-gradient(ellipse 40% 35% at 100% 100%, rgba(227,0,82,0.08), transparent 50%)";
 
 const FooterRoot = styled("footer")({
   position: "relative",
   overflow: "hidden",
   color: "#ffffff",
-  background: `linear-gradient(165deg, #16345c 0%, ${BRAND_NAVY} 38%, #061222 100%)`,
+  background: `linear-gradient(165deg, #1a1a1a 0%, ${BRAND.black} 42%, #000000 100%)`,
   "&::before": {
     content: '""',
     position: "absolute",
     inset: 0,
     pointerEvents: "none",
-    background:
-      "radial-gradient(ellipse 70% 55% at 8% -8%, rgba(0,200,212,0.22), transparent 58%), radial-gradient(ellipse 45% 40% at 100% 100%, rgba(229,57,53,0.12), transparent 50%)",
+    background: accentGlow,
   },
 });
 
 const BrandBar = styled("div")({
-  height: 4,
-  background: `linear-gradient(90deg, ${BRAND_RED} 0%, ${BRAND_RED} 28%, ${BRAND_YELLOW} 28%, ${BRAND_YELLOW} 52%, ${BRAND_CYAN} 52%, ${BRAND_CYAN} 100%)`,
+  height: 3,
+  background: greece
+    ? "linear-gradient(90deg, #E53935 0%, #FFD400 50%, #00C8D4 100%)"
+    : BRAND.pink,
 });
 
 const Inner = styled(Box)(({ theme }) => ({
@@ -71,7 +74,7 @@ const SectionTitle = styled(Typography)({
   fontWeight: 700,
   letterSpacing: "0.16em",
   textTransform: "uppercase",
-  color: BRAND_CYAN,
+  color: BRAND.pink,
   marginBottom: 12,
 });
 
@@ -82,7 +85,7 @@ const FooterLink = styled(Link)({
   lineHeight: 1.45,
   transition: "color 0.18s ease",
   "&:hover": {
-    color: BRAND_CYAN,
+    color: BRAND.pinkLight,
   },
 });
 
@@ -95,11 +98,11 @@ const ContactAnchor = styled("a")({
   gap: 8,
   transition: "color 0.18s ease",
   "&:hover": {
-    color: BRAND_CYAN,
+    color: BRAND.pinkLight,
   },
   "& svg": {
     fontSize: "1.05rem",
-    color: BRAND_CYAN,
+    color: BRAND.pink,
   },
 });
 
@@ -121,8 +124,7 @@ function Footer() {
   const currentYear = new Date().getFullYear();
   const { t } = useTranslation();
 
-  const name = "CarsNK";
-  const slogan = company?.slogan || "Car rental aggregator in Greece";
+  const name = BRAND.name;
   const tel = company?.tel || "+380 68 100 3771";
   const tel2 = company?.tel2 || "+353 85 270 96 05";
   const email = company?.email || "admin@bbqr.site";
@@ -161,30 +163,8 @@ function Footer() {
                 justifyContent: { xs: "center", md: "flex-start" },
               }}
             >
-              <Image
-                src="/logo-hor-transparent-l.png"
-                width={280}
-                height={126}
-                alt="CarsNK"
-                style={{
-                  width: "min(280px, 78vw)",
-                  height: "auto",
-                  objectFit: "contain",
-                }}
-              />
+              <RovaroLogo variant="footer" height={32} />
             </Box>
-            <Typography
-              sx={{
-                fontSize: "0.78rem",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.72)",
-                maxWidth: 320,
-                mx: { xs: "auto", md: 0 },
-              }}
-            >
-              {slogan}
-            </Typography>
           </Stack>
 
           <Box sx={{ textAlign: { xs: "center", sm: "left" } }}>
@@ -223,6 +203,7 @@ function Footer() {
             </Stack>
           </Box>
 
+          {greece ? (
           <Box
             component="a"
             href={guideHref}
@@ -249,49 +230,49 @@ function Footer() {
               },
             }}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: "10px",
-                  overflow: "hidden",
-                  flexShrink: 0,
-                  border: "1px solid rgba(255,255,255,0.18)",
-                }}
-              >
-                <Image
-                  src="/nk/9.png"
-                  alt="Nea Kallikratia Guide"
-                  width={48}
-                  height={48}
-                  style={{ objectFit: "cover", width: 48, height: 48 }}
-                />
-              </Box>
-              <Box sx={{ minWidth: 0 }}>
-                <Typography
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Box
                   sx={{
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
-                    color: BRAND_CYAN,
-                    letterSpacing: "0.04em",
-                    textTransform: "uppercase",
+                    width: 48,
+                    height: 48,
+                    borderRadius: "10px",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    border: "1px solid rgba(255,255,255,0.18)",
                   }}
                 >
-                  {t("footer.kallikratiaBannerLink")}
-                </Typography>
-                <Typography
-                  sx={{
-                    mt: 0.35,
-                    fontSize: "0.82rem",
-                    lineHeight: 1.35,
-                    color: "rgba(255,255,255,0.88)",
-                  }}
-                >
-                  {t("footer.kallikratiaBanner")}
-                </Typography>
-              </Box>
-            </Stack>
+                  <Image
+                    src="/nk/9.png"
+                    alt="Nea Kallikratia Guide"
+                    width={48}
+                    height={48}
+                    style={{ objectFit: "cover", width: 48, height: 48 }}
+                  />
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      color: BRAND.pink,
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {t("footer.kallikratiaBannerLink")}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      mt: 0.35,
+                      fontSize: "0.82rem",
+                      lineHeight: 1.35,
+                      color: "rgba(255,255,255,0.88)",
+                    }}
+                  >
+                    {t("footer.kallikratiaBanner")}
+                  </Typography>
+                </Box>
+              </Stack>
             <Typography
               sx={{
                 display: "inline-flex",
@@ -303,9 +284,10 @@ function Footer() {
               }}
             >
               {t("footer.kallikratiaCta")}
-              <ArrowOutwardIcon sx={{ fontSize: 16, color: BRAND_CYAN }} />
+              <ArrowOutwardIcon sx={{ fontSize: 16, color: BRAND.pink }} />
             </Typography>
           </Box>
+          ) : null}
         </Box>
 
         <Box
@@ -341,7 +323,7 @@ function Footer() {
               rel="noopener noreferrer"
             >
               <QrCode2Icon sx={{ fontSize: 16 }} />
-              BBQR
+              Restaurant Solutions
             </CreditLink>
             <CreditLink
               href="https://www.linkedin.com/in/natalia-kirejeva/"

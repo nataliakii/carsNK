@@ -6,11 +6,26 @@ import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 import CompanyContactsCard from "@/app/admin/shared/components/CompanyContactsCard";
 import EditCompanyContactsDialog from "@/app/admin/shared/components/EditCompanyContactsDialog";
+import CompanyStorefrontCard from "@/app/admin/shared/components/CompanyStorefrontCard";
+import CompanyTransferServicesCard from "@/app/admin/shared/components/CompanyTransferServicesCard";
+import CompanyRentalPaymentsCard from "@/app/admin/shared/components/CompanyRentalPaymentsCard";
+import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
+import {
+  meetingContactsFromCompany,
+  meetingContactsUpdatePayload,
+} from "@/domain/company/meetingContacts";
 
-export default function CompanyProfileSection() {
+export default function CompanyProfileSection({ companyId: companyIdProp } = {}) {
   const { t } = useTranslation();
   const { data: session } = useSession();
-  const ownerId = session?.user?.ownerId ? String(session.user.ownerId) : "";
+  const { active: viewAsActive, company: viewAsCompany } = useAdminViewAs();
+  const ownerId =
+    (companyIdProp && String(companyIdProp)) ||
+    (viewAsActive && viewAsCompany?._id
+      ? String(viewAsCompany._id)
+      : session?.user?.ownerId
+        ? String(session.user.ownerId)
+        : "");
 
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,6 +39,9 @@ export default function CompanyProfileSection() {
   const [editTel, setEditTel] = useState("");
   const [editBaseLat, setEditBaseLat] = useState("");
   const [editBaseLon, setEditBaseLon] = useState("");
+  const [editMeetingContacts, setEditMeetingContacts] = useState(() =>
+    meetingContactsFromCompany(null)
+  );
 
   const load = useCallback(async () => {
     if (!ownerId) {
@@ -57,6 +75,7 @@ export default function CompanyProfileSection() {
     setEditTel(company.tel || "");
     setEditBaseLat(company?.coords?.lat != null ? String(company.coords.lat) : "");
     setEditBaseLon(company?.coords?.lon != null ? String(company.coords.lon) : "");
+    setEditMeetingContacts(meetingContactsFromCompany(company));
     setEditOpen(true);
   };
 
@@ -66,6 +85,7 @@ export default function CompanyProfileSection() {
     setError("");
     setOk("");
     try {
+      const meetingPayload = meetingContactsUpdatePayload(editMeetingContacts);
       const res = await fetch(`/api/company/${ownerId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -77,6 +97,7 @@ export default function CompanyProfileSection() {
             lat: editBaseLat,
             lon: editBaseLon,
           },
+          ...meetingPayload,
         }),
       });
       const body = await res.json();
@@ -103,7 +124,7 @@ export default function CompanyProfileSection() {
   }
 
   return (
-    <Box sx={{ px: { xs: 1, md: 2 }, pb: 6, pt: { xs: 2, md: 2 }, maxWidth: 720 }}>
+    <Box sx={{ px: { xs: 1, md: 2 }, pb: 6, pt: { xs: 2, md: 2 }, maxWidth: { xs: "100%", md: 960 }, mx: "auto", overflowX: "hidden" }}>
       <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>
         {t("companyProfile.title")}
       </Typography>
@@ -124,6 +145,24 @@ export default function CompanyProfileSection() {
 
       <CompanyContactsCard company={company} onEdit={openEdit} canEdit />
 
+      <CompanyStorefrontCard
+        company={company}
+        onSaved={(updated) => {
+          setCompany(updated);
+          setOk(t("companyProfile.updated", { name: updated.name }));
+        }}
+      />
+
+      <CompanyTransferServicesCard companyId={ownerId} />
+
+      <CompanyRentalPaymentsCard
+        company={company}
+        onSaved={(updated) => {
+          setCompany(updated);
+          setOk(t("companyProfile.updated", { name: updated.name }));
+        }}
+      />
+
       <EditCompanyContactsDialog
         open={editOpen}
         busy={busy}
@@ -132,11 +171,13 @@ export default function CompanyProfileSection() {
         tel={editTel}
         baseLat={editBaseLat}
         baseLon={editBaseLon}
+        meetingContacts={editMeetingContacts}
         onNameChange={setEditName}
         onEmailChange={setEditEmail}
         onTelChange={setEditTel}
         onBaseLatChange={setEditBaseLat}
         onBaseLonChange={setEditBaseLon}
+        onMeetingContactsChange={setEditMeetingContacts}
         onClose={() => setEditOpen(false)}
         onSave={saveContacts}
       />

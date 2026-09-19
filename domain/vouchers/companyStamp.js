@@ -40,10 +40,11 @@ export function getCompanyVoucherStampSrc(company) {
 
 /**
  * @param {object|null|undefined} company
- * @param {"el"|"en"} [locale]
+ * @param {"el"|"es"|"en"} [locale]
  */
 export function buildCompanyVoucherDefaults(company, locale = "el") {
-  const loc = locale === "en" ? "en" : "el";
+  const loc =
+    locale === "en" ? "en" : locale === "es" ? "es" : "el";
   const stampSrc = getCompanyVoucherStampSrc(company);
 
   if (!company) {
@@ -57,8 +58,8 @@ export function buildCompanyVoucherDefaults(company, locale = "el") {
   if (isNataliCarsCompany(company)) {
     return {
       companyHeaderTitle:
-        loc === "en" ? "MAKAROVA NATALIA" : "ΜΑΚΑΡΟΒΑ ΝΑΤΑΛΙΑ",
-      companyInfo: COMPANY_STAMP_TEXT[loc] || COMPANY_STAMP_TEXT.el,
+        loc === "el" ? "ΜΑΚΑΡΟΒΑ ΝΑΤΑΛΙΑ" : "MAKAROVA NATALIA",
+      companyInfo: COMPANY_STAMP_TEXT[loc] || COMPANY_STAMP_TEXT.en,
       stampSrc,
     };
   }
@@ -68,7 +69,10 @@ export function buildCompanyVoucherDefaults(company, locale = "el") {
   const address = company?.address || "";
   const lines = [name];
   if (address) lines.push(address);
-  if (tel) lines.push(loc === "en" ? `Tel. ${tel}` : `ΤΗΛ. ${tel}`);
+  if (tel) {
+    const telPrefix = loc === "el" ? "ΤΗΛ." : "Tel.";
+    lines.push(`${telPrefix} ${tel}`);
+  }
 
   return {
     companyHeaderTitle: name,

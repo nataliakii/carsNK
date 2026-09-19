@@ -5,8 +5,9 @@ import {
   getCarPath,
   getLocaleDictionary,
   getSupportedLocales,
-  isSupportedLocale,
-  normalizeLocale,
+  isRoutableLocale,
+  normalizeRoutableLocale,
+  getSeoLocale,
 } from "@domain/locationSeo/locationSeoService";
 import { COMPANY_ID } from "@config/company";
 import { getServerSession } from "next-auth/next";
@@ -16,6 +17,8 @@ import { SeoLinksBlock, SeoIntroBlock } from "@app/components/seo/SeoContentBloc
 import { buildHreflangAlternates } from "@/services/seo/hreflangBuilder";
 import { getRobotsForPath } from "@/services/seo/indexingPolicy";
 import { toAbsoluteUrl } from "@/services/seo/urlBuilder";
+import { getSiteCountryConfig } from "@config/siteCountry";
+import { getBrandName, isGreeceSite } from "@config/brand";
 
 function getPublicCars(cars) {
   return (cars || []).filter(
@@ -33,10 +36,14 @@ const CARS_INDEX_ALTERNATES = Object.fromEntries(
 );
 
 export async function generateMetadata({ params }) {
-  const locale = normalizeLocale(params.locale);
+  const locale = normalizeRoutableLocale(params.locale);
   const dictionary = getLocaleDictionary(locale);
-  const title = `${dictionary.links.carsListTitle} | CarsNK`;
-  const description = "Browse all rental cars available in Halkidiki and Thessaloniki. Compare models, prices and book online with CarsNK.";
+  const brandName = getBrandName();
+  const country = getSiteCountryConfig();
+  const title = `${dictionary.links.carsListTitle} | ${brandName}`;
+  const description = isGreeceSite()
+    ? `Browse all rental cars available in Halkidiki and Thessaloniki. Compare models, prices and book online with ${brandName}.`
+    : `Browse rental cars available in ${country.countryName}. Compare models, prices and book online with ${brandName}.`;
   const path = `/${locale}/cars`;
   return {
     title,
@@ -51,24 +58,28 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function CarsIndexPage({ params }) {
-  const locale = normalizeLocale(params.locale);
-  if (!isSupportedLocale(locale)) notFound();
+  const locale = normalizeRoutableLocale(params.locale);
+  if (!isRoutableLocale(params.locale)) notFound();
+  const seoLocale = getSeoLocale(locale);
   const session = await getServerSession(authOptions);
   const [allCarsData, ordersData, companyData] = await Promise.all([
-    getCars({ session }).catch(() => []),
+    getCars({ session, marketplaceOnly: true }).catch(() => []),
     getActiveOrders({ session }).catch(() => []),
     getCompany(COMPANY_ID).catch(() => null),
   ]);
 
   const publicCars = getPublicCars(allCarsData);
-  const dictionary = getLocaleDictionary(locale);
+  const dictionary = getLocaleDictionary(seoLocale);
 
   const carLinks = publicCars.map((c) => ({
     href: getCarPath(locale, c.slug),
     label: c.model || c.slug,
   }));
 
-  const introText = "Browse our full fleet of rental cars available in Halkidiki, Thessaloniki Airport and Nea Kallikratia. Each vehicle can be picked up at your chosen location. Book online to secure the best rate.";
+  const country = getSiteCountryConfig();
+  const introText = isGreeceSite()
+    ? "Browse our full fleet of rental cars available in Halkidiki, Thessaloniki Airport and Nea Kallikratia. Each vehicle can be picked up at your chosen location. Book online to secure the best rate."
+    : `Browse our full fleet of rental cars available in ${country.countryName}. Each vehicle can be picked up at your chosen location. Book online to secure the best rate.`;
 
   return (
     <Feed

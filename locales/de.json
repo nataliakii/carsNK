@@ -8,7 +8,7 @@
     "calendars": "Kalender",
     "table": "Bestelltabelle",
     "calendar": "Kalender",
-    "deliveryZones": "Lieferzonen",
+    "deliveryZones": "Lieferung & Preise",
     "orders": "Bestellungen",
     "orderList": "Bestellliste",
     "carClass": "Fahrzeugklasse wählen",
@@ -24,7 +24,13 @@
     "websiteVisits": "Visits",
     "transfer": "Transfer",
     "transfers": "Transfers",
-    "owners": "Eigentümer"
+    "owners": "Unternehmen",
+    "carRentals": "Autovermietung",
+    "platform": "Plattform",
+    "vouchers": "Vouchers",
+    "accessLinks": "Zugangslinks",
+    "vouchersAndLinks": "Vouchers & Tools",
+    "viewAsExit": "Firma verlassen"
   },
   "catalog": {
     "noCarsMatchFilters": "Keine Autos passen zu den Filtern. Suche, Klasse, Getriebe oder Sitze ändern."
@@ -225,7 +231,7 @@
   },
   "forBusiness": {
     "eyebrow": "Für Unternehmen",
-    "title": "CarsNK als Mietplattform",
+    "title": "rovaro als Mietplattform",
     "intro": "Bringen Sie Ihre Flotte online: Kunden buchen auf der Website, Sie steuern den Alltag aus einem Admin-Panel — von der ersten Anfrage bis zur Rückgabe.",
     "cta": "Über die Plattform sprechen",
     "features": {
@@ -258,8 +264,8 @@
     "adminLogin": "Team-Anmeldung"
   },
   "seo": {
-    "title": "CarsNK - Mietwagen in Chalkidiki, Griechenland",
-    "description": "Mietwagen in Chalkidiki, Griechenland bei CarsNK. Günstige Autovermietung mit flexiblen Abhol- und Rückgabeoptionen. Bester Mietwagenservice in Chalkidiki, Nea Kallikratia, Kassandra, Sithonia.",
+    "title": "rovaro - Mietwagen in Chalkidiki, Griechenland",
+    "description": "Mietwagen in Chalkidiki, Griechenland bei rovaro. Günstige Autovermietung mit flexiblen Abhol- und Rückgabeoptionen. Bester Mietwagenservice in Chalkidiki, Nea Kallikratia, Kassandra, Sithonia.",
     "keywords": "Mietwagen Chalkidiki, Auto mieten Griechenland, Autovermietung Chalkidiki, günstig Auto mieten, Mietwagen ohne Kaution"
   },
   "orderNotification": {
@@ -281,9 +287,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Vielen Dank für Ihre Reservierung – CarsNK",
+    "title": "Vielen Dank für Ihre Reservierung – rovaro",
     "greeting": "Sehr geehrte(r) {{CustomerName}},",
-    "thankYouChoose": "Vielen Dank, dass Sie sich für **CarsNK** entschieden haben.",
+    "thankYouChoose": "Vielen Dank, dass Sie sich für **rovaro** entschieden haben.",
     "weReceived": "Wir haben Ihre Reservierungsanfrage erhalten und schätzen Ihr Vertrauen sehr. Unser Team prüft derzeit die Details und wird sich in Kürze bei Ihnen melden, um die Buchung zu bestätigen und alles nach Ihren Wünschen zu arrangieren.",
     "availabilityDisclaimer": "Diese E-Mail garantiert nicht, dass das Fahrzeug an diesen Daten zum angegebenen Preis verfügbar ist. Die offizielle Bestätigung sendet Ihnen unser Manager, nachdem er Sie kontaktiert und die Verfügbarkeit erneut geprüft hat.",
     "reservationDetails": "**Reservierungsdetails:**",
@@ -308,7 +314,7 @@
     "totalAmountLabel": "Gesamtbetrag",
     "excludeCityDeliveryNote": "Ohne Lieferung in die Stadt.",
     "officialTitle": "Offizielle Buchungsbestätigung",
-    "officialIntro": "Ihre Reservierung wurde offiziell von CarsNK bestätigt.",
+    "officialIntro": "Ihre Reservierung wurde offiziell von rovaro bestätigt.",
     "officialPdfNote": "Die offizielle Bestätigung im PDF-Format ist dieser E-Mail beigefügt. Bitte bewahren Sie sie für die Fahrzeugübergabe auf.",
     "generatedAtLabel": "Erstellt am",
     "customerLabel": "Kunde",
@@ -328,7 +334,7 @@
     "step3": "3. Nach der Bestätigung erhalten Sie eine finale Bestätigung mit allen nötigen Informationen.",
     "questionsParagraph": "Wenn Sie Fragen haben, antworten Sie einfach auf diese E-Mail — wir helfen Ihnen gerne persönlich weiter.",
     "kindRegards": "Mit freundlichen Grüßen,",
-    "team": "**Team CarsNK**",
+    "team": "**Team rovaro**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {
@@ -413,6 +419,9 @@
     "activeTitle": "Active discount",
     "activeValue": "Active discount: {{value}}",
     "notApplied": "No discount applied",
+    "howItWorksTitle": "How this discount works",
+    "howItWorksGlobal": "Pick any date range and a %. It applies to all cars for those days.",
+    "howItWorksPerCar": "To change the price of one car only, edit that car in Cars settings — not here.",
     "startDate": "Discount start date",
     "endDate": "Discount end date",
     "activeToday": "Discount is active today",

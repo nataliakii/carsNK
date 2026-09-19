@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getSeoConfig } from "@config/seo";
+import { getActiveBrand } from "@config/brand";
 import {
   buildCarSeoText,
   getCarAlternates,
@@ -26,6 +27,7 @@ import { toAbsoluteUrl } from "./urlBuilder";
 
 const OG_LOCALE_MAP: Record<string, string> = {
   en: "en_US",
+  es: "es_ES",
   ru: "ru_RU",
   uk: "uk_UA",
   el: "el_GR",
@@ -33,10 +35,17 @@ const OG_LOCALE_MAP: Record<string, string> = {
   bg: "bg_BG",
   ro: "ro_RO",
   sr: "sr_RS",
+  pl: "pl_PL",
 };
 
+function brandImageUrl() {
+  const brand = getActiveBrand();
+  return `${getSeoConfig().baseUrl}${brand.logos.mark}`;
+}
+
 function getOpenGraphLocale(locale: string): string {
-  return OG_LOCALE_MAP[locale] || OG_LOCALE_MAP.en;
+  const key = String(locale || "en").toLowerCase().split("-")[0];
+  return OG_LOCALE_MAP[key] || OG_LOCALE_MAP.en;
 }
 
 function isRobotsIndexable(robots: Metadata["robots"]): boolean {
@@ -83,9 +92,9 @@ function buildBaseMetadata(input: {
       siteName: seoConfig.siteName,
       images: [
         {
-          url: `${seoConfig.baseUrl}/favicon.png`,
-          width: 1200,
-          height: 630,
+          url: brandImageUrl(),
+          width: 512,
+          height: 512,
           alt: seoConfig.siteName,
         },
       ],
@@ -94,23 +103,26 @@ function buildBaseMetadata(input: {
       card: "summary_large_image",
       title: input.title,
       description: input.description,
-      images: [`${seoConfig.baseUrl}/favicon.png`],
+      images: [brandImageUrl()],
     },
     robots,
   };
 }
 
 export function buildHubMetadata(localeCandidate: string | undefined | null): Metadata {
-  const locale = normalizeLocale(localeCandidate);
-  const hubSeo = getHubSeo(locale);
-  const canonicalPath = getLocaleRootPath(locale);
+  const hubSeo = getHubSeo(localeCandidate);
+  const urlLocale =
+    String(localeCandidate || "en").toLowerCase().split("-")[0] === "es"
+      ? "es"
+      : normalizeLocale(localeCandidate);
+  const canonicalPath = getLocaleRootPath(localeCandidate);
 
   return buildBaseMetadata({
     title: hubSeo.seoTitle,
     description: hubSeo.seoDescription,
     canonicalPath,
     alternatePathsByLocale: getHubAlternates(),
-    locale,
+    locale: urlLocale,
   });
 }
 

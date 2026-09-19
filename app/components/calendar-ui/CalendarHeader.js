@@ -22,6 +22,10 @@ dayjs.extend(timezone);
 import { useTranslation } from "react-i18next";
 import { CalendarNavButton, CalendarDayCell } from "../ui";
 import { calendarStyles } from "@/theme";
+import {
+  getShortPeriodEnd,
+  getShortPeriodStart,
+} from "@/app/admin/features/calendar/hooks/calendarDays";
 
 const MONTH_BAND_HEIGHT_PX = 22;
 
@@ -320,18 +324,12 @@ function HeaderNavBlock({
               return y1 === y2 ? `${y1}` : `${y1}–${y2}`;
             }
             if (viewMode === "range15") {
-              const start =
-                rangeDirection === "forward"
-                  ? dayjs().year(year).month(month).date(15)
-                  : dayjs()
-                      .year(year)
-                      .month(month)
-                      .subtract(1, "month")
-                      .date(15);
-              const end =
-                rangeDirection === "forward"
-                  ? start.add(1, "month").date(15)
-                  : dayjs().year(year).month(month).date(15);
+              const start = getShortPeriodStart({
+                year,
+                month,
+                rangeDirection,
+              });
+              const end = getShortPeriodEnd(start);
               const y1 = start.year();
               const y2 = end.year();
               return y1 === y2 ? `${y1}` : `${y1}-${y2}`;
@@ -416,13 +414,17 @@ function HeaderNavBlock({
                 return `${abbr(a)}–${abbr(b)}`;
               }
               if (viewMode === "range15") {
-                if (rangeDirection === "forward") {
-                  return `${abbr(months[month])}–${abbr(
-                    months[(month + 1) % 12]
-                  )}`;
+                const start = getShortPeriodStart({
+                  year,
+                  month,
+                  rangeDirection,
+                });
+                const end = getShortPeriodEnd(start);
+                if (start.month() === end.month()) {
+                  return abbr(months[start.month()]);
                 }
-                return `${abbr(months[(month + 11) % 12])}–${abbr(
-                  months[month]
+                return `${abbr(months[start.month()])}–${abbr(
+                  months[end.month()]
                 )}`;
               }
               return useShort && isPortraitPhone

@@ -39,6 +39,7 @@ import {
 import { useMainContext } from "@app/Context";
 import { useSession } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 
 function emptyRow() {
   return {
@@ -73,6 +74,8 @@ export default function BulkAddCarsModal({ open, onClose, setUpdateStatus }) {
   const { resubmitCars, cars } = useMainContext();
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
+  const { active: viewAsActive, company: viewAsCompany } = useAdminViewAs();
+  const showOwnerPicker = isSuperAdmin && !viewAsActive;
 
   const modelOptions = useMemo(() => {
     const fromFleet = (cars || []).map((c) => c.model).filter(Boolean);
@@ -86,15 +89,22 @@ export default function BulkAddCarsModal({ open, onClose, setUpdateStatus }) {
   const [resultMsg, setResultMsg] = useState("");
 
   useEffect(() => {
-    if (!open || !isSuperAdmin) return undefined;
+    if (!open || !showOwnerPicker) return undefined;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/admin/owners");
+        // All countries — superadmin can bulk-add into any company.
+        const res = await fetch("/api/admin/owners?country=ALL");
         if (!res.ok) return;
         const body = await res.json();
         if (!cancelled && body?.success && Array.isArray(body.companies)) {
           setCompanies(body.companies);
+          setOwnerId((prev) => {
+            if (prev && body.companies.some((c) => String(c._id) === prev)) {
+              return prev;
+            }
+            return body.companies[0]?._id ? String(body.companies[0]._id) : "";
+          });
         }
       } catch {
         /* ignore */
@@ -103,7 +113,14 @@ export default function BulkAddCarsModal({ open, onClose, setUpdateStatus }) {
     return () => {
       cancelled = true;
     };
-  }, [open, isSuperAdmin]);
+  }, [open, showOwnerPicker]);
+
+  useEffect(() => {
+    if (viewAsActive && viewAsCompany?._id) {
+      setOwnerId(String(viewAsCompany._id));
+      setCompanies([]);
+    }
+  }, [viewAsActive, viewAsCompany]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -161,6 +178,10 @@ export default function BulkAddCarsModal({ open, onClose, setUpdateStatus }) {
     });
 
   const handleSave = async () => {
+    if (showOwnerPicker && !ownerId) {
+      setResultMsg("Select a company first");
+      return;
+    }
     setLoading(true);
     setResultMsg("");
     try {
@@ -182,7 +203,13 @@ export default function BulkAddCarsModal({ open, onClose, setUpdateStatus }) {
 
       const form = new FormData();
       form.append("cars", JSON.stringify(carsPayload));
-      if (isSuperAdmin && ownerId) form.append("ownerId", ownerId);
+      const resolvedOwnerId =
+        viewAsActive && viewAsCompany?._id
+          ? String(viewAsCompany._id)
+          : showOwnerPicker
+            ? ownerId
+            : "";
+      if (resolvedOwnerId) form.append("ownerId", resolvedOwnerId);
       rows.forEach((row, index) => {
         if (row.photoFile) {
           form.append(`image_${index}`, row.photoFile, row.photoFile.name);
@@ -242,23 +269,40 @@ export default function BulkAddCarsModal({ open, onClose, setUpdateStatus }) {
         <Button size="small" variant="outlined" onClick={duplicateLast}>
           Duplicate last
         </Button>
-        {isSuperAdmin && (
+        {showOwnerPicker ? (
           <TextField
             select
             size="small"
             label="Company"
             value={ownerId}
             onChange={(e) => setOwnerId(e.target.value)}
-            sx={{ minWidth: 220 }}
+            required
+            error={!ownerId}
+            helperText={
+              !ownerId
+                ? "Select a company"
+                : "Cars will be added to this company"
+            }
+            sx={{ minWidth: 280 }}
           >
-            <MenuItem value="">Default (CarsNK)</MenuItem>
-            {companies.map((c) => (
-              <MenuItem key={String(c._id)} value={String(c._id)}>
-                {c.name || String(c._id)}
+            {companies.length === 0 ? (
+              <MenuItem value="" disabled>
+                Loading companies…
               </MenuItem>
-            ))}
+            ) : (
+              companies.map((c) => (
+                <MenuItem key={String(c._id)} value={String(c._id)}>
+                  {c.name || String(c._id)}
+                  {c.country ? ` (${c.country})` : ""}
+                </MenuItem>
+              ))
+            )}
           </TextField>
-        )}
+        ) : viewAsActive && viewAsCompany?.name ? (
+          <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
+            Company: {viewAsCompany.name}
+          </Typography>
+        ) : null}
       </Stack>
 
       {resultMsg ? (

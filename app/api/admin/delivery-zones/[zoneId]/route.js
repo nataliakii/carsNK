@@ -1,6 +1,12 @@
 import { connectToDB } from "@lib/database";
 import { requireAdmin } from "@/lib/adminAuth";
 import { DeliveryZone } from "@models/DeliveryZone";
+import { COMPANY_ID } from "@config/company";
+import {
+  getSessionOwnerId,
+  isSuperAdminUser,
+  normalizeOwnerId,
+} from "@/domain/owners/ownerScope";
 
 function normalizeFixedPriceInput(value) {
   if (value === undefined) {
@@ -18,10 +24,18 @@ function normalizeFixedPriceInput(value) {
   return { ok: true, present: true, value: numericValue };
 }
 
+function canAccessZone(user, zone) {
+  if (isSuperAdminUser(user)) return true;
+  const ownerId = getSessionOwnerId(user);
+  if (!ownerId) return false;
+  const zoneOwner = zone?.ownerId ? String(zone.ownerId) : String(COMPANY_ID);
+  return zoneOwner === ownerId;
+}
+
 export async function PATCH(request, { params }) {
   try {
     await connectToDB();
-    const { errorResponse } = await requireAdmin(request);
+    const { session, errorResponse } = await requireAdmin(request);
     if (errorResponse) return errorResponse;
 
     const { zoneId } = params;
@@ -32,6 +46,20 @@ export async function PATCH(request, { params }) {
       return Response.json(
         { success: false, message: normalizedFixedPrice.message },
         { status: 400 }
+      );
+    }
+
+    const existing = await DeliveryZone.findById(zoneId).lean();
+    if (!existing) {
+      return Response.json(
+        { success: false, message: "Zone not found" },
+        { status: 404 }
+      );
+    }
+    if (!canAccessZone(session.user, existing)) {
+      return Response.json(
+        { success: false, message: "Forbidden" },
+        { status: 403 }
       );
     }
 
@@ -59,20 +87,22 @@ export async function PATCH(request, { params }) {
     if (normalizedFixedPrice.present) {
       updateFields.fixedPrice = normalizedFixedPrice.value;
     }
-    if (body.isFreeDelivery !== undefined) updateFields.isFreeDelivery = body.isFreeDelivery;
+    if (body.isFreeDelivery !== undefined)
+      updateFields.isFreeDelivery = body.isFreeDelivery;
     if (body.isActive !== undefined) updateFields.isActive = body.isActive;
-    if (body.coordinates !== undefined) updateFields.coordinates = body.coordinates;
+    if (body.coordinates !== undefined)
+      updateFields.coordinates = body.coordinates;
+    if (
+      isSuperAdminUser(session.user) &&
+      body.ownerId !== undefined &&
+      normalizeOwnerId(body.ownerId)
+    ) {
+      updateFields.ownerId = normalizeOwnerId(body.ownerId);
+    }
 
     const zone = await DeliveryZone.findByIdAndUpdate(zoneId, updateFields, {
       new: true,
     });
-
-    if (!zone) {
-      return Response.json(
-        { success: false, message: "Zone not found" },
-        { status: 404 }
-      );
-    }
 
     return Response.json({ success: true, data: zone });
   } catch (error) {
@@ -87,19 +117,25 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     await connectToDB();
-    const { errorResponse } = await requireAdmin(request);
+    const { session, errorResponse } = await requireAdmin(request);
     if (errorResponse) return errorResponse;
 
     const { zoneId } = params;
-    const zone = await DeliveryZone.findByIdAndDelete(zoneId);
-
-    if (!zone) {
+    const existing = await DeliveryZone.findById(zoneId).lean();
+    if (!existing) {
       return Response.json(
         { success: false, message: "Zone not found" },
         { status: 404 }
       );
     }
+    if (!canAccessZone(session.user, existing)) {
+      return Response.json(
+        { success: false, message: "Forbidden" },
+        { status: 403 }
+      );
+    }
 
+    await DeliveryZone.findByIdAndDelete(zoneId);
     return Response.json({ success: true, message: "Zone deleted" });
   } catch (error) {
     console.error("[delivery-zones DELETE]", error);

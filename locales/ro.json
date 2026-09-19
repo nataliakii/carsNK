@@ -8,7 +8,7 @@
     "calendars": "Calendare",
     "table": "Tabel comenzi",
     "calendar": "Calendar",
-    "deliveryZones": "Zone livrare",
+    "deliveryZones": "Livrare & Prețuri",
     "orders": "Comenzi",
     "orderList": "Lista comenzilor",
     "carClass": "Selectați clasa",
@@ -24,7 +24,13 @@
     "websiteVisits": "Visits",
     "transfer": "Transfer",
     "transfers": "Transferuri",
-    "owners": "Proprietari"
+    "owners": "Companii",
+    "carRentals": "Închirieri auto",
+    "platform": "Platformă",
+    "vouchers": "Vouchere",
+    "accessLinks": "Linkuri de acces",
+    "vouchersAndLinks": "Vouchere și instrumente",
+    "viewAsExit": "Ieși din companie"
   },
   "catalog": {
     "noCarsMatchFilters": "Nicio mașină nu se potrivește filtrelor. Schimbă căutarea, clasa, cutia sau locurile."
@@ -225,7 +231,7 @@
   },
   "forBusiness": {
     "eyebrow": "Pentru business",
-    "title": "CarsNK ca platformă de închiriere",
+    "title": "rovaro ca platformă de închiriere",
     "intro": "Puneți flota online: clienții rezervă pe site, iar dvs. gestionați activitatea zilnică dintr-un singur panou admin — de la prima cerere până la returnare.",
     "cta": "Discutați despre platformă",
     "features": {
@@ -258,8 +264,8 @@
     "adminLogin": "Autentificare admin"
   },
   "seo": {
-    "title": "CarsNK - Închirieri auto Halkidiki, Grecia",
-    "description": "Închirieri auto în Halkidiki, Grecia — CarsNK. Rent a car ieftin fără depozit. Condiții flexibile de preluare și returnare. Cel mai bun serviciu de închiriere auto în Halkidiki, Nea Kallikratia, Kassandra, Sithonia.",
+    "title": "rovaro - Închirieri auto Halkidiki, Grecia",
+    "description": "Închirieri auto în Halkidiki, Grecia — rovaro. Rent a car ieftin fără depozit. Condiții flexibile de preluare și returnare. Cel mai bun serviciu de închiriere auto în Halkidiki, Nea Kallikratia, Kassandra, Sithonia.",
     "keywords": "închirieri auto Halkidiki, rent a car Grecia, mașină de închiriat Halkidiki, rent a car ieftin, fără depozit"
   },
   "orderNotification": {
@@ -281,9 +287,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Vă mulțumim pentru rezervare – CarsNK",
+    "title": "Vă mulțumim pentru rezervare – rovaro",
     "greeting": "Stimate/Stimată {{CustomerName}},",
-    "thankYouChoose": "Vă mulțumim că ați ales **CarsNK**.",
+    "thankYouChoose": "Vă mulțumim că ați ales **rovaro**.",
     "weReceived": "Am primit solicitarea dvs. de rezervare și apreciem încrederea acordată. Echipa noastră analizează detaliile și vă va contacta în curând pentru a confirma rezervarea și a stabili totul conform așteptărilor dvs.",
     "availabilityDisclaimer": "Acest e-mail nu garantează că autovehiculul este disponibil la aceste date la prețul indicat. Confirmarea oficială vă va fi trimisă de managerul nostru după ce vă contactează și reverifică disponibilitatea.",
     "reservationDetails": "**Detalii rezervare:**",
@@ -308,7 +314,7 @@
     "totalAmountLabel": "Sumă totală",
     "excludeCityDeliveryNote": "Fără livrare în oraș.",
     "officialTitle": "Confirmare oficială a rezervării",
-    "officialIntro": "Rezervarea dvs. a fost confirmată oficial de CarsNK.",
+    "officialIntro": "Rezervarea dvs. a fost confirmată oficial de rovaro.",
     "officialPdfNote": "Confirmarea oficială în format PDF este atașată acestui e-mail. Păstrați-o pentru preluarea autovehiculului.",
     "generatedAtLabel": "Generat la",
     "customerLabel": "Client",
@@ -328,7 +334,7 @@
     "step3": "3. După confirmare veți primi un mesaj final cu toate informațiile necesare.",
     "questionsParagraph": "Dacă aveți întrebări, răspundeți la acest e-mail — vă ajutăm cu plăcere.",
     "kindRegards": "Cu stimă,",
-    "team": "**Echipa CarsNK**",
+    "team": "**Echipa rovaro**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {
@@ -413,6 +419,9 @@
     "activeTitle": "Active discount",
     "activeValue": "Active discount: {{value}}",
     "notApplied": "No discount applied",
+    "howItWorksTitle": "How this discount works",
+    "howItWorksGlobal": "Pick any date range and a %. It applies to all cars for those days.",
+    "howItWorksPerCar": "To change the price of one car only, edit that car in Cars settings — not here.",
     "startDate": "Discount start date",
     "endDate": "Discount end date",
     "activeToday": "Discount is active today",

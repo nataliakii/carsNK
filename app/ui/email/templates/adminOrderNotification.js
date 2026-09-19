@@ -5,6 +5,8 @@
 
 import { EMAIL_STYLE, escapeHtml } from "@/app/ui/email/theme/nataliCarsEmailTheme";
 import { EMAIL_SIGNATURE_HTML } from "@/app/ui/email/templates/signature";
+import { getBaseUrl, getCanonicalHost } from "@config/domain";
+import { getBrandName } from "@config/brand";
 
 function formatLine(line) {
   const trimmed = (line || "").trim();
@@ -130,7 +132,7 @@ export function renderAdminOrderNotificationHtml(data) {
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;margin-top:20px;">
           <tr>
             <td style="text-align:center;padding:20px;color:${s.muted};font-size:12px;font-family:${s.fontSans};">
-              <p style="margin:0;">© ${new Date().getFullYear()} CarsNK. All rights reserved. · <a href="https://carsnk.gr" style="color:${s.muted};">carsnk.gr</a></p>
+              <p style="margin:0;">© ${new Date().getFullYear()} ${getBrandName()}. All rights reserved. · <a href="${getBaseUrl()}" style="color:${s.muted};">${getCanonicalHost()}</a></p>
             </td>
           </tr>
         </table>

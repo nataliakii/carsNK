@@ -126,8 +126,9 @@ export function analyzeConfirmationConflicts({ orderToConfirm, allOrders, buffer
   }
 
   // 🎯 КРИТИЧНО: используем fromServerUTC для правильной интерпретации времени
-  const confirmingStart = fromServerUTC(orderToConfirm.timeIn);
-  const confirmingEnd = fromServerUTC(orderToConfirm.timeOut);
+  const tz = orderToConfirm.timezone || undefined;
+  const confirmingStart = fromServerUTC(orderToConfirm.timeIn, tz);
+  const confirmingEnd = fromServerUTC(orderToConfirm.timeOut, tz);
 
   if (!confirmingStart || !confirmingEnd) {
     return result;
@@ -140,8 +141,8 @@ export function analyzeConfirmationConflicts({ orderToConfirm, allOrders, buffer
     if (orderId === confirmingId) return;
 
     // 🎯 КРИТИЧНО: используем fromServerUTC
-    const otherStart = fromServerUTC(order.timeIn);
-    const otherEnd = fromServerUTC(order.timeOut);
+    const otherStart = fromServerUTC(order.timeIn, tz || order.timezone);
+    const otherEnd = fromServerUTC(order.timeOut, tz || order.timezone);
 
     if (!otherStart || !otherEnd) return;
 
@@ -172,8 +173,8 @@ export function analyzeConfirmationConflicts({ orderToConfirm, allOrders, buffer
     });
 
     // Форматируем даты для конфликтующего заказа
-    const otherStartDate = fromServerUTC(order.rentalStartDate);
-    const otherEndDate = fromServerUTC(order.rentalEndDate);
+    const otherStartDate = fromServerUTC(order.rentalStartDate, tz || order.timezone);
+    const otherEndDate = fromServerUTC(order.rentalEndDate, tz || order.timezone);
     const months = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
     const formatDateReadable = (date) => {
       if (!date) return "—";
@@ -301,9 +302,9 @@ export function canPendingOrderBeConfirmed({ pendingOrder, allOrders, bufferHour
     return { canConfirm: true, blockingOrder: null, message: null };
   }
 
-  // 🎯 КРИТИЧНО: используем fromServerUTC
-  const pendingStart = fromServerUTC(pendingOrder.timeIn);
-  const pendingEnd = fromServerUTC(pendingOrder.timeOut);
+  const pendingTz = pendingOrder.timezone || undefined;
+  const pendingStart = fromServerUTC(pendingOrder.timeIn, pendingTz);
+  const pendingEnd = fromServerUTC(pendingOrder.timeOut, pendingTz);
 
   if (!pendingStart || !pendingEnd) {
     return { canConfirm: true, blockingOrder: null, message: null };
@@ -315,8 +316,8 @@ export function canPendingOrderBeConfirmed({ pendingOrder, allOrders, bufferHour
     if (orderId === pendingId) continue;
     if (!(order.offline === true || order.confirmed === true)) continue;
 
-    const otherStart = fromServerUTC(order.timeIn);
-    const otherEnd = fromServerUTC(order.timeOut);
+    const otherStart = fromServerUTC(order.timeIn, pendingTz || order.timezone);
+    const otherEnd = fromServerUTC(order.timeOut, pendingTz || order.timezone);
 
     if (!otherStart || !otherEnd) continue;
 

@@ -17,7 +17,7 @@ import {
   getLocationPathFromLocation,
   getLocationSeoSlug,
   getSupportedLocales,
-  isSupportedLocale,
+  isRoutableLocale,
   normalizeLocale,
   getLocaleDictionary,
 } from "@domain/locationSeo/locationSeoService";
@@ -33,6 +33,7 @@ import {
 import { getRobotsForPath } from "@/services/seo/indexingPolicy";
 import { toAbsoluteUrl } from "@/services/seo/urlBuilder";
 import { buildHreflangAlternates } from "@/services/seo/hreflangBuilder";
+import { getSiteCountryConfig } from "@config/siteCountry";
 import {
   getAllSeoPageSlugs,
   getSeoPageBySlug,
@@ -132,7 +133,7 @@ export async function generateMetadata({ params }) {
         description: resolved.seoDescription,
         url: toAbsoluteUrl(pagePath),
         type: "website",
-        siteName: "CarsNK",
+        siteName: "rovaro",
       },
       twitter: {
         card: "summary_large_image",
@@ -155,7 +156,7 @@ export async function generateMetadata({ params }) {
       title: resolved.seoTitle,
       description: resolved.seoDescription,
       alternates: { canonical: toAbsoluteUrl(pagePath), languages: alternates },
-      openGraph: { title: resolved.seoTitle, description: resolved.seoDescription, url: toAbsoluteUrl(pagePath), type: "website", siteName: "CarsNK" },
+      openGraph: { title: resolved.seoTitle, description: resolved.seoDescription, url: toAbsoluteUrl(pagePath), type: "website", siteName: "rovaro" },
       twitter: { card: "summary_large_image", title: resolved.seoTitle, description: resolved.seoDescription },
       robots: getRobotsForPath(pagePath),
     };
@@ -168,8 +169,8 @@ export async function generateMetadata({ params }) {
     const locationName = locationDef.nameByLocale[locale];
     const carModel = car.model || car.slug;
 
-    const title = `Rent ${carModel} in ${locationName} | CarsNK`;
-    const description = `Rent ${carModel} with pickup in ${locationName}. ${capitalize(car.transmission)} transmission, ${car.seats || 5} seats. Book online with CarsNK.`;
+    const title = `Rent ${carModel} in ${locationName} | rovaro`;
+    const description = `Rent ${carModel} with pickup in ${locationName}. ${capitalize(car.transmission)} transmission, ${car.seats || 5} seats. Book online with rovaro.`;
     const pagePath = getSeoPagePath(locale, slug);
     const alternates = buildHreflangAlternates(getSeoPageAlternates(locale, slug));
 
@@ -180,7 +181,7 @@ export async function generateMetadata({ params }) {
         canonical: toAbsoluteUrl(pagePath),
         languages: alternates,
       },
-      openGraph: { title, description, url: toAbsoluteUrl(pagePath), type: "website", siteName: "CarsNK" },
+      openGraph: { title, description, url: toAbsoluteUrl(pagePath), type: "website", siteName: "rovaro" },
       twitter: { card: "summary_large_image", title, description },
       robots: getRobotsForPath(pagePath),
     };
@@ -194,8 +195,9 @@ export async function generateMetadata({ params }) {
 // ---------------------------------------------------------------------------
 
 export default async function SeoLandingPage({ params }) {
+  if (!getSiteCountryConfig().showLegacySeoLocations) notFound();
   const locale = normalizeLocale(params.locale);
-  if (!isSupportedLocale(locale)) notFound();
+  if (!isRoutableLocale(params.locale)) notFound();
 
   const slug = params.seoSlug;
   const session = await getServerSession(authOptions);

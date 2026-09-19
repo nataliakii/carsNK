@@ -1,4 +1,8 @@
-import { buildOrderDateRange } from "../calendarDays";
+import {
+  buildCalendarDays,
+  buildOrderDateRange,
+  SHORT_PERIOD_DAYS,
+} from "../calendarDays";
 
 describe("buildOrderDateRange timezone", () => {
   test("maps summer UTC midnight representation to Athens day range", () => {
@@ -26,5 +30,20 @@ describe("buildOrderDateRange timezone", () => {
       "2026-01-16",
       "2026-01-17",
     ]);
+  });
+});
+
+describe("short period (15d)", () => {
+  test("renders 12 consecutive days from the 15th", () => {
+    const days = buildCalendarDays({
+      month: 1,
+      year: 2027,
+      viewMode: "range15",
+      rangeDirection: "forward",
+      calendarDayRange: "15d",
+    });
+    expect(days).toHaveLength(SHORT_PERIOD_DAYS);
+    expect(days[0].dayjs.format("YYYY-MM-DD")).toBe("2027-02-15");
+    expect(days[days.length - 1].dayjs.format("YYYY-MM-DD")).toBe("2027-02-26");
   });
 });

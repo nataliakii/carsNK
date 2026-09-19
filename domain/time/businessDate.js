@@ -1,40 +1,51 @@
 /**
- * Business-date utilities for Greece (Europe/Athens).
+ * Business-date utilities for rental calendar days.
  *
- * - toBusinessStartOfDay: parse any date-like value to midnight in Athens
- * - toStoredBusinessDate: convert to the canonical stored format (12:00 UTC of the Athens calendar day)
+ * Default timezone remains Europe/Athens for historical callers.
+ * Pass an explicit IANA timezone for Spain / company overrides.
  *
- * Extracted to avoid duplication across API routes.
+ * - toBusinessStartOfDay: midnight in the business timezone
+ * - toStoredBusinessDate: 12:00 UTC of that calendar day (DST-safe date key)
  */
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import {
+  canonicalizeTimezone,
+  LEGACY_FALLBACK_TZ,
+} from "./resolveBusinessTimezone";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const BUSINESS_TZ = "Europe/Athens";
+const BUSINESS_TZ = LEGACY_FALLBACK_TZ;
 
-/**
- * Parse any date-like value to start-of-day in Athens timezone.
- * Date-only strings ("2026-03-27") are treated as Athens midnight.
- */
-export function toBusinessStartOfDay(value) {
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return dayjs.tz(value, "YYYY-MM-DD", BUSINESS_TZ).startOf("day");
-  }
-  return dayjs(value).tz(BUSINESS_TZ).startOf("day");
+function tzOf(timezone) {
+  return canonicalizeTimezone(timezone) || BUSINESS_TZ;
 }
 
 /**
- * Convert to the canonical storage format: UTC date with hour=12 of the Athens calendar day.
- * This avoids DST edge cases where midnight UTC could shift the date.
+ * Parse any date-like value to start-of-day in the business timezone.
+ * Date-only strings ("2026-03-27") are treated as midnight in that zone.
  */
-export function toStoredBusinessDate(value) {
+export function toBusinessStartOfDay(value, timezone) {
+  const tz = tzOf(timezone);
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return dayjs.tz(value, "YYYY-MM-DD", tz).startOf("day");
+  }
+  return dayjs(value).tz(tz).startOf("day");
+}
+
+/**
+ * Convert to the canonical storage format: UTC date with hour=12 of the
+ * business calendar day. Avoids DST edge cases where midnight UTC shifts the date.
+ */
+export function toStoredBusinessDate(value, timezone) {
+  const tz = tzOf(timezone);
   const businessDay = dayjs.isDayjs(value)
-    ? value.tz(BUSINESS_TZ).startOf("day")
-    : toBusinessStartOfDay(value);
+    ? value.tz(tz).startOf("day")
+    : toBusinessStartOfDay(value, tz);
   return dayjs
     .utc(businessDay.format("YYYY-MM-DD"))
     .hour(12)

@@ -5,6 +5,7 @@ import LoaderWrapper from "./components/Loader/LoaderWrapper";
 import Script from "next/script";
 import { headers } from "next/headers";
 import { getSeoConfig } from "@config/seo";
+import { getActiveBrand, isGreeceSite } from "@config/brand";
 import { getPrimaryKeywords } from "@config/seoKeywords";
 import {
   getDefaultLocale,
@@ -26,24 +27,37 @@ const multilangKeywords = getPrimaryKeywords(8);
 // Otherwise non-default locales would inherit canonical to defaultLocale → "Google chose different canonical".
 const GA_MEASUREMENT_ID = "G-FY6325TNLP";
 
+const activeBrand = getActiveBrand();
+const brandMarkPath = activeBrand.logos.mark;
+const brandFaviconPath = activeBrand.logos.favicon || brandMarkPath;
+const brandApplePath = activeBrand.logos.appleIcon || brandMarkPath;
+
 const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: seoConfig.siteName,
+  name: activeBrand.name,
   url: seoConfig.baseUrl,
-  logo: `${seoConfig.baseUrl}/favicon.png`,
+  logo: `${seoConfig.baseUrl}${brandMarkPath}`,
+  description: seoConfig.defaultDescription,
   sameAs: [
     seoConfig.social.facebook,
     seoConfig.social.instagram,
     seoConfig.social.linkedin,
   ].filter(Boolean),
+  address: {
+    "@type": "PostalAddress",
+    addressCountry: seoConfig.addressCountry || (isGreeceSite() ? "GR" : "ES"),
+    addressLocality: seoConfig.addressLocality || "",
+    addressRegion: seoConfig.addressRegion || "",
+    streetAddress: seoConfig.contact.address,
+  },
   contactPoint: {
     "@type": "ContactPoint",
     telephone: seoConfig.contact.phone,
     contactType: "customer support",
     email: seoConfig.contact.email,
-    areaServed: "GR",
-    availableLanguage: supportedLocales,
+    areaServed: isGreeceSite() ? "GR" : "ES",
+    availableLanguage: seoConfig.supportedLocales || supportedLocales,
   },
 };
 
@@ -67,9 +81,9 @@ export const metadata = {
     description: seoConfig.defaultDescription,
     images: [
       {
-        url: `${seoConfig.baseUrl}/favicon.png`,
-        width: 1200,
-        height: 630,
+        url: `${seoConfig.baseUrl}${brandMarkPath}`,
+        width: 512,
+        height: 512,
         alt: seoConfig.siteName,
       },
     ],
@@ -78,7 +92,7 @@ export const metadata = {
     card: "summary_large_image",
     title: seoConfig.defaultTitle,
     description: seoConfig.defaultDescription,
-    images: [`${seoConfig.baseUrl}/favicon.png`],
+    images: [`${seoConfig.baseUrl}${brandMarkPath}`],
   },
   robots: {
     index: true,
@@ -96,14 +110,12 @@ export const metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.png", type: "image/png" },
-      { url: "/favicon.png", type: "image/png", sizes: "32x32" },
-      { url: "/favicon.png", type: "image/png", sizes: "16x16" },
+      { url: brandFaviconPath, type: "image/png" },
+      { url: brandFaviconPath, type: "image/png", sizes: "32x32" },
+      { url: brandFaviconPath, type: "image/png", sizes: "16x16" },
     ],
-    apple: [
-      { url: "/favicon.png", type: "image/png" },
-    ],
-    shortcut: "/favicon.png",
+    apple: [{ url: brandApplePath, type: "image/png" }],
+    shortcut: brandFaviconPath,
   },
 };
 
@@ -112,7 +124,7 @@ export default async function RootLayout({ children }) {
   const locale = normalizeLocale(requestHeaders.get(LOCALE_REQUEST_HEADER_NAME) || defaultLocale);
 
   return (
-    <html lang={locale} translate="no">
+    <html lang={locale} translate="no" data-brand={activeBrand.id}>
       <head>
         {process.env.NODE_ENV === "production" && (
           <>

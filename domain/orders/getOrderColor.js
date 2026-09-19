@@ -29,6 +29,10 @@ export function getOrderColor(order) {
     return ORDER_COLORS.PENDING_ADMIN;
   }
 
+  if (order.isTransferOverlay || order._calendarKind === "transfer") {
+    return ORDER_COLORS.TRANSFER;
+  }
+
   const { confirmed, my_order, status, offline } = order;
 
   // Terminal status has highest visual priority in calendar.

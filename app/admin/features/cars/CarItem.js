@@ -141,7 +141,7 @@ function CarItem({
   companyName,
   companies = [],
 }) {
-  const { updateCarInContext, setIsLoading, resubmitCars } = useMainContext();
+  const { updateCarInContext, resubmitCars } = useMainContext();
   const [modalOpen, setModalOpen] = useState(false);
   const [updatedCar, setUpdatedCar] = useState({
     ...car,
@@ -149,12 +149,20 @@ function CarItem({
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [hovered, setHovered] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [togglingActive, setTogglingActive] = useState(false);
   const fileInputRef = useRef(null);
+  const previewUrlRef = useRef(null);
 
   useEffect(() => {
     setUpdatedCar({ ...car, deposit: car.deposit });
   }, [car]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
 
   const isOnSite = car.isActive !== false;
 
@@ -187,45 +195,76 @@ function CarItem({
     }
   };
 
+  const clearPreview = useCallback(() => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setPreviewImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
   const handleImageSelect = useCallback((event) => {
-    const file = event.target.files[0];
-    if (file) setPreviewImage(URL.createObjectURL(file));
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    const blobUrl = URL.createObjectURL(file);
+    previewUrlRef.current = blobUrl;
+    setPreviewImage(blobUrl);
+    setHovered(true);
   }, []);
 
   const handleImageUpload = useCallback(async () => {
-    if (!fileInputRef.current.files[0]) return;
-    const file = fileInputRef.current.files[0];
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
     const formData = new FormData();
     formData.append("image", file);
 
     try {
-      setIsLoading(true);
-      const response = await fetch("/api/order/update/image", {
+      // Local spinner only — global isLoading unmounts the cars list
+      // (Cars.js returns <Loading />) and wipes the selected preview.
+      setUploadingPhoto(true);
+      setUpdateStatus(null);
+      const uploadRes = await fetch("/api/order/update/image", {
         method: "POST",
         body: formData,
       });
-      const data = await response.json();
-      if (data.success) {
-        const newPhotoUrl = data.data;
-        setUpdatedCar((prev) => ({ ...prev, photoUrl: newPhotoUrl }));
-        const response = await updateCarInContext({
-          ...updatedCar,
-          photoUrl: newPhotoUrl,
-        });
-        setUpdateStatus({ type: response.type, message: response.message });
-        setPreviewImage(null);
-      } else {
+      const data = await uploadRes.json();
+      if (!data.success || !data.data) {
         setUpdateStatus({
           type: 400,
-          message: "Image NOT uploaded successfully",
+          message: data.message || "Image NOT uploaded successfully",
         });
+        return;
       }
+      const newPhotoUrl = data.data;
+      const saved = await updateCarInContext({
+        ...updatedCar,
+        photoUrl: newPhotoUrl,
+      });
+      if (!saved?.data) {
+        setUpdateStatus({
+          type: saved?.type || 400,
+          message: saved?.message || "Photo uploaded but was not saved on the car",
+        });
+        return;
+      }
+      setUpdatedCar(saved.data);
+      clearPreview();
+      setUpdateStatus({
+        type: saved.type,
+        message: saved.message || "Photo saved",
+      });
     } catch (error) {
       console.error("Error uploading image:", error);
+      setUpdateStatus({
+        type: 400,
+        message: error?.message || "Error uploading image",
+      });
     } finally {
-      setIsLoading(false);
+      setUploadingPhoto(false);
     }
-  }, [updatedCar, setIsLoading, setUpdateStatus, updateCarInContext]);
+  }, [updatedCar, setUpdateStatus, updateCarInContext, clearPreview]);
 
   const handleCarsUpdate = async () => {
     try {
@@ -282,15 +321,21 @@ function CarItem({
     <StyledCarItem elevation={1}>
       <CarImage
         onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        onMouseLeave={() => {
+          if (!previewImage && !uploadingPhoto) setHovered(false);
+        }}
       >
         {previewImage ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={previewImage} alt="Preview" />
         ) : (
           <CldImage
-            src={car.photoUrl || CLOUDINARY_PLACEHOLDER_PUBLIC_ID}
-            alt={`CarsNK-${car.model}`}
+            src={
+              updatedCar.photoUrl ||
+              car.photoUrl ||
+              CLOUDINARY_PLACEHOLDER_PUBLIC_ID
+            }
+            alt={`rovaro-${car.model}`}
             width="300"
             height="200"
             crop="fill"
@@ -299,25 +344,32 @@ function CarItem({
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         )}
-        {hovered && (
+        {(hovered || previewImage || uploadingPhoto) && (
           <ImageOverlay>
             <ActionButton
               color="primary"
               size="small"
-              onClick={() => fileInputRef.current.click()}
+              disabled={uploadingPhoto}
+              onClick={() => fileInputRef.current?.click()}
               label={t("carPark.carNewPhoto")}
+              sx={{ minWidth: 0, width: "92%", px: 1, fontSize: "0.7rem" }}
             />
             {previewImage && (
-              <Stack spacing={0.5} direction="row">
+              <Stack spacing={0.5} direction="row" sx={{ width: "92%" }}>
                 <ConfirmButton
                   size="small"
+                  loading={uploadingPhoto}
+                  disabled={uploadingPhoto}
                   onClick={handleImageUpload}
                   label={t("carPark.savePhoto")}
+                  sx={{ minWidth: 0, flex: 1, px: 1, fontSize: "0.7rem" }}
                 />
                 <CancelButton
                   size="small"
-                  onClick={() => setPreviewImage(null)}
+                  disabled={uploadingPhoto}
+                  onClick={clearPreview}
                   label={t("basic.cancel")}
+                  sx={{ minWidth: 0, flex: 1, px: 1, fontSize: "0.7rem" }}
                 />
               </Stack>
             )}
@@ -325,6 +377,7 @@ function CarItem({
         )}
         <input
           type="file"
+          accept="image/*"
           ref={fileInputRef}
           onChange={handleImageSelect}
           style={{ display: "none" }}
@@ -345,23 +398,6 @@ function CarItem({
               fontSize: "0.7rem",
               fontWeight: 600,
               bgcolor: (theme) => theme.palette.grey[100],
-            }}
-          />
-          <Chip
-            size="small"
-            color={isOnSite ? "success" : "warning"}
-            variant={isOnSite ? "outlined" : "filled"}
-            label={
-              isOnSite
-                ? t("car.activeOnSite") || "Active on website"
-                : t("car.inactiveOnSite") || "Hidden on site"
-            }
-            sx={{
-              alignSelf: "flex-start",
-              mt: 0.25,
-              height: 22,
-              fontSize: "0.7rem",
-              fontWeight: 600,
             }}
           />
         </Stack>

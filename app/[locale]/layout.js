@@ -2,27 +2,34 @@ import { notFound } from "next/navigation";
 import {
   getHubLocationGroupsForNav,
   getLocaleDictionary,
-  getLocaleRouteParams,
-  isSupportedLocale,
-  normalizeLocale,
+  getRoutableLocaleParams,
+  getSeoLocale,
+  isRoutableLocale,
+  normalizeRoutableLocale,
 } from "@domain/locationSeo/locationSeoService";
 import { NavLocationsProvider } from "@app/context/NavLocationsContext";
+import { getSiteCountryConfig } from "@config/siteCountry";
 
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return getLocaleRouteParams();
+  return getRoutableLocaleParams();
 }
 
 export default function LocaleLayout({ children, params }) {
-  const locale = normalizeLocale(params.locale);
-  if (!isSupportedLocale(locale)) {
+  const locale = normalizeRoutableLocale(params.locale);
+  if (!isRoutableLocale(params.locale)) {
     notFound();
   }
 
-  const locationGroups = getHubLocationGroupsForNav(locale);
-  const dictionary = getLocaleDictionary(locale);
-  const navLocationsDescription = dictionary?.links?.navLocationsDropdownDescription ?? "";
+  const country = getSiteCountryConfig();
+  const seoLocale = getSeoLocale(locale);
+  const locationGroups = country.showLegacySeoLocations
+    ? getHubLocationGroupsForNav(seoLocale)
+    : [];
+  const dictionary = getLocaleDictionary(seoLocale);
+  const navLocationsDescription =
+    dictionary?.links?.navLocationsDropdownDescription ?? "";
 
   return (
     <NavLocationsProvider

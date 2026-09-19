@@ -4,43 +4,65 @@
  * Can accept companyData from DB or fallback to config
  *
  * Supports multilingual SEO for target markets.
- * Canonical / OG / sitemap base URL always comes from getBaseUrl() → carsnk.gr
+ * Canonical / OG / sitemap base URL comes from getBaseUrl().
  */
 
 import { getBaseUrl } from "@config/domain";
+import { getActiveBrand, getBrandName, isGreeceSite } from "@config/brand";
+import { getSiteCountryConfig } from "@config/siteCountry";
+
+const brand = getActiveBrand();
+const country = getSiteCountryConfig();
+const greece = isGreeceSite();
 
 const fallbackCompanyData = {
-  name: "CarsNK",
-  tel: "+380 68 100 3771",
-  tel2: "+353 85 270 96 05",
+  name: brand.name,
+  tel: country.defaultTel,
+  tel2: "",
   email: "admin@bbqr.site",
-  address: "Antonioy Kelesi 12, Nea Kallikratia 630 80",
-  coords: { lat: "40.311273589340836", lon: "23.06426516796098" },
+  address: country.defaultAddress,
+  coords: country.defaultCoords,
 };
 
-/** Single source of truth for production base URL (carsnk.gr). */
+/** Single source of truth for production base URL. */
 export const PRODUCTION_BASE_URL = getBaseUrl();
 
 export const multilingualDescriptions = {
-  en: "Rent a car in Halkidiki, Greece with CarsNK. Affordable car hire with flexible pickup and return options. Best car rental aggregator in Halkidiki, Nea Kallikratia, Kassandra, Sithonia.",
-  ru: "Аренда авто в Халкидики, Греция — CarsNK. Прокат машин без депозита. Гибкие условия получения и возврата. Лучший агрегатор проката авто в Халкидики, Неа Каликратия, Кассандра, Ситония.",
-  uk: "Оренда авто в Халкідіках, Греція — CarsNK. Прозорі умови, гнучка видача та повернення, підтримка для маршрутів Халкідіки, Ситонії та Кассандри.",
-  de: "Mietwagen in Chalkidiki, Griechenland bei CarsNK. Günstige Autovermietung mit flexiblen Abhol- und Rückgabeoptionen. Autovermietungs-Aggregator in Chalkidiki, Nea Kallikratia, Kassandra, Sithonia.",
-  sr: "Rent a car u Halkidikiju, Grčka — CarsNK. Povoljno iznajmljivanje auta bez depozita. Fleksibilni uslovi preuzimanja i vraćanja. Najbolji rent a car aggregator u Halkidikiju.",
-  ro: "Închirieri auto în Halkidiki, Grecia — CarsNK. Rent a car ieftin fără depozit. Condiții flexibile de preluare și returnare. Aggregator de închirieri auto în Halkidiki.",
-  bg: "Рент а кар в Халкидики, Гърция — CarsNK. Евтин наем на коли без депозит. Гъвкави условия за получаване и връщане. Агрегатор за рент а кар в Халкидики.",
-  el: "Ενοικίαση αυτοκινήτου στη Χαλκιδική, Ελλάδα με την CarsNK. Οικονομική ενοικίαση με ευέλικτες επιλογές παραλαβής και επιστροφής. Aggregator ενοικίασης στη Χαλκιδική.",
+  en: greece
+    ? `Rent a car in Halkidiki, Greece with ${brand.name}. Affordable car hire with flexible pickup and return options. Best car rental aggregator in Halkidiki, Nea Kallikratia, Kassandra, Sithonia.`
+    : `Rent a car in Spain with ${brand.name}. ${brand.tagline} Local partner fleets, transparent pricing, and easy online booking.`,
+  ru: greece
+    ? `Аренда авто в Халкидики, Греция — ${brand.name}. Прокат машин без депозита. Гибкие условия получения и возврата.`
+    : `${brand.tagline} Аренда авто в Испании с ${brand.name}.`,
+  uk: `Оренда авто з ${brand.name}.`,
+  de: greece
+    ? `Mietwagen mit ${brand.name}.`
+    : `Mietwagen in Spanien mit ${brand.name}. ${brand.tagline}`,
+  sr: `Rent a car sa ${brand.name}.`,
+  ro: `Închirieri auto cu ${brand.name}.`,
+  bg: `Наем на коли с ${brand.name}.`,
+  el: `Ενοικίαση αυτοκινήτου με ${brand.name}.`,
+  es: greece
+    ? `${brand.tagline} Alquila un coche con ${brand.name}.`
+    : `Alquila un coche en España con ${brand.name}. ${brand.tagline} Flotas locales, precios claros y reserva online sencilla.`,
 };
 
 export const multilingualTitles = {
-  en: "CarsNK - Car Rental in Halkidiki, Greece",
-  ru: "CarsNK - Аренда авто в Халкидики, Греция",
-  uk: "CarsNK - Оренда авто в Халкідіках, Греція",
-  de: "CarsNK - Mietwagen in Chalkidiki, Griechenland",
-  sr: "CarsNK - Rent a car Halkidiki, Grčka",
-  ro: "CarsNK - Închirieri auto Halkidiki, Grecia",
-  bg: "CarsNK - Рент а кар Халкидики, Гърция",
-  el: "CarsNK - Ενοικίαση αυτοκινήτου Χαλκιδική",
+  en: greece
+    ? `${brand.name} - Car Rental in Halkidiki, Greece`
+    : `${brand.name} — Car Rental in Spain | ${brand.tagline}`,
+  ru: `${brand.name} — аренда авто`,
+  uk: `${brand.name} — оренда авто`,
+  de: greece
+    ? `${brand.name} — Mietwagen`
+    : `${brand.name} — Mietwagen Spanien`,
+  sr: `${brand.name} — rent a car`,
+  ro: `${brand.name} — închirieri auto`,
+  bg: `${brand.name} — рент а кар`,
+  el: `${brand.name} — ενοικίαση αυτοκινήτου`,
+  es: greece
+    ? `${brand.name} — ${brand.tagline}`
+    : `${brand.name} — Alquiler de coches en España | ${brand.tagline}`,
 };
 
 /**
@@ -50,16 +72,23 @@ export const multilingualTitles = {
  */
 export function getSeoConfig(dbCompanyData = null) {
   const companyData = dbCompanyData || fallbackCompanyData;
-  const siteName = companyData?.name || fallbackCompanyData.name || "CarsNK";
+  const siteName = getBrandName();
+  const siteCountry = getSiteCountryConfig();
 
   return {
     siteName,
     baseUrl: getBaseUrl(),
     defaultLocale: "en",
-    supportedLocales: ["en", "ru", "uk", "de", "sr", "ro", "bg", "el", "pl"],
-    primaryLocation: "Halkidiki, Greece",
-    titleTemplate: `%s | ${siteName} - Car Rental in Halkidiki`,
-    defaultTitle: `${siteName} - Car Rental in Halkidiki, Greece`,
+    supportedLocales: greece
+      ? ["en", "ru", "uk", "de", "sr", "ro", "bg", "el", "pl", "es"]
+      : ["en", "es", "de", "ru"],
+    primaryLocation: greece ? "Halkidiki, Greece" : "Spain",
+    addressCountry: siteCountry.country,
+    addressLocality: greece ? "Nea Kallikratia" : "Madrid",
+    addressRegion: greece ? "Halkidiki" : "Community of Madrid",
+    postalCode: greece ? "63080" : "",
+    titleTemplate: `%s | ${siteName}`,
+    defaultTitle: multilingualTitles.en,
     defaultDescription: multilingualDescriptions.en,
     descriptions: multilingualDescriptions,
     titles: multilingualTitles,
@@ -70,21 +99,21 @@ export function getSeoConfig(dbCompanyData = null) {
     },
     contact: {
       email: companyData?.email || fallbackCompanyData.email || "admin@bbqr.site",
-      phone: companyData?.tel || fallbackCompanyData.tel || "+380 68 100 3771",
+      phone: companyData?.tel || fallbackCompanyData.tel || siteCountry.defaultTel,
       address:
         companyData?.address ||
         fallbackCompanyData.address ||
-        "Antonioy Kelesi 12, Nea Kallikratia 630 80",
+        siteCountry.defaultAddress,
     },
     coordinates: {
       lat:
         companyData?.coords?.lat ||
         fallbackCompanyData.coords?.lat ||
-        "40.311273589340836",
+        siteCountry.defaultCoords.lat,
       lon:
         companyData?.coords?.lon ||
         fallbackCompanyData.coords?.lon ||
-        "23.06426516796098",
+        siteCountry.defaultCoords.lon,
     },
     heroImageUrl: process.env.NEXT_PUBLIC_HERO_IMAGE_URL || null,
     heroImages: getHeroImages(),

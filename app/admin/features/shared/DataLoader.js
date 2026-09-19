@@ -4,6 +4,8 @@ import { authOptions } from "@lib/authOptions";
 import AdminView from "./AdminView";
 import { getCars, getCompany, getAllOrders } from "@/domain/services";
 import { COMPANY_ID } from "@/config/company";
+import { applyAdminViewAsFromCookies } from "@/domain/owners/adminViewAs";
+import { getEffectiveOwnerId } from "@/domain/owners/ownerScope";
 
 /**
  * DataLoader — Server Component для загрузки данных админки
@@ -16,9 +18,13 @@ import { COMPANY_ID } from "@/config/company";
 export default async function DataLoader({ viewType }) {
   unstable_noStore(); // Отключаем кеширование для админки
 
-  const session = await getServerSession(authOptions);
+  const rawSession = await getServerSession(authOptions);
+  const session = await applyAdminViewAsFromCookies(rawSession);
+  const scopedOwnerId = getEffectiveOwnerId(session?.user);
+  const companyId = scopedOwnerId || COMPANY_ID;
+
   const [company, cars, orders] = await Promise.all([
-    getCompany(COMPANY_ID),
+    getCompany(companyId),
     getCars({ session }),
     getAllOrders({ session }),
   ]);
@@ -29,7 +35,6 @@ export default async function DataLoader({ viewType }) {
   const safeCars = cars ? JSON.parse(JSON.stringify(cars)) : cars;
   const safeOrders = orders ? JSON.parse(JSON.stringify(orders)) : orders;
 
-  // Данные уже загружены — передаём в AdminView без Suspense
   return (
     <AdminView
       company={safeCompany}

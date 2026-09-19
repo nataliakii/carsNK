@@ -62,19 +62,27 @@ export function getDefaultOwnerId() {
 /**
  * Mongo filter for cars list.
  * - Public (no admin session): hide testingCar + inactive cars
- * - Superadmin: all cars (including inactive / testing) — isActive is display flag only
+ * - Superadmin: all cars, unless viewAsCompanyId is set (then company fleet)
  * - Admin: own fleet only (ownerId), including inactive; hide testingCar
  */
 export function buildCarsOwnerFilter(session) {
   const user = session?.user ?? null;
-  if (isSuperAdminUser(user)) return {};
-
   const testingGate = {
     $or: [{ testingCar: { $ne: true } }, { testingCar: { $exists: false } }],
   };
   const activeGate = {
     $or: [{ isActive: { $ne: false } }, { isActive: { $exists: false } }],
   };
+
+  if (isSuperAdminUser(user)) {
+    const viewAs = normalizeOwnerId(user.viewAsCompanyId);
+    if (viewAs) {
+      return {
+        $and: [testingGate, { ownerId: new mongoose.Types.ObjectId(viewAs) }],
+      };
+    }
+    return {};
+  }
 
   if (isAdminUser(user)) {
     const ownerId = getSessionOwnerId(user);
@@ -118,19 +126,39 @@ export function filterPublicCars(cars) {
 
 /**
  * Mongo filter for orders list (admin calendar / tables).
- * - Superadmin: no owner filter
+ * - Superadmin: no owner filter, unless viewAsCompanyId is set
  * - Admin: ownerId match
  * - Public/no session: no owner filter (caller should still gate admin routes)
  */
 export function buildOrdersOwnerFilter(session) {
   const user = session?.user ?? null;
-  if (isSuperAdminUser(user)) return {};
+  if (isSuperAdminUser(user)) {
+    const viewAs = normalizeOwnerId(user.viewAsCompanyId);
+    if (viewAs) return { ownerId: new mongoose.Types.ObjectId(viewAs) };
+    return {};
+  }
   if (isAdminUser(user) || isAnyAdminUser(user)) {
     const ownerId = getSessionOwnerId(user);
     if (!ownerId) return { _id: null };
     return { ownerId: new mongoose.Types.ObjectId(ownerId) };
   }
   return {};
+}
+
+/**
+ * Effective company id for UI/data when superadmin is viewing as a partner.
+ * Falls back to session ownerId for company admins.
+ */
+export function getEffectiveOwnerId(user) {
+  if (!user) return null;
+  if (isSuperAdminUser(user)) {
+    return normalizeOwnerId(user.viewAsCompanyId) || null;
+  }
+  return getSessionOwnerId(user);
+}
+
+export function isAdminViewAsActive(user) {
+  return Boolean(isSuperAdminUser(user) && normalizeOwnerId(user.viewAsCompanyId));
 }
 
 /** True if admin may access this car document. */
@@ -146,6 +174,7 @@ export function canAccessOwnedDoc(user, doc) {
 /**
  * Resolve ownerId when creating a car.
  * Admin → always session.ownerId.
+ * Superadmin view-as → viewAsCompanyId.
  * Superadmin → body/form ownerId or default COMPANY_ID.
  */
 export function resolveOwnerIdForCreate(user, requestedOwnerId) {
@@ -153,6 +182,8 @@ export function resolveOwnerIdForCreate(user, requestedOwnerId) {
     return getSessionOwnerId(user) || getDefaultOwnerId();
   }
   if (isSuperAdminUser(user)) {
+    const viewAs = normalizeOwnerId(user.viewAsCompanyId);
+    if (viewAs) return viewAs;
     return (
       normalizeOwnerId(requestedOwnerId) ||
       getSessionOwnerId(user) ||

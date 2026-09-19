@@ -4,7 +4,7 @@ import Company from "@models/company";
 import { connectToDB } from "@lib/database";
 import { requireAdmin } from "@/lib/adminAuth";
 import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
-import { getTimeBucket, athensNow } from "@/domain/time/athensTime";
+import { getTimeBucket } from "@/domain/time/athensTime";
 import { checkFieldAccess } from "@/middleware/withOrderAccess";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import { getActionFromChangedFields } from "@/domain/orders/orderNotificationPolicy";
@@ -20,6 +20,13 @@ import { normalizeDrivingLicenceUrls } from "@/domain/orders/normalizeDrivingLic
 import { buildDeliveryBreakdownSlice } from "@/domain/delivery/buildDeliveryBreakdownSlice";
 import { toBusinessStartOfDay, toStoredBusinessDate } from "@/domain/time/businessDate";
 import { ORDER_STATUS, isOrderPaidAndClosed } from "@/domain/orders/orderStatus";
+import {
+  AVAILABILITY_PURPOSE,
+  checkOrderIntervalConflicts,
+} from "@/domain/booking/availabilityEngine";
+import { resolveBookingMode } from "@/domain/booking/bookingMode";
+import { LEGACY_FALLBACK_TZ } from "@/domain/time/resolveBusinessTimezone";
+import { localSnapshotFromUtc } from "@/domain/time/businessInstant";
 import DiscountSetting from "@models/DiscountSetting";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -28,8 +35,15 @@ import timezone from "dayjs/plugin/timezone";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-function getBusinessDaySpan(start, end) {
-  return getBusinessRentalDaysByMinutes(start, end);
+function getBusinessDaySpan(start, end, timezone) {
+  return getBusinessRentalDaysByMinutes(start, end, timezone);
+}
+
+function pickupReturnDates(start, end) {
+  return {
+    pickupAtUtc: dayjs.isDayjs(start) ? start.toDate() : new Date(start),
+    returnAtUtc: dayjs.isDayjs(end) ? end.toDate() : new Date(end),
+  };
 }
 
 function applyDeliveryOverrideFromPayload(order, payload) {
@@ -47,74 +61,18 @@ function applyDeliveryOverrideFromPayload(order, payload) {
   }
 }
 
-// Restored from pre-refactor conflict logic: ИСПРАВЛЕННАЯ функция проверки конфликтов
-function checkConflictsFixed(allOrders, newStart, newEnd) {
-  const conflictingOrders = [];
-  const conflictDates = { start: null, end: null };
-
-  for (const existingOrder of allOrders) {
-    const existingStart = dayjs(existingOrder.timeIn);
-    const existingEnd = dayjs(existingOrder.timeOut);
-
-    // КЛЮЧЕВАЯ ЛОГИКА: заказы НЕ конфликтуют если "касаются" по времени
-    const newEndsWhenExistingStarts = newEnd.isSame(existingStart);
-    const newStartsWhenExistingEnds = newStart.isSame(existingEnd);
-
-    // Если заказы касаются - это НЕ конфликт
-    if (newEndsWhenExistingStarts || newStartsWhenExistingEnds) {
-      continue;
-    }
-
-    // Проверяем реальное пересечение периодов
-    const hasOverlap =
-      newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart);
-
-    if (hasOverlap) {
-      conflictingOrders.push(existingOrder);
-
-      // Определяем конкретные конфликтные времена
-      if (newStart.isBefore(existingEnd) && newStart.isAfter(existingStart)) {
-        conflictDates.start = existingStart.toISOString();
-      }
-      if (newEnd.isAfter(existingStart) && newEnd.isBefore(existingEnd)) {
-        conflictDates.end = existingEnd.toISOString();
-      }
-    }
-  }
-
-  if (conflictingOrders.length === 0) {
-    return { status: null, data: null }; // Нет конфликтов
-  }
-
-  // Проверяем подтвержденность конфликтующих заказов
-  const confirmedConflicts = conflictingOrders.filter(
-    (order) => order.confirmed
-  );
-
-  if (confirmedConflicts.length > 0) {
-    // Конфликт с подтвержденными заказами - блокируем
-    return {
-      status: 409,
-      data: {
-        conflictMessage: `Time has conflict with confirmed bookings`,
-        conflictDates,
-        conflictingOrders: confirmedConflicts,
-      },
-    };
-  } else {
-    // Конфликт только с неподтвержденными заказами
-    return {
-      status: 202,
-      data: {
-        conflictMessage: `Time has conflict with unconfirmed bookings`,
-        conflictDates,
-        conflictOrdersIds: conflictingOrders.map((order) =>
-          order._id.toString()
-        ),
-        conflictingOrders,
-      },
-    };
-  }
+function checkConflictsFixed(allOrders, newStart, newEnd, options = {}) {
+  const { pickupAtUtc, returnAtUtc } = pickupReturnDates(newStart, newEnd);
+  return checkOrderIntervalConflicts({
+    existingOrders: allOrders,
+    pickupAtUtc,
+    returnAtUtc,
+    timezone: options.timezone || LEGACY_FALLBACK_TZ,
+    excludeOrderId: options.excludeOrderId,
+    bufferHours: options.bufferHours || 0,
+    bookingMode: options.bookingMode,
+    purpose: AVAILABILITY_PURPOSE.ADMIN_EDIT,
+  });
 }
 
 // Restored from pre-refactor conflict logic: Function to check if existing conflicts are resolved after changing dates
@@ -352,10 +310,8 @@ export const PATCH = async (request, { params }) => {
     // ЕДИНАЯ ЛОГИКА ПРАВ: используем orderAccessPolicy напрямую
     // ════════════════════════════════════════════════════════════════
     const isSuperAdmin = session.user.role === ROLE.SUPERADMIN;
-    const isPast = order.rentalEndDate
-      ? dayjs(order.rentalEndDate).tz("Europe/Athens").isBefore(dayjs().tz("Europe/Athens"), "day")
-      : false;
     const timeBucket = getTimeBucket(order);
+    const isPast = timeBucket === "PAST";
 
     const access = getOrderAccess({
       role: isSuperAdmin ? "SUPERADMIN" : "ADMIN",
@@ -426,11 +382,12 @@ export const PATCH = async (request, { params }) => {
         );
       }
 
-      const nowAthens = athensNow();
-      const rentalStartAthens = dayjs(order.rentalStartDate).tz("Europe/Athens");
+      const closeTz = order.timezone || LEGACY_FALLBACK_TZ;
+      const nowLocal = dayjs().tz(closeTz);
+      const rentalStartLocal = dayjs.utc(order.rentalStartDate).tz(closeTz);
       const canClose =
-        rentalStartAthens.isBefore(nowAthens, "day") ||
-        rentalStartAthens.isSame(nowAthens, "day");
+        rentalStartLocal.isBefore(nowLocal, "day") ||
+        rentalStartLocal.isSame(nowLocal, "day");
 
       if (!canClose) {
         return new Response(
@@ -630,13 +587,13 @@ export const PATCH = async (request, { params }) => {
         carDoc = await Car.findById(order.car);
       }
 
-      // Convert dates and times
+      const orderTz = order.timezone || LEGACY_FALLBACK_TZ;
       const newStartDate = payload.rentalStartDate
-        ? toBusinessStartOfDay(payload.rentalStartDate)
-        : toBusinessStartOfDay(order.rentalStartDate);
+        ? toBusinessStartOfDay(payload.rentalStartDate, orderTz)
+        : toBusinessStartOfDay(order.rentalStartDate, orderTz);
       const newEndDate = payload.rentalEndDate
-        ? toBusinessStartOfDay(payload.rentalEndDate)
-        : toBusinessStartOfDay(order.rentalEndDate);
+        ? toBusinessStartOfDay(payload.rentalEndDate, orderTz)
+        : toBusinessStartOfDay(order.rentalEndDate, orderTz);
       const newTimeIn = payload.timeIn
         ? dayjs(payload.timeIn)
         : dayjs(order.timeIn);
@@ -662,7 +619,7 @@ export const PATCH = async (request, { params }) => {
       }
 
       // Ensure rental duration is positive
-      if (getBusinessDaySpan(start, end) <= 0) {
+      if (getBusinessDaySpan(start, end, orderTz) <= 0) {
         return new Response(
           JSON.stringify({
             message: "Start and end dates cannot be the same.",
@@ -704,9 +661,16 @@ export const PATCH = async (request, { params }) => {
         );
       }
 
-      // Restored from pre-refactor conflict logic: Check for conflicts
+      const bufferCompany = await Company.findById(
+        order.ownerId || COMPANY_ID
+      ).lean();
       const { status: conflictStatus, data: conflictData } =
-        checkConflictsFixed(allOrders, start, end);
+        checkConflictsFixed(allOrders, start, end, {
+          timezone: orderTz,
+          excludeOrderId: String(orderId),
+          bufferHours: Number(bufferCompany?.bufferTime) || 0,
+          bookingMode: resolveBookingMode({ order }),
+        });
 
       // Restored from pre-refactor conflict logic: Debug logging
       if (process.env.NODE_ENV !== "production") {
@@ -742,7 +706,7 @@ export const PATCH = async (request, { params }) => {
           case 202:
             // Restored from pre-refactor conflict logic: Update with pending conflicts (warning, but proceed)
             let totalPrice202 = order.totalPrice; // 🔧 FIX: Preserve existing price by default
-            let days202 = getBusinessDaySpan(start, end);
+            let days202 = getBusinessDaySpan(start, end, orderTz);
             
             // ============================================
             // PRICE ARCHITECTURE LOGIC (202 status with conflicts)
@@ -788,12 +752,16 @@ export const PATCH = async (request, { params }) => {
             }
             order.totalPrice = totalPrice202;
 
-            order.rentalStartDate = toStoredBusinessDate(start);
-            order.rentalEndDate = toStoredBusinessDate(end);
+            order.rentalStartDate = toStoredBusinessDate(start, orderTz);
+            order.rentalEndDate = toStoredBusinessDate(end, orderTz);
             order.numberOfDays = days202;
             
             order.timeIn = start.toDate();
             order.timeOut = end.toDate();
+            order.pickupAtUtc = start.toDate();
+            order.returnAtUtc = end.toDate();
+            order.localPickup = localSnapshotFromUtc(start.toDate(), orderTz);
+            order.localReturn = localSnapshotFromUtc(end.toDate(), orderTz);
             // Restored from pre-refactor conflict logic: Use || operator for placeIn/placeOut to preserve existing values
             order.placeIn = payload.placeIn !== undefined ? payload.placeIn : order.placeIn;
             order.placeOut = payload.placeOut !== undefined ? payload.placeOut : order.placeOut;
@@ -812,7 +780,7 @@ export const PATCH = async (request, { params }) => {
             order.hasConflictDates = [
               ...new Set([
                 ...order.hasConflictDates,
-                ...conflictData.conflictOrdersIds,
+                ...conflictData.conflictOrdersIds || [],
                 ...stillConflictingOrders,
               ]),
             ];
@@ -889,7 +857,7 @@ export const PATCH = async (request, { params }) => {
 
       // Restored from pre-refactor conflict logic: No conflicts - proceed with update
       let totalPrice = order.totalPrice;
-      let days = getBusinessDaySpan(start, end);
+      let days = getBusinessDaySpan(start, end, orderTz);
 
       const datesChanged =
         payload.rentalStartDate !== undefined ||
@@ -932,11 +900,15 @@ export const PATCH = async (request, { params }) => {
       }
       order.totalPrice = totalPrice;
 
-      order.rentalStartDate = toStoredBusinessDate(start);
-      order.rentalEndDate = toStoredBusinessDate(end);
+      order.rentalStartDate = toStoredBusinessDate(start, orderTz);
+      order.rentalEndDate = toStoredBusinessDate(end, orderTz);
       order.numberOfDays = days;
       order.timeIn = start.toDate();
       order.timeOut = end.toDate();
+      order.pickupAtUtc = start.toDate();
+      order.returnAtUtc = end.toDate();
+      order.localPickup = localSnapshotFromUtc(start.toDate(), orderTz);
+      order.localReturn = localSnapshotFromUtc(end.toDate(), orderTz);
       // Restored from pre-refactor conflict logic: Use || operator to preserve existing values
       order.placeIn = payload.placeIn !== undefined ? payload.placeIn : order.placeIn;
       order.placeOut = payload.placeOut !== undefined ? payload.placeOut : order.placeOut;

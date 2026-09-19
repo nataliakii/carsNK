@@ -19,7 +19,7 @@ import { getSecondDriverPriceLabelValue } from "@utils/secondDriverPricing";
 import { withTestOrderEmailSubject } from "@/domain/orders/testOrderMarkers";
 
 /** Дата в формате "17 Jan 2026" и т.п. по локали письма клиенту */
-function formatDateLong(d, locale) {
+function formatDateLong(d, locale, timezone) {
   if (!d) return "—";
   const code = normalizeEmailLocale(locale);
   const dayjsLocale =
@@ -38,16 +38,16 @@ function formatDateLong(d, locale) {
                 : code === "uk"
                   ? "uk"
                   : "en";
-  const athens = fromServerUTC(d);
-  if (!athens || !athens.isValid()) return "—";
-  return athens.locale(dayjsLocale).format("D MMM YYYY");
+  const local = fromServerUTC(d, timezone);
+  if (!local || !local.isValid()) return "—";
+  return local.locale(dayjsLocale).format("D MMM YYYY");
 }
 
-function formatTime(d) {
+function formatTime(d, timezone) {
   if (!d) return "—";
-  const athens = fromServerUTC(d);
-  if (!athens || !athens.isValid()) return "—";
-  return formatTimeHHMM(athens);
+  const local = fromServerUTC(d, timezone);
+  if (!local || !local.isValid()) return "—";
+  return formatTimeHHMM(local);
 }
 
 function interpolatePrice(template, priceLabelValue) {
@@ -99,8 +99,8 @@ function isKaskoInsurance(value) {
 function buildCustomerEmailViewModel(payload) {
   const locale = normalizeEmailLocale(payload.locale);
   const t = getCustomerEmailStrings(locale);
-  const fromStr = formatDateLong(payload.rentalStartDate, locale);
-  const toStr = formatDateLong(payload.rentalEndDate, locale);
+  const fromStr = formatDateLong(payload.rentalStartDate, locale, payload.timezone);
+  const toStr = formatDateLong(payload.rentalEndDate, locale, payload.timezone);
   const carRegNumber =
     payload.regNumber && String(payload.regNumber).trim()
       ? String(payload.regNumber).trim()
@@ -146,8 +146,8 @@ function buildCustomerEmailViewModel(payload) {
     payload.placeOut,
     payload.placeOutDetail
   );
-  const timeInStr = payload.timeIn ? formatTime(payload.timeIn) : "";
-  const timeOutStr = payload.timeOut ? formatTime(payload.timeOut) : "";
+  const timeInStr = payload.timeIn ? formatTime(payload.timeIn, payload.timezone) : "";
+  const timeOutStr = payload.timeOut ? formatTime(payload.timeOut, payload.timezone) : "";
   const flightNumber = normalizeText(payload.flightNumber);
   const flightShortLabel = t.flightShortLabel || "Flight";
   const pickupLocationWithFlight =
@@ -172,14 +172,36 @@ function buildCustomerEmailViewModel(payload) {
   const meetingContactPhone = normalizeText(payload.meetingContactPhone);
   const meetingContactChannel = normalizeText(payload.meetingContactChannel);
   const meetingContactName = normalizeText(payload.meetingContactName);
-  const meetingContactValue = [
-    meetingContactPhone,
-    meetingContactChannel ? `(${meetingContactChannel})` : "",
-    meetingContactName,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
+  const meetingContactValueFromPayload = normalizeText(
+    payload.meetingContactValue
+  );
+  const meetingContactsList = Array.isArray(payload.meetingContacts)
+    ? payload.meetingContacts
+    : [];
+  const meetingContactValue =
+    meetingContactValueFromPayload ||
+    (meetingContactsList.length
+      ? meetingContactsList
+          .map((c) =>
+            [
+              normalizeText(c?.phone),
+              normalizeText(c?.channel) ? `(${normalizeText(c.channel)})` : "",
+              normalizeText(c?.name),
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .trim()
+          )
+          .filter(Boolean)
+          .join(" · ")
+      : [
+          meetingContactPhone,
+          meetingContactChannel ? `(${meetingContactChannel})` : "",
+          meetingContactName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .trim());
   const rentalPeriodWithTime =
     fromStr && toStr
       ? `${fromStr}${timeInStr ? ` ${timeInStr}` : ""} – ${toStr}${
@@ -374,7 +396,7 @@ export function renderCustomerOfficialConfirmationEmail(payload) {
   const title = withTestOrderEmailSubject(baseOfficialTitle, fromLocalhost);
   const intro =
     t.officialIntro ||
-    "Your reservation has been officially confirmed by CarsNK.";
+    "Your reservation has been officially confirmed by rovaro.";
   const pdfNote =
     t.officialPdfNote ||
     "The official confirmation PDF is attached to this email.";

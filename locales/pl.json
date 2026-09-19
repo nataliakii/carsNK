@@ -8,7 +8,7 @@
     "calendars": "Kalendarze",
     "table": "Tabela zamówień",
     "calendar": "Kalendarz",
-    "deliveryZones": "Strefy dostawy",
+    "deliveryZones": "Dostawa i ceny",
     "orders": "Święcenia",
     "orderList": "Lista zamówień",
     "carClass": "Wybierz klasę samochodu",
@@ -24,7 +24,13 @@
     "websiteVisits": "Visits",
     "transfer": "Transfer",
     "transfers": "Transfery",
-    "owners": "Właściciele"
+    "owners": "Firmy",
+    "carRentals": "Wynajem aut",
+    "platform": "Platforma",
+    "vouchers": "Vouchery",
+    "accessLinks": "Linki dostępu",
+    "vouchersAndLinks": "Vouchery i narzędzia",
+    "viewAsExit": "Wyjdź z firmy"
   },
   "catalog": {
     "noCarsMatchFilters": "Brak aut dla wybranych filtrów. Zmień wyszukiwanie, klasę, skrzynię lub miejsca."
@@ -301,6 +307,9 @@
     "activeTitle": "Active discount",
     "activeValue": "Active discount: {{value}}",
     "notApplied": "No discount applied",
+    "howItWorksTitle": "How this discount works",
+    "howItWorksGlobal": "Pick any date range and a %. It applies to all cars for those days.",
+    "howItWorksPerCar": "To change the price of one car only, edit that car in Cars settings — not here.",
     "startDate": "Discount start date",
     "endDate": "Discount end date",
     "activeToday": "Discount is active today",
@@ -357,7 +366,7 @@
   },
   "forBusiness": {
     "eyebrow": "Dla firm",
-    "title": "CarsNK jako platforma wypożyczalni",
+    "title": "rovaro jako platforma wypożyczalni",
     "intro": "Wprowadź flotę online: klienci rezerwują na stronie, a Ty prowadzisz codzienną pracę w jednym panelu admina — od pierwszego zgłoszenia do zwrotu auta.",
     "cta": "Porozmawiajmy o platformie",
     "features": {
@@ -408,9 +417,9 @@
     "separator": "------------"
   },
   "customerEmail": {
-    "title": "Dziękujemy za rezerwację – CarsNK",
+    "title": "Dziękujemy za rezerwację – rovaro",
     "greeting": "Drogi {{CustomerName}},",
-    "thankYouChoose": "Dziękujemy za wybranie **CarsNK**.",
+    "thankYouChoose": "Dziękujemy za wybranie **rovaro**.",
     "weReceived": "Otrzymaliśmy Twoją prośbę o rezerwację i naprawdę doceniamy Twoje zaufanie do naszych usług. Nasz zespół sprawdza obecnie szczegóły i wkrótce skontaktuje się z Tobą, aby potwierdzić rezerwację i upewnić się, że wszystko jest zorganizowane zgodnie z Twoimi oczekiwaniami.",
     "availabilityDisclaimer": "Ta wiadomość nie gwarantuje, że samochód jest dostępny w podanych terminach w podanej cenie. Oficjalne potwierdzenie wyśle nasz menedżer po skontaktowaniu się z Tobą i ponownym sprawdzeniu dostępności.",
     "reservationDetails": "**Szczegóły rezerwacji:**",
@@ -435,7 +444,7 @@
     "totalAmountLabel": "Całkowita kwota",
     "excludeCityDeliveryNote": "Nie obejmuje dostawy do miasta.",
     "officialTitle": "Oficjalne potwierdzenie rezerwacji",
-    "officialIntro": "Twoja rezerwacja została oficjalnie potwierdzona przez CarsNK.",
+    "officialIntro": "Twoja rezerwacja została oficjalnie potwierdzona przez rovaro.",
     "officialPdfNote": "Oficjalne potwierdzenie w formacie PDF jest dołączone do tego e-maila. Proszę zachować go do odbioru pojazdu.",
     "generatedAtLabel": "Wygenerowano o godz",
     "customerLabel": "Klient",
@@ -455,7 +464,7 @@
     "step3": "3. Po potwierdzeniu otrzymasz ostateczne potwierdzenie ze wszystkimi niezbędnymi informacjami.",
     "questionsParagraph": "Jeśli w międzyczasie będziesz mieć jakieś pytania, odpowiedz na tego e-maila – chętnie pomożemy Ci osobiście.",
     "kindRegards": "Serdeczne pozdrowienia,",
-    "team": "**Zespół CarsNK**",
+    "team": "**Zespół rovaro**",
     "phones": "📞 +380 50 358 72 11 (WhatsApp)\n📞 +380 68 100 37 71 (WhatsApp / Viber)"
   },
   "admin": {

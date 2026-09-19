@@ -3,6 +3,14 @@ import {
   estimateTransferDistanceFromCatalog,
   getCuratedDistanceKm,
 } from "@/domain/transfers/transferLocations";
+import {
+  redactSecretsForLog,
+  sanitizeProviderErrorMessage,
+} from "@/domain/transfers/sanitizeProviderError";
+
+const GOOGLE_DISTANCE_TIMEOUT_MS = Number(
+  process.env.GOOGLE_DISTANCE_TIMEOUT_MS || 8000
+);
 
 /**
  * Driving distance via Google Distance Matrix API.
@@ -188,19 +196,32 @@ async function fetchGoogleDistanceMatrix(origins, destinations, apiKey) {
 
   let payload;
   try {
-    const res = await fetch(url.toString(), { cache: "no-store" });
+    const res = await fetch(url.toString(), {
+      cache: "no-store",
+      signal: AbortSignal.timeout(GOOGLE_DISTANCE_TIMEOUT_MS),
+    });
     payload = await res.json();
   } catch (err) {
+    console.error(
+      "[google distance] request failed",
+      err?.name,
+      redactSecretsForLog(err?.message)
+    );
     return {
       ok: false,
-      message: err?.message || "Distance request failed",
+      message: sanitizeProviderErrorMessage(
+        err?.name === "TimeoutError" || err?.name === "AbortError"
+          ? "Distance provider unavailable"
+          : err?.message
+      ),
     };
   }
 
   if (payload?.status && payload.status !== "OK") {
+    console.error("[google distance] status", payload.status);
     return {
       ok: false,
-      message: payload.error_message || `Google status: ${payload.status}`,
+      message: "Distance provider unavailable",
     };
   }
 

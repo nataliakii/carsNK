@@ -31,6 +31,7 @@ const MainContext = createContext({
   resubmitCars: () => {},
   scrolled: false,
   company: {},
+  platform: null,
   carSearchQuery: "",
   setCarSearchQuery: () => {},
   pendingConfirmBlockById: {}, // Map pending order ID -> block message
@@ -55,7 +56,18 @@ export const MainContextProvider = ({
 
   const changeLanguage = useCallback(
     (newLang) => {
-      const supportedLngs = ["en", "el", "ru", "uk", "de", "bg", "ro", "sr", "pl"];
+      const supportedLngs = [
+        "en",
+        "el",
+        "ru",
+        "uk",
+        "de",
+        "bg",
+        "ro",
+        "sr",
+        "pl",
+        "es",
+      ];
       if (supportedLngs.includes(newLang)) {
         i18n.changeLanguage(newLang);
         setLang(newLang);
@@ -96,6 +108,21 @@ export const MainContextProvider = ({
   const [company, setCompany] = useState(companyDataRef.current || companyData);
   const [companyLoading, setCompanyLoading] = useState(!companyData);
   const [companyError, setCompanyError] = useState(null);
+  const [platform, setPlatform] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/platform/public", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (cancelled || !body?.success) return;
+        setPlatform(body);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Загрузка компании ТОЛЬКО если она не была передана с сервера
   // Используем ref для предотвращения повторных загрузок
@@ -502,6 +529,7 @@ export const MainContextProvider = ({
       company,
       companyLoading,
       companyError,
+      platform,
       updateCompanyInContext, // Функция для обновления компании
       pendingConfirmBlockById, // 🎯 Map pending order ID -> block message
       conflictHighlightById, // 🎯 Map orderId -> conflict highlight info
@@ -529,6 +557,7 @@ export const MainContextProvider = ({
       company,
       companyLoading,
       companyError,
+      platform,
       updateCompanyInContext,
       fetchAndUpdateOrders,
       fetchAndUpdateActiveOrders,

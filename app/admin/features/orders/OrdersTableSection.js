@@ -76,6 +76,8 @@ import { extractArraysOfStartEndConfPending } from "@/domain/calendar";
 import EditOrderModal from "@/app/admin/features/orders/modals/EditOrderModal";
 import OrderUnsavedCloseDialog from "@/app/admin/features/orders/components/OrderUnsavedCloseDialog";
 import { isPast } from "@utils/businessTime";
+import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
+import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 
 // Dayjs plugins
 dayjs.extend(utc);
@@ -126,6 +128,10 @@ export default function OrdersTableSection() {
     conflictHighlightById,
   } = useMainContext();
   const { data: session } = useSession();
+  const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
+  const { active: viewAsActive } = useAdminViewAs();
+  const showSuperAdminFilters = isSuperAdmin && !viewAsActive;
+  const { country: adminCountry } = useAdminCountryFilter();
   
   // ─────────────────────────────────────────────────────────────
   // DATA: same pipeline as calendar (MainContext.allOrders + fetchAndUpdateOrders → /api/order/refetch → getAllOrders)
@@ -396,9 +402,19 @@ export default function OrdersTableSection() {
   // Companies for owner filter (superadmin API; fallback from cars)
   useEffect(() => {
     let cancelled = false;
+    if (!showSuperAdminFilters) {
+      setCompanies([]);
+      setSelectedOwnerId("");
+      return undefined;
+    }
+    setCompanies([]);
     (async () => {
       try {
-        const res = await fetch("/api/admin/owners");
+        const qs =
+          adminCountry === "ALL"
+            ? "country=ALL"
+            : `country=${encodeURIComponent(adminCountry)}`;
+        const res = await fetch(`/api/admin/owners?${qs}`);
         if (res.ok) {
           const body = await res.json();
           if (!cancelled && body?.success && Array.isArray(body.companies)) {
@@ -421,7 +437,11 @@ export default function OrdersTableSection() {
     return () => {
       cancelled = true;
     };
-  }, [cars]);
+  }, [cars, showSuperAdminFilters, adminCountry]);
+
+  useEffect(() => {
+    setSelectedOwnerId("");
+  }, [adminCountry]);
 
   // ─────────────────────────────────────────────────────────────
   // PAGINATION STATE
@@ -455,7 +475,18 @@ export default function OrdersTableSection() {
   // FILTERING LOGIC
   // ─────────────────────────────────────────────────────────────
   const filteredOrders = useMemo(() => {
+    const countryOwnerIds =
+      showSuperAdminFilters && adminCountry !== "ALL"
+        ? new Set(companies.map((c) => String(c._id)))
+        : null;
+
     return orders.filter((order) => {
+      // 0. Superadmin country filter (navbar Spain/Greece/All)
+      if (countryOwnerIds) {
+        const oid = resolveOrderOwnerId(order, cars);
+        if (oid && !countryOwnerIds.has(String(oid))) return false;
+      }
+
       // 1. Car filter
       if (selectedCar) {
         const orderCarId = order.car?._id || order.car;
@@ -550,6 +581,9 @@ export default function OrdersTableSection() {
     dateTo,
     searchQuery,
     hidePastOrders,
+    showSuperAdminFilters,
+    adminCountry,
+    companies,
   ]);
 
   const filteredSummary = useMemo(
@@ -1200,6 +1234,7 @@ export default function OrdersTableSection() {
             flexWrap="wrap"
           >
             {/* Company / owner filter */}
+            {showSuperAdminFilters ? (
             <FormControl size="small" sx={{ minWidth: 180 }}>
               <InputLabel>Company</InputLabel>
               <Select
@@ -1217,6 +1252,7 @@ export default function OrdersTableSection() {
                 ))}
               </Select>
             </FormControl>
+            ) : null}
 
             {/* Status Filter */}
             <FormControl size="small" sx={{ minWidth: 140 }}>

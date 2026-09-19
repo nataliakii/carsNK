@@ -1,71 +1,32 @@
 import { NextResponse } from "next/server";
-
-const TELEGRAM_BOT_URL = process.env.TELEGRAM_BOT_URL;
+import { requireAdmin } from "@/lib/adminAuth";
+import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
 
 /**
- * Server-side API route for Telegram bot requests
- * This keeps TELEGRAM_BOT_URL secret (not exposed to client)
+ * Admin-only Telegram send. Public callers get 403.
+ * Never forwards a client-chosen endpoint to TELEGRAM_BOT_URL.
  */
 export async function POST(req) {
+  const { errorResponse } = await requireAdmin(req);
+  if (errorResponse) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
-    const {
-      endpoint,
-      chat_id,
-      chat_id1,
-      message,
-      disablePreview = true,
-    } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const message = typeof body?.message === "string" ? body.message : "";
+    if (!message.trim()) {
+      return NextResponse.json({ error: "Missing message" }, { status: 400 });
+    }
 
-    // endpoint can be empty string for AWS API Gateway URLs that are already complete
-    if (endpoint === undefined || endpoint === null) {
+    const sent = await sendTelegramDirect(message);
+    if (!sent) {
       return NextResponse.json(
-        { error: "Missing endpoint" },
-        { status: 400 }
+        { error: "Telegram send failed" },
+        { status: 502 }
       );
     }
-
-    if (!TELEGRAM_BOT_URL) {
-      console.error("TELEGRAM_BOT_URL is not configured");
-      return NextResponse.json(
-        { error: "Telegram bot not configured" },
-        { status: 500 }
-      );
-    }
-
-    const data = {
-      chat_id: chat_id,
-      message: message,
-    };
-
-    if (disablePreview) {
-      data.disable_web_page_preview = true;
-      data.link_preview_options = { is_disabled: true };
-    }
-
-    // Add chat_id1 for shisha endpoint
-    if (chat_id1) {
-      data.chat_id1 = chat_id1;
-    }
-
-    const response = await fetch(`${TELEGRAM_BOT_URL}${endpoint}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Telegram bot error: ${response.status}`, errorText);
-      return NextResponse.json(
-        { error: "Telegram bot request failed", details: errorText },
-        { status: response.status }
-      );
-    }
-
-    const result = await response.json();
-    return NextResponse.json({ success: true, data: result });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error sending to Telegram bot:", error);
     return NextResponse.json(

@@ -5,12 +5,13 @@
 
 import { Order } from "@models/order";
 import { connectToDB } from "@lib/database";
-import { DEVELOPER_EMAIL } from "@config/email";
+import { getInternalNotificationEmail } from "@config/email";
 import { getBaseUrl, absoluteUrl } from "@config/domain";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
 import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
 import { renderAdminOrderNotificationEmail } from "@/app/ui/email/renderEmail";
 import { verifyCompanyEmailActionToken } from "./companyEmailActionToken";
+import AuditLog from "@models/auditLog";
 
 /**
  * @param {string} token
@@ -61,7 +62,7 @@ async function notifySuperadmins({ title, bodyLines, telegramText }) {
     title,
     message: body,
     html,
-    to: [DEVELOPER_EMAIL],
+    to: [getInternalNotificationEmail()],
     cc: [],
   });
   try {
@@ -116,6 +117,29 @@ export async function applyCompanyEmailDecision({ token, decision }) {
   order.companyEmailDecision = decision;
   order.companyEmailDecisionAt = new Date();
   await order.save();
+
+  try {
+    await AuditLog.create({
+      action: "CHANGE_ORDER_STATUS",
+      userRole: "system",
+      orderData: {
+        orderId: order._id,
+        orderNumber: order.orderNumber ? String(order.orderNumber) : undefined,
+      },
+      metadata: {
+        source: "company_email_action",
+        decision,
+      },
+      reason: `company_email_${decision}`,
+      severity: "low",
+      result: "success",
+    });
+  } catch (err) {
+    console.error(
+      "[companyEmailAction] audit persist failed:",
+      err?.message || err
+    );
+  }
 
   const title =
     decision === "accepted"

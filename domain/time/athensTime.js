@@ -149,11 +149,11 @@ export function toServerUTC(athensTime) {
  * fromServerUTC("2025-01-15T12:00:00Z")
  * // Результат: 14:00 Athens (UTC+2 зимой)
  */
-export function fromServerUTC(serverTime) {
+export function fromServerUTC(serverTime, timezone = ATHENS_TZ) {
   if (!serverTime) return null;
 
-  // Парсим как UTC, затем конвертируем в Athens
-  const result = dayjs.utc(serverTime).tz(ATHENS_TZ);
+  const tz = timezone || ATHENS_TZ;
+  const result = dayjs.utc(serverTime).tz(tz);
 
   devLog("fromServerUTC", {
     inputUTC: serverTime instanceof Date ? serverTime.toISOString() : serverTime,
@@ -274,8 +274,8 @@ export function formatDateYYYYMMDD(time) {
  * @param {string} dateStr - Дата "YYYY-MM-DD"
  * @returns {dayjs.Dayjs}
  */
-export function athensStartOfDay(dateStr) {
-  return dayjs.tz(dateStr, "YYYY-MM-DD", ATHENS_TZ).startOf("day");
+export function athensStartOfDay(dateStr, timezone = ATHENS_TZ) {
+  return dayjs.tz(dateStr, "YYYY-MM-DD", timezone || ATHENS_TZ).startOf("day");
 }
 
 /**
@@ -284,8 +284,12 @@ export function athensStartOfDay(dateStr) {
  * @param {string} dateStr - Дата "YYYY-MM-DD"
  * @returns {dayjs.Dayjs}
  */
-export function athensEndOfDay(dateStr) {
-  return dayjs.tz(`${dateStr} 23:59`, "YYYY-MM-DD HH:mm", ATHENS_TZ);
+export function athensEndOfDay(dateStr, timezone = ATHENS_TZ) {
+  return dayjs.tz(
+    `${dateStr} 23:59`,
+    "YYYY-MM-DD HH:mm",
+    timezone || ATHENS_TZ
+  );
 }
 
 /**
@@ -337,22 +341,23 @@ export function reinterpretAsAthens(localDayjs, dateStr) {
  */
 export function getTimeBucket(order) {
   if (!order) return "FUTURE";
+  const tz = order.timezone || ATHENS_TZ;
   const hasStart = order.rentalStartDate != null;
   const hasEnd = order.rentalEndDate != null;
-  const today = athensNow().startOf("day");
+  const today = dayjs().tz(tz).startOf("day");
 
   if (!hasStart && !hasEnd) return "FUTURE";
   if (!hasStart && hasEnd) {
-    const end = dayjs.utc(order.rentalEndDate).tz(ATHENS_TZ).startOf("day");
+    const end = dayjs.utc(order.rentalEndDate).tz(tz).startOf("day");
     return end.isBefore(today, "day") ? "PAST" : "CURRENT";
   }
   if (hasStart && !hasEnd) {
-    const start = dayjs.utc(order.rentalStartDate).tz(ATHENS_TZ).startOf("day");
+    const start = dayjs.utc(order.rentalStartDate).tz(tz).startOf("day");
     return start.isAfter(today, "day") ? "FUTURE" : "CURRENT";
   }
 
-  const start = dayjs.utc(order.rentalStartDate).tz(ATHENS_TZ).startOf("day");
-  const end = dayjs.utc(order.rentalEndDate).tz(ATHENS_TZ).startOf("day");
+  const start = dayjs.utc(order.rentalStartDate).tz(tz).startOf("day");
+  const end = dayjs.utc(order.rentalEndDate).tz(tz).startOf("day");
   if (end.isBefore(today, "day")) return "PAST";
   if (start.isAfter(today, "day")) return "FUTURE";
   return "CURRENT";
@@ -363,8 +368,9 @@ export function getTimeBucket(order) {
  * Используется при создании заказа на сайте и в админке — единая бизнес-таймзона.
  * @returns {string}
  */
-export function generateOrderNumber() {
-  const now = dayjs().tz(ATHENS_TZ);
+export function generateOrderNumber(timezone) {
+  const tz = timezone || ATHENS_TZ;
+  const now = dayjs().tz(tz);
   const pad = (n) => String(n).padStart(2, "0");
   return (
     String(now.year()) +

@@ -9,7 +9,7 @@ const TOPBAR_HEIGHT_PX = 48;
 const StyledTopBar = styled(Box)(({ theme }) => ({
   zIndex: 996,
   position: "fixed",
-  top: 60,
+  top: 64,
   left: 0,
   width: "100%",
   height: TOPBAR_HEIGHT_PX,

@@ -1,4 +1,5 @@
 import { DeliveryZone } from "@models/DeliveryZone";
+import { COMPANY_ID } from "@config/company";
 import { toGooglePlaceQuery } from "@/domain/transfers/transferLocations";
 import { getDistancesFromBaseToDestinations } from "@/domain/transfers/getTransferDistance";
 
@@ -21,9 +22,23 @@ function destinationQueryForZone(zone) {
 /**
  * Recalculate DeliveryZone.distanceKm from company base coordinates.
  * @param {{ lat: unknown, lon?: unknown, lng?: unknown }} baseCoords
+ * @param {{ ownerId?: string|null }} [options]
  */
-export async function recalculateZoneDistancesFromBase(baseCoords) {
-  const zones = await DeliveryZone.find().lean();
+export async function recalculateZoneDistancesFromBase(baseCoords, options = {}) {
+  const filter = {};
+  if (options.ownerId) {
+    const id = String(options.ownerId);
+    if (id === String(COMPANY_ID)) {
+      filter.$or = [
+        { ownerId: id },
+        { ownerId: null },
+        { ownerId: { $exists: false } },
+      ];
+    } else {
+      filter.ownerId = id;
+    }
+  }
+  const zones = await DeliveryZone.find(filter).lean();
   if (!zones.length) {
     return { updated: [], failed: [] };
   }

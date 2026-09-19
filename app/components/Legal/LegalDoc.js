@@ -12,7 +12,7 @@ import Preloader from "@app/components/Loader/Preloader";
  * @param {string} [props.lang="en"] - Language code
  * @param {"EU"|"IE"|"UA"} [props.jur="EU"] - Jurisdiction
  */
-function LegalDoc({ docType, lang = "en", jur = "EU" }) {
+function LegalDoc({ docType, lang = "en", jur }) {
   const [doc, setDoc] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);

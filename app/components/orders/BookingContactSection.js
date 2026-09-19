@@ -23,6 +23,7 @@ export default function BookingContactSection({
   drivingLicenceUploadButtonSideNote,
   showDrivingLicencePreviewHint = true,
   drivingLicenceFrameLabel,
+  showDrivingLicenceUpload = true,
 }) {
   const { t } = useTranslation();
   const isAdmin = mode === "admin";
@@ -203,6 +204,7 @@ export default function BookingContactSection({
         </Box>
       </Box>
 
+      {showDrivingLicenceUpload ? (
       <DrivingLicenceUploadField
         emphasized={drivingLicenceEmphasized}
         customerName={values.customerName || ""}
@@ -218,6 +220,7 @@ export default function BookingContactSection({
         showGalleryPreviewHint={showDrivingLicencePreviewHint}
         frameLabel={drivingLicenceFrameLabel}
       />
+      ) : null}
     </Box>
   );
 }

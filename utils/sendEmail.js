@@ -1,60 +1,44 @@
 /**
- * sendEmail - отправка имейлов через API роут
- * Использует nodemailer на сервере вместо EmailJS
- * 
- * @param {object} formData - данные для отправки
- * @param {string} formData.email - email клиента (опционально)
- * @param {string} formData.title - тема письма
- * @param {string} formData.message - текст письма
- * @param {string} companyEmail - email компании (обязательно)
- * @param {boolean} isUsingCompanyEmail - использовать ли email компании (deprecated, всегда true)
- * @returns {Promise<object>} - результат отправки
+ * sendEmail - contact-form helper. Posts to /api/contact (fixed recipient).
+ * Does not hit /api/sendEmail and cannot set to/cc.
+ *
+ * @param {object} formData
+ * @param {string} [formData.email]
+ * @param {string} [formData.name]
+ * @param {string} [formData.title] - used as subject
+ * @param {string} [formData.subject]
+ * @param {string} formData.message
+ * @returns {Promise<object>}
  */
-const sendEmail = async (
-  formData,
-  companyEmail,
-  isUsingCompanyEmail = true
-) => {
+const sendEmail = async (formData) => {
   try {
-    // Валидация обязательных полей
-    if (!companyEmail) {
-      throw new Error("Company email is required");
-    }
-    if (!formData.title) {
-      throw new Error("Email title is required");
-    }
-    if (!formData.message) {
+    if (!formData?.message) {
       throw new Error("Email message is required");
     }
 
-    // Подготовка данных для API
-    const emailData = {
-      email: formData.email || "", // Email клиента (опционально)
-      emailCompany: companyEmail, // Email компании (обязательно)
-      title: formData.title,
-      message: formData.message,
-    };
-
-    // Отправка через API роут
-    const response = await fetch("/api/sendEmail", {
+    const response = await fetch("/api/contact", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(emailData),
+      body: JSON.stringify({
+        name: formData.name || "",
+        email: formData.email || "",
+        subject: formData.subject || formData.title || "",
+        message: formData.message,
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
-        errorData.error || `Failed to send email: ${response.statusText}`
+        errorData.message ||
+          errorData.error ||
+          `Failed to send email: ${response.statusText}`
       );
     }
 
     const result = await response.json();
-    console.log("Email sent successfully!", result);
-
-    // Возвращаем объект в формате, совместимом со старым API
     return {
       status: 200,
       messageId: result.messageId,

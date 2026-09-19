@@ -10,14 +10,7 @@ import timezone from "dayjs/plugin/timezone";
 import isBetween from "dayjs/plugin/isBetween";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@lib/authOptions";
-import {
-  analyzeDates,
-  isSameDay,
-  isSameOrBefore,
-  calculateAvailableTimes,
-  setTimeToDatejs,
-  checkConflicts,
-} from "@utils/analyzeDates";
+import { setTimeToDatejs } from "@utils/analyzeDates";
 import { notifyOrderAction } from "@/domain/orders/orderNotificationDispatcher";
 import {
   getBusinessRentalDaysByMinutes,
@@ -30,29 +23,82 @@ import { generateOrderNumber } from "@/domain/time/athensTime";
 import { isOrderBookingRequestFromLocalhost } from "@/lib/http/orderRequestLocalhost";
 import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
 import {
-  canonicalizeCustomerBookingLocation,
-  isAllowedCustomerBookingLocation,
-  isThessalonikiCityBookingLocation,
-} from "@/domain/orders/halkidikiBookingLocations";
+  canonicalizeBookingLocation,
+  isAllowedBookingLocation,
+  locationRequiresAddressDetail,
+} from "@/domain/platform/bookingLocations";
+import { loadCompanyBookingCities } from "@/domain/platform/companyBookingCities";
 import { toBooleanField } from "@/domain/orders/fieldUtils";
-import { normalizeDrivingLicenceUrls } from "@/domain/orders/normalizeDrivingLicenceUrls";
+import {
+  resolveCreateDrivingLicenceUrls,
+  resolveCreateTotalPrice,
+} from "@/domain/orders/publicOrderCreatePolicy";
 import { toBusinessStartOfDay, toStoredBusinessDate } from "@/domain/time/businessDate";
 import DiscountSetting from "@models/DiscountSetting";
+import { isCompanyInSiteCountry } from "@/domain/platform/companyCountryScope";
+import { getSiteCountryCode } from "@config/siteCountry";
+import { resolveRentalBookingContext } from "@/domain/booking/resolveRentalContext";
+import {
+  AVAILABILITY_PURPOSE,
+  evaluateRentalAvailability,
+  toLegacyCreateConflict,
+} from "@/domain/booking/availabilityEngine";
+import {
+  calculateAuthoritativeRentalPrice,
+  detectClientTotalMismatch,
+  RentalPricingError,
+  toAuthoritativePriceDoc,
+} from "@/domain/orders/rentalPricingService";
+import { isStripeConfigured } from "@config/stripe";
+import {
+  resolveCompanyRentalPaymentPolicy,
+  shouldChargeRentalOnCreate,
+} from "@/domain/orders/companyRentalPaymentPolicy";
+import { createRentalCheckoutSession } from "@/domain/orders/rentalStripeCheckout";
+import { localSnapshotFromUtc } from "@/domain/time/businessInstant";
+import AuditLog from "@models/auditLog";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(isBetween);
 
-const BUSINESS_TZ = "Europe/Athens";
-
 /** Макс. попыток подобрать свободный orderNumber (шаг −1 сек к метке YYYYMMDDHHmmss в Athens). */
 const ORDER_NUMBER_UNIQUENESS_MAX_ATTEMPTS = 100;
+
+async function maybeStartRentalPrepaymentOnCreate({
+  orderDoc,
+  ownerCompany,
+  isAdminSession,
+  offline,
+}) {
+  try {
+    const policy = resolveCompanyRentalPaymentPolicy(ownerCompany, {
+      stripeConfigured: isStripeConfigured(),
+    });
+    if (
+      !shouldChargeRentalOnCreate(policy, {
+        isAdminSession: Boolean(isAdminSession),
+        offline: Boolean(offline),
+      })
+    ) {
+      return null;
+    }
+    const pay = await createRentalCheckoutSession(String(orderDoc._id), {
+      company: ownerCompany,
+      emailCustomer: true,
+    });
+    return pay.ok ? pay.url || null : null;
+  } catch (err) {
+    console.error("[ORDER-ADD] rental checkout failed:", err?.message || err);
+    return null;
+  }
+}
 
 /**
  * Разбор номера заказа YYYYMMDDHHmmss как локального времени Europe/Athens.
  * @param {string} orderNumberStr
  */
-function parseOrderNumberToAthens(orderNumberStr) {
+function parseOrderNumberToAthens(orderNumberStr, timezone = "Europe/Athens") {
   const s = String(orderNumberStr || "").trim();
   if (!/^\d{14}$/.test(s)) return null;
   const Y = s.slice(0, 4);
@@ -64,7 +110,7 @@ function parseOrderNumberToAthens(orderNumberStr) {
   const d = dayjs.tz(
     `${Y}-${M}-${D} ${h}:${m}:${sec}`,
     "YYYY-MM-DD HH:mm:ss",
-    BUSINESS_TZ
+    timezone || "Europe/Athens"
   );
   return d.isValid() ? d : null;
 }
@@ -82,8 +128,8 @@ function formatOrderNumberFromAthens(d) {
 }
 
 /** Минус 1 секунда к встроенной в номер метке (корректный перенос минут/часов/дней). */
-function subtractOneSecondFromOrderNumber(orderNumberStr) {
-  const d = parseOrderNumberToAthens(orderNumberStr);
+function subtractOneSecondFromOrderNumber(orderNumberStr, timezone) {
+  const d = parseOrderNumberToAthens(orderNumberStr, timezone);
   if (!d) return null;
   return formatOrderNumberFromAthens(d.subtract(1, "second"));
 }
@@ -93,12 +139,12 @@ function subtractOneSecondFromOrderNumber(orderNumberStr) {
  * @param {string} [initialCandidate] — с клиента (BookingModal / AddOrderModal)
  * @returns {Promise<string>}
  */
-async function resolveUniqueOrderNumber(initialCandidate) {
+async function resolveUniqueOrderNumber(initialCandidate, timezone) {
   let candidate = String(initialCandidate || "").trim();
-  if (!/^\d{14}$/.test(candidate) || !parseOrderNumberToAthens(candidate)) {
-    candidate = generateOrderNumber();
+  if (!/^\d{14}$/.test(candidate) || !parseOrderNumberToAthens(candidate, timezone)) {
+    candidate = generateOrderNumber(timezone);
   }
-  if (!parseOrderNumberToAthens(candidate)) {
+  if (!parseOrderNumberToAthens(candidate, timezone)) {
     throw new Error("Could not build valid order number");
   }
 
@@ -108,7 +154,7 @@ async function resolveUniqueOrderNumber(initialCandidate) {
       .lean();
     if (!dup) return candidate;
 
-    const next = subtractOneSecondFromOrderNumber(candidate);
+    const next = subtractOneSecondFromOrderNumber(candidate, timezone);
     if (!next || next === candidate) {
       throw new Error("Could not adjust order number (stuck on same value)");
     }
@@ -300,36 +346,8 @@ async function postOrderAddHandler(request) {
     // Явно присваиваем email пустую строку, если он не передан или undefined/null
     const safeEmail = typeof email === "string" ? email : "";
 
-    // Canonical dates come from actual pickup/return moments when available.
-    // This prevents browser timezone from shifting rental dates during submit.
     const startDateSource = timeIn || rentalStartDate;
     const endDateSource = timeOut || rentalEndDate;
-    const startDate = toBusinessDateTime(startDateSource);
-    const endDate = toBusinessDateTime(endDateSource);
-
-    if (!startDate.isValid() || !endDate.isValid()) {
-      return new Response(
-        JSON.stringify({
-          message: "Invalid rental dates",
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    if (getBusinessRentalDaysByMinutes(startDate, endDate) <= 0) {
-      return new Response(
-        JSON.stringify({
-          message: "Start and End dates could't be at the same date",
-        }),
-        {
-          status: 405,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
 
     const normalizedCarId =
       carId != null ? String(carId).trim() : "";
@@ -376,74 +394,6 @@ async function postOrderAddHandler(request) {
     let placeOutDetailToSave = placeOutDetailTrim;
 
     const isCustomerSelfServiceBooking = myOrderToSave === true;
-    if (isCustomerSelfServiceBooking) {
-      const pin = placeInToSave;
-      const pout = placeOutToSave;
-      if (
-        !isAllowedCustomerBookingLocation(pin) ||
-        !isAllowedCustomerBookingLocation(pout)
-      ) {
-        return new Response(
-          JSON.stringify({
-            message:
-              "Pickup and return must match an allowed location from the list (served towns, Thessaloniki city, or Airport).",
-            messageKey: "order.locationOutsideServiceArea",
-          }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-      const pinCanon = canonicalizeCustomerBookingLocation(pin);
-      const poutCanon = canonicalizeCustomerBookingLocation(pout);
-      if (!pinCanon || !poutCanon) {
-        return new Response(
-          JSON.stringify({
-            message: "Invalid pickup or return location.",
-            messageKey: "order.locationOutsideServiceArea",
-          }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-      placeInToSave = pinCanon;
-      placeOutToSave = poutCanon;
-      if (
-        isThessalonikiCityBookingLocation(pinCanon) &&
-        placeInDetailToSave.length < 3
-      ) {
-        return new Response(
-          JSON.stringify({
-            message:
-              "For Thessaloniki pickup, enter a hotel name or full address (at least 3 characters).",
-            messageKey: "order.thessalonikiDetailRequired",
-          }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-      if (
-        isThessalonikiCityBookingLocation(poutCanon) &&
-        placeOutDetailToSave.length < 3
-      ) {
-        return new Response(
-          JSON.stringify({
-            message:
-              "For Thessaloniki return, enter a hotel name or full address (at least 3 characters).",
-            messageKey: "order.thessalonikiDetailRequired",
-          }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    }
 
     // Find car: _id is always unique (MongoDB default index). Fallback: carNumber, then regNumber.
     let existingCar = null;
@@ -469,7 +419,144 @@ async function postOrderAddHandler(request) {
       );
     }
 
-    // Check for existing orders for this car
+    const ownerCompany = existingCar.ownerId
+      ? await Company.findById(existingCar.ownerId).lean()
+      : await Company.findById(COMPANY_ID).lean();
+
+    if (!isAdminSession) {
+      const siteCountry = getSiteCountryCode();
+      if (!isCompanyInSiteCountry(ownerCompany, siteCountry)) {
+        return new Response(
+          JSON.stringify({
+            message: "Car is not found",
+          }),
+          {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
+    const bookingCities = await loadCompanyBookingCities(ownerCompany);
+    const matchingCity =
+      bookingCities.find(
+        (city) =>
+          city?.name &&
+          typeof placeIn === "string" &&
+          city.name.toLowerCase() === String(placeIn).trim().toLowerCase()
+      ) || bookingCities[0] || null;
+
+    const rentalContext = resolveRentalBookingContext({
+      company: ownerCompany,
+      city: matchingCity,
+      countryCode: ownerCompany?.country || getSiteCountryCode(),
+      forNewOrder: true,
+    });
+    const { timezone, bookingMode, currency, countryCode, initialBookingStatus } =
+      rentalContext;
+
+    const startDate = toBusinessDateTime(startDateSource, timezone);
+    const endDate = toBusinessDateTime(endDateSource, timezone);
+
+    if (!startDate || !endDate || !startDate.isValid() || !endDate.isValid()) {
+      return new Response(
+        JSON.stringify({
+          message: "Invalid rental dates",
+          messageKey: "order.invalidDates",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (getBusinessRentalDaysByMinutes(startDate, endDate, timezone) <= 0) {
+      return new Response(
+        JSON.stringify({
+          message: "Start and End dates could't be at the same date",
+        }),
+        {
+          status: 405,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const pickupAtUtc = startDate.utc().toDate();
+    const returnAtUtc = endDate.utc().toDate();
+
+    if (isCustomerSelfServiceBooking) {
+      const bookingNames = bookingCities.map((city) => city.name);
+      const pin = placeInToSave;
+      const pout = placeOutToSave;
+      if (
+        !isAllowedBookingLocation(pin, bookingNames) ||
+        !isAllowedBookingLocation(pout, bookingNames)
+      ) {
+        return new Response(
+          JSON.stringify({
+            message:
+              "Pickup and return must match a location served by this car's owner.",
+            messageKey: "order.locationOutsideServiceArea",
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+      const pinCanon = canonicalizeBookingLocation(pin, bookingNames);
+      const poutCanon = canonicalizeBookingLocation(pout, bookingNames);
+      if (!pinCanon || !poutCanon) {
+        return new Response(
+          JSON.stringify({
+            message: "Invalid pickup or return location.",
+            messageKey: "order.locationOutsideServiceArea",
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+      placeInToSave = pinCanon;
+      placeOutToSave = poutCanon;
+      if (
+        locationRequiresAddressDetail(pinCanon, bookingCities) &&
+        placeInDetailToSave.length < 3
+      ) {
+        return new Response(
+          JSON.stringify({
+            message:
+              "Enter a hotel name or full address (at least 3 characters) for this pickup city.",
+            messageKey: "order.thessalonikiDetailRequired",
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+      if (
+        locationRequiresAddressDetail(poutCanon, bookingCities) &&
+        placeOutDetailToSave.length < 3
+      ) {
+        return new Response(
+          JSON.stringify({
+            message:
+              "Enter a hotel name or full address (at least 3 characters) for this return city.",
+            messageKey: "order.thessalonikiDetailRequired",
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
     const existingOrders = await Order.find({
       car: existingCar._id,
     });
@@ -477,63 +564,108 @@ async function postOrderAddHandler(request) {
     let nonConfirmedDates = [];
     let conflicOrdersId = [];
 
-    const { status, data } = checkConflicts(
+    const availability = evaluateRentalAvailability({
+      carId: existingCar._id,
+      pickupAtUtc,
+      returnAtUtc,
+      timezone,
       existingOrders,
-      startDate.toDate(),
-      endDate.toDate(),
-      timeIn,
-      timeOut
-    );
+      bufferHours: Number(ownerCompany?.bufferTime) || 0,
+      minDurationHours: Number(ownerCompany?.minRentalDuration) || 0,
+      purpose: AVAILABILITY_PURPOSE.REQUEST,
+      bookingMode,
+    });
 
-    // Debug logs removed - checkConflicts returns undefined status/data when no conflicts
-    if (status) {
-      switch (status) {
-        case 409:
-          return new Response(
-            JSON.stringify({
-              message: data?.conflictMessage,
-              conflictDates: data?.conflictDates,
-            }),
-            {
-              status: 409,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
-        //// TODO CREATE ORDERS FOR CASE 200
-        case 200:
-          return new Response(
-            JSON.stringify({
-              message: data.conflictMessage,
-              conflictDates: data.conflictDates,
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
-        case 202:
-          conflicOrdersId = data.conflictOrdersIds;
-          nonConfirmedDates = data.conflictDates;
-      }
+    if (availability.hardConflict) {
+      return new Response(
+        JSON.stringify({
+          message: availability.userSafeReason,
+          conflictType: availability.conflictType,
+          reasonCodes: availability.reasonCodes,
+        }),
+        {
+          status: 409,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const legacyConflict = toLegacyCreateConflict(availability);
+    if (legacyConflict && legacyConflict.status === 202) {
+      conflicOrdersId = Array.from(legacyConflict.data.conflictOrdersIds || []);
+      nonConfirmedDates = legacyConflict.data.conflictDates || [];
     }
 
     const normalizedSecondDriver = toBooleanField(secondDriver, false);
 
-    // Calculate the number of rental days and total price using the new algorithm
-    const { total, days } = await existingCar.calculateTotalRentalPricePerDay(
-      startDate,
-      endDate,
-      insurance,
-      ChildSeats,
-      normalizedSecondDriver
-    );
+    let quote;
+    try {
+      quote = await calculateAuthoritativeRentalPrice({
+        car: existingCar,
+        pickupAtUtc,
+        returnAtUtc,
+        timezone,
+        insurance,
+        childSeats: ChildSeats,
+        secondDriver: normalizedSecondDriver,
+        placeIn: placeInToSave,
+        placeOut: placeOutToSave,
+        company: ownerCompany,
+        bookingMode,
+      });
+    } catch (err) {
+      if (err instanceof RentalPricingError) {
+        return new Response(
+          JSON.stringify({
+            message: err.message,
+            messageKey: err.code,
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+      throw err;
+    }
 
-    // Используем totalPrice из клиента ТОЛЬКО если он > 0, иначе используем рассчитанный на бэкенде
-    // Это защищает от случаев когда фронтенд отправляет 0 (до завершения расчёта)
-    const totalPriceToSave =
-      typeof totalPriceFromClient === "number" && totalPriceFromClient > 0
-        ? totalPriceFromClient
-        : total;
+    const days = quote.rentalDays;
+    const total = quote.compatibility.rentalTotal;
+    const deliveryTotal = quote.compatibility.deliveryTotal;
+    const totalPriceToSave = resolveCreateTotalPrice({
+      isAdminSession,
+      clientTotalPrice: totalPriceFromClient,
+      rentalTotal: total,
+      deliveryTotal,
+    });
+
+    if (!isAdminSession) {
+      const mismatch = detectClientTotalMismatch({
+        clientTotalPrice: totalPriceFromClient,
+        serverTotalMajor: totalPriceToSave,
+      });
+      if (mismatch) {
+        try {
+          await AuditLog.create({
+            action: "OTHER",
+            userRole: "system",
+            metadata: {
+              kind: "PRICE_CLIENT_MISMATCH",
+              clientMajor: mismatch.clientMajor,
+              serverMajor: mismatch.serverMajor,
+              currency,
+            },
+            severity: "low",
+            result: "success",
+          });
+        } catch (auditErr) {
+          console.error(
+            "[order/add] price mismatch audit failed:",
+            auditErr?.message
+          );
+        }
+      }
+    }
 
     // -------- Client context (language + geo) --------
     // `locale` is set by BookingModal.js (orderData.locale = lang).
@@ -548,25 +680,35 @@ async function postOrderAddHandler(request) {
     const clientRegion = geo.region || "";
     const clientCity = geo.city || "";
 
-    const resolvedOrderNumber = await resolveUniqueOrderNumber(orderNumber);
+    const resolvedOrderNumber = await resolveUniqueOrderNumber(
+      orderNumber,
+      timezone
+    );
     const fromLocalhost = isOrderBookingRequestFromLocalhost(request);
-    const drivingLicenceUrls = normalizeDrivingLicenceUrls(drivingLicenceUrlsRaw);
+    const drivingLicenceUrls = resolveCreateDrivingLicenceUrls({
+      isAdminSession,
+      raw: drivingLicenceUrlsRaw,
+    });
 
-    // Create a new order document with calculated values
+    const localPickup = localSnapshotFromUtc(pickupAtUtc, timezone);
+    const localReturn = localSnapshotFromUtc(returnAtUtc, timezone);
+    const timeInToSave = timeIn ? timeIn : setTimeToDatejs(startDate, null, true);
+    const timeOutToSave = timeOut ? timeOut : setTimeToDatejs(endDate, null);
+
     const newOrder = new Order({
       carNumber: existingCar.carNumber,
       regNumber: existingCar.regNumber || "",
       customerName,
       phone: normalizedPhone,
       email: safeEmail,
-      rentalStartDate: toStoredBusinessDate(startDate),
-      rentalEndDate: toStoredBusinessDate(endDate),
+      rentalStartDate: toStoredBusinessDate(startDate, timezone),
+      rentalEndDate: toStoredBusinessDate(endDate, timezone),
       car: existingCar._id,
       carModel: existingCar.model,
       numberOfDays: days,
       totalPrice: totalPriceToSave,
-      timeIn: timeIn ? timeIn : setTimeToDatejs(startDate, null, true),
-      timeOut: timeOut ? timeOut : setTimeToDatejs(endDate, null),
+      timeIn: timeInToSave,
+      timeOut: timeOutToSave,
       placeIn: placeInToSave,
       placeOut: placeOutToSave,
       placeInDetail: placeInDetailToSave,
@@ -576,8 +718,7 @@ async function postOrderAddHandler(request) {
       clientCountry,
       clientRegion,
       clientCity: clientCity,
-      // Keep creation date as a real Date object in business timezone context.
-      date: dayjs().tz(BUSINESS_TZ).toDate(),
+      date: dayjs().tz(timezone).toDate(),
       confirmed: confirmedToSave,
       my_order: myOrderToSave,
       offline: offlineToSave,
@@ -589,13 +730,23 @@ async function postOrderAddHandler(request) {
       Viber: Boolean(Viber),
       Whatsapp: Boolean(Whatsapp),
       Telegram: Boolean(Telegram),
-      // Permission tracking: store who created this order
       createdByRole,
       createdByAdminId,
-      // Multi-tenant: denormalize from car (fallback CarsNK company)
       ownerId: existingCar.ownerId || COMPANY_ID,
       fromLocalhost,
       drivingLicenceUrls,
+      bookingMode,
+      countryCode,
+      currency,
+      timezone,
+      pickupAtUtc,
+      returnAtUtc,
+      localPickup,
+      localReturn,
+      bookingStatus: initialBookingStatus,
+      pricingVersion: quote.pricingVersion,
+      priceCalculatedAt: quote.calculatedAt,
+      authoritativePrice: toAuthoritativePriceDoc(quote),
     });
 
     // HMR/cache safety: persist secondDriver even if cached schema was stale.
@@ -642,12 +793,20 @@ async function postOrderAddHandler(request) {
         });
       }
 
+      const paymentUrl = await maybeStartRentalPrepaymentOnCreate({
+        orderDoc: newOrder,
+        ownerCompany,
+        isAdminSession,
+        offline: offlineToSave,
+      });
+
       return new Response(
         JSON.stringify({
           messageCode: "bookMesssages.bookPendingDates",
           dates: nonConfirmedDates,
           data: newOrder,
           ...(notificationError && { notificationError }),
+          ...(paymentUrl && { paymentUrl }),
         }),
         {
           status: 202,
@@ -692,8 +851,16 @@ async function postOrderAddHandler(request) {
       });
     }
 
+    const paymentUrl = await maybeStartRentalPrepaymentOnCreate({
+      orderDoc: newOrder,
+      ownerCompany,
+      isAdminSession,
+      offline: offlineToSave,
+    });
+
     const body = newOrder.toObject ? newOrder.toObject() : { ...newOrder };
     if (notificationError) body.notificationError = notificationError;
+    if (paymentUrl) body.paymentUrl = paymentUrl;
 
     return new Response(JSON.stringify(body), {
       status: 201,
@@ -723,10 +890,22 @@ async function attachOrderToActiveDiscount(orderDoc) {
     .lean();
   if (!activeDiscount?.startDate || !activeDiscount?.endDate) return;
 
-  const orderStart = toBusinessStartOfDay(orderDoc.rentalStartDate ?? orderDoc.timeIn);
-  const orderEnd = toBusinessStartOfDay(orderDoc.rentalEndDate ?? orderDoc.timeOut);
-  const discountStart = toBusinessStartOfDay(activeDiscount.startDate);
-  const discountEnd = toBusinessStartOfDay(activeDiscount.endDate);
+  const orderStart = toBusinessStartOfDay(
+    orderDoc.rentalStartDate ?? orderDoc.timeIn,
+    orderDoc.timezone
+  );
+  const orderEnd = toBusinessStartOfDay(
+    orderDoc.rentalEndDate ?? orderDoc.timeOut,
+    orderDoc.timezone
+  );
+  const discountStart = toBusinessStartOfDay(
+    activeDiscount.startDate,
+    orderDoc.timezone
+  );
+  const discountEnd = toBusinessStartOfDay(
+    activeDiscount.endDate,
+    orderDoc.timezone
+  );
   if (!orderStart || !orderEnd || !discountStart || !discountEnd) return;
 
   // Discount is considered applied if booking range intersects discount range by day.

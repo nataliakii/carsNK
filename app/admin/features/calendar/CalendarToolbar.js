@@ -4,8 +4,10 @@ import React from "react";
 import {
   Box,
   Button,
+  FormControlLabel,
   IconButton,
   Stack,
+  Switch,
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
@@ -25,7 +27,9 @@ export default function CalendarToolbar({
   legendPlacement,
   showBufferInLegend,
   showDeliveryInLegend,
+  showFleetTransfers = false,
   onDayRangeChange,
+  onShowFleetTransfersChange,
   onOpenCalendarSettings,
   onBulkOfflineOrders,
 }) {
@@ -186,6 +190,43 @@ export default function CalendarToolbar({
                 inToolbar
               />
             </Box>
+          ) : null}
+
+          {typeof onShowFleetTransfersChange === "function" ? (
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={Boolean(showFleetTransfers)}
+                  onChange={(e) =>
+                    onShowFleetTransfersChange(e.target.checked)
+                  }
+                  sx={{
+                    "& .MuiSwitch-switchBase.Mui-checked": {
+                      color: "#E91E8C",
+                    },
+                    "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                      backgroundColor: "#E91E8C",
+                    },
+                  }}
+                />
+              }
+              label={
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "rgba(255,255,255,0.88)",
+                    fontSize: "0.72rem",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {t("calendar.toolbar.showFleetTransfers", {
+                    defaultValue: "Show transfers",
+                  })}
+                </Typography>
+              }
+              sx={{ m: 0, mr: 0.5 }}
+            />
           ) : null}
 
           {onBulkOfflineOrders ? (

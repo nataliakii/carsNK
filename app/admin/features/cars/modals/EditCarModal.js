@@ -148,7 +148,7 @@ const EditCarModal = ({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/admin/owners");
+        const res = await fetch("/api/admin/owners?country=ALL");
         if (!res.ok) return;
         const body = await res.json();
         if (!cancelled && body?.success && Array.isArray(body.companies)) {
@@ -303,6 +303,7 @@ const EditCarModal = ({
                   {localCompanies.map((c) => (
                     <MenuItem key={String(c._id)} value={String(c._id)}>
                       {c.name || String(c._id)}
+                      {c.country ? ` (${c.country})` : ""}
                     </MenuItem>
                   ))}
                 </Select>

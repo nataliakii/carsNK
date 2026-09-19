@@ -1,9 +1,14 @@
 import { notifyOrderAction } from "../orderNotificationDispatcher";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
 import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
+import AuditLog from "@models/auditLog";
 
 jest.mock("@/lib/email/sendDirect", () => ({ sendEmailDirect: jest.fn() }));
 jest.mock("@/lib/telegram/sendDirect", () => ({ sendTelegramDirect: jest.fn() }));
+jest.mock("@models/auditLog", () => ({
+  __esModule: true,
+  default: { create: jest.fn().mockResolvedValue({}) },
+}));
 
 describe("orderNotificationDispatcher", () => {
   const originalEmailTesting = process.env.EMAIL_TESTING;
@@ -47,6 +52,7 @@ describe("orderNotificationDispatcher", () => {
     process.env.EMAIL_TESTING = "false";
     sendEmailDirect.mockResolvedValue({ messageId: "test-id" });
     sendTelegramDirect.mockResolvedValue(true);
+    AuditLog.create.mockResolvedValue({});
   });
 
   afterAll(() => {
@@ -271,5 +277,45 @@ describe("orderNotificationDispatcher", () => {
     expect(telegramText).toContain("Action: UPDATE_DATES");
     expect(telegramText).toContain("Old price: €100.00");
     expect(telegramText).toContain("New price: €120.00");
+  });
+
+  test("AuditLog.create is called without licence URLs or full order payload", async () => {
+    await notifyOrderAction({
+      order: {
+        ...baseOrder,
+        drivingLicenceUrls: ["https://res.cloudinary.com/demo/licence.jpg"],
+      },
+      user: baseUser,
+      action: "CREATE",
+      source: "BACKEND",
+      companyEmail: "company@example.com",
+      locale: "en",
+      notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
+    });
+
+    expect(AuditLog.create).toHaveBeenCalled();
+    const payload = AuditLog.create.mock.calls[0][0];
+    expect(payload.action).toBe("OTHER");
+    expect(JSON.stringify(payload)).not.toMatch(/drivingLicenceUrls/);
+    expect(JSON.stringify(payload)).not.toMatch(/licence\.jpg/);
+    expect(payload.orderData.customerName).toBeUndefined();
+    expect(payload.orderData.customerPhone).toBeUndefined();
+    expect(payload.metadata.notificationAction).toBe("CREATE");
+  });
+
+  test("AuditLog.create failure does not fail the booking notification", async () => {
+    AuditLog.create.mockRejectedValueOnce(new Error("mongo down"));
+    await expect(
+      notifyOrderAction({
+        order: baseOrder,
+        user: baseUser,
+        action: "CREATE",
+        source: "BACKEND",
+        companyEmail: "company@example.com",
+        locale: "en",
+        notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
+      })
+    ).resolves.toBeUndefined();
+    expect(sendEmailDirect).toHaveBeenCalled();
   });
 });

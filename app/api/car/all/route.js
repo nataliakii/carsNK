@@ -1,7 +1,6 @@
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@lib/authOptions";
 import { NextResponse } from "next/server";
 import { getCars } from "@/domain/services";
+import { getServerSessionWithViewAs } from "@lib/adminAuth";
 
 // Session-dependent listing — never publicly cache (admins must see inactive cars).
 export const dynamic = "force-dynamic";
@@ -20,11 +19,11 @@ function carsResponse(cars, { privateCache = false } = {}) {
   });
 }
 
-export const GET = async () => {
+export const GET = async (request) => {
   try {
-    const session = await getServerSession(authOptions);
-    const cars = await getCars({ session });
+    const session = await getServerSessionWithViewAs(request);
     const isAdmin = Boolean(session?.user?.isAdmin || session?.user?.role);
+    const cars = await getCars({ session, marketplaceOnly: !isAdmin });
     return carsResponse(cars, { privateCache: isAdmin });
   } catch (error) {
     return NextResponse.json(
@@ -38,9 +37,9 @@ export const GET = async () => {
 };
 
 // POST: always fresh (admin refresh / skipCache)
-export const POST = async () => {
+export const POST = async (request) => {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSessionWithViewAs(request);
     const cars = await getCars({ session });
     return carsResponse(cars, { privateCache: true });
   } catch (error) {

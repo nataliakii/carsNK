@@ -32,8 +32,10 @@ export const API_PATHS = {
 
   ADMIN_ORDERS: "/api/admin/orders",
   ADMIN_ORDERS_SEND_CONFIRMATION: "/api/admin/orders/send-confirmation",
+  ADMIN_INBOX_PENDING: "/api/admin/inbox/pending",
 
   DISCOUNT: "/api/discount",
   SEND_EMAIL: "/api/sendEmail",
+  CONTACT: "/api/contact",
   TELEGRAM_SEND: "/api/telegram/send",
 };

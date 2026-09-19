@@ -5,14 +5,20 @@ import { authOptions } from "@lib/authOptions";
 import { connectToDB } from "@lib/database";
 import { Order } from "@models/order";
 import { Car } from "@models/car";
+import Company from "@models/company";
 import { ROLE } from "@models/user";
 import { renderCustomerOfficialConfirmationEmail } from "@/app/ui/email/renderEmail";
 import { pickCustomerEmailLocale } from "@locales/customerEmail";
 import { buildCustomerOfficialConfirmationPdf } from "@/app/ui/email/pdf/customerOfficialConfirmationPdf";
+import { sendEmailDirect } from "@/lib/email/sendDirect";
+import { getDefaultConfirmationCcEmail } from "@config/email";
+import {
+  formatMeetingContactsDisplay,
+  resolveMeetingContactsForConfirmation,
+} from "@/domain/company/meetingContacts";
 
 const SUPPORTED_LOCALES = new Set(["en", "ru", "el", "de", "bg", "ro", "sr", "uk", "pl"]);
 const INTERNAL_PASSWORD_HEADER = "x-internal-password";
-const DEFAULT_CC_EMAIL = "admin@bbqr.site";
 const DEFAULT_MEETING_CONTACT_PHONE = "+30-697-003-47-07";
 const DEFAULT_MEETING_CONTACT_NAME = "Orest";
 const DEFAULT_MEETING_CONTACT_CHANNEL = "WhatsApp";
@@ -203,17 +209,31 @@ export async function POST(request) {
       order.OverridePrice !== null && order.OverridePrice !== undefined
         ? order.OverridePrice
         : order.totalPrice;
-    const meetingContactPhone =
-      normalizeText(process.env.ORDER_CONFIRMATION_MEETING_CONTACT_PHONE) ||
-      DEFAULT_MEETING_CONTACT_PHONE;
-    const meetingContactName =
-      normalizeText(process.env.ORDER_CONFIRMATION_MEETING_CONTACT_NAME) ||
-      DEFAULT_MEETING_CONTACT_NAME;
-    const meetingContactChannel =
-      normalizeText(process.env.ORDER_CONFIRMATION_MEETING_CONTACT_CHANNEL) ||
-      DEFAULT_MEETING_CONTACT_CHANNEL;
-    const ccEmail =
-      normalizeEmail(process.env.ORDER_CONFIRMATION_CC_EMAIL) || DEFAULT_CC_EMAIL;
+
+    let companyDoc = null;
+    if (order.ownerId && mongoose.Types.ObjectId.isValid(String(order.ownerId))) {
+      companyDoc = await Company.findById(order.ownerId)
+        .select(
+          "meetingContacts meetingContactPhone meetingContactName meetingContactChannel email"
+        )
+        .lean();
+    }
+    const meetingContacts = resolveMeetingContactsForConfirmation(companyDoc, {
+      phone:
+        normalizeText(process.env.ORDER_CONFIRMATION_MEETING_CONTACT_PHONE) ||
+        DEFAULT_MEETING_CONTACT_PHONE,
+      name:
+        normalizeText(process.env.ORDER_CONFIRMATION_MEETING_CONTACT_NAME) ||
+        DEFAULT_MEETING_CONTACT_NAME,
+      channel:
+        normalizeText(process.env.ORDER_CONFIRMATION_MEETING_CONTACT_CHANNEL) ||
+        DEFAULT_MEETING_CONTACT_CHANNEL,
+    });
+    const meetingContactPhone = meetingContacts[0]?.phone || "";
+    const meetingContactName = meetingContacts[0]?.name || "";
+    const meetingContactChannel = meetingContacts[0]?.channel || "";
+    const meetingContactValue = formatMeetingContactsDisplay(meetingContacts);
+    const ccEmail = getDefaultConfirmationCcEmail();
     const currentSnapshot = buildSnapshot(order, effectiveTotalPrice);
     const history = Array.isArray(order.confirmationEmailHistory)
       ? order.confirmationEmailHistory
@@ -273,6 +293,8 @@ export async function POST(request) {
       meetingContactPhone,
       meetingContactName,
       meetingContactChannel,
+      meetingContacts,
+      meetingContactValue,
       locale,
       fromLocalhost: order.fromLocalhost === true,
     };
@@ -282,15 +304,10 @@ export async function POST(request) {
     const pdfBytes = await buildCustomerOfficialConfirmationPdf(pdfData);
     const pdfBase64 = Buffer.from(pdfBytes).toString("base64");
 
-    const sendEmailResponse = await fetch(`${new URL(request.url).origin}/api/sendEmail`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-      body: JSON.stringify({
+    try {
+      await sendEmailDirect({
         title,
-        text,
+        message: text,
         html,
         to: [customerEmail],
         cc: [ccEmail],
@@ -301,18 +318,13 @@ export async function POST(request) {
             contentType: "application/pdf",
           },
         ],
-      }),
-    });
-
-    if (!sendEmailResponse.ok) {
-      const errorBody = await sendEmailResponse
-        .json()
-        .catch(() => ({ message: "Email service error" }));
-      const message =
-        errorBody?.error || errorBody?.message || "Failed to send email";
+      });
+    } catch (emailErr) {
       return NextResponse.json(
-        { message },
-        { status: sendEmailResponse.status }
+        {
+          message: emailErr?.message || "Failed to send email",
+        },
+        { status: 500 }
       );
     }
 

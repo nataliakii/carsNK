@@ -60,8 +60,32 @@ function messageFormHtml(token) {
   });
 }
 
+function confirmDecisionFormHtml(token, action) {
+  const actionUrl = absoluteUrl("/api/order/company-email-action");
+  const isAccept = action === "accept";
+  const title = isAccept ? "Confirm accept" : "Confirm reject";
+  const verb = isAccept ? "accept" : "reject";
+  const button = isAccept ? "Accept this order" : "Reject this order";
+  return htmlPage({
+    title,
+    ok: true,
+    bodyHtml: `
+      <p>This link only confirms your choice. The order is not updated until you submit.</p>
+      <form method="POST" action="${actionUrl}" style="margin-top:16px;">
+        <input type="hidden" name="token" value="${escape(token)}" />
+        <input type="hidden" name="intent" value="${escape(verb)}" />
+        <button type="submit"
+          style="margin-top:12px;background:${isAccept ? "#008989" : "#E53935"};color:#fff;border:0;border-radius:8px;padding:12px 20px;font-weight:700;cursor:pointer;">
+          ${escape(button)}
+        </button>
+      </form>
+    `,
+  });
+}
+
 /**
- * GET ?token=… — accept / reject execute; message shows form.
+ * GET ?token=… — validate only. message → form; accept/reject → confirm form.
+ * No DB write.
  */
 export async function GET(request) {
   const token = request.nextUrl.searchParams.get("token") || "";
@@ -84,27 +108,10 @@ export async function GET(request) {
     });
   }
 
-  const decision = parsed.action === "accept" ? "accepted" : "rejected";
-  const result = await applyCompanyEmailDecision({ token, decision });
-  if (!result.ok) {
-    return new NextResponse(
-      htmlPage({
-        title: "Could not update",
-        ok: false,
-        bodyHtml: `<p>${escape(result.message)}</p>`,
-      }),
-      { status: result.status || 400, headers: { "Content-Type": "text/html; charset=utf-8" } }
-    );
-  }
-
-  return new NextResponse(
-    htmlPage({
-      title: decision === "accepted" ? "Accepted" : "Rejected",
-      ok: true,
-      bodyHtml: `<p>${escape(result.message)}</p>`,
-    }),
-    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } }
-  );
+  return new NextResponse(confirmDecisionFormHtml(token, parsed.action), {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
 }
 
 /**

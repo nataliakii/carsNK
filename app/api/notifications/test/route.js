@@ -6,6 +6,8 @@
 import { NextResponse } from "next/server";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
 import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
+import { getInternalNotificationEmail } from "@config/email";
+import { sanitizeSmtpError } from "@/lib/email/smtpConfig";
 
 export async function GET() {
   if (process.env.NODE_ENV === "production") {
@@ -17,7 +19,8 @@ export async function GET() {
       NODE_ENV: process.env.NODE_ENV,
       SMTP_HOST: process.env.SMTP_HOST ? "SET" : "NOT SET",
       SMTP_USER: process.env.SMTP_USER ? "SET" : "NOT SET",
-      SMTP_PASS: process.env.SMTP_PASS ? "SET" : "NOT SET",
+      SMTP_PASS:
+        process.env.SMTP_PASS || process.env.SMTP_PASSWORD ? "SET" : "NOT SET",
       TELEGRAM_BOT_URL: process.env.TELEGRAM_BOT_URL ? "SET" : "NOT SET",
       TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID ?? "NOT SET",
     },
@@ -30,12 +33,12 @@ export async function GET() {
     await sendEmailDirect({
       title: "[TEST] Notification diagnostic",
       message: "Test email from /api/notifications/test",
-      to: ["cars@bbqr.site"],
+      to: [getInternalNotificationEmail()],
       cc: [],
     });
     results.email = { ok: true };
   } catch (err) {
-    results.email = { ok: false, error: err.message };
+    results.email = { ok: false, error: sanitizeSmtpError(err) };
   }
 
   // Test Telegram (direct, no fetch)

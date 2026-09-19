@@ -10,13 +10,17 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
+  MenuItem,
+  Switch,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
 import { useTranslation } from "react-i18next";
+import { formatMinor } from "@/domain/money/minorUnits";
 
 export default function TransferRequestModal({
   open,
@@ -29,23 +33,34 @@ export default function TransferRequestModal({
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [passengers, setPassengers] = useState("1");
+  const [pickupCity, setPickupCity] = useState("");
+  const [destinationCity, setDestinationCity] = useState("");
+  const [adults, setAdults] = useState("2");
+  const [childrenAges, setChildrenAges] = useState("");
+  const [standardSuitcases, setStandardSuitcases] = useState("2");
+  const [cabinBags, setCabinBags] = useState("2");
+  const [oversizedLuggage, setOversizedLuggage] = useState("0");
+  const [childSeats, setChildSeats] = useState("0");
+  const [boosterSeats, setBoosterSeats] = useState("0");
+  const [specialLuggage, setSpecialLuggage] = useState("");
   const [datetime, setDatetime] = useState("");
+  const [flightNumber, setFlightNumber] = useState("");
+  const [flightArrivalTime, setFlightArrivalTime] = useState("");
+  const [hotelName, setHotelName] = useState("");
+  const [signText, setSignText] = useState("");
   const [notes, setNotes] = useState("");
-  const [customerName, setCustomerName] = useState("");
+  const [accessibilityRequirements, setAccessibilityRequirements] =
+    useState("");
+  const [returnRequested, setReturnRequested] = useState(false);
+  const [customerFirstName, setCustomerFirstName] = useState("");
+  const [customerLastName, setCustomerLastName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneCountryCode, setPhoneCountryCode] = useState("+30");
   const [email, setEmail] = useState("");
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   const [distanceKm, setDistanceKm] = useState(null);
   const [durationMinutes, setDurationMinutes] = useState(null);
-  const [distanceApproximate, setDistanceApproximate] = useState(false);
-  const [baseFromDistanceKm, setBaseFromDistanceKm] = useState(null);
-  const [baseFromDurationMinutes, setBaseFromDurationMinutes] = useState(null);
-  const [baseFromApproximate, setBaseFromApproximate] = useState(false);
-  const [baseToDistanceKm, setBaseToDistanceKm] = useState(null);
-  const [baseToDurationMinutes, setBaseToDurationMinutes] = useState(null);
-  const [baseToApproximate, setBaseToApproximate] = useState(false);
-  const [distanceLoading, setDistanceLoading] = useState(false);
-  const [distanceError, setDistanceError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -71,22 +86,31 @@ export default function TransferRequestModal({
   const reset = useCallback(() => {
     setFrom("");
     setTo("");
-    setPassengers("1");
+    setPickupCity("");
+    setDestinationCity("");
+    setAdults("2");
+    setChildrenAges("");
+    setStandardSuitcases("2");
+    setCabinBags("2");
+    setOversizedLuggage("0");
+    setChildSeats("0");
+    setBoosterSeats("0");
+    setSpecialLuggage("");
     setDatetime("");
+    setFlightNumber("");
+    setFlightArrivalTime("");
+    setHotelName("");
+    setSignText("");
     setNotes("");
-    setCustomerName("");
+    setAccessibilityRequirements("");
+    setReturnRequested(false);
+    setCustomerFirstName("");
+    setCustomerLastName("");
     setPhone("");
     setEmail("");
+    setQuote(null);
     setDistanceKm(null);
     setDurationMinutes(null);
-    setDistanceApproximate(false);
-    setBaseFromDistanceKm(null);
-    setBaseFromDurationMinutes(null);
-    setBaseFromApproximate(false);
-    setBaseToDistanceKm(null);
-    setBaseToDurationMinutes(null);
-    setBaseToApproximate(false);
-    setDistanceError("");
     setError("");
     setSuccess(false);
   }, []);
@@ -117,7 +141,7 @@ export default function TransferRequestModal({
           setLocations((body.items || []).map((item) => item.name));
         }
       } catch {
-        /* keep empty — freeSolo still works */
+        /* freeSolo still works */
       } finally {
         if (!cancelled) setLocationsLoading(false);
       }
@@ -127,82 +151,121 @@ export default function TransferRequestModal({
     };
   }, [open]);
 
-  const fetchDistance = useCallback(
-    async (origin, destination) => {
-      if (!origin || !destination) {
-        setDistanceKm(null);
-        setDurationMinutes(null);
-        setDistanceApproximate(false);
-        setBaseFromDistanceKm(null);
-        setBaseFromDurationMinutes(null);
-        setBaseFromApproximate(false);
-        setBaseToDistanceKm(null);
-        setBaseToDurationMinutes(null);
-        setBaseToApproximate(false);
-        setDistanceError("");
+  const buildChildren = () =>
+    String(childrenAges || "")
+      .split(/[,;\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((age) => ({ age: Number(age) }))
+      .filter((c) => Number.isFinite(c.age));
+
+  const buildSpecialLuggage = () =>
+    String(specialLuggage || "")
+      .split(/[,;]+/)
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+      .map((type) => ({
+        type: ["wheelchair", "pushchair", "bicycle", "skis", "golf_bags", "oversized"].includes(
+          type.replace(/\s+/g, "_")
+        )
+          ? type.replace(/\s+/g, "_")
+          : "other",
+        quantity: 1,
+        notes: type,
+      }));
+
+  const fetchQuote = useCallback(async () => {
+    if (!from || !to || !datetime) {
+      setQuote(null);
+      return;
+    }
+    setQuoteLoading(true);
+    try {
+      const res = await fetch("/api/transfers/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from,
+          to,
+          pickupCity,
+          destinationCity,
+          origin: {
+            placeName: from,
+            city: pickupCity,
+            hotelName: hotelName || undefined,
+            locationType: /airport/i.test(from) || flightNumber ? "airport" : undefined,
+          },
+          destination: {
+            placeName: to,
+            city: destinationCity,
+            hotelName: hotelName || undefined,
+          },
+          datetime,
+          adults: Number(adults) || 1,
+          children: buildChildren(),
+          standardSuitcases: Number(standardSuitcases) || 0,
+          cabinBags: Number(cabinBags) || 0,
+          oversizedLuggage: Number(oversizedLuggage) || 0,
+          childSeats: Number(childSeats) || 0,
+          boosterSeats: Number(boosterSeats) || 0,
+          specialLuggage: buildSpecialLuggage(),
+          flightNumber,
+          accessibilityRequirements,
+          returnRequested,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.success) {
+        setQuote(null);
+        setError(body.message || t("transfer.submitError"));
         return;
       }
-      setDistanceLoading(true);
-      setDistanceError("");
-      try {
-        const res = await fetch("/api/transfers/distance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ from: origin, to: destination }),
-        });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok || !body.success) {
-          setDistanceKm(null);
-          setDurationMinutes(null);
-          setDistanceApproximate(false);
-          setBaseFromDistanceKm(null);
-          setBaseFromDurationMinutes(null);
-          setBaseFromApproximate(false);
-          setBaseToDistanceKm(null);
-          setBaseToDurationMinutes(null);
-          setBaseToApproximate(false);
-          setDistanceError(body.message || t("transfer.distanceError"));
-          return;
-        }
-        setDistanceKm(body.distanceKm);
-        setDurationMinutes(body.durationMinutes ?? null);
-        setDistanceApproximate(Boolean(body.approximate));
-        setBaseFromDistanceKm(body.baseFromDistanceKm ?? null);
-        setBaseFromDurationMinutes(body.baseFromDurationMinutes ?? null);
-        setBaseFromApproximate(Boolean(body.baseFromApproximate));
-        setBaseToDistanceKm(body.baseToDistanceKm ?? null);
-        setBaseToDurationMinutes(body.baseToDurationMinutes ?? null);
-        setBaseToApproximate(Boolean(body.baseToApproximate));
-        setDistanceError(body.baseDistanceError || "");
-      } catch {
-        setDistanceKm(null);
-        setDurationMinutes(null);
-        setDistanceApproximate(false);
-        setBaseFromDistanceKm(null);
-        setBaseFromDurationMinutes(null);
-        setBaseFromApproximate(false);
-        setBaseToDistanceKm(null);
-        setBaseToDurationMinutes(null);
-        setBaseToApproximate(false);
-        setDistanceError(t("transfer.distanceError"));
-      } finally {
-        setDistanceLoading(false);
-      }
-    },
-    [t]
-  );
+      setError("");
+      setQuote(body.quote);
+      setDistanceKm(body.route?.distanceKm ?? body.quote?.distanceKm ?? null);
+      setDurationMinutes(
+        body.route?.durationMinutes ?? body.quote?.durationMinutes ?? null
+      );
+    } catch {
+      setQuote(null);
+    } finally {
+      setQuoteLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    from,
+    to,
+    pickupCity,
+    destinationCity,
+    datetime,
+    adults,
+    childrenAges,
+    standardSuitcases,
+    cabinBags,
+    oversizedLuggage,
+    childSeats,
+    boosterSeats,
+    specialLuggage,
+    flightNumber,
+    hotelName,
+    accessibilityRequirements,
+    returnRequested,
+    t,
+  ]);
 
   useEffect(() => {
-    if (!open || !from || !to) return;
+    if (!open || !from || !to || !datetime) return;
     const timer = setTimeout(() => {
-      fetchDistance(from, to);
-    }, 350);
+      fetchQuote();
+    }, 450);
     return () => clearTimeout(timer);
-  }, [open, from, to, fetchDistance]);
+  }, [open, from, to, datetime, fetchQuote]);
 
   const handleSwap = () => {
     setFrom(to);
     setTo(from);
+    setPickupCity(destinationCity);
+    setDestinationCity(pickupCity);
   };
 
   const handleSubmit = async (e) => {
@@ -216,19 +279,46 @@ export default function TransferRequestModal({
         body: JSON.stringify({
           from,
           to,
-          passengers: Number(passengers),
+          pickupCity,
+          destinationCity,
+          origin: {
+            placeName: from,
+            city: pickupCity,
+            hotelName: hotelName || undefined,
+            locationType:
+              /airport/i.test(from) || flightNumber ? "airport" : "address",
+          },
+          destination: {
+            placeName: to,
+            city: destinationCity,
+            hotelName: hotelName || undefined,
+          },
+          adults: Number(adults) || 1,
+          children: buildChildren(),
+          standardSuitcases: Number(standardSuitcases) || 0,
+          cabinBags: Number(cabinBags) || 0,
+          oversizedLuggage: Number(oversizedLuggage) || 0,
+          childSeats: Number(childSeats) || 0,
+          boosterSeats: Number(boosterSeats) || 0,
+          specialLuggage: buildSpecialLuggage(),
           datetime,
+          flightNumber,
+          flightArrivalTime,
+          hotelName,
+          signText,
           notes,
-          customerName,
+          accessibilityRequirements,
+          returnRequested,
+          customerFirstName,
+          customerLastName,
+          customerName: [customerFirstName, customerLastName]
+            .filter(Boolean)
+            .join(" "),
           phone,
+          phoneCountryCode,
           email,
+          preferredLanguage: i18n.language || "",
           locale: i18n.language || "",
-          distanceKm,
-          durationMinutes,
-          baseFromDistanceKm,
-          baseFromDurationMinutes,
-          baseToDistanceKm,
-          baseToDurationMinutes,
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -245,96 +335,21 @@ export default function TransferRequestModal({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
       <DialogTitle>
         {success ? t("transfer.successTitle") : t("transfer.title")}
       </DialogTitle>
       <DialogContent>
         {success ? (
-          <Box
-            sx={{
-              py: 2,
-              px: { xs: 0.5, sm: 1 },
-              textAlign: "center",
-            }}
-          >
-            <Typography
-              sx={{
-                fontSize: "2rem",
-                lineHeight: 1,
-                mb: 1.5,
-                letterSpacing: "0.08em",
-                color: "primary.main",
-              }}
-              aria-hidden
-            >
-              ✦
-            </Typography>
-            <Typography
-              sx={{
-                color: "text.secondary",
-                mb: 2.5,
-                maxWidth: 420,
-                mx: "auto",
-              }}
-            >
+          <Box sx={{ py: 2, textAlign: "center" }}>
+            <Typography sx={{ color: "text.secondary", mb: 2 }}>
               {t("transfer.success")}
             </Typography>
-            <Box
-              sx={{
-                mx: "auto",
-                maxWidth: 440,
-                px: 2.5,
-                py: 2,
-                borderRadius: 2,
-                background:
-                  "linear-gradient(160deg, rgba(0,137,137,0.08) 0%, rgba(11,31,58,0.06) 100%)",
-                border: "1px solid",
-                borderColor: "rgba(0,137,137,0.22)",
-              }}
-            >
-              <Typography
-                sx={{
-                  fontFamily: "Georgia, 'Times New Roman', serif",
-                  fontStyle: "italic",
-                  fontSize: { xs: "1.05rem", sm: "1.15rem" },
-                  color: "text.primary",
-                  lineHeight: 1.5,
-                  mb: 1,
-                }}
-              >
-                «{successQuote.greek}»
-              </Typography>
-              <Typography
-                sx={{
-                  fontSize: "0.95rem",
-                  color: "text.secondary",
-                  mb: 1.25,
-                  lineHeight: 1.45,
-                }}
-              >
-                {successQuote.line}
-              </Typography>
-              <Typography
-                sx={{
-                  fontSize: "0.75rem",
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "primary.main",
-                  fontWeight: 600,
-                }}
-              >
-                — {successQuote.god}
-              </Typography>
-            </Box>
-            <Typography
-              sx={{
-                mt: 2,
-                fontSize: "0.85rem",
-                color: "text.secondary",
-              }}
-            >
-              {t("transfer.successBlessing")}
+            <Typography sx={{ fontStyle: "italic", mb: 1 }}>
+              «{successQuote.greek}»
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {successQuote.line}
             </Typography>
           </Box>
         ) : (
@@ -357,42 +372,19 @@ export default function TransferRequestModal({
                   required
                   label={t("transfer.from")}
                   placeholder={t("transfer.cityPlaceholder")}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {locationsLoading ? (
-                          <CircularProgress color="inherit" size={18} />
-                        ) : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
                 />
               )}
             />
-
-            <Box sx={{ display: "flex", justifyContent: "center", my: -0.5 }}>
+            <Box sx={{ display: "flex", justifyContent: "center" }}>
               <Tooltip title={t("transfer.swap")}>
-                <IconButton
-                  type="button"
-                  onClick={handleSwap}
-                  aria-label={t("transfer.swap")}
-                  sx={{
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "background.paper",
-                  }}
-                >
+                <IconButton type="button" onClick={handleSwap}>
                   <SwapVertIcon />
                 </IconButton>
               </Tooltip>
             </Box>
-
             <Autocomplete
               freeSolo
               options={locations}
-              loading={locationsLoading}
               value={to}
               onChange={(_e, value) => setTo(value || "")}
               onInputChange={(_e, value) => setTo(value || "")}
@@ -402,128 +394,238 @@ export default function TransferRequestModal({
                   required
                   label={t("transfer.to")}
                   placeholder={t("transfer.cityPlaceholder")}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {locationsLoading ? (
-                          <CircularProgress color="inherit" size={18} />
-                        ) : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
                 />
               )}
             />
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+              <TextField
+                label={t("transfer.pickupCity", { defaultValue: "Pickup city" })}
+                value={pickupCity}
+                onChange={(e) => setPickupCity(e.target.value)}
+              />
+              <TextField
+                label={t("transfer.destinationCity", {
+                  defaultValue: "Destination city",
+                })}
+                value={destinationCity}
+                onChange={(e) => setDestinationCity(e.target.value)}
+              />
+            </Box>
 
-            <Box
-              sx={{
-                minHeight: 28,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              {distanceLoading && <CircularProgress size={18} />}
-              {!distanceLoading && distanceKm != null && (
+            <Box sx={{ minHeight: 36 }}>
+              {quoteLoading && <CircularProgress size={18} />}
+              {!quoteLoading && quote && (
                 <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    {distanceApproximate
-                      ? t("transfer.distanceApprox", {
-                          km: distanceKm,
-                          minutes: durationMinutes ?? "—",
-                        })
-                      : t("transfer.distance", {
-                          km: distanceKm,
-                          minutes: durationMinutes ?? "—",
-                        })}
-                  </Typography>
-                  {baseFromDistanceKm != null && (
-                    <Typography variant="body2" color="text.secondary">
-                      {baseFromApproximate
-                        ? t("transfer.baseFromApprox", {
-                            place: from,
-                            km: baseFromDistanceKm,
-                            minutes: baseFromDurationMinutes ?? "—",
-                          })
-                        : t("transfer.baseFrom", {
-                            place: from,
-                            km: baseFromDistanceKm,
-                            minutes: baseFromDurationMinutes ?? "—",
-                          })}
+                  {quote.requiresManualQuote || quote.isProvisional ? (
+                    <Typography variant="body2" color="warning.main">
+                      {t("transfer.manualQuote", {
+                        defaultValue:
+                          "Price on request — we will confirm shortly.",
+                      })}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body1" fontWeight={600}>
+                      {t("transfer.price", { defaultValue: "Price" })}:{" "}
+                      {formatMinor(
+                        quote.customerPriceMinor,
+                        quote.currency || "EUR",
+                        i18n.language
+                      )}
                     </Typography>
                   )}
-                  {baseToDistanceKm != null && (
+                  {distanceKm != null && (
                     <Typography variant="body2" color="text.secondary">
-                      {baseToApproximate
-                        ? t("transfer.baseToApprox", {
-                            place: to,
-                            km: baseToDistanceKm,
-                            minutes: baseToDurationMinutes ?? "—",
-                          })
-                        : t("transfer.baseTo", {
-                            place: to,
-                            km: baseToDistanceKm,
-                            minutes: baseToDurationMinutes ?? "—",
-                          })}
+                      {t("transfer.distance", {
+                        km: distanceKm,
+                        minutes: durationMinutes ?? "—",
+                      })}
+                    </Typography>
+                  )}
+                  {quote.vehicleCategory && (
+                    <Typography variant="body2" color="text.secondary">
+                      {t("transfer.vehicle", { defaultValue: "Vehicle" })}:{" "}
+                      {quote.vehicleCategory}
                     </Typography>
                   )}
                 </Box>
               )}
-              {!distanceLoading && distanceError && (
-                <Typography variant="body2" color="warning.main">
-                  {t("transfer.distanceUnavailable")}
-                </Typography>
-              )}
+            </Box>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1.5 }}>
+              <TextField
+                required
+                type="number"
+                inputProps={{ min: 1, max: 50 }}
+                label={t("transfer.adults", { defaultValue: "Adults" })}
+                value={adults}
+                onChange={(e) => setAdults(e.target.value)}
+              />
+              <TextField
+                label={t("transfer.childrenAges", {
+                  defaultValue: "Children ages (e.g. 3,7)",
+                })}
+                value={childrenAges}
+                onChange={(e) => setChildrenAges(e.target.value)}
+              />
+              <TextField
+                required
+                type="datetime-local"
+                label={t("transfer.datetime")}
+                value={datetime}
+                onChange={(e) => setDatetime(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Box>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 1.5 }}>
+              <TextField
+                type="number"
+                label={t("transfer.suitcases", { defaultValue: "Suitcases" })}
+                value={standardSuitcases}
+                onChange={(e) => setStandardSuitcases(e.target.value)}
+                inputProps={{ min: 0 }}
+              />
+              <TextField
+                type="number"
+                label={t("transfer.cabinBags", { defaultValue: "Cabin bags" })}
+                value={cabinBags}
+                onChange={(e) => setCabinBags(e.target.value)}
+                inputProps={{ min: 0 }}
+              />
+              <TextField
+                type="number"
+                label={t("transfer.oversized", { defaultValue: "Oversized" })}
+                value={oversizedLuggage}
+                onChange={(e) => setOversizedLuggage(e.target.value)}
+                inputProps={{ min: 0 }}
+              />
+              <TextField
+                label={t("transfer.specialLuggage", {
+                  defaultValue: "Special (wheelchair, skis…)",
+                })}
+                value={specialLuggage}
+                onChange={(e) => setSpecialLuggage(e.target.value)}
+              />
+            </Box>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+              <TextField
+                type="number"
+                label={t("transfer.childSeats", { defaultValue: "Child seats" })}
+                value={childSeats}
+                onChange={(e) => setChildSeats(e.target.value)}
+                inputProps={{ min: 0 }}
+              />
+              <TextField
+                type="number"
+                label={t("transfer.boosterSeats", {
+                  defaultValue: "Booster seats",
+                })}
+                value={boosterSeats}
+                onChange={(e) => setBoosterSeats(e.target.value)}
+                inputProps={{ min: 0 }}
+              />
+            </Box>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1.5 }}>
+              <TextField
+                label={t("transfer.flightNumber", {
+                  defaultValue: "Flight number",
+                })}
+                value={flightNumber}
+                onChange={(e) => setFlightNumber(e.target.value)}
+              />
+              <TextField
+                label={t("transfer.flightArrival", {
+                  defaultValue: "Flight arrival time",
+                })}
+                value={flightArrivalTime}
+                onChange={(e) => setFlightArrivalTime(e.target.value)}
+              />
+              <TextField
+                label={t("transfer.hotelName", { defaultValue: "Hotel name" })}
+                value={hotelName}
+                onChange={(e) => setHotelName(e.target.value)}
+              />
             </Box>
 
             <TextField
-              required
-              type="number"
-              inputProps={{ min: 1, max: 50 }}
-              label={t("transfer.passengers")}
-              value={passengers}
-              onChange={(e) => setPassengers(e.target.value)}
-              fullWidth
+              label={t("transfer.signText", {
+                defaultValue: "Airport sign text (optional)",
+              })}
+              value={signText}
+              onChange={(e) => setSignText(e.target.value)}
             />
+
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+              <TextField
+                required
+                label={t("transfer.firstName", { defaultValue: "First name" })}
+                value={customerFirstName}
+                onChange={(e) => setCustomerFirstName(e.target.value)}
+              />
+              <TextField
+                required
+                label={t("transfer.lastName", { defaultValue: "Last name" })}
+                value={customerLastName}
+                onChange={(e) => setCustomerLastName(e.target.value)}
+              />
+            </Box>
+            <Box sx={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr", gap: 1.5 }}>
+              <TextField
+                select
+                label={t("transfer.phoneCode", { defaultValue: "Code" })}
+                value={phoneCountryCode}
+                onChange={(e) => setPhoneCountryCode(e.target.value)}
+              >
+                {["+30", "+34", "+49", "+44", "+1", "+7", "+380"].map((c) => (
+                  <MenuItem key={c} value={c}>
+                    {c}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label={t("transfer.phone")}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+              <TextField
+                required
+                type="email"
+                label={t("transfer.email")}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Box>
+
             <TextField
-              required
-              type="datetime-local"
-              label={t("transfer.datetime")}
-              value={datetime}
-              onChange={(e) => setDatetime(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-            />
-            <TextField
-              label={t("transfer.customerName")}
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label={t("transfer.phone")}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              required
-              type="email"
-              label={t("transfer.email")}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              fullWidth
+              label={t("transfer.accessibility", {
+                defaultValue: "Accessibility requirements",
+              })}
+              value={accessibilityRequirements}
+              onChange={(e) => setAccessibilityRequirements(e.target.value)}
+              multiline
+              minRows={1}
             />
             <TextField
               label={t("transfer.notes")}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              fullWidth
               multiline
               minRows={2}
             />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={returnRequested}
+                  onChange={(e) => setReturnRequested(e.target.checked)}
+                />
+              }
+              label={t("transfer.returnRequested", {
+                defaultValue: "Also need a return transfer",
+              })}
+            />
+
             {error && (
               <Typography color="error" variant="body2">
                 {error}

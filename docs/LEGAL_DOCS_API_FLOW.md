@@ -27,19 +27,39 @@ const data = await getLegalDoc({ docType, lang, jur });
 ## 2. Внешний API (URL и параметры)
 
 - **Базовый URL:** задаётся переменной окружения **`NEXT_PUBLIC_LEGAL_API`** (без завершающего слэша).
-- **Эндпоинт:** `GET {NEXT_PUBLIC_LEGAL_API}/legal/{docType}?lang={lang}&jur={jur}`
+- **Эндпоинт:** `GET {NEXT_PUBLIC_LEGAL_API}/legal/{docType}?lang={lang}&jur={jur}&company={json}&service={json}`
 
 Пример:
 
 ```
-https://your-legal-api.com/legal/privacy-policy?lang=en&jur=EU
+https://your-legal-api.com/legal/privacy-policy?lang=en&jur=IE&company=...&service=...
 ```
 
 | Параметр | Значение | Описание |
 |----------|----------|----------|
 | `docType` | `privacy-policy` \| `terms-of-service` \| `cookie-policy` | Тип документа |
 | `lang` | `en`, `el`, `ru` | Язык (из locale страницы или localStorage) |
-| `jur` | `EU`, `IE`, `UA` | Юрисдикция (по умолчанию `EU`) |
+| `jur` | `EU`, `IE`, `UA` | Юрисдикция (по умолчанию `IE` / `NEXT_PUBLIC_LEGAL_JUR`) |
+| `company` | JSON string | Реквизиты оператора для шаблона AWS |
+| `service` | JSON string | Имя сервиса в шаблоне |
+
+`company` / `service` собираются в `config/legalEntity.js` (см. env ниже) в формате:
+
+```json
+{
+  "company": {
+    "legalName": "...",
+    "tradingName": "rovaro",
+    "country": "Ireland",
+    "address": "...",
+    "privacyEmail": "privacy@…",
+    "website": "https://…"
+  },
+  "service": {
+    "name": "rovaro"
+  }
+}
+```
 
 Запрос выполняется **на клиенте** (в браузере), т.к. `LegalPageContent` — client component и `getLegalDoc` вызывается в `useEffect`.
 
@@ -103,6 +123,17 @@ https://your-legal-api.com/legal/privacy-policy?lang=en&jur=EU
 
 ```bash
 NEXT_PUBLIC_LEGAL_API=https://your-legal-api.com
+
+# Optional — template variables for AWS legal docs (Ireland operator)
+NEXT_PUBLIC_LEGAL_JUR=IE
+NEXT_PUBLIC_LEGAL_COMPANY_LEGAL_NAME="Your Full Legal Name Ltd"
+NEXT_PUBLIC_LEGAL_COMPANY_TRADING_NAME=rovaro
+NEXT_PUBLIC_LEGAL_COMPANY_COUNTRY=Ireland
+NEXT_PUBLIC_LEGAL_COMPANY_ADDRESS="Your business address"
+NEXT_PUBLIC_LEGAL_PRIVACY_EMAIL=privacy@your-domain.com
+NEXT_PUBLIC_LEGAL_WEBSITE=https://your-domain.com
+NEXT_PUBLIC_LEGAL_SERVICE_NAME=rovaro
 ```
 
-Без него загрузка политик (privacy, cookie, terms-of-service) падает с ошибкой при первом запросе.
+Без `NEXT_PUBLIC_LEGAL_API` загрузка политик (privacy, cookie, terms-of-service) падает с ошибкой при первом запросе.
+Если не задать company/service env, в шаблон уйдёт trading/service = `rovaro`, country = `Ireland`, website = `NEXT_PUBLIC_SITE_URL` / canonical base URL.

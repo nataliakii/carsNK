@@ -14,8 +14,12 @@ dayjs.extend(isBetween);
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
 
-/** Single calendar / rental timezone (same as BUSINESS_TZ). */
+/** Fallback calendar timezone (legacy Greece). Prefer order.timezone when set. */
 const TIMEZONE = BUSINESS_TZ;
+
+function zoneOf(order) {
+  return order?.timezone || TIMEZONE;
+}
 
 const defaultStartHour = companyData.defaultStart.slice(0, 2);
 const defaultStartMinute = companyData.defaultStart.slice(-2);
@@ -53,11 +57,13 @@ export function ordersRentalPeriodsOverlap(orderA, orderB) {
   ) {
     return false;
   }
-  const aStart = dayjs.utc(orderA.rentalStartDate).tz(TIMEZONE);
-  const aEnd = dayjs.utc(orderA.rentalEndDate).tz(TIMEZONE);
-  const bStart = dayjs.utc(orderB.rentalStartDate).tz(TIMEZONE);
-  const bEnd = dayjs.utc(orderB.rentalEndDate).tz(TIMEZONE);
-  return aStart.isSameOrBefore(bEnd) && bStart.isSameOrBefore(aEnd);
+  const tzA = orderA.timezone || TIMEZONE;
+  const tzB = orderB.timezone || TIMEZONE;
+  const aStart = dayjs.utc(orderA.timeIn || orderA.rentalStartDate).tz(tzA);
+  const aEnd = dayjs.utc(orderA.timeOut || orderA.rentalEndDate).tz(tzA);
+  const bStart = dayjs.utc(orderB.timeIn || orderB.rentalStartDate).tz(tzB);
+  const bEnd = dayjs.utc(orderB.timeOut || orderB.rentalEndDate).tz(tzB);
+  return aStart.valueOf() < bEnd.valueOf() && bStart.valueOf() < aEnd.valueOf();
 }
 
 /**
@@ -144,8 +150,8 @@ export function buildConflictMap(cars, allOrders) {
 
   const dayRangeForOrder = (order) => {
     if (!order?.rentalStartDate || !order?.rentalEndDate) return [];
-    const start = dayjs.utc(order.rentalStartDate).tz(TIMEZONE).startOf("day");
-    const end = dayjs.utc(order.rentalEndDate).tz(TIMEZONE).startOf("day");
+    const start = dayjs.utc(order.rentalStartDate).tz(zoneOf(order)).startOf("day");
+    const end = dayjs.utc(order.rentalEndDate).tz(zoneOf(order)).startOf("day");
     const out = [];
     let current = start;
     while (current.isSameOrBefore(end, "day")) {
@@ -215,8 +221,8 @@ export const processOrders = (orders) => {
   const confirmedDates = [];
 
   orders.forEach((order) => {
-    const startDate = dayjs.utc(order.rentalStartDate).tz(TIMEZONE).startOf("day");
-    const endDate = dayjs.utc(order.rentalEndDate).tz(TIMEZONE).startOf("day");
+    const startDate = dayjs.utc(order.rentalStartDate).tz(zoneOf(order)).startOf("day");
+    const endDate = dayjs.utc(order.rentalEndDate).tz(zoneOf(order)).startOf("day");
 
     let currentDate = startDate;
     while (
@@ -299,12 +305,12 @@ export function extractArraysOfStartEndConfPending(orders) {
 
   orders?.forEach((order) => {
     // Нормализуем границы в зоне Афин для работы на уровне дней (UTC из БД → Athens)
-    const startDate = dayjs.utc(order.rentalStartDate).tz(TIMEZONE);
-    const endDate = dayjs.utc(order.rentalEndDate).tz(TIMEZONE);
+    const startDate = dayjs.utc(order.rentalStartDate).tz(zoneOf(order));
+    const endDate = dayjs.utc(order.rentalEndDate).tz(zoneOf(order));
 
-    // Формируем время строго в зоне Афин из UTC-значений БД
-    const timeStart = dayjs.utc(order.timeIn).tz(TIMEZONE).format("HH:mm");
-    const timeEnd = dayjs.utc(order.timeOut).tz(TIMEZONE).format("HH:mm");
+    // Формируем время строго в зоне заказа из UTC-значений БД
+    const timeStart = dayjs.utc(order.timeIn).tz(zoneOf(order)).format("HH:mm");
+    const timeEnd = dayjs.utc(order.timeOut).tz(zoneOf(order)).format("HH:mm");
     const orderCarId = getOrderCarId(order);
 
     // DEBUG: диапазон заказа и в каких представлениях находятся даты

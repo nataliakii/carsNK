@@ -4,12 +4,34 @@ import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import { useMainContext } from "@app/Context";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const BUSINESS_TZ = "Europe/Athens";
+
+/** Short toolbar period (`15d` / range15): 12 consecutive days, larger cards. */
+export const SHORT_PERIOD_DAYS = 12;
+
+/**
+ * Start of the short calendar window (still stored as `15d`).
+ * Forward: 15th of the selected month. Backward: 15th of the previous month.
+ */
+export function getShortPeriodStart({ year, month, rangeDirection }) {
+  return rangeDirection === "forward"
+    ? dayjs().year(year).month(month).date(15)
+    : dayjs().year(year).month(month).subtract(1, "month").date(15);
+}
+
+export function getShortPeriodEnd(start) {
+  return start.add(SHORT_PERIOD_DAYS - 1, "day");
+}
+
+function tzOf(order, fallback = BUSINESS_TZ) {
+  return order?.timezone || fallback;
+}
 
 /* =========================
    Pure helpers
@@ -40,19 +62,8 @@ export function buildCalendarDays({
     (calendarDayRange == null && viewMode === "range15");
 
   if (use15d) {
-    const start =
-      rangeDirection === "forward"
-        ? dayjs().year(year).month(month).date(15)
-        : dayjs().year(year).month(month).subtract(1, "month").date(15);
-
-    const end =
-      rangeDirection === "forward"
-        ? start.add(1, "month").date(15)
-        : dayjs().year(year).month(month).date(15);
-
-    const totalDays = end.diff(start, "day");
-
-    return Array.from({ length: totalDays + 1 }, (_, index) => {
+    const start = getShortPeriodStart({ year, month, rangeDirection });
+    return Array.from({ length: SHORT_PERIOD_DAYS }, (_, index) => {
       const date = start.add(index, "day");
       return {
         dayjs: date,
@@ -102,14 +113,15 @@ export function buildCalendarDays({
  */
 export function buildOrderDateRange(order) {
   if (!order?.rentalStartDate || !order?.rentalEndDate) return [];
+  const tz = tzOf(order);
 
   const startDate = dayjs
     .utc(order.rentalStartDate)
-    .tz(BUSINESS_TZ)
+    .tz(tz)
     .startOf("day");
   const endDate = dayjs
     .utc(order.rentalEndDate)
-    .tz(BUSINESS_TZ)
+    .tz(tz)
     .startOf("day");
   const dates = [];
 
@@ -134,25 +146,26 @@ export function shiftOrderByDays(order, dayDelta) {
   const delta = Number(dayDelta);
   if (!order?.rentalStartDate || !order?.rentalEndDate) return null;
   if (!Number.isFinite(delta) || delta === 0) return null;
+  const tz = tzOf(order);
 
   const start = dayjs
     .utc(order.rentalStartDate)
-    .tz(BUSINESS_TZ)
+    .tz(tz)
     .startOf("day")
     .add(delta, "day");
   const end = dayjs
     .utc(order.rentalEndDate)
-    .tz(BUSINESS_TZ)
+    .tz(tz)
     .startOf("day")
     .add(delta, "day");
 
   if (!end.isAfter(start, "day")) return null;
 
   const timeIn = order.timeIn
-    ? dayjs(order.timeIn).tz(BUSINESS_TZ).add(delta, "day").toDate()
+    ? dayjs(order.timeIn).tz(tz).add(delta, "day").toDate()
     : start.hour(14).minute(0).second(0).toDate();
   const timeOut = order.timeOut
-    ? dayjs(order.timeOut).tz(BUSINESS_TZ).add(delta, "day").toDate()
+    ? dayjs(order.timeOut).tz(tz).add(delta, "day").toDate()
     : end.hour(12).minute(0).second(0).toDate();
 
   return {
@@ -183,8 +196,8 @@ export function calendarDayDelta(fromDateStr, toDateStr) {
  * @param {Array} days - массив дней календаря
  * @returns {number} индекс текущего дня или -1
  */
-export function getTodayIndex(days) {
-  const today = dayjs();
+export function getTodayIndex(days, timezone) {
+  const today = timezone ? dayjs().tz(timezone) : dayjs();
   return days.findIndex((d) => d.dayjs.isSame(today, "day"));
 }
 
@@ -232,7 +245,8 @@ function sumCellWidthsBeforeIndex(cells, index) {
 }
 
 /**
- * Горизонтально центрирует колонку «сегодня» во viewport скролла.
+ * Горизонтально центрирует колонку «сегодня» в *usable* viewport
+ * (как clean crew-week matrix: sticky resource column не перекрывает цель).
  * @param {Object} params
  * @param {HTMLElement} params.container — MUI TableContainer root (scroll element)
  * @param {number} params.todayIndex — индекс сегодня в массиве days
@@ -266,23 +280,34 @@ export function scrollCalendarToToday({ container, todayIndex }) {
 
     // Month-band layout: day row has only day cells; sticky resource col is on row 0.
     const dayRowStartsWithDay = dayCells[0]?.hasAttribute("data-col-index");
+    let stickyWidth = 0;
     if (dayRowStartsWithDay) {
-      const resourceWidth = thead.rows[0]?.cells?.[0]?.offsetWidth ?? 0;
-      if (Number.isFinite(resourceWidth) && resourceWidth > 0) {
-        columnLeft += resourceWidth;
+      stickyWidth = thead.rows[0]?.cells?.[0]?.offsetWidth ?? 0;
+      if (Number.isFinite(stickyWidth) && stickyWidth > 0) {
+        columnLeft += stickyWidth;
+      } else {
+        stickyWidth = 0;
       }
+    } else if (dayCells[0] && !dayCells[0].hasAttribute("data-col-index")) {
+      stickyWidth = dayCells[0].offsetWidth || 0;
     }
 
     const todayCell = dayCells[todayColumnIndex];
     const cellWidth = todayCell?.offsetWidth ?? 0;
     if (!Number.isFinite(cellWidth) || cellWidth <= 0) return;
 
-    const columnCenter = columnLeft + cellWidth / 2;
+    const pad = 8;
+    const usableWidth = Math.max(0, containerWidth - stickyWidth - pad * 2);
     const maxScroll = Math.max(
       0,
       (container.scrollWidth || 0) - containerWidth
     );
-    let targetScrollLeft = columnCenter - containerWidth / 2;
+    // Center today in the area to the right of the sticky car column.
+    let targetScrollLeft =
+      columnLeft -
+      stickyWidth -
+      pad -
+      Math.max(0, (usableWidth - cellWidth) / 2);
     targetScrollLeft = Math.max(0, Math.min(targetScrollLeft, maxScroll));
 
     if (typeof container.scrollTo === "function") {
@@ -320,6 +345,9 @@ export function useCalendarDays({
   rangeDirection,
   calendarDayRange,
 }) {
+  const { platform, company } = useMainContext();
+  const timezone =
+    company?.timezone || platform?.timezone || BUSINESS_TZ;
   const days = useMemo(
     () =>
       buildCalendarDays({
@@ -332,17 +360,17 @@ export function useCalendarDays({
     [month, year, viewMode, rangeDirection, calendarDayRange]
   );
 
-  const todayIndex = useMemo(() => getTodayIndex(days), [days]);
+  const todayIndex = useMemo(
+    () => getTodayIndex(days, timezone),
+    [days, timezone]
+  );
 
   return { days, todayIndex };
 }
 
 /**
- * Хук для автоматического скролла к текущему дню на мобильных устройствах
- * @param {Object} params
- * @param {Array} params.days - массив дней календаря
- * @param {number} params.todayIndex - индекс текущего дня
- * @param {{ current: HTMLElement | null }} params.containerRef - ref на MUI TableContainer
+ * Автоскролл к «сегодня» (как clean: на всех viewport, не только phone).
+ * Учитывает sticky колонку машин через scrollCalendarToToday.
  */
 export function useMobileCalendarScroll({
   days,
@@ -351,28 +379,43 @@ export function useMobileCalendarScroll({
   enabled = true,
 }) {
   useEffect(() => {
-    if (!enabled || !isPhoneViewport()) return;
+    if (!enabled) return undefined;
+
+    let cancelled = false;
+    let timeoutId = 0;
+    let outerRaf = 0;
+    let innerRaf = 0;
 
     const runScroll = () => {
+      if (cancelled) return;
       const container = containerRef?.current;
       if (!container) return;
       scrollCalendarToToday({ container, todayIndex });
     };
 
-    /** After timeout + rAF so thead cell widths are settled (fonts, hydration). */
-    const scheduleScroll = () =>
-      setTimeout(() => {
-        requestAnimationFrame(runScroll);
+    /** Double rAF + short delay so thead cell widths settle (fonts, hydration). */
+    const scheduleScroll = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        cancelAnimationFrame(outerRaf);
+        cancelAnimationFrame(innerRaf);
+        outerRaf = requestAnimationFrame(() => {
+          innerRaf = requestAnimationFrame(runScroll);
+        });
       }, 50);
+    };
 
-    const t = scheduleScroll();
+    scheduleScroll();
 
     const onResize = () => scheduleScroll();
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
 
     return () => {
-      clearTimeout(t);
+      cancelled = true;
+      clearTimeout(timeoutId);
+      cancelAnimationFrame(outerRaf);
+      cancelAnimationFrame(innerRaf);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("orientationchange", onResize);
     };

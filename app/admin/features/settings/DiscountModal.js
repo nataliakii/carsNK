@@ -190,6 +190,26 @@ export default function DiscountModal({
             </Typography>
           </Box>
 
+          <Box
+            sx={{
+              mb: 2,
+              p: 1.5,
+              borderRadius: 1,
+              bgcolor: "action.hover",
+              textAlign: "left",
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+              {t("discount.howItWorksTitle")}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+              {t("discount.howItWorksGlobal")}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t("discount.howItWorksPerCar")}
+            </Typography>
+          </Box>
+
           <Divider sx={{ mb: 2 }} />
 
           <LocalizationProvider dateAdapter={DateAdapter} adapterLocale={locale}>

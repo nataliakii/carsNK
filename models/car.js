@@ -26,31 +26,32 @@ function getSecondDriverPricePerDay() {
   return DEFAULT_SECOND_DRIVER_PRICE_PER_DAY;
 }
 
-function parseDateInBusinessTz(value) {
+function parseDateInBusinessTz(value, timezone = BUSINESS_TZ) {
+  const tz = timezone || BUSINESS_TZ;
   if (value == null) return null;
 
   if (dayjs.isDayjs(value)) {
-    return value.tz(BUSINESS_TZ);
+    return value.tz(tz);
   }
 
   if (value instanceof Date) {
-    return dayjs(value).tz(BUSINESS_TZ);
+    return dayjs.utc(value).tz(tz);
   }
 
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) return null;
     if (DATE_ONLY_PATTERN.test(trimmed)) {
-      return dayjs.tz(trimmed, "YYYY-MM-DD", BUSINESS_TZ);
+      return dayjs.tz(trimmed, "YYYY-MM-DD", tz);
     }
-    return dayjs(trimmed).tz(BUSINESS_TZ);
+    return dayjs(trimmed).tz(tz);
   }
 
-  return dayjs(value).tz(BUSINESS_TZ);
+  return dayjs(value).tz(tz);
 }
 
-function toBusinessStartOfDay(value) {
-  const parsed = parseDateInBusinessTz(value);
+function toBusinessStartOfDay(value, timezone) {
+  const parsed = parseDateInBusinessTz(value, timezone);
   if (!parsed || !parsed.isValid()) return null;
   return parsed.startOf("day");
 }
@@ -277,7 +278,8 @@ CarSchema.methods.calculateTotalRentalPricePerDay = async function (
   endDate,
   kacko = "TPL",
   childSeats = 0,
-  secondDriver = false
+  secondDriver = false,
+  timezone
 ) {
   console.log("[DEBUG] calculateTotalRentalPricePerDay called with:", {
     startDate,
@@ -288,12 +290,12 @@ CarSchema.methods.calculateTotalRentalPricePerDay = async function (
     PriceKacko: this.PriceKacko,
     PriceChildSeats: this.PriceChildSeats,
   });
-  const dayjsStart = toBusinessDateTime(startDate);
-  const dayjsEnd = toBusinessDateTime(endDate);
+  const dayjsStart = toBusinessDateTime(startDate, timezone);
+  const dayjsEnd = toBusinessDateTime(endDate, timezone);
   if (!dayjsStart || !dayjsEnd) {
     throw new Error("Invalid rental start/end date for price calculation");
   }
-  const days = getBusinessRentalDaysByMinutes(dayjsStart, dayjsEnd);
+  const days = getBusinessRentalDaysByMinutes(dayjsStart, dayjsEnd, timezone);
   if (days <= 0) {
     return { total: 0, days: 0 };
   }
@@ -314,8 +316,14 @@ CarSchema.methods.calculateTotalRentalPricePerDay = async function (
         .lean();
     }
     if (discountSetting) {
-      discountStartDay = toBusinessStartOfDay(discountSetting.startDate);
-      discountEndDay = toBusinessStartOfDay(discountSetting.endDate);
+      discountStartDay = toBusinessStartOfDay(
+        discountSetting.startDate,
+        timezone
+      );
+      discountEndDay = toBusinessStartOfDay(
+        discountSetting.endDate,
+        timezone
+      );
     }
   } catch (err) {
     console.error("Error fetching discount settings:", err);

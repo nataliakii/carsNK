@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -25,6 +25,15 @@ import {
   Chip,
   Stack,
   Tooltip,
+  Tabs,
+  Tab,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Divider,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -34,15 +43,30 @@ import MyLocationIcon from "@mui/icons-material/MyLocation";
 import { useTranslation, Trans } from "react-i18next";
 import { useSession } from "next-auth/react";
 import { computeZoneDeliveryPrice } from "@/domain/delivery/deliveryPriceFormula";
+import {
+  computeRuleDeliveryPrice,
+  defaultDeliveryPricing,
+  hasActiveDeliveryPricing,
+} from "@/domain/delivery/deliveryPricingPolicy";
+import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
+import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
+import { ROLE } from "@/domain/orders/admin-rbac";
 import { COMPANY_ID } from "@config/company";
-
-const ROLE_SUPERADMIN = 2;
+import DeliveryPricingExplainer from "./DeliveryPricingExplainer";
 
 const EMPTY_FORM = {
   name: "",
   distanceKm: "",
   fixedPrice: "",
   isFreeDelivery: false,
+};
+
+const pricingModeToggleSx = {
+  flexWrap: "wrap",
+  "& .MuiToggleButton-root": {
+    textTransform: "none",
+    px: 1.5,
+  },
 };
 
 function formatDistanceFormula(distanceKm, rate) {
@@ -68,9 +92,22 @@ function hasFixedPrice(zone) {
   return Number.isFinite(Number(zone.fixedPrice));
 }
 
+function TabPanel({ value, index, children }) {
+  if (value !== index) return null;
+  return <Box sx={{ pt: 2 }}>{children}</Box>;
+}
+
 export default function DeliveryZonesSection() {
   const { t } = useTranslation();
   const { data: session } = useSession();
+  const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
+  const { active: viewAsActive, company: viewAsCompany } = useAdminViewAs();
+  const showCompanyPicker = isSuperAdmin && !viewAsActive;
+  const { country: adminCountry } = useAdminCountryFilter();
+
+  const [tab, setTab] = useState(0);
+  const [companies, setCompanies] = useState([]);
+  const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -81,20 +118,85 @@ export default function DeliveryZonesSection() {
   const [pricePerKmSaved, setPricePerKmSaved] = useState("");
   const [baseLat, setBaseLat] = useState("");
   const [baseLon, setBaseLon] = useState("");
-  const [baseLatSaved, setBaseLatSaved] = useState("");
-  const [baseLonSaved, setBaseLonSaved] = useState("");
   const [locating, setLocating] = useState(false);
   const [savingBase, setSavingBase] = useState(false);
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [workStart, setWorkStart] = useState("08:00");
+  const [workEnd, setWorkEnd] = useState("22:00");
+  const [previewKm, setPreviewKm] = useState("10");
+  const [previewAfterHours, setPreviewAfterHours] = useState(false);
 
-  const companyId = useCallback(() => {
-    const role = Number(session?.user?.role);
-    if (role === ROLE_SUPERADMIN) return String(COMPANY_ID);
-    return session?.user?.ownerId ? String(session.user.ownerId) : String(COMPANY_ID);
-  }, [session]);
+  const [policy, setPolicy] = useState(() => defaultDeliveryPricing(1));
+
+  const companyIdForSession = useCallback(() => {
+    if (viewAsActive && viewAsCompany?._id) {
+      return String(viewAsCompany._id);
+    }
+    if (showCompanyPicker) {
+      return selectedOwnerId || String(COMPANY_ID);
+    }
+    return session?.user?.ownerId
+      ? String(session.user.ownerId)
+      : String(COMPANY_ID);
+  }, [
+    viewAsActive,
+    viewAsCompany,
+    showCompanyPicker,
+    selectedOwnerId,
+    session,
+  ]);
+
+  // Load companies for superadmin (country-scoped); skip while viewing as a company
+  useEffect(() => {
+    if (!showCompanyPicker) {
+      const oid =
+        viewAsActive && viewAsCompany?._id
+          ? String(viewAsCompany._id)
+          : session?.user?.ownerId
+            ? String(session.user.ownerId)
+            : String(COMPANY_ID);
+      setSelectedOwnerId(oid);
+      setCompanies([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const qs =
+          adminCountry === "ALL"
+            ? "country=ALL"
+            : `country=${encodeURIComponent(adminCountry)}`;
+        const res = await fetch(`/api/admin/owners?${qs}`);
+        const body = await res.json();
+        if (cancelled || !body?.success) return;
+        const list = Array.isArray(body.companies) ? body.companies : [];
+        setCompanies(list);
+        setSelectedOwnerId((prev) => {
+          if (prev && list.some((c) => String(c._id) === prev)) return prev;
+          return list[0] ? String(list[0]._id) : String(COMPANY_ID);
+        });
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    showCompanyPicker,
+    adminCountry,
+    session?.user?.ownerId,
+    viewAsActive,
+    viewAsCompany,
+  ]);
 
   const fetchZones = useCallback(async () => {
+    const ownerId = companyIdForSession();
+    if (!ownerId) return;
     try {
-      const res = await fetch("/api/admin/delivery-zones");
+      const res = await fetch(
+        `/api/admin/delivery-zones?ownerId=${encodeURIComponent(ownerId)}`
+      );
       const data = await res.json();
       if (data.success) setZones(data.data);
     } catch (err) {
@@ -102,11 +204,12 @@ export default function DeliveryZonesSection() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [companyIdForSession]);
 
   const fetchCompany = useCallback(async () => {
+    const id = companyIdForSession();
+    if (!id) return;
     try {
-      const id = companyId();
       const res = await fetch(`/api/company/${id}`, { cache: "no-store" });
       const data = await res.json();
       if (data && !data.error) {
@@ -117,18 +220,117 @@ export default function DeliveryZonesSection() {
         const lon = data?.coords?.lon != null ? String(data.coords.lon) : "";
         setBaseLat(lat);
         setBaseLon(lon);
-        setBaseLatSaved(lat);
-        setBaseLonSaved(lon);
+        setWorkStart(data?.workingHours?.start || "08:00");
+        setWorkEnd(data?.workingHours?.end || "22:00");
+        const dp = data.deliveryPricing;
+        if (dp && typeof dp === "object") {
+          setPolicy({
+            radiusKm: dp.radiusKm ?? null,
+            inside: {
+              mode: dp.inside?.mode || "perKm",
+              amount:
+                dp.inside?.amount != null
+                  ? Number(dp.inside.amount)
+                  : Number(val) || 0,
+            },
+            outside: {
+              mode: dp.outside?.mode || "perKm",
+              amount:
+                dp.outside?.amount != null
+                  ? Number(dp.outside.amount)
+                  : Number(val) || 0,
+            },
+            afterHoursSurcharge: Number(dp.afterHoursSurcharge) || 0,
+          });
+        } else {
+          setPolicy(defaultDeliveryPricing(val));
+        }
       }
     } catch (err) {
       console.error("Failed to fetch company:", err);
     }
-  }, [companyId]);
+  }, [companyIdForSession]);
 
   useEffect(() => {
+    setLoading(true);
     fetchZones();
     fetchCompany();
   }, [fetchZones, fetchCompany]);
+
+  const selectedCompanyName = useMemo(() => {
+    if (viewAsActive && viewAsCompany?.name) return viewAsCompany.name;
+    const c = companies.find((x) => String(x._id) === selectedOwnerId);
+    return c?.name || "";
+  }, [companies, selectedOwnerId, viewAsActive, viewAsCompany]);
+
+  const summaryText = useMemo(() => {
+    const r =
+      policy.radiusKm != null && policy.radiusKm !== ""
+        ? Number(policy.radiusKm)
+        : null;
+    const insideLabel =
+      policy.inside.mode === "free"
+        ? t("deliveryZonesPage.free")
+        : policy.inside.mode === "fixed"
+          ? `€${policy.inside.amount} (${t("deliveryZonesPage.fixed")})`
+          : `€${policy.inside.amount}/${t("deliveryZonesPage.perKmShort")}`;
+    const outsideLabel =
+      policy.outside.mode === "blocked"
+        ? t("deliveryZonesPage.outsideBlocked")
+        : policy.outside.mode === "fixed"
+          ? `€${policy.outside.amount} (${t("deliveryZonesPage.fixed")})`
+          : `€${policy.outside.amount}/${t("deliveryZonesPage.perKmShort")} ${t("deliveryZonesPage.beyondArea")}`;
+    const radiusLabel =
+      r != null && Number.isFinite(r)
+        ? t("deliveryZonesPage.summaryInside", { km: r, price: insideLabel })
+        : t("deliveryZonesPage.summaryInsideNoRadius", { price: insideLabel });
+    return {
+      inside: radiusLabel,
+      outside: t("deliveryZonesPage.summaryOutside", { price: outsideLabel }),
+      afterHours: t("deliveryZonesPage.summaryAfterHours", {
+        amount: policy.afterHoursSurcharge || 0,
+      }),
+    };
+  }, [policy, t]);
+
+  const previewResult = useMemo(() => {
+    const km = Number(previewKm);
+    if (!Number.isFinite(km) || km < 0) return null;
+
+    const oneSide = (afterHours) => {
+      if (!hasActiveDeliveryPricing(policy)) {
+        return {
+          price: computeZoneDeliveryPrice(
+            { distanceKm: km },
+            Number(pricePerKmSaved) || 0
+          ),
+          region: "legacy",
+          blocked: false,
+        };
+      }
+      return computeRuleDeliveryPrice({
+        distanceKm: km,
+        policy,
+        isAfterHours: afterHours,
+      });
+    };
+
+    // Same sample km for delivery (placeIn) and return (placeOut)
+    const delivery = oneSide(previewAfterHours);
+    const ret = oneSide(previewAfterHours);
+    const blocked = Boolean(delivery.blocked || ret.blocked);
+    const oneWay = delivery.price;
+    const roundTrip = blocked ? 0 : delivery.price + ret.price;
+
+    return {
+      blocked,
+      region: delivery.region || ret.region || "—",
+      oneWay,
+      delivery: delivery.price,
+      return: ret.price,
+      roundTrip,
+    };
+  }, [previewKm, previewAfterHours, policy, pricePerKmSaved]);
 
   const openAddDialog = () => {
     setEditingZone(null);
@@ -147,14 +349,14 @@ export default function DeliveryZonesSection() {
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
+  const handleSaveZone = async () => {
     const trimmedFixedPrice = String(form.fixedPrice ?? "").trim();
     const payload = {
       name: form.name.trim(),
       distanceKm: Number(form.distanceKm) || 0,
-      fixedPrice:
-        trimmedFixedPrice === "" ? null : Number(trimmedFixedPrice),
+      fixedPrice: trimmedFixedPrice === "" ? null : Number(trimmedFixedPrice),
       isFreeDelivery: form.isFreeDelivery,
+      ownerId: companyIdForSession(),
     };
 
     try {
@@ -192,13 +394,8 @@ export default function DeliveryZonesSection() {
   };
 
   const handleDelete = async (zone) => {
-    if (
-      !confirm(
-        t("deliveryZonesPage.confirmDelete", { name: zone.name })
-      )
-    )
+    if (!confirm(t("deliveryZonesPage.confirmDelete", { name: zone.name })))
       return;
-
     try {
       const res = await fetch(`/api/admin/delivery-zones/${zone._id}`, {
         method: "DELETE",
@@ -218,28 +415,55 @@ export default function DeliveryZonesSection() {
     }
   };
 
-  const handleSavePricePerKm = async () => {
+  const handleSavePolicy = async () => {
+    setSavingPolicy(true);
     try {
-      const res = await fetch(`/api/company/${companyId()}`, {
+      const id = companyIdForSession();
+      const radiusRaw = policy.radiusKm;
+      const body = {
+        deliveryPricing: {
+          radiusKm:
+            radiusRaw === "" || radiusRaw == null ? null : Number(radiusRaw),
+          inside: {
+            mode: policy.inside.mode,
+            amount: Number(policy.inside.amount) || 0,
+          },
+          outside: {
+            mode: policy.outside.mode,
+            amount: Number(policy.outside.amount) || 0,
+          },
+          afterHoursSurcharge: Number(policy.afterHoursSurcharge) || 0,
+        },
+        workingHours: { start: workStart, end: workEnd },
+        deliveryPricePerKm:
+          policy.inside.mode === "perKm"
+            ? Number(policy.inside.amount) || 0
+            : Number(pricePerKm) || 0,
+      };
+      const res = await fetch(`/api/company/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deliveryPricePerKm: Number(pricePerKm) || 0 }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setPricePerKmSaved(pricePerKm);
-        setNotification({
-          severity: "success",
-          message: t("deliveryZonesPage.priceSaved"),
-        });
-      } else {
+      if (!res.ok) {
         setNotification({
           severity: "error",
           message: data.error || data.message || t("deliveryZonesPage.saveFailed"),
         });
+        return;
       }
+      setPricePerKm(String(body.deliveryPricePerKm));
+      setPricePerKmSaved(String(body.deliveryPricePerKm));
+      setNotification({
+        severity: "success",
+        message: t("deliveryZonesPage.policySaved"),
+      });
+      fetchCompany();
     } catch (err) {
       setNotification({ severity: "error", message: err.message });
+    } finally {
+      setSavingPolicy(false);
     }
   };
 
@@ -278,7 +502,11 @@ export default function DeliveryZonesSection() {
       const res = await fetch("/api/admin/delivery-zones/recalculate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat: baseLat, lon: baseLon }),
+        body: JSON.stringify({
+          lat: baseLat,
+          lon: baseLon,
+          ownerId: companyIdForSession(),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
@@ -288,8 +516,6 @@ export default function DeliveryZonesSection() {
         });
         return;
       }
-      setBaseLatSaved(baseLat);
-      setBaseLonSaved(baseLon);
       if (Array.isArray(data.data)) setZones(data.data);
       else fetchZones();
       const failedCount = Number(data.failedCount || 0);
@@ -318,7 +544,6 @@ export default function DeliveryZonesSection() {
         <Typography variant="body2">{t("deliveryZonesPage.free")}</Typography>
       );
     }
-
     if (hasFixedPrice(zone)) {
       return (
         <Typography variant="body2">
@@ -332,7 +557,6 @@ export default function DeliveryZonesSection() {
         </Typography>
       );
     }
-
     const rate = Number(pricePerKmSaved) || 0;
     return (
       <Typography variant="body2">
@@ -342,225 +566,549 @@ export default function DeliveryZonesSection() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: "auto" }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
+    <Box sx={{ p: 3, maxWidth: 960, mx: "auto" }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
         <LocalShippingIcon sx={{ fontSize: 28 }} />
         <Typography variant="h5" fontWeight={700}>
           {t("deliveryZonesPage.title")}
         </Typography>
       </Stack>
 
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          {t("deliveryZonesPage.costSection")}
-        </Typography>
-        <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1.5 }} flexWrap="wrap">
-          <TextField
-            label={t("deliveryZonesPage.pricePerKm")}
-            size="small"
-            type="number"
-            value={pricePerKm}
-            onChange={(e) => setPricePerKm(e.target.value)}
-            sx={{ width: 160 }}
-            inputProps={{ min: 0, step: 0.1 }}
-          />
-          <Button
-            variant="contained"
-            size="small"
-            disabled={pricePerKm === pricePerKmSaved}
-            onClick={handleSavePricePerKm}
+      {showCompanyPicker && (
+        <FormControl size="small" sx={{ mb: 2, minWidth: 260 }}>
+          <InputLabel>{t("deliveryZonesPage.company")}</InputLabel>
+          <Select
+            label={t("deliveryZonesPage.company")}
+            value={selectedOwnerId}
+            onChange={(e) => setSelectedOwnerId(e.target.value)}
           >
-            {t("deliveryZonesPage.save")}
-          </Button>
-        </Stack>
-        <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 2 }}>
-          <Trans
-            i18nKey="deliveryZonesPage.formulaHint"
-            components={{ bold: <b /> }}
-          />
-        </Typography>
+            {companies.map((c) => (
+              <MenuItem key={String(c._id)} value={String(c._id)}>
+                {c.name || String(c._id)}
+                {c.country ? ` (${c.country})` : ""}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
 
+      <Paper sx={{ p: 2, mb: 2, bgcolor: "grey.50" }}>
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          {t("deliveryZonesPage.baseSection")}
+          {t("deliveryZonesPage.summaryTitle")}
+          {selectedCompanyName ? ` — ${selectedCompanyName}` : ""}
         </Typography>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1.5}
-          sx={{ mb: 1 }}
-          flexWrap="wrap"
-          useFlexGap
-        >
-          <TextField
-            label={t("deliveryZonesPage.baseLat")}
-            size="small"
-            type="number"
-            value={baseLat}
-            onChange={(e) => setBaseLat(e.target.value)}
-            sx={{ width: 180 }}
-            inputProps={{ step: "any" }}
-          />
-          <TextField
-            label={t("deliveryZonesPage.baseLon")}
-            size="small"
-            type="number"
-            value={baseLon}
-            onChange={(e) => setBaseLon(e.target.value)}
-            sx={{ width: 180 }}
-            inputProps={{ step: "any" }}
-          />
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<MyLocationIcon />}
-            onClick={handleUseMyLocation}
-            disabled={locating || savingBase}
-            sx={{ textTransform: "none" }}
-          >
-            {locating
-              ? t("deliveryZonesPage.locating")
-              : t("deliveryZonesPage.useMyLocation")}
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            onClick={handleSaveBaseAndRecalculate}
-            disabled={
-              savingBase ||
-              !String(baseLat).trim() ||
-              !String(baseLon).trim()
-            }
-            sx={{ textTransform: "none" }}
-          >
-            {savingBase
-              ? t("deliveryZonesPage.recalculating")
-              : t("deliveryZonesPage.saveBaseAndRecalculate")}
-          </Button>
-        </Stack>
-        <Typography variant="caption" color="text.secondary" component="div">
-          {t("deliveryZonesPage.baseHelper")}
-        </Typography>
+        <Typography variant="body2">{summaryText.inside}</Typography>
+        <Typography variant="body2">{summaryText.outside}</Typography>
+        <Typography variant="body2">{summaryText.afterHours}</Typography>
       </Paper>
 
-      <Paper>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ p: 2 }}
-        >
-          <Typography variant="subtitle1" fontWeight={600}>
-            {t("deliveryZonesPage.citiesTitle", { count: zones.length })}
-          </Typography>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={openAddDialog}
-          >
-            {t("deliveryZonesPage.add")}
-          </Button>
-        </Stack>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ borderBottom: 1, borderColor: "divider", mb: 1 }}
+      >
+        <Tab label={t("deliveryZonesPage.tabArea")} />
+        <Tab label={t("deliveryZonesPage.tabOutsideZones")} />
+        <Tab label={t("deliveryZonesPage.tabAfterHours")} />
+      </Tabs>
 
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>{t("deliveryZonesPage.colCity")}</TableCell>
-                <TableCell align="right">
-                  {t("deliveryZonesPage.colDistance")}
-                </TableCell>
-                <TableCell align="right">
-                  {t("deliveryZonesPage.colCost")}
-                </TableCell>
-                <TableCell align="center">
-                  {t("deliveryZonesPage.colStatus")}
-                </TableCell>
-                <TableCell align="right">
-                  {t("deliveryZonesPage.colActions")}
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
+      <TabPanel value={tab} index={0}>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {t("deliveryZonesPage.baseSection")}
+          </Typography>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1.5}
+            sx={{ mb: 2 }}
+            flexWrap="wrap"
+            useFlexGap
+          >
+            <TextField
+              label={t("deliveryZonesPage.baseLat")}
+              size="small"
+              type="number"
+              value={baseLat}
+              onChange={(e) => setBaseLat(e.target.value)}
+              sx={{ width: 180 }}
+              inputProps={{ step: "any" }}
+            />
+            <TextField
+              label={t("deliveryZonesPage.baseLon")}
+              size="small"
+              type="number"
+              value={baseLon}
+              onChange={(e) => setBaseLon(e.target.value)}
+              sx={{ width: 180 }}
+              inputProps={{ step: "any" }}
+            />
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<MyLocationIcon />}
+              onClick={handleUseMyLocation}
+              disabled={locating || savingBase}
+              sx={{ textTransform: "none" }}
+            >
+              {locating
+                ? t("deliveryZonesPage.locating")
+                : t("deliveryZonesPage.useMyLocation")}
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleSaveBaseAndRecalculate}
+              disabled={
+                savingBase || !String(baseLat).trim() || !String(baseLon).trim()
+              }
+              sx={{ textTransform: "none" }}
+            >
+              {savingBase
+                ? t("deliveryZonesPage.recalculating")
+                : t("deliveryZonesPage.saveBaseAndRecalculate")}
+            </Button>
+          </Stack>
+          <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 2 }}>
+            {t("deliveryZonesPage.baseHelper")}
+          </Typography>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {t("deliveryZonesPage.areaRules")}
+          </Typography>
+
+          <DeliveryPricingExplainer
+            insideMode={policy.inside.mode}
+            radiusKm={policy.radiusKm}
+          />
+
+          <Stack spacing={2}>
+            <TextField
+              label={t("deliveryZonesPage.radiusKm")}
+              size="small"
+              type="number"
+              value={policy.radiusKm ?? ""}
+              onChange={(e) =>
+                setPolicy((p) => ({
+                  ...p,
+                  radiusKm: e.target.value === "" ? "" : e.target.value,
+                }))
+              }
+              helperText={t("deliveryZonesPage.radiusHelp")}
+              sx={{ maxWidth: 220 }}
+              inputProps={{ min: 0, step: 0.1 }}
+            />
+
+            <Box>
+              <Typography variant="body2" fontWeight={600} sx={{ mb: 0.75 }}>
+                {t("deliveryZonesPage.insideMode")}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                component="div"
+                sx={{ mb: 1 }}
+              >
+                {t("deliveryZonesPage.insideModeHelp")}
+              </Typography>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                alignItems={{ xs: "stretch", sm: "flex-start" }}
+              >
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  color="primary"
+                  value={
+                    policy.inside.mode === "free"
+                      ? "fixed"
+                      : policy.inside.mode === "fixed" ||
+                          policy.inside.mode === "perKm"
+                        ? policy.inside.mode
+                        : "perKm"
+                  }
+                  onChange={(_e, next) => {
+                    if (next == null) return;
+                    setPolicy((p) => ({
+                      ...p,
+                      inside: { ...p.inside, mode: next },
+                    }));
+                  }}
+                  sx={pricingModeToggleSx}
+                >
+                  <ToggleButton value="fixed">
+                    {t("deliveryZonesPage.modeFixedStable")}
+                  </ToggleButton>
+                  <ToggleButton value="perKm">
+                    {t("deliveryZonesPage.modePerKm")}
+                  </ToggleButton>
+                </ToggleButtonGroup>
+                <TextField
+                  label={
+                    policy.inside.mode === "fixed" ||
+                    policy.inside.mode === "free"
+                      ? t("deliveryZonesPage.insideFixedAmount")
+                      : t("deliveryZonesPage.pricePerKm")
+                  }
+                  size="small"
+                  type="number"
+                  value={
+                    policy.inside.mode === "free" ? 0 : policy.inside.amount
+                  }
+                  onChange={(e) =>
+                    setPolicy((p) => ({
+                      ...p,
+                      inside: {
+                        ...p.inside,
+                        mode:
+                          p.inside.mode === "free" ? "fixed" : p.inside.mode,
+                        amount: e.target.value,
+                      },
+                    }))
+                  }
+                  sx={{ width: 180 }}
+                  inputProps={{ min: 0, step: 0.1 }}
+                  helperText={
+                    policy.inside.mode === "fixed" ||
+                    policy.inside.mode === "free"
+                      ? t("deliveryZonesPage.insideFixedHelp")
+                      : t("deliveryZonesPage.insidePerKmHelp")
+                  }
+                />
+              </Stack>
+            </Box>
+
+            <Box>
+              <Typography variant="body2" fontWeight={600} sx={{ mb: 0.75 }}>
+                {t("deliveryZonesPage.outsideMode")}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                component="div"
+                sx={{ mb: 1 }}
+              >
+                {t("deliveryZonesPage.outsideModeHelp")}
+              </Typography>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                alignItems={{ xs: "stretch", sm: "flex-start" }}
+              >
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  color="primary"
+                  value={
+                    ["perKm", "fixed", "blocked"].includes(policy.outside.mode)
+                      ? policy.outside.mode
+                      : "perKm"
+                  }
+                  onChange={(_e, next) => {
+                    if (next == null) return;
+                    setPolicy((p) => ({
+                      ...p,
+                      outside: { ...p.outside, mode: next },
+                    }));
+                  }}
+                  sx={pricingModeToggleSx}
+                >
+                  <ToggleButton value="perKm">
+                    {t("deliveryZonesPage.modePerKm")}
+                  </ToggleButton>
+                  <ToggleButton value="fixed">
+                    {t("deliveryZonesPage.modeFixedStable")}
+                  </ToggleButton>
+                  <ToggleButton value="blocked">
+                    {t("deliveryZonesPage.modeBlocked")}
+                  </ToggleButton>
+                </ToggleButtonGroup>
+                {policy.outside.mode !== "blocked" && (
+                  <TextField
+                    label={
+                      policy.outside.mode === "fixed"
+                        ? t("deliveryZonesPage.outsideFixedAmount")
+                        : t("deliveryZonesPage.outsidePerKm")
+                    }
+                    size="small"
+                    type="number"
+                    value={policy.outside.amount}
+                    onChange={(e) =>
+                      setPolicy((p) => ({
+                        ...p,
+                        outside: { ...p.outside, amount: e.target.value },
+                      }))
+                    }
+                    sx={{ width: 180 }}
+                    inputProps={{ min: 0, step: 0.1 }}
+                    helperText={
+                      policy.outside.mode === "perKm"
+                        ? t("deliveryZonesPage.outsidePerKmHelp")
+                        : t("deliveryZonesPage.outsideFixedHelp")
+                    }
+                  />
+                )}
+              </Stack>
+            </Box>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleSavePolicy}
+              disabled={savingPolicy}
+              sx={{ alignSelf: "flex-start", textTransform: "none" }}
+            >
+              {t("deliveryZonesPage.saveRules")}
+            </Button>
+          </Stack>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {t("deliveryZonesPage.previewTitle")}
+          </Typography>
+          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+            <TextField
+              label={t("deliveryZonesPage.previewKm")}
+              size="small"
+              type="number"
+              value={previewKm}
+              onChange={(e) => setPreviewKm(e.target.value)}
+              sx={{ width: 140 }}
+              inputProps={{ min: 0, step: 0.1 }}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={previewAfterHours}
+                  onChange={(e) => setPreviewAfterHours(e.target.checked)}
+                  size="small"
+                />
+              }
+              label={t("deliveryZonesPage.previewAfterHours")}
+            />
+            {previewResult && (
+              <Stack spacing={0.25}>
+                {previewResult.blocked ? (
+                  <Typography variant="body2" fontWeight={600}>
+                    {t("deliveryZonesPage.previewBlocked")}
+                  </Typography>
+                ) : (
+                  <>
+                    <Typography variant="body2">
+                      {t("deliveryZonesPage.previewDelivery", {
+                        price: previewResult.delivery,
+                        region: previewResult.region,
+                      })}
+                    </Typography>
+                    <Typography variant="body2">
+                      {t("deliveryZonesPage.previewReturn", {
+                        price: previewResult.return,
+                        region: previewResult.region,
+                      })}
+                    </Typography>
+                    <Typography variant="body2" fontWeight={700}>
+                      {t("deliveryZonesPage.previewRoundTrip", {
+                        price: previewResult.roundTrip,
+                      })}
+                    </Typography>
+                  </>
+                )}
+              </Stack>
+            )}
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+            {t("deliveryZonesPage.bothSidesHint")}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+            <Trans
+              i18nKey="deliveryZonesPage.formulaHint"
+              components={{ bold: <b /> }}
+            />
+          </Typography>
+        </Paper>
+      </TabPanel>
+
+      <TabPanel value={tab} index={1}>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {t("deliveryZonesPage.outsideZonesHelp")}
+        </Alert>
+        <Paper>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ p: 2 }}
+          >
+            <Typography variant="subtitle1" fontWeight={600}>
+              {t("deliveryZonesPage.citiesTitle", { count: zones.length })}
+            </Typography>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={openAddDialog}
+            >
+              {t("deliveryZonesPage.add")}
+            </Button>
+          </Stack>
+
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    {t("deliveryZonesPage.loading")}
+                  <TableCell>{t("deliveryZonesPage.colCity")}</TableCell>
+                  <TableCell align="right">
+                    {t("deliveryZonesPage.colDistance")}
+                  </TableCell>
+                  <TableCell align="right">
+                    {t("deliveryZonesPage.colCost")}
+                  </TableCell>
+                  <TableCell align="center">
+                    {t("deliveryZonesPage.colStatus")}
+                  </TableCell>
+                  <TableCell align="right">
+                    {t("deliveryZonesPage.colActions")}
                   </TableCell>
                 </TableRow>
-              ) : zones.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    {t("deliveryZonesPage.empty")}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                zones.map((zone) => (
-                  <TableRow key={zone._id} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={500}>
-                        {zone.name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">{zone.distanceKm} km</TableCell>
-                    <TableCell align="right">
-                      {renderPrice(zone)}
-                      {!zone.isFreeDelivery && !hasFixedPrice(zone) && (
-                        <Typography variant="caption" color="text.secondary">
-                          {formatDistanceFormula(
-                            zone.distanceKm,
-                            Number(pricePerKmSaved) || 0
-                          )}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="center">
-                      {zone.isFreeDelivery ? (
-                        <Chip
-                          label={t("deliveryZonesPage.statusFree")}
-                          size="small"
-                          color="success"
-                        />
-                      ) : !zone.isActive ? (
-                        <Chip
-                          label={t("deliveryZonesPage.statusInactive")}
-                          size="small"
-                          color="default"
-                        />
-                      ) : (
-                        <Chip
-                          label={t("deliveryZonesPage.statusActive")}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title={t("deliveryZonesPage.edit")}>
-                        <IconButton
-                          size="small"
-                          onClick={() => openEditDialog(zone)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={t("deliveryZonesPage.delete")}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDelete(zone)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+              </TableHead>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      {t("deliveryZonesPage.loading")}
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+                ) : zones.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      {t("deliveryZonesPage.empty")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  zones.map((zone) => (
+                    <TableRow key={zone._id} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={500}>
+                          {zone.name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">{zone.distanceKm} km</TableCell>
+                      <TableCell align="right">
+                        {renderPrice(zone)}
+                        {!zone.isFreeDelivery && !hasFixedPrice(zone) && (
+                          <Typography variant="caption" color="text.secondary">
+                            {formatDistanceFormula(
+                              zone.distanceKm,
+                              Number(pricePerKmSaved) || 0
+                            )}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="center">
+                        {zone.isFreeDelivery ? (
+                          <Chip
+                            label={t("deliveryZonesPage.statusFree")}
+                            size="small"
+                            color="success"
+                          />
+                        ) : !zone.isActive ? (
+                          <Chip
+                            label={t("deliveryZonesPage.statusInactive")}
+                            size="small"
+                            color="default"
+                          />
+                        ) : (
+                          <Chip
+                            label={t("deliveryZonesPage.statusActive")}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Tooltip title={t("deliveryZonesPage.edit")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => openEditDialog(zone)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t("deliveryZonesPage.delete")}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDelete(zone)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </TabPanel>
+
+      <TabPanel value={tab} index={2}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {t("deliveryZonesPage.afterHoursSection")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("deliveryZonesPage.afterHoursHelp")}
+          </Typography>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+            <TextField
+              label={t("deliveryZonesPage.workStart")}
+              size="small"
+              type="time"
+              value={workStart}
+              onChange={(e) => setWorkStart(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
+            <TextField
+              label={t("deliveryZonesPage.workEnd")}
+              size="small"
+              type="time"
+              value={workEnd}
+              onChange={(e) => setWorkEnd(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
+            <TextField
+              label={t("deliveryZonesPage.afterHoursSurcharge")}
+              size="small"
+              type="number"
+              value={policy.afterHoursSurcharge}
+              onChange={(e) =>
+                setPolicy((p) => ({
+                  ...p,
+                  afterHoursSurcharge: e.target.value,
+                }))
+              }
+              sx={{ width: 180 }}
+              inputProps={{ min: 0, step: 1 }}
+            />
+          </Stack>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleSavePolicy}
+            disabled={savingPolicy}
+            sx={{ textTransform: "none" }}
+          >
+            {t("deliveryZonesPage.saveRules")}
+          </Button>
+        </Paper>
+      </TabPanel>
 
       <Dialog
         open={dialogOpen}
@@ -635,7 +1183,7 @@ export default function DeliveryZonesSection() {
           </Button>
           <Button
             variant="contained"
-            onClick={handleSave}
+            onClick={handleSaveZone}
             disabled={!form.name.trim() || !form.distanceKm}
           >
             {editingZone

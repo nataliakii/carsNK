@@ -28,7 +28,7 @@ const JSON_CONTENT_TYPE = "application/json";
  * @param {Request} request - Next.js/Web API Request
  * @returns {{ ip: string, fingerprint: string | null, userAgent: string | null }}
  */
-function extractClientContext(request) {
+export function extractClientContext(request) {
   const headers = request.headers;
   const forwarded = headers.get("x-forwarded-for");
   const ip =

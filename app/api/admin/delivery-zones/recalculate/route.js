@@ -6,6 +6,7 @@ import { COMPANY_ID } from "@config/company";
 import {
   getSessionOwnerId,
   isSuperAdminUser,
+  normalizeOwnerId,
 } from "@/domain/owners/ownerScope";
 import { recalculateZoneDistancesFromBase } from "@/domain/delivery/recalculateZoneDistancesFromBase";
 import { sortDeliveryZones } from "@/domain/delivery/sortDeliveryZones";
@@ -31,9 +32,21 @@ function parseCoord(value, kind) {
   return { ok: true, value: String(num) };
 }
 
-function resolveCompanyId(user) {
-  if (isSuperAdminUser(user)) return String(COMPANY_ID);
+function resolveCompanyId(user, requestedOwnerId) {
+  if (isSuperAdminUser(user)) {
+    return normalizeOwnerId(requestedOwnerId) || String(COMPANY_ID);
+  }
   return getSessionOwnerId(user) || String(COMPANY_ID);
+}
+
+function buildZoneOwnerFilter(ownerId) {
+  const id = String(ownerId);
+  if (id === String(COMPANY_ID)) {
+    return {
+      $or: [{ ownerId: id }, { ownerId: null }, { ownerId: { $exists: false } }],
+    };
+  }
+  return { ownerId: id };
 }
 
 export async function POST(request) {
@@ -56,7 +69,7 @@ export async function POST(request) {
   if (!parsedLon.ok) return json({ success: false, message: parsedLon.message }, 400);
 
   const coords = { lat: parsedLat.value, lon: parsedLon.value };
-  const companyId = resolveCompanyId(session.user);
+  const companyId = resolveCompanyId(session.user, body?.ownerId);
 
   try {
     await connectToDB();
@@ -70,8 +83,10 @@ export async function POST(request) {
       return json({ success: false, message: "Company not found" }, 404);
     }
 
-    const { updated, failed } = await recalculateZoneDistancesFromBase(coords);
-    const zones = await DeliveryZone.find().lean();
+    const { updated, failed } = await recalculateZoneDistancesFromBase(coords, {
+      ownerId: companyId,
+    });
+    const zones = await DeliveryZone.find(buildZoneOwnerFilter(companyId)).lean();
 
     return json({
       success: true,

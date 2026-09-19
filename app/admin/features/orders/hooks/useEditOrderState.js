@@ -43,12 +43,14 @@ import {
   reinterpretAsAthens,
   athensStartOfDay,
   athensNow,
+  ATHENS_TZ,
 } from "@/domain/time/athensTime";
+import { createBusinessDateTime } from "@/domain/time/businessInstant";
 import { updateOrder, calculateTotalPrice, deleteOrder } from "@utils/action";
 import { canUpdateStartDate } from "./startDateAccess";
 import i18n from "@locales/i18n";
 import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
-import { isThessalonikiCityBookingLocation } from "@/domain/orders/halkidikiBookingLocations";
+import { locationRequiresAddressDetail } from "@/domain/platform/bookingLocations";
 import { normalizeDeliveryPricingLocation } from "@/domain/orders/bookingPricingOptions";
 import {
   sumRentalSubtotalFromPriceBreakdown,
@@ -59,6 +61,10 @@ import {
   resolveOrderSnapshotForSave,
   prepareApplyQuotedDeliveryGrandSave,
 } from "@/domain/orders/applyQuotedDeliveryGrandSave";
+
+function tzOf(entity) {
+  return entity?.timezone || ATHENS_TZ;
+}
 
 export function isExplicitTotalPriceSource(source) {
   return (
@@ -219,8 +225,14 @@ export function useEditOrderState({
 
     // 🔧 FIX ДЫРКА A: rentalStartDate/rentalEndDate инициализируются в Athens
     // Используем fromServerUTC для правильной конвертации UTC → Athens
-    const rentalStartDateAthens = fromServerUTC(order.rentalStartDate);
-    const rentalEndDateAthens = fromServerUTC(order.rentalEndDate);
+    const rentalStartDateAthens = fromServerUTC(
+      order.rentalStartDate,
+      tzOf(order)
+    );
+    const rentalEndDateAthens = fromServerUTC(
+      order.rentalEndDate,
+      tzOf(order)
+    );
     
     // Создаём date-only в Athens (startOf("day"))
     const startDateAthens = athensStartOfDay(formatDateYYYYMMDD(rentalStartDateAthens));
@@ -233,8 +245,8 @@ export function useEditOrderState({
       rentalStartDate: startDateAthens,
       rentalEndDate: endDateAthens,
       // Time fields are kept as-is (will be used for display)
-      timeIn: fromServerUTC(order.timeIn),
-      timeOut: fromServerUTC(order.timeOut),
+      timeIn: fromServerUTC(order.timeIn, tzOf(order)),
+      timeOut: fromServerUTC(order.timeOut, tzOf(order)),
       // 🔧 PRICE ARCHITECTURE: Preserve OverridePrice if it exists
       // OverridePrice is copied from order via spread operator above
       // Explicitly ensure it's preserved (null or number)
@@ -253,8 +265,8 @@ export function useEditOrderState({
     setManualDeliveryOut(dout != null && dout !== undefined ? String(dout) : "");
     
     // ✅ Times are Athens dayjs objects
-    setStartTime(fromServerUTC(order.timeIn));
-    setEndTime(fromServerUTC(order.timeOut));
+    setStartTime(fromServerUTC(order.timeIn, tzOf(order)));
+    setEndTime(fromServerUTC(order.timeOut, tzOf(order)));
     setPriceBreakdown(null);
     setStoredBreakdownLoaded(false);
     setCurrentRatesData(null);
@@ -270,10 +282,10 @@ export function useEditOrderState({
     setEditedOrder((prev) => {
       if (!prev) return prev;
       const clearIn =
-        !isThessalonikiCityBookingLocation(prev.placeIn) &&
+        !locationRequiresAddressDetail(prev.placeIn) &&
         String(prev.placeInDetail || "").trim();
       const clearOut =
-        !isThessalonikiCityBookingLocation(prev.placeOut) &&
+        !locationRequiresAddressDetail(prev.placeOut) &&
         String(prev.placeOutDetail || "").trim();
       if (!clearIn && !clearOut) return prev;
       return {
@@ -412,10 +424,18 @@ export function useEditOrderState({
         const startDateStr = formatDateYYYYMMDD(editedOrder.rentalStartDate);
         const endDateStr = formatDateYYYYMMDD(editedOrder.rentalEndDate);
         const timeInAthens = startTime
-          ? createAthensDateTime(startDateStr, formatTimeHHMM(startTime))
+          ? createBusinessDateTime(
+              startDateStr,
+              formatTimeHHMM(startTime),
+              tzOf(editedOrder)
+            )
           : null;
         const timeOutAthens = endTime
-          ? createAthensDateTime(endDateStr, formatTimeHHMM(endTime))
+          ? createBusinessDateTime(
+              endDateStr,
+              formatTimeHHMM(endTime),
+              tzOf(editedOrder)
+            )
           : null;
         const timeInServer = timeInAthens ? toServerUTC(timeInAthens) : undefined;
         const timeOutServer = timeOutAthens ? toServerUTC(timeOutAthens) : undefined;
@@ -906,17 +926,19 @@ export function useEditOrderState({
       }
       if (fieldPermissions.timeIn && startTime) {
         const startDateStr = formatDateYYYYMMDD(o.rentalStartDate);
-        const timeInAthens = createAthensDateTime(
+        const timeInAthens = createBusinessDateTime(
           startDateStr,
-          formatTimeHHMM(startTime)
+          formatTimeHHMM(startTime),
+          tzOf(o)
         );
         payload.timeIn = toServerUTC(timeInAthens);
       }
       if (fieldPermissions.timeOut && endTime) {
         const endDateStr = formatDateYYYYMMDD(o.rentalEndDate);
-        const timeOutAthens = createAthensDateTime(
+        const timeOutAthens = createBusinessDateTime(
           endDateStr,
-          formatTimeHHMM(endTime)
+          formatTimeHHMM(endTime),
+          tzOf(o)
         );
         payload.timeOut = toServerUTC(timeOutAthens);
       }

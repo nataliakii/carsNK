@@ -15,7 +15,7 @@ import {
   getHomepageSearchUrl,
   getLocationHeroSubtitle,
   getLocationPageContent,
-  isSupportedLocale,
+  isRoutableLocale,
   normalizeLocale,
   resolveLocationFromSingleSegmentSlug,
   shouldHideDistanceToThessalonikiBlock,
@@ -55,6 +55,7 @@ import {
   SeoWhyRentBlock,
   SeoDistanceTableBlock,
 } from "@app/components/seo/SeoContentBlocks";
+import { getSiteCountryConfig } from "@config/siteCountry";
 import {
   SEO_LOCATIONS,
   getLocationSeoSlug,
@@ -144,8 +145,9 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function LocationHierarchyPage({ params }) {
+  if (!getSiteCountryConfig().showLegacySeoLocations) notFound();
   const locale = normalizeLocale(params.locale);
-  if (!isSupportedLocale(locale)) notFound();
+  if (!isRoutableLocale(params.locale)) notFound();
 
   const pathArray = toPathArray(params.path);
 
@@ -497,7 +499,7 @@ export default async function LocationHierarchyPage({ params }) {
             />
           )}
 
-          {/* Airport: benefits / why CarsNK — directly before FAQ */}
+          {/* Airport: benefits / why rovaro — directly before FAQ */}
           {isAirport && prioritySeo?.benefitBlockTitle && prioritySeo?.quickBenefits?.length > 0 && (
             <SeoWhyRentBlock
               sectionId="airport-why-natali-cars"

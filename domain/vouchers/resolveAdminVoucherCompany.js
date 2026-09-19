@@ -9,6 +9,7 @@ import {
   buildCompanyVoucherDefaults,
   getCompanyVoucherStampSrc,
 } from "@/domain/vouchers/companyStamp";
+import { getVoucherMarketLocales } from "@/domain/vouchers/transferVoucher";
 
 /**
  * @param {object} session - requireAdmin session ({ user })
@@ -33,6 +34,7 @@ export async function resolveAdminVoucherCompany(session, requestedCompanyId) {
   }
 
   const stampSrc = getCompanyVoucherStampSrc(company);
-  const defaults = buildCompanyVoucherDefaults(company);
+  const primary = getVoucherMarketLocales(company?.country).primary;
+  const defaults = buildCompanyVoucherDefaults(company, primary);
   return { company, stampSrc, defaults };
 }

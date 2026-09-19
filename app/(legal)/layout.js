@@ -12,10 +12,14 @@
 
 import "@styles/globals.css";
 import { getSeoConfig } from "@config/seo";
+import { getCanonicalHost } from "@config/domain";
+import { getBrandName } from "@config/brand";
 import Providers from "../providers";
 import Navbar from "@app/components/Navbar";
 
 const seoConfig = getSeoConfig();
+const brandName = getBrandName();
+const siteHost = getCanonicalHost();
 
 export const metadata = {
   metadataBase: new URL(seoConfig.baseUrl),
@@ -44,7 +48,7 @@ function MinimalFooter() {
         }}
       >
         <p style={{ margin: "0 0 16px 0", fontSize: "14px" }}>
-          © {new Date().getFullYear()} CarsNK. All rights reserved. · carsnk.gr
+          © {new Date().getFullYear()} {brandName}. All rights reserved. · {siteHost}
         </p>
         <div style={{ display: "flex", justifyContent: "center", gap: "24px", flexWrap: "wrap" }}>
           <a

@@ -21,19 +21,24 @@ dayjs.extend(timezone);
 const ORDER_DRAG_MIME = "application/x-car-calendar-order-id";
 const BUSINESS_TZ = "Europe/Athens";
 
-function formatRange(startStr, endStr) {
+function tzOf(order) {
+  return order?.timezone || BUSINESS_TZ;
+}
+
+function formatRange(startStr, endStr, timezone = BUSINESS_TZ) {
   const fmt = (s) =>
-    dayjs.tz(s, "YYYY-MM-DD", BUSINESS_TZ).format("DD.MM.YYYY");
+    dayjs.tz(s, "YYYY-MM-DD", timezone).format("DD.MM.YYYY");
   return `${fmt(startStr)} – ${fmt(endStr)}`;
 }
 
 function orderRangeStrings(order) {
+  const tz = tzOf(order);
   return {
     start: dayjs
       .utc(order.rentalStartDate)
-      .tz(BUSINESS_TZ)
+      .tz(tz)
       .format("YYYY-MM-DD"),
-    end: dayjs.utc(order.rentalEndDate).tz(BUSINESS_TZ).format("YYYY-MM-DD"),
+    end: dayjs.utc(order.rentalEndDate).tz(tz).format("YYYY-MM-DD"),
   };
 }
 

@@ -36,13 +36,56 @@ import SearchIcon from "@mui/icons-material/Search";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
-import Link from "next/link";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import { useRouter } from "next/navigation";
 import { COMPANY_ID } from "@config/company";
 import CompanyContactsCard from "@/app/admin/shared/components/CompanyContactsCard";
 import EditCompanyContactsDialog from "@/app/admin/shared/components/EditCompanyContactsDialog";
+import CompanyStorefrontCard from "@/app/admin/shared/components/CompanyStorefrontCard";
+import CompanyRentalPaymentsCard from "@/app/admin/shared/components/CompanyRentalPaymentsCard";
+import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
+import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import {
+  meetingContactsFromCompany,
+  meetingContactsUpdatePayload,
+} from "@/domain/company/meetingContacts";
 
 const ROLE_ADMIN = 1;
 const ROLE_SUPERADMIN = 2;
+
+/** Strong random password for new company admins (browser crypto). */
+function generateStrongPassword(length = 16) {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const digits = "23456789";
+  const symbols = "!@#$%&*-_=+?";
+  const all = upper + lower + digits + symbols;
+  const pick = (charset) => {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    return charset[buf[0] % charset.length];
+  };
+  // Guarantee at least one of each class, then fill.
+  const chars = [
+    pick(upper),
+    pick(lower),
+    pick(digits),
+    pick(symbols),
+  ];
+  while (chars.length < length) chars.push(pick(all));
+  // Shuffle
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    const j = buf[0] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
 
 function shortId(id) {
   const s = String(id || "");
@@ -51,6 +94,8 @@ function shortId(id) {
 }
 
 export default function OwnersSection() {
+  const router = useRouter();
+  const { enter: enterViewAs, loading: viewAsLoading } = useAdminViewAs();
   const [companies, setCompanies] = useState([]);
   const [users, setUsers] = useState([]);
   const [cars, setCars] = useState([]);
@@ -72,6 +117,8 @@ export default function OwnersSection() {
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [passwordCopied, setPasswordCopied] = useState(false);
 
   const [editCompanyOpen, setEditCompanyOpen] = useState(false);
   const [editCompanyName, setEditCompanyName] = useState("");
@@ -79,17 +126,26 @@ export default function OwnersSection() {
   const [editCompanyTel, setEditCompanyTel] = useState("");
   const [editCompanyBaseLat, setEditCompanyBaseLat] = useState("");
   const [editCompanyBaseLon, setEditCompanyBaseLon] = useState("");
+  const [editCompanyMeetingContacts, setEditCompanyMeetingContacts] = useState(
+    () => meetingContactsFromCompany(null)
+  );
 
   const [editAdminOpen, setEditAdminOpen] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState(null);
   const [editAdminEmail, setEditAdminEmail] = useState("");
 
+  const { country: adminCountry } = useAdminCountryFilter();
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
+      const ownersUrl =
+        adminCountry && adminCountry !== "ALL"
+          ? `/api/admin/owners?country=${encodeURIComponent(adminCountry)}`
+          : "/api/admin/owners?country=ALL";
       const [ownersRes, carsRes] = await Promise.all([
-        fetch("/api/admin/owners"),
+        fetch(ownersUrl),
         fetch("/api/car/all", { method: "POST", cache: "no-store" }),
       ]);
       const ownersBody = await ownersRes.json();
@@ -117,7 +173,7 @@ export default function OwnersSection() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [adminCountry]);
 
   useEffect(() => {
     load();
@@ -161,8 +217,17 @@ export default function OwnersSection() {
 
   const filteredCars = useMemo(() => {
     const q = carQuery.trim().toLowerCase();
+    const countryOwnerIds = new Set(companies.map((c) => String(c._id)));
     return (cars || []).filter((car) => {
       const owner = car.ownerId ? String(car.ownerId) : "";
+      // When country filter is active, only show cars of listed companies + unassigned
+      if (
+        adminCountry !== "ALL" &&
+        owner &&
+        !countryOwnerIds.has(owner)
+      ) {
+        return false;
+      }
       if (carFilter === "company" && owner !== selectedCompanyId) return false;
       if (carFilter === "unassigned" && owner) return false;
       if (
@@ -175,7 +240,7 @@ export default function OwnersSection() {
       const hay = `${car.model || ""} ${car.carNumber || ""} ${car.regNumber || ""}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [cars, carQuery, carFilter, selectedCompanyId]);
+  }, [cars, carQuery, carFilter, selectedCompanyId, companies, adminCountry]);
 
   const createCompany = async () => {
     setBusy(true);
@@ -185,7 +250,11 @@ export default function OwnersSection() {
       const res = await fetch("/api/admin/owners", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: companyName, email: companyEmail }),
+        body: JSON.stringify({
+          name: companyName,
+          email: companyEmail,
+          country: adminCountry === "ALL" ? undefined : adminCountry,
+        }),
       });
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.message || "Failed");
@@ -200,6 +269,20 @@ export default function OwnersSection() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const openCompanyAdmin = async () => {
+    if (!selectedCompanyId) return;
+    setError("");
+    setOk("");
+    const result = await enterViewAs(selectedCompanyId);
+    if (!result.ok) {
+      setError(result.message || "Failed to open company admin");
+      return;
+    }
+    setOk(`Viewing as ${result.company?.name || "company"}`);
+    router.push("/admin/orders-calendar");
+    router.refresh();
   };
 
   const createUser = async () => {
@@ -221,6 +304,8 @@ export default function OwnersSection() {
       if (!res.ok || !body.success) throw new Error(body.message || "Failed");
       setUserEmail("");
       setUserPassword("");
+      setShowAdminPassword(false);
+      setPasswordCopied(false);
       setAdminDialogOpen(false);
       setOk(`Admin created for ${selectedCompany?.name || "company"}: ${body.user?.email}`);
       await load();
@@ -242,6 +327,7 @@ export default function OwnersSection() {
     setEditCompanyBaseLon(
       selectedCompany?.coords?.lon != null ? String(selectedCompany.coords.lon) : ""
     );
+    setEditCompanyMeetingContacts(meetingContactsFromCompany(selectedCompany));
     setEditCompanyOpen(true);
   };
 
@@ -251,6 +337,9 @@ export default function OwnersSection() {
     setError("");
     setOk("");
     try {
+      const meetingPayload = meetingContactsUpdatePayload(
+        editCompanyMeetingContacts
+      );
       const res = await fetch(`/api/company/${selectedCompanyId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -262,6 +351,7 @@ export default function OwnersSection() {
             lat: editCompanyBaseLat,
             lon: editCompanyBaseLon,
           },
+          ...meetingPayload,
         }),
       });
       const body = await res.json();
@@ -432,7 +522,7 @@ export default function OwnersSection() {
   }
 
   return (
-    <Box sx={{ p: { xs: 1.5, md: 3 }, maxWidth: 1280, mx: "auto" }}>
+    <Box sx={{ p: { xs: 1.5, md: 3 }, maxWidth: 1400, mx: "auto", width: "100%" }}>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
@@ -450,14 +540,6 @@ export default function OwnersSection() {
           </Typography>
         </Box>
         <Stack direction="row" gap={1} flexWrap="wrap">
-          <Button
-            component={Link}
-            href="/admin/access-tokens"
-            variant="outlined"
-            sx={{ textTransform: "none" }}
-          >
-            Access links
-          </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -504,25 +586,32 @@ export default function OwnersSection() {
         direction={{ xs: "column", md: "row" }}
         gap={2}
         alignItems="stretch"
+        sx={{ width: "100%" }}
       >
         {/* Company list */}
         <Box
           sx={{
-            width: { xs: "100%", md: 300 },
+            width: { xs: "100%", md: 280 },
             flexShrink: 0,
             border: "1px solid",
             borderColor: "divider",
             borderRadius: 2,
             bgcolor: "background.paper",
             overflow: "hidden",
+            alignSelf: { md: "flex-start" },
+            position: { md: "sticky" },
+            top: { md: 80 },
+            maxHeight: { md: "calc(100dvh - 96px)" },
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          <Box sx={{ px: 2, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
+          <Box sx={{ px: 2, py: 1.25, borderBottom: "1px solid", borderColor: "divider", flexShrink: 0 }}>
             <Typography variant="subtitle2" fontWeight={700}>
               Companies
             </Typography>
           </Box>
-          <List dense disablePadding>
+          <List dense disablePadding sx={{ overflowY: "auto", flex: 1 }}>
             {companies.map((c) => {
               const id = String(c._id);
               const selected = id === selectedCompanyId;
@@ -581,11 +670,11 @@ export default function OwnersSection() {
         </Box>
 
         {/* Detail */}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
           {!selectedCompany ? (
             <Alert severity="info">Select a company on the left.</Alert>
           ) : (
-            <Stack gap={2}>
+            <Stack gap={2} sx={{ width: "100%" }}>
               <CompanyContactsCard
                 company={selectedCompany}
                 onEdit={openEditCompany}
@@ -593,21 +682,36 @@ export default function OwnersSection() {
                 actions={
                   <>
                     <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<OpenInNewIcon />}
+                      onClick={openCompanyAdmin}
+                      disabled={busy || viewAsLoading || !selectedCompanyId}
+                    >
+                      Open company admin
+                    </Button>
+                    <Button
+                      size="small"
                       variant="outlined"
                       startIcon={<PersonAddIcon />}
-                      onClick={() => setAdminDialogOpen(true)}
-                      sx={{ textTransform: "none" }}
+                      onClick={() => {
+                        setUserEmail("");
+                        setUserPassword("");
+                        setShowAdminPassword(false);
+                        setPasswordCopied(false);
+                        setAdminDialogOpen(true);
+                      }}
                     >
                       Add admin
                     </Button>
                     {String(selectedCompany._id) !== String(COMPANY_ID) ? (
                       <Button
+                        size="small"
                         variant="outlined"
                         color="error"
                         startIcon={<DeleteIcon />}
                         onClick={deleteCompany}
                         disabled={busy || (selectedCompany.carCount || 0) > 0}
-                        sx={{ textTransform: "none" }}
                       >
                         Delete company
                       </Button>
@@ -616,13 +720,51 @@ export default function OwnersSection() {
                 }
               />
 
+              <CompanyStorefrontCard
+                company={selectedCompany}
+                onSaved={(updated) => {
+                  setCompanies((prev) =>
+                    prev.map((item) =>
+                      String(item._id) === String(updated._id)
+                        ? { ...item, ...updated }
+                        : item
+                    )
+                  );
+                  setOk(`Company updated: ${updated.name}`);
+                }}
+              />
+
+              <CompanyRentalPaymentsCard
+                company={selectedCompany}
+                onSaved={(updated) => {
+                  setCompanies((prev) =>
+                    prev.map((item) =>
+                      String(item._id) === String(updated._id)
+                        ? { ...item, ...updated }
+                        : item
+                    )
+                  );
+                  setOk(`Company updated: ${updated.name}`);
+                }}
+              />
+
               <Box
                 sx={{
-                  p: 2,
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) minmax(0, 1.2fr)" },
+                  gap: 2,
+                  alignItems: "start",
+                  width: "100%",
+                }}
+              >
+              <Box
+                sx={{
+                  p: { xs: 1.5, sm: 2 },
                   border: "1px solid",
                   borderColor: "divider",
                   borderRadius: 2,
                   bgcolor: "background.paper",
+                  minWidth: 0,
                 }}
               >
                 <Typography variant="subtitle1" fontWeight={700} mb={1}>
@@ -634,6 +776,7 @@ export default function OwnersSection() {
                     only this fleet.
                   </Typography>
                 ) : (
+                  <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
@@ -687,16 +830,18 @@ export default function OwnersSection() {
                       ))}
                     </TableBody>
                   </Table>
+                  </Box>
                 )}
               </Box>
 
               <Box
                 sx={{
-                  p: 2,
+                  p: { xs: 1.5, sm: 2 },
                   border: "1px solid",
                   borderColor: "divider",
                   borderRadius: 2,
                   bgcolor: "background.paper",
+                  minWidth: 0,
                 }}
               >
                 <Stack
@@ -852,6 +997,7 @@ export default function OwnersSection() {
                   </TableBody>
                 </Table>
               </Box>
+              </Box>
             </Stack>
           )}
         </Box>
@@ -866,6 +1012,14 @@ export default function OwnersSection() {
         <DialogTitle>New partner company</DialogTitle>
         <DialogContent>
           <Stack gap={1.5} sx={{ pt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Will be saved for country:{" "}
+              <strong>
+                {adminCountry === "ALL"
+                  ? process.env.NEXT_PUBLIC_SITE_COUNTRY || "site default"
+                  : adminCountry}
+              </strong>
+            </Typography>
             <TextField
               label="Company name"
               value={companyName}
@@ -919,11 +1073,80 @@ export default function OwnersSection() {
               fullWidth
             />
             <TextField
-              type="password"
+              type={showAdminPassword ? "text" : "password"}
               label="Password (min 6)"
               value={userPassword}
-              onChange={(e) => setUserPassword(e.target.value)}
+              onChange={(e) => {
+                setUserPassword(e.target.value);
+                setPasswordCopied(false);
+              }}
               fullWidth
+              helperText={
+                passwordCopied
+                  ? "Copied — send it to the admin securely, then close this dialog."
+                  : "Generate a strong password, copy it, then create the admin."
+              }
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Tooltip title="Generate strong password">
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        aria-label="Generate strong password"
+                        onClick={() => {
+                          const next = generateStrongPassword(16);
+                          setUserPassword(next);
+                          setShowAdminPassword(true);
+                          setPasswordCopied(false);
+                        }}
+                        disabled={busy}
+                      >
+                        <RefreshIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={showAdminPassword ? "Hide password" : "Show password"}>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        aria-label={
+                          showAdminPassword ? "Hide password" : "Show password"
+                        }
+                        onClick={() => setShowAdminPassword((v) => !v)}
+                        disabled={busy || !userPassword}
+                      >
+                        {showAdminPassword ? (
+                          <VisibilityOffIcon fontSize="small" />
+                        ) : (
+                          <VisibilityIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={passwordCopied ? "Copied" : "Copy password"}>
+                      <span>
+                        <IconButton
+                          edge="end"
+                          size="small"
+                          aria-label="Copy password"
+                          onClick={async () => {
+                            if (!userPassword) return;
+                            try {
+                              await navigator.clipboard.writeText(userPassword);
+                              setPasswordCopied(true);
+                              setOk("Password copied to clipboard");
+                            } catch {
+                              setError("Could not copy password");
+                            }
+                          }}
+                          disabled={busy || !userPassword}
+                        >
+                          <ContentCopyIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </InputAdornment>
+                ),
+              }}
             />
             <FormControlLabel
               control={<Checkbox checked disabled />}
@@ -959,12 +1182,14 @@ export default function OwnersSection() {
         tel={editCompanyTel}
         baseLat={editCompanyBaseLat}
         baseLon={editCompanyBaseLon}
+        meetingContacts={editCompanyMeetingContacts}
         lockName={String(selectedCompanyId) === String(COMPANY_ID)}
         onNameChange={setEditCompanyName}
         onEmailChange={setEditCompanyEmail}
         onTelChange={setEditCompanyTel}
         onBaseLatChange={setEditCompanyBaseLat}
         onBaseLonChange={setEditCompanyBaseLon}
+        onMeetingContactsChange={setEditCompanyMeetingContacts}
         onClose={() => setEditCompanyOpen(false)}
         onSave={updateCompany}
       />

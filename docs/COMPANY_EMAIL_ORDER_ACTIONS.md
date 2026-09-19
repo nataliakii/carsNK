@@ -10,16 +10,25 @@ On **CREATE** of an unconfirmed client order, the `COMPANY_EMAIL` HTML includes:
 
 | Button | Effect |
 |--------|--------|
-| **Accept** | Saves `companyEmailDecision=accepted`, emails + Telegram to superadmin |
-| **Reject** | Saves `companyEmailDecision=rejected`, notifies superadmin |
+| **Accept** | Opens a confirm page. Submitting the form (POST) saves `companyEmailDecision=accepted`, emails + Telegram to superadmin |
+| **Reject** | Opens a confirm page. Submitting the form (POST) saves `companyEmailDecision=rejected`, notifies superadmin |
 | **View calendar** | Opens `/admin` (login required) |
-| **Message superadmins** | Form → free-text email/Telegram to superadmin |
+| **Message superadmins** | GET form → POST free-text email/Telegram to superadmin |
 
 **Important:** Accept does **not** set `order.confirmed`. Confirmation stays SUPERADMIN-only in admin UI.
 
+## GET is read-only
+
+Emailed CTA URLs stay `GET /api/order/company-email-action?token=…`.
+
+- Token is validated on GET.
+- `message` → existing HTML form (POST to apply).
+- `accept` / `reject` → HTML confirm form (hidden `token`, `intent=accept|reject`). Submit is POST.
+- **GET never writes to the database.** Mutation happens only on POST.
+
 ## Links
 
-Signed HMAC tokens (`NEXTAUTH_SECRET` or `EMAIL_ACTION_SECRET`), TTL 14 days.
+Signed HMAC tokens (`NEXTAUTH_SECRET` or `EMAIL_ACTION_SECRET`), TTL 14 days. Token format is unchanged.
 
 Endpoint: `GET/POST /api/order/company-email-action?token=…`
 

@@ -38,6 +38,20 @@ describe("companyStamp", () => {
     });
     expect(d.companyHeaderTitle).toBe("Aegean Drive");
     expect(d.companyInfo).toContain("Athens");
+    expect(d.companyInfo).toContain("ΤΗΛ.");
     expect(d.stampSrc).toBe("");
+  });
+
+  it("uses Tel. prefix for Spanish locale", () => {
+    const d = buildCompanyVoucherDefaults(
+      {
+        name: "Costa Cars",
+        address: "Spain",
+        tel: "+34 000",
+      },
+      "es"
+    );
+    expect(d.companyInfo).toContain("Tel. +34 000");
+    expect(d.companyInfo).not.toContain("ΤΗΛ.");
   });
 });
