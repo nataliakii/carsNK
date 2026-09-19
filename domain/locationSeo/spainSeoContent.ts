@@ -1,6 +1,25 @@
 import { getBrandName, getBrandTagline } from "@config/brand";
 
-export type SpainSeoLang = "en" | "es";
+export type SpainSeoLang =
+  | "en"
+  | "es"
+  | "ru"
+  | "uk"
+  | "de"
+  | "fr"
+  | "sv"
+  | "no";
+
+const SPAIN_LANG_SET = new Set([
+  "en",
+  "es",
+  "ru",
+  "uk",
+  "de",
+  "fr",
+  "sv",
+  "no",
+]);
 
 export function resolveSpainSeoLang(
   localeCandidate: string | undefined | null
@@ -8,7 +27,7 @@ export function resolveSpainSeoLang(
   const raw = String(localeCandidate || "en")
     .toLowerCase()
     .split("-")[0];
-  return raw === "es" ? "es" : "en";
+  return SPAIN_LANG_SET.has(raw) ? (raw as SpainSeoLang) : "en";
 }
 
 const brand = () => getBrandName();
@@ -79,6 +98,11 @@ const STATIC = {
       seoDescription: () =>
         `Rental conditions, insurance options, and pickup rules for car hire in Spain with ${brand()}.`,
     },
+    forBusiness: {
+      seoTitle: () => `For Business | ${brand()} Rental Platform`,
+      seoDescription: () =>
+        `Put your fleet online with ${brand()}: website bookings and one admin panel for calendar, orders, delivery, and transfers.`,
+    },
   },
   es: {
     contacts: {
@@ -106,12 +130,17 @@ const STATIC = {
       seoDescription: () =>
         `Condiciones de alquiler, seguros y normas de recogida en España con ${brand()}.`,
     },
+    forBusiness: {
+      seoTitle: () => `Para empresas | Plataforma de alquiler ${brand()}`,
+      seoDescription: () =>
+        `Pon tu flota online con ${brand()}: reservas en la web y un solo panel de administración para calendario, pedidos, entrega y transfers.`,
+    },
   },
 } as const;
 
 export function getSpainHubSeo(localeCandidate: string | undefined | null) {
   const lang = resolveSpainSeoLang(localeCandidate);
-  const hub = HUB[lang];
+  const hub = HUB[lang] || HUB.en;
   return {
     locale: lang,
     h1: hub.h1,
@@ -122,23 +151,36 @@ export function getSpainHubSeo(localeCandidate: string | undefined | null) {
 }
 
 export function getSpainCarTemplates(localeCandidate: string | undefined | null) {
-  return CAR[resolveSpainSeoLang(localeCandidate)];
+  const lang = resolveSpainSeoLang(localeCandidate);
+  return CAR[lang] || CAR.en;
 }
 
 export function getSpainStaticPageSeo(
   localeCandidate: string | undefined | null,
   pageKey: string
 ) {
+  const raw = String(localeCandidate || "en")
+    .toLowerCase()
+    .split("-")[0];
+  if (raw === "ca" && pageKey === "for-business") {
+    return {
+      locale: "ca",
+      seoTitle: `Per a empreses | Plataforma de lloguer ${brand()}`,
+      seoDescription: `Posa la teva flota en línia amb ${brand()}: reserves al web i un sol panell d’administració per al calendari, comandes, lliurament i transfers.`,
+    };
+  }
   const lang = resolveSpainSeoLang(localeCandidate);
+  const pack = STATIC[lang] || STATIC.en;
   const map: Record<string, { seoTitle: () => string; seoDescription: () => string }> = {
-    contacts: STATIC[lang].contacts,
-    "privacy-policy": STATIC[lang].privacy,
-    "terms-of-service": STATIC[lang].terms,
-    "cookie-policy": STATIC[lang].cookies,
-    "rental-terms": STATIC[lang].rentalTerms,
-    terms: STATIC[lang].rentalTerms,
+    contacts: pack.contacts,
+    "privacy-policy": pack.privacy,
+    "terms-of-service": pack.terms,
+    "cookie-policy": pack.cookies,
+    "rental-terms": pack.rentalTerms,
+    terms: pack.rentalTerms,
+    "for-business": pack.forBusiness,
   };
-  const page = map[pageKey] || STATIC[lang].contacts;
+  const page = map[pageKey] || pack.contacts;
   return {
     locale: lang,
     seoTitle: page.seoTitle(),

@@ -517,7 +517,7 @@
     "toolbar": {
       "period": "Period",
       "periodAria": "Calendar day range",
-      "range15d": "12 days",
+      "range15d": "15 days",
       "range1m": "1 mo.",
       "range2m": "2 mo.",
       "scale": "Scale",
@@ -781,26 +781,28 @@
     }
   },
   "forBusiness": {
-    "eyebrow": "For business",
-    "title": "rovaro as a rental platform",
-    "intro": "Put your fleet online: customers book on the website, and you run day-to-day operations from one admin panel — from the first request to the return.",
-    "cta": "Talk to us about the platform",
+    "eyebrow": "Para empresas",
+    "title": "rovaro como plataforma de alquiler",
+    "intro": "Pon tu flota online: los clientes reservan en la web y tú gestionas el día a día desde un solo panel de administración — desde la primera solicitud hasta la devolución.",
+    "cta": "Hablemos de la plataforma",
+    "contactCta": "Contáctanos",
+    "learnMore": "Saber más sobre la plataforma",
     "features": {
       "notifications": {
-        "title": "Instant notifications",
-        "text": "As soon as a customer places a booking, the admin gets a clear alert with car, dates, and contact details — nothing slips through."
+        "title": "Notificaciones al instante",
+        "text": "En cuanto un cliente hace una reserva, el admin recibe una alerta clara con coche, fechas y datos de contacto — nada se pierde."
       },
       "calendar": {
-        "title": "Clear fleet calendar",
-        "text": "See all cars and bookings on one timeline. Spot free days, overlaps, and the week ahead without switching between spreadsheets."
+        "title": "Calendario claro de la flota",
+        "text": "Ve todos los coches y reservas en una sola línea de tiempo. Días libres, solapes y la semana siguiente, sin hojas de cálculo."
       },
       "move": {
-        "title": "Move bookings in a couple of clicks",
-        "text": "Need to shift dates or switch the car? Drag bookings on the calendar — the schedule updates right away."
+        "title": "Mueve reservas en un par de clics",
+        "text": "¿Hay que cambiar fechas o coche? Arrastra la reserva en el calendario — el horario se actualiza al momento."
       },
       "platform": {
-        "title": "One place for the whole workflow",
-        "text": "Orders, delivery zones, transfers, vouchers, and company contacts live in the same admin — less chaos, more control over the fleet."
+        "title": "Todo el flujo en un solo lugar",
+        "text": "Pedidos, zonas de entrega, transfers, vouchers y contactos de la empresa viven en el mismo admin — menos caos, más control de la flota."
       }
     }
   },

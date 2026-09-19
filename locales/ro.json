@@ -251,7 +251,9 @@
         "title": "Tot fluxul de lucru într-un singur loc",
         "text": "Comenzi, zone de livrare, transferuri, vouchere și datele firmei în același admin — mai puțin haos, mai mult control asupra flotei."
       }
-    }
+    },
+    "contactCta": "Contactați-ne",
+    "learnMore": "Aflați mai multe despre platformă"
   },
   "footer": {
     "contactUs": "Contact",

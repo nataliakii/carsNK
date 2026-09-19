@@ -259,9 +259,8 @@ const CarItemComponent = React.memo(function CarItemComponent({
 
   // Добавляем ref для контейнера CarItemComponent
   const carItemRef = useRef(null);
-  // ref для контейнера изображения — будем измерять ширину для расчёта шрифта стикера
+  // ref для контейнера изображения
   const carImageRef = useRef(null);
-  const [stickerFont, setStickerFont] = useState(null);
 
   // Скроллим CarItemComponent чуть выше центра экрана, когда появляется кнопка BOOK
   useEffect(() => {
@@ -282,38 +281,6 @@ const CarItemComponent = React.memo(function CarItemComponent({
       });
     }
   }, [bookDates?.start, bookDates?.end]);
-
-  // Рассчитываем размер шрифта для стикера в зависимости от ширины контейнера изображения
-  useEffect(() => {
-    const node = carImageRef.current;
-    if (!node) return;
-
-    const computeFont = () => {
-      const width = node.clientWidth || 0;
-      // Фактор 0.038 — немного уменьшенный для лучшей гарантии размещения в одну строку
-      // Ограничиваем размер шрифта в пикселях между 8 и 15
-      const px = Math.round(Math.max(8, Math.min(15, width * 0.038)));
-      setStickerFont(px + "px");
-    };
-
-    // Initial
-    computeFont();
-
-    // ResizeObserver — обновляем при изменении ширины
-    let ro;
-    if (typeof ResizeObserver !== "undefined") {
-      ro = new ResizeObserver(() => computeFont());
-      ro.observe(node);
-    } else {
-      // Фоллбек на window.resize
-      window.addEventListener("resize", computeFont);
-    }
-
-    return () => {
-      if (ro) ro.disconnect();
-      else window.removeEventListener("resize", computeFont);
-    };
-  }, []);
 
   // Добавляем обработчик для CalendarPicker
   const handleDateChange = ({ type, message }) => {
@@ -349,41 +316,6 @@ const CarItemComponent = React.memo(function CarItemComponent({
                 },
               }}
             >
-              {/* Стикер 'Без депозита' */}
-              {car.deposit === 0 && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: 12,
-                    left: 12,
-                    zIndex: 2,
-                    bgcolor: "calendar.today",
-                    color: "text.primary",
-                    width: "32%", // увеличили ширину, чтобы поместилась надпись
-                    minWidth: 110,
-                    px: "3%", // увеличили горизонтальные отступы
-                    py: "1%",
-                    borderRadius: 2,
-                    fontWeight: 700,
-                    // responsive font: computed from image width (stickerFont) or fallback clamp
-                    fontSize: stickerFont || "clamp(0.6rem, 2vw, 1rem)",
-                    boxShadow: 2,
-                    textTransform: "uppercase",
-                    pointerEvents: "none",
-                    lineHeight: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    textAlign: "center",
-                    // force single-line to keep text in one line
-                    overflow: "hidden",
-                    whiteSpace: "nowrap",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {t("car.noDeposit") || "Без депозита"}
-                </Box>
-              )}
               {/* КРИТИЧНО для CLS: используем fill prop от next/image
                   - Родитель (CarImage) имеет position: relative + фиксированные размеры
                   - fill заставляет изображение заполнить родителя БЕЗ layout shift */}

@@ -251,7 +251,9 @@
         "title": "Ceo tok rada na jednom mestu",
         "text": "Porudžbine, zone isporuke, transferi, vaučeri i podaci firme u istom adminu — manje haosa, više kontrole nad flotom."
       }
-    }
+    },
+    "contactCta": "Kontaktirajte nas",
+    "learnMore": "Saznajte više o platformi"
   },
   "footer": {
     "contactUs": "Kontakt",

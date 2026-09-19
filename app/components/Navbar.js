@@ -71,12 +71,19 @@ const NAVBAR_LOCATIONS_DIVIDER_INDEX = 4;
 const LANG_LABELS = {
   en: "English",
   el: "Ελληνικά",
-  ru: "Русский",
+  ru: "Язык",
   uk: "Українська",
   de: "Deutsch",
+  fr: "Français",
+  it: "Italiano",
+  sv: "Svenska",
+  no: "Norsk",
   bg: "Български",
   ro: "Română",
   sr: "Srpski",
+  es: "Español",
+  ca: "Català",
+  pl: "Polski",
 };
 
 // ============================================================
@@ -424,7 +431,6 @@ export default function NavBar({
   // Admin logo must not send staff to the public rental homepage.
   const homeHref = isAdmin ? "/admin/orders-calendar" : localeLink("/");
   const rentalTermsHref = localeLink("/rental-terms");
-  const contactsHref = localeLink("/contacts");
   const termsAliasHref = localeLink("/terms");
 
   const handleCarClassChange = (event) => {
@@ -886,9 +892,6 @@ export default function NavBar({
                 <Link href={rentalTermsHref} style={{ textDecoration: "none" }}>
                   <NavLinkText>{t("header.terms")}</NavLinkText>
                 </Link>
-                <Link href={contactsHref} style={{ textDecoration: "none" }}>
-                  <NavLinkText>{t("header.contacts")}</NavLinkText>
-                </Link>
                 <Button
                   type="button"
                   onClick={() => setTransferModalOpen(true)}
@@ -935,18 +938,24 @@ export default function NavBar({
                     {t("header.calendar")}
                   </Typography>
                 </Link>
-                <Link href="/admin/orders" style={{ textDecoration: "none" }}>
+                <Link
+                  href="/admin/orders"
+                  style={{
+                    textDecoration: "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
                   <Typography
                     sx={{
                       ...adminNavLinkSx,
                       ...(isAdminOrdersRoute ? adminNavActiveSx : null),
-                      display: "inline-flex",
-                      alignItems: "center",
                     }}
                   >
                     {t("header.table")}
-                    <PendingCountBadge count={pendingOrdersTotal} />
                   </Typography>
+                  <PendingCountBadge count={pendingOrdersTotal} sx={{ ml: 0 }} />
                 </Link>
                 <Link
                   href="/admin/delivery-zones"
@@ -1536,9 +1545,6 @@ export default function NavBar({
                 <ListItem button component={Link} href={termsAliasHref}>
                   <ListItemText primary={t("header.terms")} />
                 </ListItem>
-                <ListItem button component={Link} href={contactsHref}>
-                  <ListItemText primary={t("header.contacts")} />
-                </ListItem>
                 <ListItem
                   button
                   onClick={() => {
@@ -1567,10 +1573,17 @@ export default function NavBar({
                     primary={
                       <Box
                         component="span"
-                        sx={{ display: "inline-flex", alignItems: "center" }}
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.75,
+                        }}
                       >
                         {t("header.table")}
-                        <PendingCountBadge count={pendingOrdersTotal} />
+                        <PendingCountBadge
+                          count={pendingOrdersTotal}
+                          sx={{ ml: 0 }}
+                        />
                       </Box>
                     }
                   />

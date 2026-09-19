@@ -386,7 +386,9 @@
         "title": "Cały proces w jednym miejscu",
         "text": "Zamówienia, strefy dostawy, transfery, vouchery i dane firmy w tym samym adminie — mniej chaosu, więcej kontroli nad flotą."
       }
-    }
+    },
+    "contactCta": "Skontaktuj się z nami",
+    "learnMore": "Dowiedz się więcej o platformie"
   },
   "footer": {
     "contactUs": "Skontaktuj się z nami",

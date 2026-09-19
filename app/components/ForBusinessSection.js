@@ -99,13 +99,30 @@ const FEATURES = [
   { key: "platform", Icon: HubOutlinedIcon },
 ];
 
-export default function ForBusinessSection() {
+/**
+ * @param {{ mode?: "embed" | "page" }} props
+ * embed — homepage teaser (CTA → /for-business)
+ * page — full landing (CTA → /contacts)
+ */
+export default function ForBusinessSection({ mode = "embed" }) {
   const { t } = useTranslation();
   const { lang } = useMainContext();
-  const contactsHref = withLocalePrefix(lang || "en", "/contacts");
+  const locale = lang || "en";
+  const isPage = mode === "page";
+  const ctaHref = withLocalePrefix(
+    locale,
+    isPage ? "/contacts" : "/for-business"
+  );
+  const ctaLabel = isPage
+    ? t("forBusiness.contactCta", { defaultValue: "Contact us" })
+    : t("forBusiness.learnMore", { defaultValue: t("forBusiness.cta") });
 
   return (
-    <SectionRoot id="for-business" aria-labelledby="for-business-heading">
+    <SectionRoot
+      id="for-business"
+      aria-labelledby="for-business-heading"
+      sx={isPage ? { minHeight: { md: "calc(100vh - 64px)" } } : undefined}
+    >
       <AccentBar />
       <Inner>
         <Stack
@@ -136,7 +153,7 @@ export default function ForBusinessSection() {
             </Typography>
             <Typography
               id="for-business-heading"
-              component="h2"
+              component={isPage ? "h1" : "h2"}
               sx={{
                 m: 0,
                 mb: 1.5,
@@ -163,7 +180,7 @@ export default function ForBusinessSection() {
             </Typography>
             <Button
               component={Link}
-              href={contactsHref}
+              href={ctaHref}
               variant="contained"
               sx={{
                 px: 2.75,
@@ -180,7 +197,7 @@ export default function ForBusinessSection() {
                 },
               }}
             >
-              {t("forBusiness.cta")}
+              {ctaLabel}
             </Button>
           </Box>
 

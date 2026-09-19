@@ -16,8 +16,10 @@ export async function getOrCreatePlatformSettings() {
 
 export function toPublicPlatformPayload(settingsDoc) {
   const country = getSiteCountryConfig();
+  // Keep any admin-enabled locales and always include country defaults
+  // so newly added UI languages (fr/it/sv/no/ca) show up without a manual re-seed.
   const enabledLocales = normalizeEnabledLocales(
-    settingsDoc?.enabledLocales,
+    [...(settingsDoc?.enabledLocales || []), ...country.defaultLocales],
     country.defaultLocales
   );
   return {

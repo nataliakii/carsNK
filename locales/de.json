@@ -251,7 +251,9 @@
         "title": "Alles an einem Ort",
         "text": "Aufträge, Lieferzonen, Transfers, Voucher und Firmendaten im selben Admin — weniger Chaos, mehr Kontrolle über die Flotte."
       }
-    }
+    },
+    "contactCta": "Kontaktieren Sie uns",
+    "learnMore": "Mehr über die Plattform erfahren"
   },
   "footer": {
     "contactUs": "Kontakt",

@@ -62,6 +62,7 @@ const staticPagePathMap: Record<StaticPageKey, string> = {
   [STATIC_PAGE_KEYS.TERMS_OF_SERVICE]: "/terms-of-service",
   [STATIC_PAGE_KEYS.COOKIE_POLICY]: "/cookie-policy",
   [STATIC_PAGE_KEYS.RENTAL_TERMS]: "/rental-terms",
+  [STATIC_PAGE_KEYS.FOR_BUSINESS]: "/for-business",
 };
 
 const locationById = new Map<LocationId, LocationSeoRepoItem>(
@@ -561,7 +562,7 @@ export function getLocationAlternatesById(locationId: LocationId): LocationAlter
 export function getHubAlternates(): LocationAlternateMap {
   const locales = getSiteCountryConfig().showLegacySeoLocations
     ? [...SUPPORTED_LOCALES]
-    : (["en", "es", "de", "ru"] as const);
+    : (["en", "es", "ru", "uk", "de", "fr", "sv", "no"] as const);
   return locales.reduce((acc, locale) => {
     acc[locale] = getLocaleRootPath(locale);
     return acc;
@@ -685,7 +686,7 @@ export function getStaticPagePath(
   localeCandidate: string | undefined | null,
   staticPageKey: StaticPageKey
 ): string {
-  const locale = normalizeLocale(localeCandidate);
+  const locale = normalizeRoutableLocale(localeCandidate);
   const pathSuffix = staticPagePathMap[staticPageKey];
   return `/${locale}${pathSuffix}`;
 }

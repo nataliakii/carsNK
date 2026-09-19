@@ -3,25 +3,28 @@ import { useLayoutEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Preloader from "./Preloader";
 
+const FIRST_LOAD_MS = 700;
+const ROUTE_LOAD_MS = 320;
+
 export default function RouteTransitionLoader({ children }) {
   const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [firstLoad, setFirstLoad] = useState(true);
 
-  // первая загрузка — дольше
+  // First paint — short brand gate
   useLayoutEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
       setFirstLoad(false);
-    }, 1800);
+    }, FIRST_LOAD_MS);
     return () => clearTimeout(timer);
   }, []);
 
-  // при каждом переходе — короткий лоадер
+  // Route changes — brief cover (no long milky fade)
   useLayoutEffect(() => {
     if (!firstLoad) {
       setLoading(true);
-      const timer = setTimeout(() => setLoading(false), 1000);
+      const timer = setTimeout(() => setLoading(false), ROUTE_LOAD_MS);
       return () => clearTimeout(timer);
     }
   }, [pathname, firstLoad]);

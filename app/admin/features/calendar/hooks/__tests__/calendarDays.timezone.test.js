@@ -34,7 +34,7 @@ describe("buildOrderDateRange timezone", () => {
 });
 
 describe("short period (15d)", () => {
-  test("renders 12 consecutive days from the 15th", () => {
+  test("renders 15 consecutive days from the 15th", () => {
     const days = buildCalendarDays({
       month: 1,
       year: 2027,
@@ -43,7 +43,8 @@ describe("short period (15d)", () => {
       calendarDayRange: "15d",
     });
     expect(days).toHaveLength(SHORT_PERIOD_DAYS);
+    expect(SHORT_PERIOD_DAYS).toBe(15);
     expect(days[0].dayjs.format("YYYY-MM-DD")).toBe("2027-02-15");
-    expect(days[days.length - 1].dayjs.format("YYYY-MM-DD")).toBe("2027-02-26");
+    expect(days[days.length - 1].dayjs.format("YYYY-MM-DD")).toBe("2027-03-01");
   });
 });

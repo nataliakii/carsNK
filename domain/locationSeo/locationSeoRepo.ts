@@ -123,6 +123,11 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
         seoDescription:
           "Review CarsNK rental conditions, insurance scope, and vehicle handover rules before booking.",
       },
+      [STATIC_PAGE_KEYS.FOR_BUSINESS]: {
+        seoTitle: "For Business | Rovaro Rental Platform",
+        seoDescription:
+          "Put your fleet online with Rovaro: website bookings and one admin panel for calendar, orders, delivery, and transfers.",
+      },
     },
   },
   ru: {
@@ -214,6 +219,11 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
         seoTitle: "Условия аренды | CarsNK",
         seoDescription:
           "Проверьте правила аренды, страховки и передачи автомобиля перед бронированием в CarsNK.",
+      },
+      [STATIC_PAGE_KEYS.FOR_BUSINESS]: {
+        seoTitle: "Для бизнеса | Платформа проката Rovaro",
+        seoDescription:
+          "Выведите автопарк в онлайн с Rovaro: бронирования на сайте и одна админка для календаря, заказов, доставки и трансферов.",
       },
     },
   },
@@ -307,6 +317,11 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
         seoDescription:
           "Перегляньте умови оренди, страхування та передачі авто перед бронюванням у CarsNK.",
       },
+      [STATIC_PAGE_KEYS.FOR_BUSINESS]: {
+        seoTitle: "Для бізнесу | Платформа прокату Rovaro",
+        seoDescription:
+          "Виведіть автопарк в онлайн з Rovaro: бронювання на сайті та одна адмінка для календаря, замовлень, доставки й трансферів.",
+      },
     },
   },
   el: {
@@ -399,6 +414,11 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
         seoDescription:
           "Διαβάστε όρους ενοικίασης, κάλυψη ασφάλισης και διαδικασία παράδοσης οχήματος πριν την κράτηση.",
       },
+      [STATIC_PAGE_KEYS.FOR_BUSINESS]: {
+        seoTitle: "Για επιχειρήσεις | Πλατφόρμα ενοικίασης Rovaro",
+        seoDescription:
+          "Βάλτε τον στόλο online με το Rovaro: κρατήσεις στο site και ένα admin panel για ημερολόγιο, παραγγελίες, παράδοση και transfers.",
+      },
     },
   },
   bg: {
@@ -490,6 +510,11 @@ const localeSeoDictionaryRaw: PartialLocaleRecord<LocaleSeoDictionary> = {
         seoTitle: "Условия за наем | CarsNK",
         seoDescription:
           "Прегледайте условията за наем на CarsNK, застрахователното покритие и правилата за предаване на автомобила преди резервация.",
+      },
+      [STATIC_PAGE_KEYS.FOR_BUSINESS]: {
+        seoTitle: "За бизнеса | Платформа за наем Rovaro",
+        seoDescription:
+          "Изведете автопарка онлайн с Rovaro: резервации в сайта и един админ панел за календар, поръчки, доставка и трансфери.",
       },
     },
   },

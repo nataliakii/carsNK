@@ -7,6 +7,7 @@ import {
   isRoutableLocale,
   normalizeRoutableLocale,
 } from "@domain/locationSeo/locationSeoService";
+import { getSpainLocationGroupsForNav } from "@domain/locationSeo/spainLocations";
 import { NavLocationsProvider } from "@app/context/NavLocationsContext";
 import { getSiteCountryConfig } from "@config/siteCountry";
 
@@ -26,7 +27,7 @@ export default function LocaleLayout({ children, params }) {
   const seoLocale = getSeoLocale(locale);
   const locationGroups = country.showLegacySeoLocations
     ? getHubLocationGroupsForNav(seoLocale)
-    : [];
+    : getSpainLocationGroupsForNav(locale);
   const dictionary = getLocaleDictionary(seoLocale);
   const navLocationsDescription =
     dictionary?.links?.navLocationsDropdownDescription ?? "";

@@ -40,6 +40,12 @@ import translationsSr from "./sr.json";
 import translationsUk from "./uk.json";
 import translationsPl from "./pl.json";
 import translationsEs from "./es.json";
+import {
+  forBusinessCa,
+  forBusinessFr,
+  forBusinessNo,
+  forBusinessSv,
+} from "./forBusinessExtra";
 import { ALL_UI_LOCALE_CODES } from "@/domain/platform/uiLocales";
 
 const supportedLngs = [...ALL_UI_LOCALE_CODES];
@@ -55,6 +61,12 @@ const resources = {
   uk: { translation: translationsUk },
   pl: { translation: translationsPl },
   es: { translation: translationsEs },
+  // UI chrome falls back to English until dedicated files exist
+  fr: { translation: { ...translationsEn, forBusiness: forBusinessFr } },
+  it: { translation: translationsEn },
+  sv: { translation: { ...translationsEn, forBusiness: forBusinessSv } },
+  no: { translation: { ...translationsEn, forBusiness: forBusinessNo } },
+  ca: { translation: { ...translationsEn, forBusiness: forBusinessCa } },
 };
 
 // Функция для определения языка браузера

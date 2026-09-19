@@ -517,7 +517,7 @@
     "toolbar": {
       "period": "Period",
       "periodAria": "Calendar day range",
-      "range15d": "12 days",
+      "range15d": "15 days",
       "range1m": "1 mo.",
       "range2m": "2 mo.",
       "scale": "Scale",
@@ -805,7 +805,9 @@
         "title": "One place for the whole workflow",
         "text": "Orders, delivery zones, transfers, vouchers, and company contacts live in the same admin — less chaos, more control over the fleet."
       }
-    }
+    },
+    "contactCta": "Contact us",
+    "learnMore": "Learn more about the platform"
   },
   "footer": {
     "contactUs": "Contact",

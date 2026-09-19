@@ -66,6 +66,7 @@ export function isNoindexPath(path) {
 /** Статические страницы, которые включаются в sitemap. */
 export const SITEMAP_STATIC_PAGES = [
   STATIC_PAGE_KEYS.CONTACTS,
+  STATIC_PAGE_KEYS.FOR_BUSINESS,
 ];
 
 /** Страницы с noindex (для metadataBuilder). Выводится из NOINDEX_SLUGS. */

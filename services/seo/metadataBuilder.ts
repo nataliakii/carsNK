@@ -13,6 +13,7 @@ import {
   getStaticPagePath,
   getStaticPageSeo,
   normalizeLocale,
+  normalizeRoutableLocale,
 } from "@domain/locationSeo/locationSeoService";
 import { type StaticPageKey } from "@domain/locationSeo/locationSeoKeys";
 import {
@@ -28,10 +29,15 @@ import { toAbsoluteUrl } from "./urlBuilder";
 const OG_LOCALE_MAP: Record<string, string> = {
   en: "en_US",
   es: "es_ES",
+  ca: "ca_ES",
   ru: "ru_RU",
   uk: "uk_UA",
   el: "el_GR",
   de: "de_DE",
+  fr: "fr_FR",
+  it: "it_IT",
+  sv: "sv_SE",
+  no: "nb_NO",
   bg: "bg_BG",
   ro: "ro_RO",
   sr: "sr_RS",
@@ -198,8 +204,8 @@ export function buildStaticPageMetadata(
   localeCandidate: string | undefined | null,
   pageKey: StaticPageKey
 ): Metadata {
-  const locale = normalizeLocale(localeCandidate);
-  const pageSeo = getStaticPageSeo(locale, pageKey);
+  const locale = normalizeRoutableLocale(localeCandidate);
+  const pageSeo = getStaticPageSeo(localeCandidate, pageKey);
 
   const alternatesByLocale = Object.fromEntries(
     Object.keys(getHubAlternates()).map((supportedLocale) => [

@@ -11,10 +11,11 @@ const {
 } = require("../spainSeoContent");
 
 describe("spain SEO content", () => {
-  test("resolves es vs en", () => {
+  test("resolves Spain SEO langs", () => {
     expect(resolveSpainSeoLang("es")).toBe("es");
     expect(resolveSpainSeoLang("en")).toBe("en");
-    expect(resolveSpainSeoLang("de")).toBe("en");
+    expect(resolveSpainSeoLang("de")).toBe("de");
+    expect(resolveSpainSeoLang("pt")).toBe("en");
   });
 
   test("EN hub mentions Spain and brand", () => {

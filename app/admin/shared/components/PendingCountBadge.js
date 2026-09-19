@@ -27,20 +27,20 @@ export default function PendingCountBadge({
       aria-label={`${label} pending`}
       sx={{
         ml: 0.75,
-        minWidth: 18,
-        height: 18,
-        px: 0.55,
+        minWidth: 16,
+        height: 16,
+        px: 0.45,
         borderRadius: "999px",
         bgcolor: bg,
         color: "#fff",
-        fontSize: "0.68rem",
+        fontSize: "0.65rem",
         fontWeight: 800,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
         lineHeight: 1,
         letterSpacing: 0,
-        verticalAlign: "middle",
+        flexShrink: 0,
         ...sx,
       }}
     >

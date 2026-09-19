@@ -12,8 +12,8 @@ dayjs.extend(timezone);
 
 const BUSINESS_TZ = "Europe/Athens";
 
-/** Short toolbar period (`15d` / range15): 12 consecutive days, larger cards. */
-export const SHORT_PERIOD_DAYS = 12;
+/** Short toolbar period (`15d` / range15): 15 consecutive days, larger cards. */
+export const SHORT_PERIOD_DAYS = 15;
 
 /**
  * Start of the short calendar window (still stored as `15d`).

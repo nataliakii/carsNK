@@ -54,17 +54,23 @@ function OrdersHubInner() {
       >
         <Tab
           label={
-            <Box sx={{ display: "inline-flex", alignItems: "center" }}>
+            <Box
+              component="span"
+              sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}
+            >
               {t("header.carRentals", { defaultValue: "Car rentals" })}
-              <PendingCountBadge count={pendingRentals} />
+              <PendingCountBadge count={pendingRentals} sx={{ ml: 0 }} />
             </Box>
           }
         />
         <Tab
           label={
-            <Box sx={{ display: "inline-flex", alignItems: "center" }}>
+            <Box
+              component="span"
+              sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}
+            >
               {t("header.transfers", { defaultValue: "Transfers" })}
-              <PendingCountBadge count={pendingTransfers} />
+              <PendingCountBadge count={pendingTransfers} sx={{ ml: 0 }} />
             </Box>
           }
         />

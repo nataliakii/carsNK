@@ -12,8 +12,8 @@ export const SUPPORTED_LOCALES = [
   "pl",
 ] as const;
 
-/** Extra UI locales (no dedicated Greece SEO copy). URL prefix is kept; SEO falls back to English. */
-export const EXTRA_UI_LOCALES = ["es"] as const;
+/** Extra UI locales (Spain SEO + general UI). URL prefix is kept. */
+export const EXTRA_UI_LOCALES = ["es", "ca", "fr", "it", "sv", "no"] as const;
 
 export const ROUTABLE_LOCALES = [
   ...SUPPORTED_LOCALES,
@@ -130,6 +130,7 @@ export const STATIC_PAGE_KEYS = {
   TERMS_OF_SERVICE: "terms-of-service",
   COOKIE_POLICY: "cookie-policy",
   RENTAL_TERMS: "rental-terms",
+  FOR_BUSINESS: "for-business",
 } as const;
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];

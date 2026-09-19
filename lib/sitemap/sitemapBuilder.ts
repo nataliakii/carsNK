@@ -34,6 +34,14 @@ import {
   filterCarsByBrand,
 } from "@domain/seoPages/seoPageRegistry";
 import { shouldIndexPath } from "@/services/seo/indexingPolicy";
+import { getSiteCountryConfig } from "@config/siteCountry";
+import {
+  SPAIN_LOCATIONS,
+  SPAIN_SEO_LOCALES,
+  getSpainLocationAlternates,
+  getSpainLocationPath,
+  getSpainLocationsIndexAlternates,
+} from "@domain/locationSeo/spainLocations";
 
 type SitemapCar = {
   slug?: string;
@@ -106,7 +114,10 @@ export function buildLocalizedSitemap(cars: SitemapCar[] = []): MetadataRoute.Si
   const nowIso = new Date().toISOString();
   const defaultLocale = getDefaultLocale();
   const entries: MetadataRoute.Sitemap = [];
-  const supportedLocales = getSupportedLocales();
+  const isSpain = !getSiteCountryConfig().showLegacySeoLocations;
+  const supportedLocales = isSpain
+    ? [...SPAIN_SEO_LOCALES]
+    : getSupportedLocales();
 
   const publicCars = (cars || []).filter(isPublicCar);
 
@@ -129,7 +140,7 @@ export function buildLocalizedSitemap(cars: SitemapCar[] = []): MetadataRoute.Si
       url: toAbsoluteUrl(localePath),
       lastModified: globalCarsLastModified,
       changeFrequency: "daily",
-      priority: locale === defaultLocale ? 1 : 0.9,
+      priority: locale === defaultLocale || locale === "es" ? 1 : 0.9,
       alternates: {
         languages: hubAlternates,
       },
@@ -137,14 +148,16 @@ export function buildLocalizedSitemap(cars: SitemapCar[] = []): MetadataRoute.Si
   }
 
   const locationsIndexAlternates = buildHreflangAlternates(
-    Object.fromEntries(supportedLocales.map((l) => [l, `/${l}/locations`]))
+    isSpain
+      ? getSpainLocationsIndexAlternates()
+      : Object.fromEntries(supportedLocales.map((l) => [l, `/${l}/locations`]))
   );
   for (const locale of supportedLocales) {
     entries.push({
       url: toAbsoluteUrl(`/${locale}/locations`),
       lastModified: globalCarsLastModified,
       changeFrequency: "weekly",
-      priority: locale === defaultLocale ? 0.85 : 0.8,
+      priority: locale === defaultLocale || locale === "es" ? 0.85 : 0.8,
       alternates: { languages: locationsIndexAlternates },
     });
   }
@@ -179,27 +192,46 @@ export function buildLocalizedSitemap(cars: SitemapCar[] = []): MetadataRoute.Si
   }
 
   const defaultLocations = getAllLocationsForLocale(defaultLocale);
-  for (const location of defaultLocations) {
-    if (isNoindexLocation(location.id)) continue;
-
-    const alternates = buildHreflangAlternates(getLocationAlternatesById(location.id));
-    for (const locale of supportedLocales) {
-      const localizedLocation = getAllLocationsForLocale(locale).find(
-        (item) => item.id === location.id
+  if (isSpain) {
+    for (const loc of SPAIN_LOCATIONS) {
+      const alternates = buildHreflangAlternates(
+        getSpainLocationAlternates(loc.id)
       );
+      for (const locale of SPAIN_SEO_LOCALES) {
+        const path = getSpainLocationPath(locale, loc.id);
+        if (!path) continue;
+        entries.push({
+          url: toAbsoluteUrl(path),
+          lastModified: globalCarsLastModified,
+          changeFrequency: "weekly",
+          priority: locale === "en" || locale === "es" ? 0.9 : 0.8,
+          alternates: { languages: alternates },
+        });
+      }
+    }
+  } else {
+    for (const location of defaultLocations) {
+      if (isNoindexLocation(location.id)) continue;
 
-      if (!localizedLocation) continue;
+      const alternates = buildHreflangAlternates(getLocationAlternatesById(location.id));
+      for (const locale of supportedLocales) {
+        const localizedLocation = getAllLocationsForLocale(locale).find(
+          (item) => item.id === location.id
+        );
 
-      const locationPath = getLocationPathFromLocation(locale, localizedLocation);
-      entries.push({
-        url: toAbsoluteUrl(locationPath),
-        lastModified: globalCarsLastModified,
-        changeFrequency: "weekly",
-        priority: getLocationPriority(location.id, locale, defaultLocale),
-        alternates: {
-          languages: alternates,
-        },
-      });
+        if (!localizedLocation) continue;
+
+        const locationPath = getLocationPathFromLocation(locale, localizedLocation);
+        entries.push({
+          url: toAbsoluteUrl(locationPath),
+          lastModified: globalCarsLastModified,
+          changeFrequency: "weekly",
+          priority: getLocationPriority(location.id, locale, defaultLocale),
+          alternates: {
+            languages: alternates,
+          },
+        });
+      }
     }
   }
 
@@ -222,6 +254,7 @@ export function buildLocalizedSitemap(cars: SitemapCar[] = []): MetadataRoute.Si
   }
 
   // ── Category × Location SEO pages (localized slug per locale) ──
+  if (!isSpain) {
   for (const locale of supportedLocales) {
     const seoPageSlugs = getAllSeoPageSlugs(locale);
     for (const seoPage of seoPageSlugs) {
@@ -259,6 +292,7 @@ export function buildLocalizedSitemap(cars: SitemapCar[] = []): MetadataRoute.Si
         alternates: { languages: brandAlternates },
       });
     }
+  }
   }
 
   // ── Programmatic rent-{car}-{location} pages (localized slug per locale) ──

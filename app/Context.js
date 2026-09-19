@@ -67,6 +67,9 @@ export const MainContextProvider = ({
         "sr",
         "pl",
         "es",
+        "fr",
+        "sv",
+        "no",
       ];
       if (supportedLngs.includes(newLang)) {
         i18n.changeLanguage(newLang);

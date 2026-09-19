@@ -60,6 +60,23 @@ import {
   SEO_LOCATIONS,
   getLocationSeoSlug,
 } from "@domain/seoPages/seoPageRegistry";
+import SpainLocationLanding from "@app/components/seo/SpainLocationLanding";
+import {
+  SPAIN_LOCATION_IDS,
+  SPAIN_LOCATIONS,
+  getSpainLocationAlternates,
+  getSpainLocationBySlug,
+  getSpainLocationCopy,
+  getSpainLocationPath,
+  getSpainLocationsIndexAlternates,
+  listSpainLocationStaticParams,
+  resolveSpainLocationLocale,
+} from "@domain/locationSeo/spainLocations";
+import { buildHreflangAlternates } from "@/services/seo/hreflangBuilder";
+
+function isSpainSite() {
+  return !getSiteCountryConfig().showLegacySeoLocations;
+}
 
 const PILLAR_LOCATION_IDS = [LOCATION_IDS.HALKIDIKI, LOCATION_IDS.THESSALONIKI_AIRPORT, LOCATION_IDS.NEA_KALLIKRATIA];
 /** Hero CTA — brand red from logo accent line (#E53935). */
@@ -101,6 +118,9 @@ export const dynamic = "force-dynamic";
 
 /** Location page paths: index, primary (single-segment SEO slug), and hierarchy (multi-segment). */
 export function generateStaticParams() {
+  if (isSpainSite()) {
+    return listSpainLocationStaticParams();
+  }
   const params = [];
   for (const locale of SUPPORTED_LOCALES) {
     params.push({ locale, path: [] });
@@ -124,6 +144,36 @@ function toPathArray(path) {
 }
 
 export async function generateMetadata({ params }) {
+  if (isSpainSite()) {
+    const locale = resolveSpainLocationLocale(params.locale);
+    const pathArray = toPathArray(params.path);
+    if (pathArray.length === 0) {
+      const hub = getHubSeo(locale);
+      return {
+        title: hub.seoTitle,
+        description: hub.seoDescription,
+        alternates: {
+          canonical: `/${locale}/locations`,
+          languages: buildHreflangAlternates(getSpainLocationsIndexAlternates()),
+        },
+      };
+    }
+    if (pathArray.length !== 1) {
+      return { robots: { index: false, follow: false } };
+    }
+    const loc = getSpainLocationBySlug(locale, pathArray[0]);
+    if (!loc) return { robots: { index: false, follow: false } };
+    const copy = getSpainLocationCopy(loc.id, locale);
+    return {
+      title: copy.seoTitle,
+      description: copy.seoDescription,
+      alternates: {
+        canonical: getSpainLocationPath(locale, loc.id),
+        languages: buildHreflangAlternates(getSpainLocationAlternates(loc.id)),
+      },
+    };
+  }
+
   const locale = normalizeLocale(params.locale);
   const pathArray = toPathArray(params.path);
   if (pathArray.length === 0) {
@@ -145,6 +195,114 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function LocationHierarchyPage({ params }) {
+  if (isSpainSite()) {
+    if (!isRoutableLocale(params.locale)) notFound();
+    const locale = resolveSpainLocationLocale(params.locale);
+
+    const pathArray = toPathArray(params.path);
+
+    if (pathArray.length === 0) {
+      const hubSeo = getHubSeo(locale);
+      const links = SPAIN_LOCATIONS.map((loc) => {
+        const copy = getSpainLocationCopy(loc.id, locale);
+        return {
+          href: getSpainLocationPath(locale, loc.id),
+          label: copy.shortName,
+        };
+      });
+      return (
+        <Feed locale={locale} isMain={false}>
+          <Box
+            component="main"
+            sx={{
+              color: "text.primary",
+              bgcolor: "#f7f7f8",
+              minHeight: "60vh",
+              py: 4,
+              px: { xs: 2, md: 3 },
+            }}
+          >
+            <Box sx={{ maxWidth: 820, mx: "auto" }}>
+              <SeoIntroBlock title={hubSeo.h1} introText={hubSeo.introText} />
+              <SeoLinksBlock
+                title={
+                  locale === "es"
+                    ? "Destinos"
+                    : locale === "ru"
+                      ? "Направления"
+                      : locale === "uk"
+                        ? "Напрямки"
+                        : locale === "de"
+                          ? "Ziele"
+                          : locale === "fr"
+                            ? "Destinations"
+                            : locale === "sv"
+                              ? "Destinationer"
+                              : locale === "no"
+                                ? "Destinasjoner"
+                                : "Destinations"
+                }
+                links={links}
+              />
+            </Box>
+          </Box>
+        </Feed>
+      );
+    }
+
+    if (pathArray.length !== 1) notFound();
+
+    const loc = getSpainLocationBySlug(locale, pathArray[0]);
+    if (!loc) notFound();
+
+    const copy = getSpainLocationCopy(loc.id, locale);
+    const canonical = getSpainLocationPath(locale, loc.id);
+    const currentPath = `/${locale}/locations/${pathArray[0]}`;
+    if (canonical && canonical !== currentPath) {
+      permanentRedirect(canonical);
+    }
+
+    const nearbyId =
+      loc.id === SPAIN_LOCATION_IDS.BARCELONA
+        ? SPAIN_LOCATION_IDS.COSTA_BRAVA
+        : SPAIN_LOCATION_IDS.BARCELONA;
+    const nearbyCopy = getSpainLocationCopy(nearbyId, locale);
+    const nearbyHref = getSpainLocationPath(locale, nearbyId);
+    const nearbyLabel =
+      locale === "es"
+        ? `También: ${nearbyCopy.shortName}`
+        : locale === "ru"
+          ? `Также: ${nearbyCopy.shortName}`
+          : locale === "uk"
+            ? `Також: ${nearbyCopy.shortName}`
+            : locale === "de"
+              ? `Auch: ${nearbyCopy.shortName}`
+              : locale === "fr"
+                ? `Aussi : ${nearbyCopy.shortName}`
+                : locale === "sv"
+                  ? `Också: ${nearbyCopy.shortName}`
+                  : locale === "no"
+                    ? `Også: ${nearbyCopy.shortName}`
+                    : `Also: ${nearbyCopy.shortName}`;
+
+    return (
+      <Feed locale={locale} isMain={false}>
+        <SpainLocationLanding
+          h1={copy.h1}
+          intro={copy.intro}
+          whyTitle={copy.whyTitle}
+          whyItems={copy.whyItems}
+          tipsTitle={copy.tipsTitle}
+          tips={copy.tips}
+          ctaLabel={copy.ctaLabel}
+          ctaHref={`/${locale}`}
+          nearbyLabel={nearbyLabel}
+          nearbyHref={nearbyHref}
+        />
+      </Feed>
+    );
+  }
+
   if (!getSiteCountryConfig().showLegacySeoLocations) notFound();
   const locale = normalizeLocale(params.locale);
   if (!isRoutableLocale(params.locale)) notFound();
