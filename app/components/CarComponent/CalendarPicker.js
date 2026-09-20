@@ -252,22 +252,38 @@ const CalendarPicker = ({
     priceIsApproximate,
   ]);
 
-  // --- useEffect для вертикального скроллинга всей страницы CarGrid ---
+  // After a complete range, bring the Book CTA (dates + total) into view.
+  // Skip the first click: showBookButton stays false until the end date is set.
+  // Wait until the CTA has a real box — it was display:none, and scrollIntoView
+  // on a 0×0 node jumps the page to the top instead of the price.
   useEffect(() => {
-    if (showBookButton && bookButtonRef.current) {
+    if (!showBookButton) return;
+
+    let cancelled = false;
+    let frame = 0;
+    let attempts = 0;
+
+    const tryScroll = () => {
+      if (cancelled) return;
       const button = bookButtonRef.current;
-      const buttonRect = button.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const scrollY =
-        window.scrollY +
-        buttonRect.top +
-        buttonRect.height / 2 -
-        viewportHeight / 2;
-      window.scrollTo({
-        top: scrollY,
+      const rect = button?.getBoundingClientRect();
+      if (!rect || rect.width < 1 || rect.height < 1) {
+        if (attempts++ < 16) {
+          frame = requestAnimationFrame(tryScroll);
+        }
+        return;
+      }
+      button.scrollIntoView({
+        block: "center",
         behavior: "smooth",
       });
-    }
+    };
+
+    frame = requestAnimationFrame(tryScroll);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
   }, [showBookButton]);
 
   // Modified onSelect to handle double clicks

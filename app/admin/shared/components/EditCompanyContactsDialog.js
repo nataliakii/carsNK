@@ -20,8 +20,7 @@ import MyLocationIcon from "@mui/icons-material/MyLocation";
 import { useTranslation } from "react-i18next";
 import { emptyMeetingContact } from "@/domain/company/meetingContacts";
 import CityPlacesAutocomplete from "@/app/components/ui/inputs/CityPlacesAutocomplete";
-import { dedupeCitiesByName } from "@/domain/geo/cityLookupOptions";
-import { spainFallbackCities } from "@/domain/geo/spainCityCoords";
+import { mergeOperatingCityCatalog } from "@/domain/geo/operatingCityCatalog";
 
 export default function EditCompanyContactsDialog({
   open,
@@ -89,7 +88,7 @@ export default function EditCompanyContactsDialog({
         }
       }
       if (!cancelled) {
-        setCities(dedupeCitiesByName(list, spainFallbackCities()));
+        setCities(mergeOperatingCityCatalog(list, { country: "ALL" }));
       }
     })();
     return () => {

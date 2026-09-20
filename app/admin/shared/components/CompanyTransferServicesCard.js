@@ -144,9 +144,9 @@ export default function CompanyTransferServicesCard({ companyId }) {
   if (!companyId) return null;
 
   return (
-    <Card sx={{ mt: 2 }}>
-      <CardContent>
-        <Typography variant="h6" sx={{ mb: 1 }}>
+    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent sx={{ p: { xs: 2, sm: 2.5 }, "&:last-child": { pb: { xs: 2, sm: 2.5 } } }}>
+        <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
           Transfer services
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

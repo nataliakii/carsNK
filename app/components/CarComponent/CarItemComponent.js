@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { styled, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import {
@@ -308,30 +308,8 @@ const CarItemComponent = React.memo(function CarItemComponent({
     setCurrentCalendarDate(newDate);
   };
 
-  // Добавляем ref для контейнера CarItemComponent
-  const carItemRef = useRef(null);
   // ref для контейнера изображения
   const carImageRef = useRef(null);
-
-  // Скроллим CarItemComponent чуть выше центра экрана, когда появляется кнопка BOOK
-  useEffect(() => {
-    if (carItemRef.current && bookDates?.start && bookDates?.end) {
-      const rect = carItemRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      // Смещение вверх на 160px (можно изменить по желанию)
-      const offset = -160;
-      const scrollY =
-        window.scrollY +
-        rect.top +
-        rect.height / 2 -
-        viewportHeight / 2 +
-        offset;
-      window.scrollTo({
-        top: scrollY,
-        behavior: "smooth",
-      });
-    }
-  }, [bookDates?.start, bookDates?.end]);
 
   // Добавляем обработчик для CalendarPicker
   const handleDateChange = ({ type, message }) => {
@@ -344,7 +322,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
   };
 
   return (
-    <StyledCarItem elevation={3} ref={carItemRef}>
+    <StyledCarItem elevation={3}>
       <Wrapper>
         {/* Название автомобиля над фото — ссылка на страницу машины */}
         {carPageHref ? (

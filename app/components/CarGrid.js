@@ -7,7 +7,8 @@ import React, {
   useRef,
   useDeferredValue,
 } from "react";
-import { Grid, Container, Typography, Box, Chip } from "@mui/material";
+import { Grid, Container, Typography, Box, Chip, Button } from "@mui/material";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
 import { styled } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
@@ -19,6 +20,7 @@ import { calculateTotalPrice } from "@utils/action";
 import dayjs from "dayjs";
 import { getSiteCountryCode } from "@config/siteCountry";
 import { isSpainBookingSite } from "@/domain/orders/catalogPlaceOptions";
+import BookingContextDetailsDialog from "./BookingContextDetailsDialog";
 
 const Section = styled("section")(({ theme }) => ({
   backgroundColor: "transparent",
@@ -77,6 +79,7 @@ function CarGrid() {
   const [discountEnd, setDiscountEnd] = useState(null);
   const [pricesByCarId, setPricesByCarId] = useState({});
   const [pricesLoading, setPricesLoading] = useState(false);
+  const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
 
   const fetchDiscount = useCallback(async () => {
     try {
@@ -243,6 +246,16 @@ function CarGrid() {
 
   const showLocationSummary =
     hasActiveDateSearch && (bookingPlaceIn?.trim() || bookingPlaceOut?.trim());
+  const hasActiveFilters = Boolean(
+    (selectedClass && selectedClass !== "All") ||
+      (selectedTransmission && selectedTransmission !== "All") ||
+      (selectedSeats && selectedSeats !== "All") ||
+      deferredSearchQuery.trim()
+  );
+  const hasBookingContext =
+    hasSelectedCities || hasActiveDateSearch || hasActiveFilters;
+  const showMetaStrip =
+    showDeliveryAfterDatesHint || hasActiveDateSearch || hasBookingContext;
 
   return (
     <Container
@@ -253,7 +266,7 @@ function CarGrid() {
       }}
     >
       <Section>
-        {(showDeliveryAfterDatesHint || hasActiveDateSearch) && (
+        {showMetaStrip ? (
           <Box
             sx={{
               mb: { xs: 2.5, sm: 3 },
@@ -306,8 +319,50 @@ function CarGrid() {
                 ) : null}
               </>
             ) : null}
+            {hasBookingContext ? (
+              <Button
+                variant="contained"
+                size="medium"
+                startIcon={<EventNoteOutlinedIcon />}
+                onClick={() => setBookingDetailsOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={bookingDetailsOpen}
+                sx={{
+                  mt: 0.75,
+                  textTransform: "none",
+                  fontWeight: 700,
+                  px: 2.25,
+                  py: 1,
+                  borderRadius: "10px",
+                  boxShadow: "none",
+                  backgroundColor: "text.primary",
+                  color: "background.paper",
+                  "&:hover": {
+                    backgroundColor: "text.primary",
+                    opacity: 0.88,
+                    boxShadow: "none",
+                  },
+                }}
+              >
+                {t("catalog.bookingDetailsButton")}
+              </Button>
+            ) : null}
           </Box>
-        )}
+        ) : null}
+        <BookingContextDetailsDialog
+          open={bookingDetailsOpen}
+          onClose={() => setBookingDetailsOpen(false)}
+          deliveryHint={
+            showDeliveryAfterDatesHint
+              ? t("catalog.deliverySelectDatesHint")
+              : ""
+          }
+          deliveryNote={
+            showDeliveryWithDatesNote
+              ? t("catalog.deliveryIncludedWhenAvailableNote")
+              : ""
+          }
+        />
         <Grid
           container
           spacing={{ sm: 2, sx: 0.4 }}

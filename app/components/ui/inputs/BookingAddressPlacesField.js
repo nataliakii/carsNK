@@ -4,6 +4,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Autocomplete, TextField, CircularProgress } from "@mui/material";
 import { useTranslation } from "react-i18next";
 
+const MIN_QUERY_LENGTH = 3;
+const CLIENT_FETCH_TIMEOUT_MS = 6000;
+
 function newSessionToken() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -13,7 +16,8 @@ function newSessionToken() {
 
 /**
  * Hotel/street address field with Google Places Autocomplete (server proxy).
- * Falls back to plain text when Places is not configured.
+ * Falls back to plain text when Places is not configured or the server key
+ * is referer-restricted (REQUEST_DENIED).
  */
 export default function BookingAddressPlacesField({
   label,
@@ -46,16 +50,30 @@ export default function BookingAddressPlacesField({
 
   const lang = language || (i18n.language || "en").split("-")[0];
 
+  const stopInFlight = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setLoading(false);
+  }, []);
+
   const fetchPredictions = useCallback(
     async (text) => {
       const q = String(text || "").trim();
-      if (q.length < 3 || !placesConfigured) {
+      if (q.length < MIN_QUERY_LENGTH || !placesConfigured) {
+        stopInFlight();
         setOptions([]);
         return;
       }
       if (abortRef.current) abortRef.current.abort();
       const abort = new AbortController();
       abortRef.current = abort;
+      const timeoutId = setTimeout(() => abort.abort(), CLIENT_FETCH_TIMEOUT_MS);
       setLoading(true);
       try {
         const res = await fetch("/api/public/places/autocomplete", {
@@ -70,36 +88,56 @@ export default function BookingAddressPlacesField({
           signal: abort.signal,
         });
         const body = await res.json().catch(() => ({}));
-        if (body.configured === false) {
+        if (
+          body.configured === false ||
+          body.unavailable === true ||
+          body.success === false
+        ) {
           setPlacesConfigured(false);
           setOptions([]);
           return;
         }
         setOptions(Array.isArray(body.predictions) ? body.predictions : []);
       } catch (err) {
-        if (err?.name === "AbortError") return;
+        if (err?.name === "AbortError") {
+          if (abortRef.current === abort) {
+            setPlacesConfigured(false);
+            setOptions([]);
+          }
+          return;
+        }
+        setPlacesConfigured(false);
         setOptions([]);
       } finally {
-        setLoading(false);
+        clearTimeout(timeoutId);
+        if (abortRef.current === abort) {
+          abortRef.current = null;
+          setLoading(false);
+        }
       }
     },
-    [country, lang, placesConfigured]
+    [country, lang, placesConfigured, stopInFlight]
   );
 
   const scheduleFetch = useCallback(
     (text) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      const q = String(text || "").trim();
+      if (q.length < MIN_QUERY_LENGTH) {
+        stopInFlight();
+        setOptions([]);
+        return;
+      }
       debounceRef.current = setTimeout(() => fetchPredictions(text), 280);
     },
-    [fetchPredictions]
+    [fetchPredictions, stopInFlight]
   );
 
   useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      if (abortRef.current) abortRef.current.abort();
+      stopInFlight();
     };
-  }, []);
+  }, [stopInFlight]);
 
   const resolvePlace = useCallback(
     async (prediction) => {
@@ -148,31 +186,35 @@ export default function BookingAddressPlacesField({
   const fallbackHelper = useMemo(() => {
     if (helperText) return helperText;
     if (!placesConfigured) {
-      return t("order.placesFallbackManual");
+      return t("order.placesSearchUnavailable", {
+        defaultValue: t("order.placesFallbackManual"),
+      });
     }
     return "";
   }, [helperText, placesConfigured, t]);
 
+  const manualField = (
+    <TextField
+      label={label}
+      value={inputValue}
+      onChange={(e) => {
+        setInputValue(e.target.value);
+        if (onChange) onChange(e.target.value);
+      }}
+      error={error}
+      helperText={fallbackHelper}
+      FormHelperTextProps={FormHelperTextProps}
+      disabled={disabled}
+      fullWidth
+      size="small"
+      variant="outlined"
+      InputLabelProps={{ shrink: true }}
+      sx={sx}
+    />
+  );
+
   if (!placesConfigured) {
-    return (
-      <TextField
-        label={label}
-        value={inputValue}
-        onChange={(e) => {
-          setInputValue(e.target.value);
-          if (onChange) onChange(e.target.value);
-        }}
-        error={error}
-        helperText={fallbackHelper}
-        FormHelperTextProps={FormHelperTextProps}
-        disabled={disabled}
-        fullWidth
-        size="small"
-        variant="outlined"
-        InputLabelProps={{ shrink: true }}
-        sx={sx}
-      />
-    );
+    return manualField;
   }
 
   return (
@@ -201,6 +243,16 @@ export default function BookingAddressPlacesField({
           if (onChange) onChange(newValue);
         }
       }}
+      loadingText={t("order.placesSearching", { defaultValue: "Searching…" })}
+      noOptionsText={
+        String(inputValue || "").trim().length < MIN_QUERY_LENGTH
+          ? t("order.placesKeepTyping", {
+              defaultValue: "Type at least 3 characters.",
+            })
+          : t("order.placesNoMatches", {
+              defaultValue: "No suggestions — type the address.",
+            })
+      }
       renderInput={(params) => (
         <TextField
           {...params}

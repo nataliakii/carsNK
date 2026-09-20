@@ -16,6 +16,7 @@ import {
   formatMeetingContactsDisplay,
   meetingContactsFromCompany,
 } from "@/domain/company/meetingContacts";
+import { adminCardSx } from "@/app/admin/shared/components/AdminSettingsSection";
 
 export function shortCompanyId(id) {
   const s = String(id || "");
@@ -69,17 +70,7 @@ export default function CompanyContactsCard({
     : null;
 
   return (
-    <Box
-      sx={{
-        p: { xs: 1.5, sm: 2 },
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: 2,
-        bgcolor: "background.paper",
-        maxWidth: "100%",
-        overflow: "hidden",
-      }}
-    >
+    <Box sx={adminCardSx}>
       <Stack gap={1.5}>
         {/* Title + country chip */}
         <Stack

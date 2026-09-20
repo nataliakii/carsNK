@@ -722,6 +722,7 @@ export default function OwnersSection() {
 
               <CompanyStorefrontCard
                 company={selectedCompany}
+                onEditBaseLocation={openEditCompany}
                 onSaved={(updated) => {
                   setCompanies((prev) =>
                     prev.map((item) =>

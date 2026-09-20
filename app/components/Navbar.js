@@ -1465,6 +1465,7 @@ export default function NavBar({
 
         {isMain && (
           <StyledBox
+            id="catalog-filters"
             ref={filterBarRef}
             scrolled={scrolled ? "true" : undefined}
             $isCarInfo={isCarInfo}

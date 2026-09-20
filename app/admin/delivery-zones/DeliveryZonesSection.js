@@ -34,7 +34,6 @@ import {
   Divider,
   ToggleButton,
   ToggleButtonGroup,
-  Autocomplete,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -54,6 +53,9 @@ import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import { COMPANY_ID } from "@config/company";
 import DeliveryPricingExplainer from "./DeliveryPricingExplainer";
+import OperatingCitiesPicker from "@/app/admin/shared/components/OperatingCitiesPicker";
+import useOperatingCityCatalog from "@/app/admin/shared/hooks/useOperatingCityCatalog";
+import { citiesWithinRadius } from "@/domain/geo/operatingCityCatalog";
 
 const EMPTY_FORM = {
   name: "",
@@ -128,6 +130,8 @@ export default function DeliveryZonesSection() {
   const [previewAfterHours, setPreviewAfterHours] = useState(false);
 
   const [policy, setPolicy] = useState(() => defaultDeliveryPricing(1));
+  const [companyCountry, setCompanyCountry] = useState("");
+  const { catalog: cityCatalog } = useOperatingCityCatalog(companyCountry);
 
   const companyIdForSession = useCallback(() => {
     if (viewAsActive && viewAsCompany?._id) {
@@ -221,6 +225,7 @@ export default function DeliveryZonesSection() {
         const lon = data?.coords?.lon != null ? String(data.coords.lon) : "";
         setBaseLat(lat);
         setBaseLon(lon);
+        setCompanyCountry(String(data?.country || "").trim());
         setWorkStart(data?.workingHours?.start || "08:00");
         setWorkEnd(data?.workingHours?.end || "22:00");
         const dp = data.deliveryPricing;
@@ -726,28 +731,66 @@ export default function DeliveryZonesSection() {
             </FormControl>
 
             {policy.strategy === "cities" ? (
-              <Autocomplete
-                multiple
-                freeSolo
-                options={[]}
-                value={policy.operatingCities || []}
-                onChange={(_, next) =>
-                  setPolicy((p) => ({
-                    ...p,
-                    operatingCities: (next || [])
-                      .map((v) => String(v || "").trim())
-                      .filter(Boolean),
-                  }))
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={t("deliveryZonesPage.operatingCities")}
-                    helperText={t("deliveryZonesPage.operatingCitiesHelp")}
+              <Stack spacing={1.5}>
+                <OperatingCitiesPicker
+                  value={policy.operatingCities || []}
+                  onChange={(next) =>
+                    setPolicy((p) => ({
+                      ...p,
+                      operatingCities: next,
+                    }))
+                  }
+                  catalog={cityCatalog}
+                  country={companyCountry}
+                  baseCoords={
+                    String(baseLat).trim() && String(baseLon).trim()
+                      ? { lat: baseLat, lon: baseLon }
+                      : null
+                  }
+                  label={t("deliveryZonesPage.operatingCities")}
+                  placeholder={t("companyProfile.operatingCitiesPlaceholder")}
+                  helperText={t("deliveryZonesPage.operatingCitiesHelp")}
+                />
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1.5}
+                  alignItems={{ xs: "stretch", sm: "center" }}
+                >
+                  <Button
                     size="small"
-                  />
-                )}
-              />
+                    variant="outlined"
+                    disabled={
+                      !String(baseLat).trim() ||
+                      !String(baseLon).trim() ||
+                      policy.radiusKm === "" ||
+                      policy.radiusKm == null
+                    }
+                    onClick={() => {
+                      const next = citiesWithinRadius(
+                        cityCatalog,
+                        { lat: baseLat, lon: baseLon },
+                        policy.radiusKm
+                      ).map((city) => city.name);
+                      if (!next.length) {
+                        setNotification({
+                          severity: "error",
+                          message: t("companyProfile.orderRadiusNoCities"),
+                        });
+                        return;
+                      }
+                      setPolicy((p) => ({ ...p, operatingCities: next }));
+                    }}
+                    sx={{ textTransform: "none", alignSelf: { sm: "flex-start" } }}
+                  >
+                    {t("companyProfile.selectWithinRadius")}
+                  </Button>
+                  {!String(baseLat).trim() || !String(baseLon).trim() ? (
+                    <Typography variant="body2" color="warning.main">
+                      {t("companyProfile.setBaseLocationFirst")}
+                    </Typography>
+                  ) : null}
+                </Stack>
+              </Stack>
             ) : null}
 
             <TextField

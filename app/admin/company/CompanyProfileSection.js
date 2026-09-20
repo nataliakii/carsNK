@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Box, CircularProgress, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, Stack, Typography } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 import CompanyContactsCard from "@/app/admin/shared/components/CompanyContactsCard";
@@ -148,28 +148,31 @@ export default function CompanyProfileSection({ companyId: companyIdProp } = {})
 
       <PartnerComplianceCard />
 
-      <CompanyContactsCard company={company} onEdit={openEdit} canEdit />
+      <Stack spacing={2.5}>
+        <CompanyContactsCard company={company} onEdit={openEdit} canEdit />
 
-      <CompanyStorefrontCard
-        company={company}
-        onSaved={(updated) => {
-          setCompany(updated);
-          setOk(t("companyProfile.updated", { name: updated.name }));
-          if (updated?._id) {
-            updateCompanyInContext(String(updated._id), updated);
-          }
-        }}
-      />
+        <CompanyStorefrontCard
+          company={company}
+          onEditBaseLocation={openEdit}
+          onSaved={(updated) => {
+            setCompany(updated);
+            setOk(t("companyProfile.updated", { name: updated.name }));
+            if (updated?._id) {
+              updateCompanyInContext(String(updated._id), updated);
+            }
+          }}
+        />
 
-      <CompanyTransferServicesCard companyId={ownerId} />
+        <CompanyTransferServicesCard companyId={ownerId} />
 
-      <CompanyRentalPaymentsCard
-        company={company}
-        onSaved={(updated) => {
-          setCompany(updated);
-          setOk(t("companyProfile.updated", { name: updated.name }));
-        }}
-      />
+        <CompanyRentalPaymentsCard
+          company={company}
+          onSaved={(updated) => {
+            setCompany(updated);
+            setOk(t("companyProfile.updated", { name: updated.name }));
+          }}
+        />
+      </Stack>
 
       <EditCompanyContactsDialog
         open={editOpen}

@@ -119,6 +119,7 @@ const FilterLocationAutocomplete = ({
       renderInput={(params) => (
         <TextField
           {...params}
+          name={name}
           label={label}
           variant="outlined"
           size="small"
@@ -126,6 +127,7 @@ const FilterLocationAutocomplete = ({
           placeholder={emptyOptionLabel}
           inputProps={{
             ...params.inputProps,
+            name,
             "aria-label": label,
           }}
         />
