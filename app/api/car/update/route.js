@@ -9,6 +9,7 @@ import {
   isSuperAdminUser,
   normalizeOwnerId,
 } from "@/domain/owners/ownerScope";
+import { normalizeCarOffices } from "@/domain/orders/carOffices";
 
 export const PUT = async (req) => {
   try {
@@ -43,6 +44,10 @@ export const PUT = async (req) => {
       delete updateFields.ownerId;
     } else if (updateFields.ownerId !== undefined) {
       updateFields.ownerId = normalizeOwnerId(updateFields.ownerId);
+    }
+
+    if (updateFields.offices !== undefined) {
+      updateFields.offices = normalizeCarOffices(updateFields.offices);
     }
 
     const needsSlugUpdate =

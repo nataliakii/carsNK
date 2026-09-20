@@ -75,6 +75,42 @@ export function rentalQuoteRateLimitOptions() {
   };
 }
 
+export function bookingConfirmRateLimitOptions() {
+  return {
+    tableName: publicRateLimit.BOOKING_CONFIRM_RATE_LIMIT_COLLECTION,
+    keyPrefix: "booking_confirm",
+    points: publicRateLimit.BOOKING_CONFIRM_RATE_LIMIT_MAX,
+    duration: publicRateLimit.BOOKING_CONFIRM_RATE_LIMIT_WINDOW_SEC,
+  };
+}
+
+export function agreementAcceptRateLimitOptions() {
+  return {
+    tableName: publicRateLimit.AGREEMENT_ACCEPT_RATE_LIMIT_COLLECTION,
+    keyPrefix: "agreement_accept",
+    points: publicRateLimit.AGREEMENT_ACCEPT_RATE_LIMIT_MAX,
+    duration: publicRateLimit.AGREEMENT_ACCEPT_RATE_LIMIT_WINDOW_SEC,
+  };
+}
+
+export function alternativeDecisionRateLimitOptions() {
+  return {
+    tableName: publicRateLimit.ALTERNATIVE_DECISION_RATE_LIMIT_COLLECTION,
+    keyPrefix: "alternative_decision",
+    points: publicRateLimit.ALTERNATIVE_DECISION_RATE_LIMIT_MAX,
+    duration: publicRateLimit.ALTERNATIVE_DECISION_RATE_LIMIT_WINDOW_SEC,
+  };
+}
+
+export function retentionJobRateLimitOptions() {
+  return {
+    tableName: publicRateLimit.RETENTION_JOB_RATE_LIMIT_COLLECTION,
+    keyPrefix: "retention_job",
+    points: publicRateLimit.RETENTION_JOB_RATE_LIMIT_MAX,
+    duration: publicRateLimit.RETENTION_JOB_RATE_LIMIT_WINDOW_SEC,
+  };
+}
+
 export function sendEmailRateLimitOptions() {
   return {
     tableName: publicRateLimit.SEND_EMAIL_RATE_LIMIT_COLLECTION,

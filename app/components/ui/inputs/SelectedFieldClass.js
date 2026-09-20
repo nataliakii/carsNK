@@ -22,6 +22,10 @@ const SelectedFieldClass = ({
   isLoading = false,
   /** Optional: custom label per option (e.g. seat counts). Default: capitalize first letter. */
   formatMenuItemLabel,
+  /** When false, omit the "All" option (e.g. booking locations). */
+  includeAllOption = true,
+  /** Label for empty selection when includeAllOption is false. */
+  emptyOptionLabel = "—",
 }) => {
   const brand = getActiveBrand();
   const accent = brand.primary;
@@ -80,12 +84,19 @@ const SelectedFieldClass = ({
         labelId={`${name}-label`}
         size="small"
         name={name}
-        value={value || "All"}
+        value={includeAllOption ? value || "All" : value ?? ""}
         onChange={handleChange}
         label={label}
         notched
+        displayEmpty={!includeAllOption}
       >
-        <MenuItem value="All">All</MenuItem>
+        {includeAllOption ? (
+          <MenuItem value="All">All</MenuItem>
+        ) : (
+          <MenuItem value="">
+            <em>{emptyOptionLabel}</em>
+          </MenuItem>
+        )}
         {options.map((option) => (
           <MenuItem key={option} value={option}>
             {formatMenuItemLabel

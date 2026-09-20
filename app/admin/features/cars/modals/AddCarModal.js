@@ -42,6 +42,8 @@ import { getCarModelSuggestions } from "@config/carCatalog";
 import { useSession } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
+import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
+import { normalizeCarOffices } from "@/domain/orders/carOffices";
 
 const AddCarModal = ({
   open,
@@ -82,9 +84,19 @@ const AddCarModal = ({
     PriceChildSeats: 3,
     franchise: 300,
     PriceKacko: 5,
+    offices: [],
   });
 
   const [selectedImage, setSelectedImage] = useState(null);
+
+  const officeCompanyId =
+    (showOwnerPicker && ownerId) ||
+    (viewAsActive && viewAsCompany?._id
+      ? String(viewAsCompany._id)
+      : "") ||
+    (company?._id ? String(company._id) : "");
+  const { names: officeLocationOptions } =
+    useCompanyBookingLocations(officeCompanyId);
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;
     const newValue = type === "checkbox" ? checked : value;
@@ -121,6 +133,10 @@ const AddCarModal = ({
         formData.append("deposit", String(carData.deposit));
       }
       formData.append("pricingTiers", JSON.stringify(carData.pricingTiers));
+      formData.append(
+        "offices",
+        JSON.stringify(normalizeCarOffices(carData.offices))
+      );
 
       // Admin / view-as: server forces owner. Superadmin: optional company pick.
       if (showOwnerPicker && ownerId) {
@@ -618,6 +634,55 @@ const AddCarModal = ({
                 </Grid>
 
                 {/* Pricing Tiers Table */}
+                <Grid item xs={12}>
+                  <Autocomplete
+                    multiple
+                    freeSolo
+                    options={officeLocationOptions}
+                    value={normalizeCarOffices(carData.offices).map((o) => o.name)}
+                    getOptionLabel={(opt) =>
+                      typeof opt === "string" ? opt : String(opt?.name || "")
+                    }
+                    onChange={(_, newValue) => {
+                      const prev = normalizeCarOffices(carData.offices);
+                      const next = (newValue || []).map((raw) => {
+                        const name =
+                          typeof raw === "string"
+                            ? raw.trim()
+                            : String(raw?.name || "").trim();
+                        const existing = prev.find(
+                          (p) =>
+                            String(p.name).toLowerCase() === name.toLowerCase()
+                        );
+                        return (
+                          existing || {
+                            name,
+                            address: String(company?.address || "").trim(),
+                            lat: "",
+                            lon: "",
+                          }
+                        );
+                      });
+                      handleChange({
+                        target: {
+                          name: "offices",
+                          value: normalizeCarOffices(next),
+                        },
+                      });
+                    }}
+                    disabled={loading}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={t("car.offices") || "Offices (pickup / return)"}
+                        helperText={
+                          t("car.officesHelp") ||
+                          "Pickup or return at these places is free for this car."
+                        }
+                      />
+                    )}
+                  />
+                </Grid>
                 <Grid item xs={12}>
                   <PricingTiers
                     car={carData}

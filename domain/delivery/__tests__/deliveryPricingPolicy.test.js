@@ -1,10 +1,10 @@
-import { computeZoneDeliveryPrice } from "./deliveryPriceFormula";
+import { computeZoneDeliveryPrice } from "../deliveryPriceFormula";
 import {
   chargeableKmBeyondRadius,
   computeRuleDeliveryPrice,
   hasActiveDeliveryPricing,
   isAfterWorkingHours,
-} from "./deliveryPricingPolicy";
+} from "../deliveryPricingPolicy";
 
 describe("deliveryPricingPolicy", () => {
   test("Barcelona-style: inside fixed, outside perKm from boundary, after-hours surcharge", () => {

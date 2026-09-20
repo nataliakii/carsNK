@@ -1,13 +1,24 @@
 import { DeliveryZone } from "@models/DeliveryZone";
 import Company from "@models/company";
 import { COMPANY_ID } from "@config/company";
+import {
+  applyCarOfficeFreeDelivery,
+  isPlaceMatchingCarOffice,
+} from "@/domain/orders/carOffices";
 import { computeZoneDeliveryPrice } from "./deliveryPriceFormula";
 import { resolveDeliveryZoneName } from "./resolveDeliveryZoneName";
 import {
   computeRuleDeliveryPrice,
-  hasActiveDeliveryPricing,
+  hasActiveRadiusDeliveryPricing,
   isAfterWorkingHours,
 } from "./deliveryPricingPolicy";
+import {
+  computeCityStrategyLegPrice,
+  resolveDeliveryStrategy,
+  resolveNearestOfficePoint,
+} from "./cityDeliveryPricing";
+import { getDistanceFromBase } from "@/domain/transfers/getTransferDistance";
+import { parseLatLon } from "@/domain/geo/haversineKm";
 
 function calculateZonePrice(zone, pricePerKm) {
   if (!zone) return { price: 0, zone: null, distanceKm: 0 };
@@ -21,7 +32,6 @@ function escapeRegex(str) {
 
 function buildOwnerZoneFilter(ownerId) {
   const id = ownerId ? String(ownerId) : String(COMPANY_ID);
-  // Include legacy zones with null/missing ownerId only for the default company
   if (id === String(COMPANY_ID)) {
     return {
       $or: [{ ownerId: id }, { ownerId: null }, { ownerId: { $exists: false } }],
@@ -30,15 +40,57 @@ function buildOwnerZoneFilter(ownerId) {
   return { ownerId: id };
 }
 
+async function resolveDrivingDistanceKm({ company, carOffices, lat, lon, addressLabel }) {
+  const point = parseLatLon({ lat, lon });
+  if (!point) return { distanceKm: null, approximate: true };
+
+  const nearest = resolveNearestOfficePoint({
+    addressCoords: point,
+    carOffices,
+    company,
+  });
+  if (!nearest) return { distanceKm: null, approximate: true };
+
+  try {
+    const google = await getDistanceFromBase({
+      baseCoords: nearest,
+      place: String(addressLabel || "").trim() || `${lat},${lon}`,
+    });
+    if (google?.ok && Number.isFinite(Number(google.distanceKm))) {
+      return {
+        distanceKm: Number(google.distanceKm),
+        approximate: Boolean(google.approximate),
+      };
+    }
+  } catch {
+    /* haversine fallback below */
+  }
+
+  const { haversineKm } = await import("@/domain/geo/haversineKm");
+  return {
+    distanceKm: haversineKm(point, nearest),
+    approximate: true,
+  };
+}
+
 /**
  * Calculate full delivery pricing for an order.
  *
  * @param {Object} params
  * @param {string} params.placeIn
  * @param {string} params.placeOut
- * @param {string} [params.companyId] — car owner / company; defaults to COMPANY_ID
- * @param {string|Date} [params.timeIn] — for after-hours surcharge
+ * @param {string} [params.companyId]
+ * @param {string|Date} [params.timeIn]
  * @param {string|Date} [params.timeOut]
+ * @param {string[]|object[]} [params.carOffices]
+ * @param {string} [params.placeInDetail]
+ * @param {string} [params.placeOutDetail]
+ * @param {number} [params.placeInLat]
+ * @param {number} [params.placeInLon]
+ * @param {number} [params.placeOutLat]
+ * @param {number} [params.placeOutLon]
+ * @param {string} [params.placeInLocality]
+ * @param {string} [params.placeOutLocality]
  */
 export async function calculateDeliveryPrice({
   placeIn,
@@ -46,6 +98,15 @@ export async function calculateDeliveryPrice({
   companyId,
   timeIn,
   timeOut,
+  carOffices,
+  placeInDetail,
+  placeOutDetail,
+  placeInLat,
+  placeInLon,
+  placeOutLat,
+  placeOutLon,
+  placeInLocality,
+  placeOutLocality,
 }) {
   const resolvedCompanyId = companyId
     ? String(companyId)
@@ -59,7 +120,87 @@ export async function calculateDeliveryPrice({
       : 1;
 
   const policy = company?.deliveryPricing || null;
-  const useRules = hasActiveDeliveryPricing(policy);
+  const strategy = resolveDeliveryStrategy(policy);
+  const useRadiusRules = hasActiveRadiusDeliveryPricing(policy);
+
+  // Office pickup/return → free (handled at end too, but short-circuit cities/radius)
+  const officeIn = isPlaceMatchingCarOffice(placeIn, carOffices);
+  const officeOut = isPlaceMatchingCarOffice(placeOut, carOffices);
+
+  if (strategy === "cities" && policy) {
+    const priceCityLeg = async (place, detail, lat, lon, locality, isOffice) => {
+      if (isOffice) {
+        return {
+          price: 0,
+          blocked: false,
+          distanceKm: 0,
+          chargeableKm: 0,
+          region: "office",
+          perKmRate: pricePerKm,
+        };
+      }
+      let distanceFromOfficeKm = null;
+      if (lat != null && lon != null) {
+        const dist = await resolveDrivingDistanceKm({
+          company,
+          carOffices,
+          lat,
+          lon,
+          addressLabel: detail || place,
+        });
+        distanceFromOfficeKm = dist.distanceKm;
+      }
+      const leg = computeCityStrategyLegPrice({
+        policy,
+        placeName: place,
+        address: detail,
+        locality,
+        addressCoords:
+          lat != null && lon != null ? { lat: Number(lat), lon: Number(lon) } : null,
+        distanceFromOfficeKm,
+        carOffices,
+        company,
+        fallbackPerKm: pricePerKm,
+      });
+      return leg;
+    };
+
+    const inResult = await priceCityLeg(
+      placeIn,
+      placeInDetail,
+      placeInLat,
+      placeInLon,
+      placeInLocality,
+      officeIn
+    );
+    const outResult = await priceCityLeg(
+      placeOut,
+      placeOutDetail,
+      placeOutLat,
+      placeOutLon,
+      placeOutLocality,
+      officeOut
+    );
+
+    return {
+      deliveryIn: inResult.price,
+      deliveryOut: outResult.price,
+      deliveryTotal: inResult.price + outResult.price,
+      deliveryPricePerKm: pricePerKm,
+      deliveryBlockedIn: Boolean(inResult.blocked),
+      deliveryBlockedOut: Boolean(outResult.blocked),
+      placeIn: placeIn || "",
+      placeOut: placeOut || "",
+      resolvedPlaceIn: resolveDeliveryZoneName(placeIn),
+      resolvedPlaceOut: resolveDeliveryZoneName(placeOut),
+      companyId: resolvedCompanyId,
+      strategy: "cities",
+      pickupMeta: inResult,
+      returnMeta: outResult,
+      officeFreeIn: officeIn,
+      officeFreeOut: officeOut,
+    };
+  }
 
   const resolvedIn = resolveDeliveryZoneName(placeIn);
   const resolvedOut = resolveDeliveryZoneName(placeOut);
@@ -90,13 +231,12 @@ export async function calculateDeliveryPrice({
   const afterOut = isAfterWorkingHours(timeOut, company?.workingHours);
 
   const priceSide = (zone, afterHours) => {
-    if (useRules) {
+    if (useRadiusRules) {
       const distanceKm =
         zone?.distanceKm != null && Number.isFinite(Number(zone.distanceKm))
           ? Number(zone.distanceKm)
           : null;
 
-      // Named zone always wins as explicit override when present
       if (zone) {
         const ruled = computeRuleDeliveryPrice({
           distanceKm: distanceKm ?? 0,
@@ -114,7 +254,6 @@ export async function calculateDeliveryPrice({
         };
       }
 
-      // No named zone + no distance → cannot apply radius rule yet
       if (distanceKm == null) {
         return { price: 0, blocked: false, distanceKm: 0, region: null, zone: null };
       }
@@ -148,7 +287,7 @@ export async function calculateDeliveryPrice({
   const inResult = priceSide(inZone, afterIn);
   const outResult = priceSide(outZone, afterOut);
 
-  return {
+  const base = {
     deliveryIn: inResult.price,
     deliveryOut: outResult.price,
     deliveryTotal: inResult.price + outResult.price,
@@ -160,5 +299,8 @@ export async function calculateDeliveryPrice({
     resolvedPlaceIn: resolvedIn,
     resolvedPlaceOut: resolvedOut,
     companyId: resolvedCompanyId,
+    strategy,
   };
+
+  return applyCarOfficeFreeDelivery(base, carOffices);
 }

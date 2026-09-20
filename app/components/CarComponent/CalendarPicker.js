@@ -22,6 +22,10 @@ import {
 } from "@/domain/calendar";
 import { calculateTotalPrice } from "@utils/action";
 import { getBusinessRentalDaysByMinutes } from "@/domain/orders/numberOfDays";
+import {
+  companyUsesSeasons,
+  getFlatDailyRateFromPricingTiers,
+} from "@/domain/orders/flatDailyRate";
 import { analyzeDates } from "@utils/analyzeDates";
 import Tooltip from "@mui/material/Tooltip";
 import { useTranslation } from "react-i18next";
@@ -32,6 +36,8 @@ import "dayjs/locale/ru";
 import "dayjs/locale/el";
 import { useMainContext } from "@app/Context";
 import { resolveBusinessTimezone } from "@/domain/time/resolveBusinessTimezone";
+import { getSiteCountryCode } from "@config/siteCountry";
+import { isSpainBookingSite } from "@/domain/orders/catalogPlaceOptions";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -61,7 +67,7 @@ const CalendarPicker = ({
   presetSearchDates = null,
 }) => {
   const { t, i18n } = useTranslation();
-  const { company, platform } = useMainContext();
+  const { company, platform, bookingPlaceIn, bookingPlaceOut } = useMainContext();
   const calendarTz = resolveBusinessTimezone({
     company,
     countryCode: company?.country || platform?.country,
@@ -93,41 +99,138 @@ const CalendarPicker = ({
   // Состояние для расчета суммы заказа
   const [totalPrice, setTotalPrice] = useState(0);
   const [calcLoading, setCalcLoading] = useState(false);
+  const [priceIsApproximate, setPriceIsApproximate] = useState(false);
   // carId (_id) is always unique in MongoDB. Fallback: carNumber, regNumber.
   const carApiIdentifier = car?._id?.toString?.() || car?.carNumber || car?.regNumber || "";
+  const pickupForPricing = bookingPlaceIn?.trim() || undefined;
+  const returnForPricing = bookingPlaceOut?.trim() || undefined;
+  const spainDeliveryMayVary =
+    isSpainBookingSite(getSiteCountryCode()) &&
+    Boolean(pickupForPricing || returnForPricing);
 
-  // Расчет суммы заказа через action
-  const fetchTotalPrice = useCallback(async () => {
-    if (!carApiIdentifier || !selectedRange[0] || !selectedRange[1]) {
-      setTotalPrice(0);
-      return;
-    }
-    setCalcLoading(true);
-    try {
-      const result = await calculateTotalPrice(
-        carApiIdentifier,
-        selectedRange[0].toDate(),
-        selectedRange[1].toDate(),
-        "TPL", // Дефолтное значение
-        0 // Дефолтное значение
-      );
-      setTotalPrice(result.totalPrice || 0);
-    } catch {
-      setTotalPrice(0);
-    } finally {
-      setCalcLoading(false);
-    }
-  }, [carApiIdentifier, selectedRange]);
+  const estimateClientTotal = useCallback(() => {
+    if (!selectedRange[0] || !selectedRange[1]) return null;
+    const days = getBusinessRentalDaysByMinutes(
+      selectedRange[0],
+      selectedRange[1],
+      calendarTz
+    );
+    if (days <= 0) return null;
 
-  useEffect(() => {
-    if (showBookButton && selectedRange[0] && selectedRange[1]) {
-      fetchTotalPrice();
-    } else {
-      setTotalPrice(0);
-      if (onPriceCalculated) {
-        onPriceCalculated(null); // Сбрасываем цену при сбросе выбора
+    if (!companyUsesSeasons(company)) {
+      const rate = getFlatDailyRateFromPricingTiers(car?.pricingTiers);
+      if (rate > 0) {
+        return {
+          totalPrice: Math.round(rate * days * 100) / 100,
+          days,
+          approximate: true,
+        };
       }
     }
+
+    return null;
+  }, [selectedRange, calendarTz, company, car?.pricingTiers]);
+
+  // Расчет суммы заказа через action (+ client estimate so UI never sticks on "...")
+  const fetchTotalPrice = useCallback(
+    async ({ signal, isCurrent } = {}) => {
+      if (!carApiIdentifier || !selectedRange[0] || !selectedRange[1]) {
+        if (isCurrent?.()) {
+          setTotalPrice(0);
+          setPriceIsApproximate(false);
+          setCalcLoading(false);
+        }
+        return;
+      }
+
+      const clientEstimate = estimateClientTotal();
+      if (isCurrent?.() && clientEstimate?.totalPrice > 0) {
+        setTotalPrice(clientEstimate.totalPrice);
+        setPriceIsApproximate(true);
+      }
+
+      if (isCurrent?.()) setCalcLoading(true);
+      try {
+        const result = await calculateTotalPrice(
+          carApiIdentifier,
+          selectedRange[0].toDate(),
+          selectedRange[1].toDate(),
+          "TPL",
+          0,
+          {
+            signal,
+            placeIn: pickupForPricing,
+            placeOut: returnForPricing,
+          }
+        );
+        if (!isCurrent?.()) return;
+
+        if (result?.ok !== false && Number(result?.totalPrice) > 0) {
+          setTotalPrice(result.totalPrice);
+          setPriceIsApproximate(spainDeliveryMayVary);
+        } else if (clientEstimate?.totalPrice > 0) {
+          setTotalPrice(clientEstimate.totalPrice);
+          setPriceIsApproximate(true);
+        } else {
+          setTotalPrice(0);
+          setPriceIsApproximate(false);
+        }
+      } catch (error) {
+        if (!isCurrent?.()) return;
+        if (error?.name === "AbortError") {
+          if (clientEstimate?.totalPrice > 0) {
+            setTotalPrice(clientEstimate.totalPrice);
+            setPriceIsApproximate(true);
+          }
+          return;
+        }
+        if (clientEstimate?.totalPrice > 0) {
+          setTotalPrice(clientEstimate.totalPrice);
+          setPriceIsApproximate(true);
+        } else {
+          setTotalPrice(0);
+          setPriceIsApproximate(false);
+        }
+      } finally {
+        if (isCurrent?.()) {
+          setCalcLoading(false);
+        }
+      }
+    },
+    [
+      carApiIdentifier,
+      selectedRange,
+      estimateClientTotal,
+      pickupForPricing,
+      returnForPricing,
+      spainDeliveryMayVary,
+    ]
+  );
+
+  useEffect(() => {
+    if (!(showBookButton && selectedRange[0] && selectedRange[1])) {
+      setTotalPrice(0);
+      setPriceIsApproximate(false);
+      setCalcLoading(false);
+      if (onPriceCalculated) {
+        onPriceCalculated(null);
+      }
+      return;
+    }
+
+    let current = true;
+    const abort = new AbortController();
+    const timeoutId = setTimeout(() => abort.abort(), 10000);
+    fetchTotalPrice({
+      signal: abort.signal,
+      isCurrent: () => current,
+    });
+
+    return () => {
+      current = false;
+      clearTimeout(timeoutId);
+      abort.abort();
+    };
   }, [showBookButton, selectedRange, fetchTotalPrice, onPriceCalculated]);
 
   // Передаем просчитанную цену родителю
@@ -135,11 +238,19 @@ const CalendarPicker = ({
     if (onPriceCalculated && totalPrice > 0 && !calcLoading && selectedRange[0] && selectedRange[1]) {
       const days = getBusinessRentalDaysByMinutes(
         selectedRange[0],
-        selectedRange[1]
+        selectedRange[1],
+        calendarTz
       );
-      onPriceCalculated({ totalPrice, days });
+      onPriceCalculated({ totalPrice, days, approximate: priceIsApproximate });
     }
-  }, [totalPrice, calcLoading, selectedRange, onPriceCalculated]);
+  }, [
+    totalPrice,
+    calcLoading,
+    selectedRange,
+    onPriceCalculated,
+    calendarTz,
+    priceIsApproximate,
+  ]);
 
   // --- useEffect для вертикального скроллинга всей страницы CarGrid ---
   useEffect(() => {
@@ -908,9 +1019,13 @@ const CalendarPicker = ({
   // compute header spacing depending on device
   const headerSx = {
     lineHeight: isPortraitPhone ? "1.15rem" : "1.3rem",
-    letterSpacing: isPortraitPhone ? "0.06rem" : "0.1rem",
-    fontSize: isPortraitPhone ? "0.95rem" : undefined,
+    letterSpacing: isPortraitPhone ? "0.04rem" : "0.06rem",
+    fontSize: isPortraitPhone ? "0.95rem" : { xs: "1rem", sm: "1.1rem" },
     textTransform: "uppercase",
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    maxWidth: "100%",
     marginBottom: showDiscountInfo
       ? isPortraitPhone
         ? "4px"
@@ -930,18 +1045,54 @@ const CalendarPicker = ({
     <Box
       sx={{
         width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
         p: isPortraitPhone
           ? "4px 6px 6px"
           : { xs: "10px 10px 10px 10px", sm: "10px 10px 10px 10px" },
-        ...(isPortraitPhone && {
-          "& .ant-picker-calendar": { paddingInline: 4 },
-          "& .ant-picker-content thead > tr > th": { paddingBlock: "2px" },
-          "& .ant-picker-content tbody .ant-picker-cell": { padding: "1px 0" },
-          "& .ant-picker-cell .ant-picker-cell-inner": {
-            minHeight: "22px",
-            lineHeight: "22px",
-          },
-        }),
+        // Ant Design mini-calendar uses fixed cell floors; force fluid Su–Sa fit.
+        "& .ant-picker-calendar": {
+          width: "100%",
+          maxWidth: "100%",
+          ...(isPortraitPhone ? { paddingInline: 4 } : null),
+        },
+        "& .ant-picker-panel": {
+          width: "100% !important",
+          maxWidth: "100%",
+        },
+        "& .ant-picker-date-panel": {
+          width: "100% !important",
+          maxWidth: "100%",
+        },
+        "& .ant-picker-body": {
+          paddingInline: isPortraitPhone ? 2 : 4,
+        },
+        "& .ant-picker-content": {
+          width: "100% !important",
+          tableLayout: "fixed",
+        },
+        "& .ant-picker-content th, & .ant-picker-content td": {
+          minWidth: 0,
+          width: "14.2857%",
+          padding: "1px 0",
+        },
+        "& .ant-picker-content thead > tr > th": {
+          paddingBlock: isPortraitPhone ? "2px" : "4px",
+          overflow: "hidden",
+          textOverflow: "clip",
+        },
+        "& .ant-picker-content tbody .ant-picker-cell": {
+          padding: "1px 0",
+        },
+        "& .ant-picker-cell .ant-picker-cell-inner": {
+          minWidth: 0,
+          width: "100%",
+          maxWidth: "100%",
+          ...(isPortraitPhone
+            ? { minHeight: "22px", lineHeight: "22px" }
+            : null),
+        },
       }}
     >
       {" "}
@@ -994,7 +1145,7 @@ const CalendarPicker = ({
                       .format("DD MMM")
                       .replace(/\./g, "")}`}
                   </Box>
-                  {calcLoading ? (
+                  {calcLoading && !(totalPrice > 0) ? (
                     <Box
                       sx={{
                         display: "inline-flex",
@@ -1034,7 +1185,48 @@ const CalendarPicker = ({
                       <Box component="span" />
                     </Box>
                   ) : totalPrice > 0 ? (
-                    <Box component="span">{`${totalPrice}€`}</Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 0.15,
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "baseline",
+                          gap: 0.5,
+                        }}
+                      >
+                        {priceIsApproximate ? (
+                          <Box
+                            component="span"
+                            sx={{
+                              fontSize: "0.7rem",
+                              fontWeight: 700,
+                              letterSpacing: "0.02em",
+                              textTransform: "uppercase",
+                              opacity: 0.9,
+                            }}
+                          >
+                            {t("catalog.bookPriceApprox")}
+                          </Box>
+                        ) : null}
+                        <Box
+                          component="span"
+                          sx={{
+                            fontSize: "1.15rem",
+                            fontWeight: 800,
+                            letterSpacing: "-0.02em",
+                          }}
+                        >
+                          {`${totalPrice}€`}
+                        </Box>
+                      </Box>
+                    </Box>
                   ) : null}
                 </Box>
               </GradientBookButton>

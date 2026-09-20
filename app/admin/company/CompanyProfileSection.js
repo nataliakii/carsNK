@@ -9,15 +9,18 @@ import EditCompanyContactsDialog from "@/app/admin/shared/components/EditCompany
 import CompanyStorefrontCard from "@/app/admin/shared/components/CompanyStorefrontCard";
 import CompanyTransferServicesCard from "@/app/admin/shared/components/CompanyTransferServicesCard";
 import CompanyRentalPaymentsCard from "@/app/admin/shared/components/CompanyRentalPaymentsCard";
+import PartnerComplianceCard from "@/app/admin/shared/components/PartnerComplianceCard";
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 import {
   meetingContactsFromCompany,
   meetingContactsUpdatePayload,
 } from "@/domain/company/meetingContacts";
+import { useMainContext } from "@app/Context";
 
 export default function CompanyProfileSection({ companyId: companyIdProp } = {}) {
   const { t } = useTranslation();
   const { data: session } = useSession();
+  const { updateCompanyInContext } = useMainContext();
   const { active: viewAsActive, company: viewAsCompany } = useAdminViewAs();
   const ownerId =
     (companyIdProp && String(companyIdProp)) ||
@@ -143,6 +146,8 @@ export default function CompanyProfileSection({ companyId: companyIdProp } = {})
         </Alert>
       ) : null}
 
+      <PartnerComplianceCard />
+
       <CompanyContactsCard company={company} onEdit={openEdit} canEdit />
 
       <CompanyStorefrontCard
@@ -150,6 +155,9 @@ export default function CompanyProfileSection({ companyId: companyIdProp } = {})
         onSaved={(updated) => {
           setCompany(updated);
           setOk(t("companyProfile.updated", { name: updated.name }));
+          if (updated?._id) {
+            updateCompanyInContext(String(updated._id), updated);
+          }
         }}
       />
 

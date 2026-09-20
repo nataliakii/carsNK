@@ -422,6 +422,14 @@ const OrderSchema = new mongoose.Schema({
     default: [],
   },
   /**
+   * When the retention job erased the driving licence images. Distinguishes
+   * "deleted under the retention policy" from "never uploaded".
+   */
+  drivingLicencePurgedAt: {
+    type: Date,
+    default: null,
+  },
+  /**
    * pricingDrift — tracks pricing-input changes on confirmed orders.
    *
    * When an order is confirmed, its price is frozen (PriceBreakdown gets frozenAt).
@@ -781,6 +789,15 @@ if (Order?.schema && !Order.schema.path("drivingLicenceUrls")) {
     drivingLicenceUrls: {
       type: [String],
       default: [],
+    },
+  });
+}
+
+if (Order?.schema && !Order.schema.path("drivingLicencePurgedAt")) {
+  Order.schema.add({
+    drivingLicencePurgedAt: {
+      type: Date,
+      default: null,
     },
   });
 }

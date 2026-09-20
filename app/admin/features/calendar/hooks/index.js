@@ -2,6 +2,9 @@ export { default as useCalendarConflictBadges } from "./useCalendarConflictBadge
 export { useCalendarOrders } from "./useCalendarOrders";
 export {
   buildCalendarDays,
+  DAY_RANGE_MONTHS,
+  getDayRangeEnd,
+  getDayRangeMonths,
   MEAN_GREGORIAN_MONTH_DAYS,
   SHORT_PERIOD_DAYS,
   getShortPeriodStart,

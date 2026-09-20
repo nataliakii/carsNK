@@ -40,6 +40,34 @@ function tzOf(order, fallback = BUSINESS_TZ) {
 /** Средняя длина месяца (Gregorian) — масштаб для опционального --calendar-day-width-factor */
 export const MEAN_GREGORIAN_MONTH_DAYS = 365.2425 / 12;
 
+/** Toolbar period → сколько целых календарных месяцев показываем. */
+export const DAY_RANGE_MONTHS = {
+  "1m": 1,
+  "2m": 2,
+  "3m": 3,
+  "6m": 6,
+};
+
+/** @returns {number} число месяцев в окне; неизвестный/пустой диапазон → 1 */
+export function getDayRangeMonths(calendarDayRange) {
+  return DAY_RANGE_MONTHS[calendarDayRange] ?? 1;
+}
+
+/** Первое число выбранного месяца. date(1) первым — иначе month() может «перепрыгнуть» с 31-го числа. */
+function startOfMonth(year, month) {
+  return dayjs().date(1).year(year).month(month).startOf("day");
+}
+
+function toCalendarDay(date) {
+  return {
+    dayjs: date,
+    date: date.date(),
+    weekday: date.format("dd"),
+    isSunday: date.day() === 0,
+    isMonthStart: date.date() === 1,
+  };
+}
+
 /**
  * Генерирует массив дней для календаря
  * @param {Object} params
@@ -47,7 +75,7 @@ export const MEAN_GREGORIAN_MONTH_DAYS = 365.2425 / 12;
  * @param {number} params.year - год
  * @param {string} params.viewMode - 'full' | 'range15'
  * @param {string} params.rangeDirection - 'forward' | 'backward'
- * @param {'15d'|'1m'|'2m'|null|undefined} [params.calendarDayRange] — если задан, переопределяет выбор ветки (15d / один месяц / два месяца)
+ * @param {'15d'|'1m'|'2m'|'3m'|'6m'|null|undefined} [params.calendarDayRange] — если задан, переопределяет выбор ветки
  * @returns {Array} массив дней с dayjs, date, weekday, isSunday
  */
 export function buildCalendarDays({
@@ -63,47 +91,34 @@ export function buildCalendarDays({
 
   if (use15d) {
     const start = getShortPeriodStart({ year, month, rangeDirection });
-    return Array.from({ length: SHORT_PERIOD_DAYS }, (_, index) => {
-      const date = start.add(index, "day");
-      return {
-        dayjs: date,
-        date: date.date(),
-        weekday: date.format("dd"),
-        isSunday: date.day() === 0,
-        isMonthStart: date.date() === 1,
-      };
-    });
+    return Array.from({ length: SHORT_PERIOD_DAYS }, (_, index) =>
+      toCalendarDay(start.add(index, "day"))
+    );
   }
 
-  if (calendarDayRange === "2m") {
-    const start = dayjs().year(year).month(month).date(1).startOf("day");
-    const end = start.add(1, "month").endOf("month").startOf("day");
-    const totalDays = end.diff(start, "day");
-    return Array.from({ length: totalDays + 1 }, (_, index) => {
-      const date = start.add(index, "day");
-      return {
-        dayjs: date,
-        date: date.date(),
-        weekday: date.format("dd"),
-        isSunday: date.day() === 0,
-        isMonthStart: date.date() === 1,
-      };
-    });
+  // 1m / 2m / 3m / 6m: N целых календарных месяцев, начиная с выбранного.
+  // Длину считаем суммой daysInMonth, а не diff("day") — иначе переход на
+  // летнее время съедает последний день окна.
+  const monthSpan = getDayRangeMonths(calendarDayRange);
+  const start = startOfMonth(year, month);
+  let totalDays = 0;
+  for (let i = 0; i < monthSpan; i++) {
+    totalDays += start.add(i, "month").daysInMonth();
   }
 
-  // 1m или full без calendarDayRange: один календарный месяц
-  const dim = dayjs().year(year).month(month).daysInMonth();
+  return Array.from({ length: totalDays }, (_, index) =>
+    toCalendarDay(start.add(index, "day"))
+  );
+}
 
-  return Array.from({ length: dim }, (_, index) => {
-    const date = dayjs().year(year).month(month).date(1).add(index, "day");
-    return {
-      dayjs: date,
-      date: date.date(),
-      weekday: date.format("dd"),
-      isSunday: date.day() === 0,
-      isMonthStart: date.date() === 1,
-    };
-  });
+/**
+ * Последний день окна для выбранного периода (нужен для подписей месяца/года).
+ * @param {{ year: number, month: number, calendarDayRange?: string }} params
+ */
+export function getDayRangeEnd({ year, month, calendarDayRange }) {
+  return startOfMonth(year, month)
+    .add(getDayRangeMonths(calendarDayRange) - 1, "month")
+    .endOf("month");
 }
 
 /**
@@ -335,7 +350,7 @@ export function scrollCalendarToToday({ container, todayIndex }) {
  * @param {number} params.year - год
  * @param {string} params.viewMode - 'full' | 'range15'
  * @param {string} params.rangeDirection - 'forward' | 'backward'
- * @param {'15d'|'1m'|'2m'|null|undefined} [params.calendarDayRange]
+ * @param {'15d'|'1m'|'2m'|'3m'|'6m'|null|undefined} [params.calendarDayRange]
  * @returns {{ days: Array, todayIndex: number }}
  */
 export function useCalendarDays({

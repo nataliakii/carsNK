@@ -1,3 +1,5 @@
+import { normalizeOperatingCities } from "@/domain/delivery/cityDeliveryPricing";
+
 /**
  * Company deliveryPricing normalize + radius-split price calculator.
  * Pure — no DB.
@@ -5,6 +7,7 @@
 
 export const INSIDE_MODES = ["fixed", "free", "perKm"];
 export const OUTSIDE_MODES = ["perKm", "fixed", "blocked"];
+export const DELIVERY_STRATEGY_MODES = ["zones", "radius", "cities"];
 
 export function defaultDeliveryPricing(fallbackPerKm = 1) {
   const perKm =
@@ -12,8 +15,11 @@ export function defaultDeliveryPricing(fallbackPerKm = 1) {
       ? Number(fallbackPerKm)
       : 1;
   return {
+    strategy: "radius",
     radiusKm: null,
-    inside: { mode: "perKm", amount: perKm },
+    operatingCities: [],
+    maxDistanceKm: null,
+    inside: { mode: "free", amount: 0 },
     outside: { mode: "perKm", amount: perKm },
     afterHoursSurcharge: 0,
   };
@@ -62,10 +68,44 @@ export function normalizeDeliveryPricingInput(raw, company = {}) {
     radiusKm = Number(company.deliveryPricing.radiusKm);
   }
 
+  let maxDistanceKm = null;
+  const maxRaw =
+    raw.maxDistanceKm !== undefined
+      ? raw.maxDistanceKm
+      : company?.deliveryPricing?.maxDistanceKm;
+  if (maxRaw !== undefined && maxRaw !== null && maxRaw !== "") {
+    const n = Number(maxRaw);
+    if (!Number.isFinite(n) || n < 0 || n > 5000) {
+      return { ok: false, message: "maxDistanceKm must be 0–5000 or empty" };
+    }
+    maxDistanceKm = n;
+  }
+
+  const strategyRaw = String(
+    raw.strategy ?? company?.deliveryPricing?.strategy ?? ""
+  )
+    .trim()
+    .toLowerCase();
+  let strategy = DELIVERY_STRATEGY_MODES.includes(strategyRaw)
+    ? strategyRaw
+    : null;
+
+  const operatingCities = normalizeOperatingCities(
+    raw.operatingCities !== undefined
+      ? raw.operatingCities
+      : company?.deliveryPricing?.operatingCities
+  );
+
+  if (!strategy) {
+    if (operatingCities.length) strategy = "cities";
+    else if (radiusKm != null) strategy = "radius";
+    else strategy = "zones";
+  }
+
   const insideMode = normalizeMode(
     raw.inside?.mode ?? company?.deliveryPricing?.inside?.mode,
     INSIDE_MODES,
-    fallback.inside.mode
+    strategy === "cities" ? "free" : fallback.inside.mode
   );
   const insideAmount = normalizeAmount(
     raw.inside?.amount ?? company?.deliveryPricing?.inside?.amount,
@@ -100,7 +140,10 @@ export function normalizeDeliveryPricingInput(raw, company = {}) {
   return {
     ok: true,
     value: {
+      strategy,
       radiusKm,
+      operatingCities,
+      maxDistanceKm,
       inside: { mode: insideMode, amount: insideAmount },
       outside: { mode: outsideMode, amount: outsideAmount },
       afterHoursSurcharge,
@@ -108,11 +151,30 @@ export function normalizeDeliveryPricingInput(raw, company = {}) {
   };
 }
 
-/** True when company has an active radius-split policy. */
+/** Radius as a number, or null when unset (null/undefined/"" are not 0). */
+function radiusKmOrNull(raw) {
+  if (raw === null || raw === undefined || raw === "") return null;
+  const r = Number(raw);
+  return Number.isFinite(r) && r >= 0 ? r : null;
+}
+
+/** True when company has an active radius-split or cities-list policy. */
 export function hasActiveDeliveryPricing(policy) {
   if (!policy || typeof policy !== "object") return false;
-  const r = Number(policy.radiusKm);
-  return Number.isFinite(r) && r >= 0;
+  const strategy = String(policy.strategy || "").toLowerCase();
+  if (strategy === "cities") {
+    return normalizeOperatingCities(policy.operatingCities).length > 0;
+  }
+  if (strategy === "zones") return false;
+  return radiusKmOrNull(policy.radiusKm) !== null;
+}
+
+/** True specifically for radius-km split (not cities list). */
+export function hasActiveRadiusDeliveryPricing(policy) {
+  if (!policy || typeof policy !== "object") return false;
+  const strategy = String(policy.strategy || "").toLowerCase();
+  if (strategy === "cities" || strategy === "zones") return false;
+  return radiusKmOrNull(policy.radiusKm) !== null;
 }
 
 /**

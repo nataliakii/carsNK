@@ -73,4 +73,29 @@ describe("resolveBookingLocationFromPickupParam", () => {
     expect(resolveBookingLocationFromPickupParam("")).toBeNull();
     expect(resolveBookingLocationFromPickupParam("not-a-place")).toBeNull();
   });
+
+  test("resolves Spain SEO ids and slugs", () => {
+    expect(resolveBookingLocationFromPickupParam("barcelona")).toBe(
+      "Barcelona"
+    );
+    expect(resolveBookingLocationFromPickupParam("costa-brava")).toBe(
+      "Costa Brava"
+    );
+  });
+});
+
+describe("resolveBookingLocationFromPathname Spain", () => {
+  test("resolves Spain SEO landing paths", () => {
+    expect(
+      resolveBookingLocationFromPathname("/en/locations/car-rental-barcelona")
+    ).toBe("Barcelona");
+    expect(
+      resolveBookingLocationFromPathname(
+        "/es/locations/alquiler-coches-barcelona"
+      )
+    ).toBe("Barcelona");
+    expect(
+      resolveBookingLocationFromPathname("/en/locations/car-rental-costa-brava")
+    ).toBe("Costa Brava");
+  });
 });

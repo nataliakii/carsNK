@@ -34,6 +34,8 @@ export function locationRequiresAddressDetail(value, cities = []) {
     (city) => normalizeBookingLocationKey(city?.name) === key
   );
   if (fromCatalog?.requiresAddressDetail) return true;
+  // Greece: Thessaloniki needs hotel/address. Spain hubs also (filter bar cities
+  // use spainCityRequiresAddressDetail in catalogPlaceOptions for the full list).
   return key === "thessaloniki" || key === "madrid" || key === "barcelona";
 }
 

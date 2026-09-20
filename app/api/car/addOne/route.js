@@ -15,6 +15,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { generateSlugBase, ensureUniqueSlug } from "@utils/slugCar";
 import { requireAdmin } from "@lib/adminAuth";
 import { resolveOwnerIdForCreate } from "@/domain/owners/ownerScope";
+import { normalizeCarOffices } from "@/domain/orders/carOffices";
 
 dayjs.extend(isBetween);
 
@@ -141,6 +142,20 @@ function extractCarData(formData) {
     PriceChildSeats: toNumber(formData.get("PriceChildSeats")),
     PriceKacko: toNumber(formData.get("PriceKacko")),
     franchise: toNumber(formData.get("franchise")),
+    offices: normalizeCarOffices(
+      (() => {
+        const raw = formData.get("offices");
+        if (raw == null || raw === "") return [];
+        try {
+          return JSON.parse(String(raw));
+        } catch {
+          return String(raw)
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+        }
+      })()
+    ),
   };
 }
 

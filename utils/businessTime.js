@@ -32,9 +32,47 @@ export const BUSINESS_TZ = "Europe/Athens";
  * formatDate(order.rentalStartDate, "DD.MM.YY")
  * // Результат: "15.01.26" (Athens)
  */
+const formatDateCache = new Map();
+const FORMAT_DATE_CACHE_LIMIT = 20000;
+
+function formatDateCacheKey(dbDate, format, tz) {
+  const value = dbDate instanceof Date ? dbDate.getTime() : String(dbDate);
+  return `${value}|${format}|${tz}`;
+}
+
 export function formatDate(dbDate, format = "DD.MM.YYYY", timezone = BUSINESS_TZ) {
   if (!dbDate) return "";
-  return dayjs(dbDate).tz(timezone || BUSINESS_TZ).format(format);
+  const tz = timezone || BUSINESS_TZ;
+
+  // The fleet calendar calls this per day cell per order — on a 6-month board
+  // that is tens of thousands of dayjs.tz() conversions, which dominates render.
+  // The result only depends on (value, format, tz), so memoize it.
+  const key = formatDateCacheKey(dbDate, format, tz);
+  const cached = formatDateCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const formatted = dayjs(dbDate).tz(tz).format(format);
+  if (formatDateCache.size >= FORMAT_DATE_CACHE_LIMIT) formatDateCache.clear();
+  formatDateCache.set(key, formatted);
+  return formatted;
+}
+
+let businessTodayCache = { at: 0, value: "" };
+
+/**
+ * Сегодняшняя дата (YYYY-MM-DD) в бизнес-таймзоне.
+ * Пересчитывается не чаще раза в минуту — календарь спрашивает её в каждой ячейке.
+ *
+ * @returns {string}
+ */
+export function businessToday() {
+  const now = Date.now();
+  if (businessTodayCache.value && now - businessTodayCache.at < 60000) {
+    return businessTodayCache.value;
+  }
+  const value = dayjs().tz(BUSINESS_TZ).format("YYYY-MM-DD");
+  businessTodayCache = { at: now, value };
+  return value;
 }
 
 /**

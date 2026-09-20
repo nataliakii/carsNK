@@ -38,6 +38,7 @@ import ClearIcon from "@mui/icons-material/Clear";
 import { useMainContext } from "@app/Context";
 import { CAR_CLASSES } from "@models/enums";
 import SelectedFieldClass from "@/app/components/ui/inputs/SelectedFieldClass";
+import FilterLocationAutocomplete from "@/app/components/ui/inputs/FilterLocationAutocomplete";
 import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
 import dynamic from "next/dynamic";
@@ -47,13 +48,15 @@ import {
   withLocalePrefix,
 } from "@domain/locationSeo/locationSeoService";
 import { ALL_UI_LOCALES } from "@/domain/platform/uiLocales";
-import { getSiteCountryConfig } from "@config/siteCountry";
+import { getSiteCountryCode, getSiteCountryConfig } from "@config/siteCountry";
 import { useNavLocations } from "@app/context/NavLocationsContext";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import {
-  SELECTED_LOCATION_STORAGE_KEY,
-} from "@/domain/orders/locationOptions";
 import { resolveBookingLocationFromPathname } from "@/domain/orders/bookingLocationPathResolver";
+import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
+import {
+  isSpainBookingSite,
+  resolveCatalogPlaceOptions,
+} from "@/domain/orders/catalogPlaceOptions";
 import TransferRequestModal from "@app/components/TransferRequestModal";
 import AdminCountrySwitch from "@app/admin/shared/components/AdminCountrySwitch";
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
@@ -107,6 +110,12 @@ const StyledBox = styled(Box, {
   color: theme.palette.backgroundDark1?.text || "#ffffff",
   borderBottom: "1px solid rgba(255,255,255,0.06)",
 }));
+
+/** CSS var consumed by Feed so main content clears the fixed header + filter bar. */
+export const CATALOG_CHROME_OFFSET_VAR = "--catalog-chrome-offset";
+const CATALOG_HEADER_HEIGHT = 64;
+/** Breathing room below the black filter bar for catalog meta/intro text. */
+const CATALOG_TEXT_GAP_BELOW_FILTERS = 20;
 
 const GradientAppBar = styled(AppBar, {
   shouldForwardProp: (prop) => prop !== "scrolled",
@@ -284,6 +293,7 @@ export default function NavBar({
     }
   };
   const headerRef = useRef(null);
+  const filterBarRef = useRef(null);
   const [languageAnchor, setLanguageAnchor] = useState(null);
   const [locationsAnchor, setLocationsAnchor] = useState(null);
   const locationsButtonRef = useRef(null);
@@ -359,9 +369,10 @@ export default function NavBar({
     arrayOfAvailableSeats,
     carSearchQuery,
     setCarSearchQuery,
-    selectedRegion,
-    setSelectedRegion,
-    arrayOfAvailableRegions,
+    bookingPlaceIn,
+    setBookingPlaceIn,
+    bookingPlaceOut,
+    setBookingPlaceOut,
     searchDates,
     setSearchDates,
     clearSearchDates,
@@ -372,6 +383,19 @@ export default function NavBar({
     platform,
   } = useMainContext();
 
+  const { names: companyBookingLocationOptions } = useCompanyBookingLocations(
+    company?._id
+  );
+  const spainSite = isSpainBookingSite(getSiteCountryCode());
+  const bookingLocationOptions = useMemo(
+    () =>
+      resolveCatalogPlaceOptions(
+        companyBookingLocationOptions,
+        getSiteCountryCode()
+      ),
+    [companyBookingLocationOptions]
+  );
+
   const [draftSearchStart, setDraftSearchStart] = useState("");
   const [draftSearchEnd, setDraftSearchEnd] = useState("");
 
@@ -379,6 +403,50 @@ export default function NavBar({
     setDraftSearchStart(searchDates?.start || "");
     setDraftSearchEnd(searchDates?.end || "");
   }, [searchDates?.start, searchDates?.end]);
+
+  // Publish measured header+filter height so Feed padding clears the fixed chrome
+  // and leaves room for catalog text between the black bar and car cards.
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    if (!isMain || isAdmin || isAccessLink) {
+      document.documentElement.style.removeProperty(CATALOG_CHROME_OFFSET_VAR);
+      return undefined;
+    }
+
+    const updateOffset = () => {
+      const filterH = filterBarRef.current?.offsetHeight ?? 0;
+      const total =
+        CATALOG_HEADER_HEIGHT + filterH + CATALOG_TEXT_GAP_BELOW_FILTERS;
+      document.documentElement.style.setProperty(
+        CATALOG_CHROME_OFFSET_VAR,
+        `${total}px`
+      );
+    };
+
+    updateOffset();
+
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(updateOffset)
+        : null;
+    if (filterBarRef.current && ro) {
+      ro.observe(filterBarRef.current);
+    }
+    window.addEventListener("resize", updateOffset);
+
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", updateOffset);
+      document.documentElement.style.removeProperty(CATALOG_CHROME_OFFSET_VAR);
+    };
+  }, [
+    isMain,
+    isAdmin,
+    isAccessLink,
+    bookingLocationOptions.length,
+    arrayOfAvailableSeats.length,
+  ]);
 
   const filterDateFieldSx = {
     minWidth: { xs: 130, sm: 148 },
@@ -476,9 +544,9 @@ export default function NavBar({
     const bookingLocation = resolveBookingLocationFromPathname(pathname);
 
     if (bookingLocation) {
-      localStorage.setItem(SELECTED_LOCATION_STORAGE_KEY, bookingLocation);
+      setBookingPlaceIn(bookingLocation);
     }
-  }, [pathname, isAdmin]);
+  }, [pathname, isAdmin, setBookingPlaceIn]);
 
   const localeLink = (path) =>
     isAdmin ? path : withLocalePrefix(effectiveLocale, path);
@@ -510,10 +578,46 @@ export default function NavBar({
     setCarSearchQuery("");
   };
 
-  const handleRegionChange = (event) => {
-    const selectedValue = event.target.value;
-    setSelectedRegion(selectedValue === "" ? "All" : selectedValue);
+  const handlePickupLocationChange = (eventOrValue) => {
+    const next =
+      eventOrValue && typeof eventOrValue === "object" && eventOrValue.target
+        ? eventOrValue.target.value
+        : eventOrValue;
+    setBookingPlaceIn(next ?? "");
   };
+
+  const handleReturnLocationChange = (eventOrValue) => {
+    const next =
+      eventOrValue && typeof eventOrValue === "object" && eventOrValue.target
+        ? eventOrValue.target.value
+        : eventOrValue;
+    setBookingPlaceOut(next ?? "");
+  };
+
+  useEffect(() => {
+    if (!bookingLocationOptions.length) return;
+    const allowed = new Set(
+      bookingLocationOptions.map((name) => String(name).toLowerCase())
+    );
+    if (
+      bookingPlaceIn &&
+      !allowed.has(String(bookingPlaceIn).toLowerCase())
+    ) {
+      setBookingPlaceIn("");
+    }
+    if (
+      bookingPlaceOut &&
+      !allowed.has(String(bookingPlaceOut).toLowerCase())
+    ) {
+      setBookingPlaceOut("");
+    }
+  }, [
+    bookingLocationOptions,
+    bookingPlaceIn,
+    bookingPlaceOut,
+    setBookingPlaceIn,
+    setBookingPlaceOut,
+  ]);
 
   const handleApplyDateSearch = () => {
     if (!draftSearchStart || !draftSearchEnd) return;
@@ -760,6 +864,7 @@ export default function NavBar({
     pathname?.startsWith("/admin/platform");
   const isAdminOwnersRoute = pathname?.startsWith("/admin/owners");
   const isAdminCompanyRoute = pathname?.startsWith("/admin/company");
+  const isAdminLegalProfileRoute = pathname?.startsWith("/admin/legal-profile");
   const adminNavLinkSx = {
     px: { md: 0.65, lg: 1 },
     py: 0.35,
@@ -1096,6 +1201,21 @@ export default function NavBar({
                     </Typography>
                   </Link>
                 ) : null}
+                {(isAdmin && !isSuperAdmin) || viewAsActive ? (
+                  <Link
+                    href="/admin/legal-profile"
+                    style={{ textDecoration: "none" }}
+                  >
+                    <Typography
+                      sx={{
+                        ...adminNavLinkSx,
+                        ...(isAdminLegalProfileRoute ? adminNavActiveSx : null),
+                      }}
+                    >
+                      {t("header.legalProfile")}
+                    </Typography>
+                  </Link>
+                ) : null}
                 <Box
                   aria-hidden
                   sx={{
@@ -1345,6 +1465,7 @@ export default function NavBar({
 
         {isMain && (
           <StyledBox
+            ref={filterBarRef}
             scrolled={scrolled ? "true" : undefined}
             $isCarInfo={isCarInfo}
             sx={{
@@ -1524,28 +1645,88 @@ export default function NavBar({
                   </Box>
                 )}
 
-                {arrayOfAvailableRegions.length > 0 && (
-                  <Box
-                    sx={{
-                      flex: { xs: "1 1 120px", sm: "0 0 auto" },
-                      minWidth: { xs: 120, sm: 160 },
-                      maxWidth: { xs: "48%", sm: 220 },
-                      "& .MuiFormControl-root": {
-                        m: 0,
-                        minWidth: "100% !important",
-                        maxWidth: "100% !important",
-                      },
-                    }}
-                  >
-                    <SelectedFieldClass
-                      name="region"
-                      label={t("header.region")}
-                      options={arrayOfAvailableRegions}
-                      value={selectedRegion}
-                      handleChange={handleRegionChange}
-                      formatMenuItemLabel={(opt) => opt}
-                    />
-                  </Box>
+                {bookingLocationOptions.length > 0 && (
+                  <>
+                    <Box
+                      sx={{
+                        // Prefer space over Class/Transmission/Seats; wrap full-width when tight
+                        flex: { xs: "1 1 100%", sm: "1 1 220px" },
+                        minWidth: { xs: "100%", sm: 220 },
+                        maxWidth: { xs: "100%", sm: 300 },
+                        "& .MuiFormControl-root, & .MuiAutocomplete-root": {
+                          m: 0,
+                          minWidth: "100% !important",
+                          maxWidth: "100% !important",
+                        },
+                        "& .MuiOutlinedInput-input, & .MuiSelect-select": {
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        },
+                      }}
+                    >
+                      {spainSite ? (
+                        <FilterLocationAutocomplete
+                          name="pickupLocation"
+                          label={t("header.pickupLocation")}
+                          options={bookingLocationOptions}
+                          value={bookingPlaceIn}
+                          onChange={handlePickupLocationChange}
+                          emptyOptionLabel={t("header.locationNotSet")}
+                        />
+                      ) : (
+                        <SelectedFieldClass
+                          name="pickupLocation"
+                          label={t("header.pickupLocation")}
+                          options={bookingLocationOptions}
+                          value={bookingPlaceIn}
+                          handleChange={handlePickupLocationChange}
+                          includeAllOption={false}
+                          emptyOptionLabel={t("header.locationNotSet")}
+                          formatMenuItemLabel={(opt) => opt}
+                        />
+                      )}
+                    </Box>
+                    <Box
+                      sx={{
+                        flex: { xs: "1 1 100%", sm: "1 1 220px" },
+                        minWidth: { xs: "100%", sm: 220 },
+                        maxWidth: { xs: "100%", sm: 300 },
+                        "& .MuiFormControl-root, & .MuiAutocomplete-root": {
+                          m: 0,
+                          minWidth: "100% !important",
+                          maxWidth: "100% !important",
+                        },
+                        "& .MuiOutlinedInput-input, & .MuiSelect-select": {
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        },
+                      }}
+                    >
+                      {spainSite ? (
+                        <FilterLocationAutocomplete
+                          name="returnLocation"
+                          label={t("header.returnLocation")}
+                          options={bookingLocationOptions}
+                          value={bookingPlaceOut}
+                          onChange={handleReturnLocationChange}
+                          emptyOptionLabel={t("header.locationNotSet")}
+                        />
+                      ) : (
+                        <SelectedFieldClass
+                          name="returnLocation"
+                          label={t("header.returnLocation")}
+                          options={bookingLocationOptions}
+                          value={bookingPlaceOut}
+                          handleChange={handleReturnLocationChange}
+                          includeAllOption={false}
+                          emptyOptionLabel={t("header.locationNotSet")}
+                          formatMenuItemLabel={(opt) => opt}
+                        />
+                      )}
+                    </Box>
+                  </>
                 )}
 
                 <TextField
@@ -1799,6 +1980,16 @@ export default function NavBar({
                     onClick={() => setDrawerOpen(false)}
                   >
                     <ListItemText primary={t("header.companyProfile")} />
+                  </ListItem>
+                )}
+                {((isAdmin && !isSuperAdmin) || viewAsActive) && (
+                  <ListItem
+                    button
+                    component={Link}
+                    href="/admin/legal-profile"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    <ListItemText primary={t("header.legalProfile")} />
                   </ListItem>
                 )}
                 {isAdmin && (

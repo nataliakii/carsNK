@@ -1,15 +1,7 @@
 /**
  * Утилиты для работы с датами заказов
  */
-import dayjs from "dayjs";
-import isBetween from "dayjs/plugin/isBetween";
-import utc from "dayjs/plugin/utc";
-import timezone from "dayjs/plugin/timezone";
-import { formatDate, BUSINESS_TZ } from "@utils/businessTime";
-
-dayjs.extend(isBetween);
-dayjs.extend(utc);
-dayjs.extend(timezone);
+import { businessToday, formatDate } from "@utils/businessTime";
 
 /**
  * Проверяет, попадает ли дата в диапазон заказа
@@ -19,10 +11,13 @@ dayjs.extend(timezone);
  */
 export function isDateWithinOrder(order, dateStr) {
   if (!order) return false;
-  // Используем бизнес-таймзону для корректного сравнения дат
+  // Используем бизнес-таймзону для корректного сравнения дат.
+  // YYYY-MM-DD сравнивается лексикографически — это дешевле, чем строить dayjs
+  // на каждую ячейку календаря (на 6-месячном периоде их десятки тысяч).
   const rentalStart = formatDate(order.rentalStartDate, "YYYY-MM-DD");
   const rentalEnd = formatDate(order.rentalEndDate, "YYYY-MM-DD");
-  return dayjs(dateStr).isBetween(rentalStart, rentalEnd, "day", "[]");
+  if (!rentalStart || !rentalEnd || !dateStr) return false;
+  return rentalStart <= dateStr && dateStr <= rentalEnd;
 }
 
 /**
@@ -32,9 +27,9 @@ export function isDateWithinOrder(order, dateStr) {
  */
 export function isOrderCompleted(order) {
   // Сравниваем в бизнес-таймзоне для корректности
-  const endDate = dayjs(order.rentalEndDate).tz(BUSINESS_TZ);
-  const now = dayjs().tz(BUSINESS_TZ);
-  return endDate.isBefore(now, "day");
+  const endDate = formatDate(order?.rentalEndDate, "YYYY-MM-DD");
+  if (!endDate) return false;
+  return endDate < businessToday();
 }
 
 /**

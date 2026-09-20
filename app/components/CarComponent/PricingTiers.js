@@ -8,6 +8,10 @@ dayjs.extend(isSameOrBefore);
 import { seasons as fallbackSeasons } from "@utils/companyData";
 import { useTranslation } from "react-i18next";
 import { useMainContext } from "@app/Context";
+import {
+  companyUsesSeasons,
+  getFlatDailyRateFromPricingTiers,
+} from "@/domain/orders/flatDailyRate";
 
 const DAY_RANGE_TRANSLATION_KEYS = {
   4: "carPark.1-4days",
@@ -80,13 +84,16 @@ const PricingDisplay = ({
   const { t } = useTranslation();
   const company = useMainContext()?.company;
   const seasons = company?.seasons ?? fallbackSeasons;
-  const hideSeasonInPriceTitle = company?.useSeasons === false;
+  const flatMode = !companyUsesSeasons(company);
   const currentSeason = getCurrentSeason(seasonDate, seasons);
   const pricingData = prices[currentSeason]?.days || {};
   const pricingEntries = Object.entries(pricingData);
   const totalPricingEntries = pricingEntries.length;
   const discountFactor = 1 - (discount || 0) / 100;
   const currentSeasonRange = seasons[currentSeason];
+  const flatDailyRate = flatMode
+    ? getFlatDailyRateFromPricingTiers(prices)
+    : 0;
 
   // Helper function для формирования шапки таблицы цен при аренде авто
   const getDayRangeText = (days) => {
@@ -95,7 +102,7 @@ const PricingDisplay = ({
   };
 
   let discountInTitle = null;
-  if (hideSeasonInPriceTitle && discountType !== "none") {
+  if (flatMode && discountType !== "none") {
     discountInTitle =
       discountType === "full"
         ? `${t("order.discount")} ${discount}%`
@@ -106,13 +113,30 @@ const PricingDisplay = ({
           )}`;
   }
 
+  const renderPriceAmount = (amount) => {
+    const discountedPrice = Math.round(amount * discountFactor);
+    if (discountType === "full") {
+      return <span>€{discountedPrice}</span>;
+    }
+    if (discountType === "partial") {
+      return (
+        <>
+          <span>€{discountedPrice}</span>
+          <span style={{ margin: "0 6px" }}> - </span>
+          <span>€{amount}</span>
+        </>
+      );
+    }
+    return <>{`€${amount}`}</>;
+  };
+
   return (
     <>
       {" "}
       <Typography
         component="div"
         sx={
-          hideSeasonInPriceTitle
+          flatMode
             ? {
                 display: "flex",
                 flexDirection: "row",
@@ -133,9 +157,9 @@ const PricingDisplay = ({
               }
         }
       >
-        {hideSeasonInPriceTitle ? (
+        {flatMode ? (
           <>
-            <span>{t("car.pricesShort")}</span>
+            <span>{t("car.pricePerDay")}</span>
             {discountInTitle != null && (
               <Typography
                 component="span"
@@ -174,50 +198,35 @@ const PricingDisplay = ({
           justifyContent: "space-evenly",
           alignItems: "center",
           backgroundColor: "secondary.light",
-
         }}
       >
-        <Stack
-          direction="row"
-          spacing={2}
-          sx={{
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            padding: 0,
-            "@media (max-width:600px) and (orientation: portrait)": {
-              gap: 0.75,
-            },
-          }}
-        >
-          {/* Map over the day tiers and prices */}
-          {pricingEntries.map(([days, amount], index) => {
-            const discountedPrice = Math.round(amount * discountFactor);
-            let priceDisplay;
-            if (discountType === "full") {
-              // Скидка действует весь месяц
-              priceDisplay = (
-                <>
-                  <span>€{discountedPrice}</span>
-                </>
-              );
-            } else if (discountType === "partial") {
-              // Скидка действует частично
-              priceDisplay = (
-                <>
-                  <span>€{discountedPrice}</span>
-                  <span style={{ margin: "0 6px" }}> - </span>
-                  <span>€{amount}</span>
-                  {/* <span style={{ color: '#388e3c', marginLeft: 4 }}>
-                    ({discount}% скидка частично)
-                  </span> */}
-                </>
-              );
-            } else {
-              // Скидка не действует
-              priceDisplay = <>{`€${amount}`}</>;
-            }
-            return (
+        {flatMode ? (
+          <Typography
+            sx={{
+              lineHeight: { xs: "1rem", sm: "1.2rem" },
+              fontSize: { xs: "1.1rem", sm: "1.35rem" },
+              fontWeight: 600,
+              color: "text.inverse",
+            }}
+          >
+            {renderPriceAmount(flatDailyRate)}
+          </Typography>
+        ) : (
+          <Stack
+            direction="row"
+            spacing={2}
+            sx={{
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              padding: 0,
+              "@media (max-width:600px) and (orientation: portrait)": {
+                gap: 0.75,
+              },
+            }}
+          >
+            {/* Map over the day tiers and prices */}
+            {pricingEntries.map(([days, amount], index) => (
               <React.Fragment key={index}>
                 <Stack direction="column" alignItems="center">
                   <Typography
@@ -246,21 +255,20 @@ const PricingDisplay = ({
                         fontSize: "0.95rem",
                         lineHeight: "1rem",
                       },
-                      color: "text.inverse", // Светлый текст для тёмного фона
+                      color: "text.inverse",
                     }}
                     color="primary"
                   >
-                    {priceDisplay}
+                    {renderPriceAmount(amount)}
                   </Typography>
                 </Stack>
-                {/* Divider between prices */}
                 {index + 1 < totalPricingEntries && (
                   <Divider orientation="vertical" flexItem />
                 )}
               </React.Fragment>
-            );
-          })}
-        </Stack>
+            ))}
+          </Stack>
+        )}
       </Paper>
     </>
   );

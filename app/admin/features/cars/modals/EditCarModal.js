@@ -37,6 +37,8 @@ import CarImageUpload from "@/app/components/ui/media/AddImageComponent";
 import { useTranslation } from "react-i18next";
 import { useSession } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
+import { normalizeCarOffices } from "@/domain/orders/carOffices";
 
 const EditCarModal = ({
   open,
@@ -53,6 +55,15 @@ const EditCarModal = ({
     useMainContext();
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
+
+  const officeCompanyId =
+    updatedCar?.ownerId != null
+      ? String(updatedCar.ownerId)
+      : company?._id
+        ? String(company._id)
+        : "";
+  const { names: officeLocationOptions } =
+    useCompanyBookingLocations(officeCompanyId);
 
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
@@ -549,6 +560,76 @@ const EditCarModal = ({
               label={t("car.air")}
               sx={{ my: 0.5 }}
             />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Autocomplete
+              multiple
+              freeSolo
+              options={officeLocationOptions}
+              value={normalizeCarOffices(updatedCar.offices).map((o) => o.name)}
+              getOptionLabel={(opt) =>
+                typeof opt === "string" ? opt : String(opt?.name || "")
+              }
+              onChange={(_, newValue) => {
+                const prev = normalizeCarOffices(updatedCar.offices);
+                const next = (newValue || []).map((raw) => {
+                  const name =
+                    typeof raw === "string"
+                      ? raw.trim()
+                      : String(raw?.name || "").trim();
+                  const existing = prev.find(
+                    (p) =>
+                      String(p.name).toLowerCase() === name.toLowerCase()
+                  );
+                  return (
+                    existing || {
+                      name,
+                      address: String(company?.address || "").trim(),
+                      lat: "",
+                      lon: "",
+                    }
+                  );
+                });
+                handleChange({
+                  target: {
+                    name: "offices",
+                    value: normalizeCarOffices(next),
+                  },
+                });
+              }}
+              disabled={isLoading}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t("car.offices") || "Offices (pickup / return)"}
+                  helperText={
+                    t("car.officesHelp") ||
+                    "Pickup or return at these places is free for this car."
+                  }
+                />
+              )}
+            />
+            {normalizeCarOffices(updatedCar.offices).map((office, idx) => (
+              <TextField
+                key={`${office.name}-${idx}`}
+                fullWidth
+                size="small"
+                sx={{ mt: 1.5 }}
+                label={`${office.name} — address`}
+                value={office.address || ""}
+                disabled={isLoading}
+                onChange={(e) => {
+                  const next = normalizeCarOffices(updatedCar.offices).map(
+                    (o, i) =>
+                      i === idx ? { ...o, address: e.target.value } : o
+                  );
+                  handleChange({
+                    target: { name: "offices", value: next },
+                  });
+                }}
+              />
+            ))}
           </Grid>
 
           <Grid item xs={12}>

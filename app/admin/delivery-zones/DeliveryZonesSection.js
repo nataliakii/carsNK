@@ -34,6 +34,7 @@ import {
   Divider,
   ToggleButton,
   ToggleButtonGroup,
+  Autocomplete,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -225,7 +226,12 @@ export default function DeliveryZonesSection() {
         const dp = data.deliveryPricing;
         if (dp && typeof dp === "object") {
           setPolicy({
+            strategy: dp.strategy || (dp.operatingCities?.length ? "cities" : "radius"),
             radiusKm: dp.radiusKm ?? null,
+            operatingCities: Array.isArray(dp.operatingCities)
+              ? dp.operatingCities
+              : [],
+            maxDistanceKm: dp.maxDistanceKm ?? null,
             inside: {
               mode: dp.inside?.mode || "perKm",
               amount:
@@ -422,8 +428,16 @@ export default function DeliveryZonesSection() {
       const radiusRaw = policy.radiusKm;
       const body = {
         deliveryPricing: {
+          strategy: policy.strategy || "radius",
           radiusKm:
             radiusRaw === "" || radiusRaw == null ? null : Number(radiusRaw),
+          operatingCities: Array.isArray(policy.operatingCities)
+            ? policy.operatingCities
+            : [],
+          maxDistanceKm:
+            policy.maxDistanceKm === "" || policy.maxDistanceKm == null
+              ? null
+              : Number(policy.maxDistanceKm),
           inside: {
             mode: policy.inside.mode,
             amount: Number(policy.inside.amount) || 0,
@@ -436,9 +450,11 @@ export default function DeliveryZonesSection() {
         },
         workingHours: { start: workStart, end: workEnd },
         deliveryPricePerKm:
-          policy.inside.mode === "perKm"
-            ? Number(policy.inside.amount) || 0
-            : Number(pricePerKm) || 0,
+          policy.outside.mode === "perKm"
+            ? Number(policy.outside.amount) || 0
+            : policy.inside.mode === "perKm"
+              ? Number(policy.inside.amount) || 0
+              : Number(pricePerKm) || 0,
       };
       const res = await fetch(`/api/company/${id}`, {
         method: "PATCH",
@@ -685,8 +701,61 @@ export default function DeliveryZonesSection() {
           />
 
           <Stack spacing={2}>
+            <FormControl size="small" sx={{ maxWidth: 360 }}>
+              <InputLabel id="delivery-strategy-label">
+                {t("deliveryZonesPage.strategyTitle")}
+              </InputLabel>
+              <Select
+                labelId="delivery-strategy-label"
+                label={t("deliveryZonesPage.strategyTitle")}
+                value={policy.strategy || "radius"}
+                onChange={(e) =>
+                  setPolicy((p) => ({ ...p, strategy: e.target.value }))
+                }
+              >
+                <MenuItem value="zones">
+                  {t("deliveryZonesPage.strategyZones")}
+                </MenuItem>
+                <MenuItem value="radius">
+                  {t("deliveryZonesPage.strategyRadius")}
+                </MenuItem>
+                <MenuItem value="cities">
+                  {t("deliveryZonesPage.strategyCities")}
+                </MenuItem>
+              </Select>
+            </FormControl>
+
+            {policy.strategy === "cities" ? (
+              <Autocomplete
+                multiple
+                freeSolo
+                options={[]}
+                value={policy.operatingCities || []}
+                onChange={(_, next) =>
+                  setPolicy((p) => ({
+                    ...p,
+                    operatingCities: (next || [])
+                      .map((v) => String(v || "").trim())
+                      .filter(Boolean),
+                  }))
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={t("deliveryZonesPage.operatingCities")}
+                    helperText={t("deliveryZonesPage.operatingCitiesHelp")}
+                    size="small"
+                  />
+                )}
+              />
+            ) : null}
+
             <TextField
-              label={t("deliveryZonesPage.radiusKm")}
+              label={
+                policy.strategy === "cities"
+                  ? t("deliveryZonesPage.freeRadiusOptional")
+                  : t("deliveryZonesPage.radiusKm")
+              }
               size="small"
               type="number"
               value={policy.radiusKm ?? ""}
@@ -697,9 +766,27 @@ export default function DeliveryZonesSection() {
                 }))
               }
               helperText={t("deliveryZonesPage.radiusHelp")}
-              sx={{ maxWidth: 220 }}
+              sx={{ maxWidth: 280 }}
               inputProps={{ min: 0, step: 0.1 }}
             />
+
+            {policy.strategy === "cities" ? (
+              <TextField
+                label={t("deliveryZonesPage.maxDistanceKm")}
+                size="small"
+                type="number"
+                value={policy.maxDistanceKm ?? ""}
+                onChange={(e) =>
+                  setPolicy((p) => ({
+                    ...p,
+                    maxDistanceKm: e.target.value === "" ? "" : e.target.value,
+                  }))
+                }
+                helperText={t("deliveryZonesPage.maxDistanceHelp")}
+                sx={{ maxWidth: 280 }}
+                inputProps={{ min: 0, step: 1 }}
+              />
+            ) : null}
 
             <Box>
               <Typography variant="body2" fontWeight={600} sx={{ mb: 0.75 }}>

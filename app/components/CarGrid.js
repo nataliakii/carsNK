@@ -14,12 +14,11 @@ import { useTranslation } from "react-i18next";
 import { useMainContext } from "../Context";
 import CarItemComponent from "./CarComponent/CarItemComponent";
 import { carMatchesSearchQuery } from "@utils/carSearch";
-import {
-  carMatchesRegionFilter,
-  isCarAvailableForSearchDates,
-} from "@utils/carDateSearch";
+import { isCarAvailableForSearchDates } from "@utils/carDateSearch";
 import { calculateTotalPrice } from "@utils/action";
 import dayjs from "dayjs";
+import { getSiteCountryCode } from "@config/siteCountry";
+import { isSpainBookingSite } from "@/domain/orders/catalogPlaceOptions";
 
 const Section = styled("section")(({ theme }) => ({
   backgroundColor: "transparent",
@@ -34,8 +33,8 @@ function CarGrid() {
     selectedTransmission,
     selectedSeats,
     carSearchQuery,
-    selectedRegion,
-    ownerIdsByRegion,
+    bookingPlaceIn,
+    bookingPlaceOut,
     searchDates,
     ordersByCarId,
     company,
@@ -45,6 +44,14 @@ function CarGrid() {
 
   const skipScrollOnFilterMount = useRef(true);
   const hasActiveDateSearch = Boolean(searchDates?.start && searchDates?.end);
+  const spainSite = isSpainBookingSite(getSiteCountryCode());
+  const hasSelectedCities = Boolean(
+    bookingPlaceIn?.trim() || bookingPlaceOut?.trim()
+  );
+  const showDeliveryAfterDatesHint =
+    spainSite && hasSelectedCities && !hasActiveDateSearch;
+  const showDeliveryWithDatesNote =
+    spainSite && hasSelectedCities && hasActiveDateSearch;
 
   useEffect(() => {
     if (skipScrollOnFilterMount.current) {
@@ -58,7 +65,8 @@ function CarGrid() {
     selectedTransmission,
     selectedSeats,
     deferredSearchQuery,
-    selectedRegion,
+    bookingPlaceIn,
+    bookingPlaceOut,
     searchDates?.start,
     searchDates?.end,
   ]);
@@ -121,11 +129,6 @@ function CarGrid() {
         const seatsOk =
           selectedSeats === "All" ||
           (seatCount != null && String(seatCount) === selectedSeats);
-        const regionOk = carMatchesRegionFilter(
-          selectedRegion,
-          car.ownerId,
-          ownerIdsByRegion
-        );
         const datesOk =
           !hasActiveDateSearch ||
           isCarAvailableForSearchDates({
@@ -140,7 +143,6 @@ function CarGrid() {
           (selectedTransmission === "All" ||
             car.transmission === selectedTransmission) &&
           seatsOk &&
-          regionOk &&
           datesOk &&
           carMatchesSearchQuery(car, deferredSearchQuery)
         );
@@ -151,8 +153,6 @@ function CarGrid() {
     selectedTransmission,
     selectedSeats,
     deferredSearchQuery,
-    selectedRegion,
-    ownerIdsByRegion,
     hasActiveDateSearch,
     searchDates?.start,
     searchDates?.end,
@@ -167,6 +167,9 @@ function CarGrid() {
     [filteredCars]
   );
 
+  const pickupForPricing = bookingPlaceIn?.trim() || undefined;
+  const returnForPricing = bookingPlaceOut?.trim() || undefined;
+
   // Fetch prices for date search results (reuse calcTotalPrice API).
   useEffect(() => {
     if (!hasActiveDateSearch || filteredCars.length === 0) {
@@ -177,8 +180,12 @@ function CarGrid() {
 
     let cancelled = false;
     const abort = new AbortController();
+    // Clear immediately so a prior search (e.g. 2 days) never shows under new dates.
+    setPricesByCarId({});
     setPricesLoading(true);
     const carsSnapshot = filteredCars;
+    const searchStartKey = dayjs(searchDates.start).format("YYYY-MM-DD");
+    const searchEndKey = dayjs(searchDates.end).format("YYYY-MM-DD");
 
     (async () => {
       const next = {};
@@ -196,20 +203,16 @@ function CarGrid() {
             0,
             {
               signal: abort.signal,
-              placeIn:
-                selectedRegion && selectedRegion !== "All"
-                  ? selectedRegion
-                  : undefined,
-              placeOut:
-                selectedRegion && selectedRegion !== "All"
-                  ? selectedRegion
-                  : undefined,
+              placeIn: pickupForPricing,
+              placeOut: returnForPricing,
             }
           );
           if (result?.ok !== false && result?.totalPrice != null) {
             next[String(car._id)] = {
               totalPrice: result.totalPrice,
               days: result.days,
+              startKey: searchStartKey,
+              endKey: searchEndKey,
             };
           }
         } catch {
@@ -231,31 +234,77 @@ function CarGrid() {
     filteredCarIdsKey,
     searchDates?.start,
     searchDates?.end,
-    selectedRegion,
+    pickupForPricing,
+    returnForPricing,
   ]);
 
   const noCarsMatchFilters =
     Array.isArray(cars) && cars.length > 0 && filteredCars.length === 0;
 
+  const showLocationSummary =
+    hasActiveDateSearch && (bookingPlaceIn?.trim() || bookingPlaceOut?.trim());
+
   return (
-    <Container sx={{ mt: 5 }}>
+    <Container
+      sx={{
+        // Breathing room for results/meta copy between chrome clearance and cards
+        pt: { xs: 1.5, sm: 2 },
+        pb: 2,
+      }}
+    >
       <Section>
-        {hasActiveDateSearch && (
-          <Box sx={{ mb: 2, px: 1 }}>
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 700, color: "text.primary" }}
-            >
-              {t("catalog.searchResultsTitle", {
-                from: dayjs(searchDates.start).format("DD.MM.YYYY"),
-                to: dayjs(searchDates.end).format("DD.MM.YYYY"),
-                count: filteredCars.length,
-              })}
-            </Typography>
-            {selectedRegion && selectedRegion !== "All" ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                {t("catalog.searchRegionLabel", { region: selectedRegion })}
+        {(showDeliveryAfterDatesHint || hasActiveDateSearch) && (
+          <Box
+            sx={{
+              mb: { xs: 2.5, sm: 3 },
+              px: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 0.75,
+            }}
+          >
+            {showDeliveryAfterDatesHint ? (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                role="status"
+                aria-live="polite"
+                sx={{ textAlign: "center" }}
+              >
+                {t("catalog.deliverySelectDatesHint")}
               </Typography>
+            ) : null}
+            {hasActiveDateSearch ? (
+              <>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 700, color: "text.primary" }}
+                >
+                  {t("catalog.searchResultsTitle", {
+                    from: dayjs(searchDates.start).format("DD.MM.YYYY"),
+                    to: dayjs(searchDates.end).format("DD.MM.YYYY"),
+                    count: filteredCars.length,
+                  })}
+                </Typography>
+                {showLocationSummary ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {t("catalog.searchLocationsLabel", {
+                      pickup:
+                        bookingPlaceIn?.trim() ||
+                        t("catalog.locationNotSet"),
+                      return:
+                        bookingPlaceOut?.trim() ||
+                        t("catalog.locationNotSet"),
+                    })}
+                  </Typography>
+                ) : null}
+                {showDeliveryWithDatesNote ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {t("catalog.deliveryIncludedWhenAvailableNote")}
+                  </Typography>
+                ) : null}
+              </>
             ) : null}
           </Box>
         )}
@@ -286,9 +335,23 @@ function CarGrid() {
           ) : null}
           {filteredCars?.map((car, index) => {
             const priceInfo = pricesByCarId[String(car._id)];
+            const searchStartKey = hasActiveDateSearch
+              ? dayjs(searchDates.start).format("YYYY-MM-DD")
+              : null;
+            const searchEndKey = hasActiveDateSearch
+              ? dayjs(searchDates.end).format("YYYY-MM-DD")
+              : null;
+            const priceMatchesSearch =
+              priceInfo &&
+              priceInfo.startKey === searchStartKey &&
+              priceInfo.endKey === searchEndKey;
+            const showSearchPricePill =
+              hasActiveDateSearch && (priceMatchesSearch || pricesLoading);
+            const showApproxBadge = showDeliveryWithDatesNote;
+
             return (
-              <Grid item xs={12} sx={{ padding: 2 }} key={car._id}>
-                {hasActiveDateSearch && (priceInfo || pricesLoading) ? (
+              <Grid item xs={12} sx={{ padding: 2, width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }} key={car._id}>
+                {showSearchPricePill ? (
                   <Box
                     sx={{
                       display: "flex",
@@ -299,15 +362,94 @@ function CarGrid() {
                     <Chip
                       color="primary"
                       variant="outlined"
-                      label={
-                        priceInfo
+                      aria-label={
+                        priceMatchesSearch
                           ? t("catalog.searchPriceLabel", {
                               price: priceInfo.totalPrice,
                               days: priceInfo.days,
                             })
                           : t("basic.loading")
                       }
-                      sx={{ fontWeight: 700 }}
+                      label={
+                        priceMatchesSearch ? (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: 0.15,
+                              py: 0.15,
+                              lineHeight: 1.15,
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "baseline",
+                                gap: 0.6,
+                              }}
+                            >
+                              {showApproxBadge ? (
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    fontSize: "0.72rem",
+                                    fontWeight: 700,
+                                    letterSpacing: "0.02em",
+                                    textTransform: "uppercase",
+                                    opacity: 0.85,
+                                  }}
+                                >
+                                  {t("catalog.searchPriceApprox")}
+                                </Box>
+                              ) : null}
+                              <Box
+                                component="span"
+                                sx={{
+                                  fontSize: "1.2rem",
+                                  fontWeight: 800,
+                                  letterSpacing: "-0.02em",
+                                }}
+                              >
+                                {`${priceInfo.totalPrice}€`}
+                              </Box>
+                            </Box>
+                            <Box
+                              component="span"
+                              sx={{
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
+                                opacity: 0.9,
+                              }}
+                            >
+                              {t("catalog.searchPriceForDays", {
+                                days: priceInfo.days,
+                              })}
+                            </Box>
+                            <Box
+                              component="span"
+                              sx={{
+                                fontSize: "0.65rem",
+                                fontWeight: 500,
+                                opacity: 0.75,
+                              }}
+                            >
+                              {t("catalog.searchPriceSource")}
+                            </Box>
+                          </Box>
+                        ) : (
+                          t("basic.loading")
+                        )
+                      }
+                      sx={{
+                        height: "auto",
+                        fontWeight: 700,
+                        "& .MuiChip-label": {
+                          display: "block",
+                          px: 1.75,
+                          py: 0.85,
+                        },
+                      }}
                     />
                   </Box>
                 ) : null}

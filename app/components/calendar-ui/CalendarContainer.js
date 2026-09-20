@@ -43,6 +43,11 @@ import { useFirstColumnWidth } from "@/hooks/useFirstColumnWidth";
 const BASE_ROW_HEIGHT_PX = 27;
 /** Day column width for 1m / 2m — period changes column count + table scroll */
 const BASE_DAY_WIDTH_PX = 34;
+/**
+ * Long periods narrow the day column so the board stays pannable instead of
+ * turning into a ~6000px strip. Floor is ~20px: two bold digits + 2px padding.
+ */
+const DAY_WIDTH_BY_RANGE_PX = { "3m": 26, "6m": 20 };
 /** 15-day toolbar period: wider columns + taller rows so order cards are readable */
 const SHORT_PERIOD_DAY_WIDTH_PX = 68;
 const SHORT_PERIOD_ROW_HEIGHT_PX = 46;
@@ -661,8 +666,8 @@ export default function CalendarContainer({
   );
 
   const handlePrevMonth = useCallback(() => {
-    // Period is controlled by the toolbar (15d / 1m / 2m). Arrows only shift
-    // the window — do not toggle viewMode (that used to fight the toolbar).
+    // Period length is controlled by the toolbar (1m / 2m / 3m / 6m). Arrows only
+    // slide the window one month — do not toggle viewMode (that used to fight the toolbar).
     if (dayRange === "15d" || viewMode === "range15") {
       setRangeDirection("backward");
     }
@@ -815,7 +820,9 @@ export default function CalendarContainer({
   const calendarMetricsSx = useMemo(() => {
     const dayCount = Math.max(days.length, 1);
     const isShortPeriod = dayRange === "15d";
-    const dayPx = isShortPeriod ? SHORT_PERIOD_DAY_WIDTH_PX : BASE_DAY_WIDTH_PX;
+    const dayPx = isShortPeriod
+      ? SHORT_PERIOD_DAY_WIDTH_PX
+      : DAY_WIDTH_BY_RANGE_PX[dayRange] ?? BASE_DAY_WIDTH_PX;
     const rowPx = isShortPeriod
       ? SHORT_PERIOD_ROW_HEIGHT_PX
       : BASE_ROW_HEIGHT_PX;

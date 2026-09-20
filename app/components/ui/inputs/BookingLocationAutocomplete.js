@@ -1,8 +1,9 @@
 import React, { useMemo } from "react";
-import { Autocomplete, TextField } from "@mui/material";
+import { Autocomplete, TextField, Box, Typography, Chip } from "@mui/material";
 import { createFilterOptions } from "@mui/material/Autocomplete";
 import { styled } from "@mui/material/styles";
 import { BOOKING_LOCATION_SEARCH_TEXT } from "@/domain/orders/locationOptions";
+import { SPAIN_CITY_SEARCH_TEXT } from "@/domain/orders/spainCityOptions";
 
 const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
   "& .MuiInputBase-root": {
@@ -15,6 +16,18 @@ const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
   },
 }));
 
+function optionLabel(option) {
+  if (option == null) return "";
+  if (typeof option === "string") return option;
+  return String(option.label || option.value || option.name || "");
+}
+
+function optionValue(option) {
+  if (option == null) return "";
+  if (typeof option === "string") return option;
+  return String(option.value || option.name || option.label || "");
+}
+
 const BookingLocationAutocomplete = ({
   label,
   value,
@@ -26,25 +39,52 @@ const BookingLocationAutocomplete = ({
   helperText,
   FormHelperTextProps,
   error = false,
+  freeSolo = true,
   ...props
 }) => {
   const filterOptions = useMemo(
     () =>
       createFilterOptions({
         ignoreCase: true,
+        ignoreAccents: true,
         stringify: (option) => {
-          const label =
-            typeof option === "string" ? option : option?.label || "";
-          const extra = BOOKING_LOCATION_SEARCH_TEXT[label] || "";
-          return `${label} ${extra}`.trim();
+          if (typeof option === "string") {
+            const extra =
+              BOOKING_LOCATION_SEARCH_TEXT[option] ||
+              SPAIN_CITY_SEARCH_TEXT[option] ||
+              "";
+            return `${option} ${extra}`.trim();
+          }
+          const labelText = optionLabel(option);
+          const searchExtra = option?.searchText || "";
+          const bookExtra =
+            BOOKING_LOCATION_SEARCH_TEXT[optionValue(option)] ||
+            SPAIN_CITY_SEARCH_TEXT[optionValue(option)] ||
+            "";
+          return `${labelText} ${searchExtra} ${bookExtra}`.trim();
         },
       }),
     []
   );
 
+  const resolvedValue = useMemo(() => {
+    if (value == null || value === "") return freeSolo ? "" : null;
+    if (typeof value === "object") return value;
+    const match = (options || []).find(
+      (opt) => optionValue(opt) === String(value)
+    );
+    return match || (freeSolo ? String(value) : null);
+  }, [value, options, freeSolo]);
+
   const renderOption = (listItemProps, option) => {
-    const labelText = typeof option === "string" ? option : option?.label || "";
-    const needsDivider = dividerBeforeOption && labelText === dividerBeforeOption;
+    const labelText = optionLabel(option);
+    const isOffice = typeof option === "object" && option?.kind === "office";
+    const address =
+      typeof option === "object" ? String(option.address || "") : "";
+    const freeNote =
+      typeof option === "object" ? String(option.freeNote || "") : "";
+    const needsDivider =
+      dividerBeforeOption && optionValue(option) === dividerBeforeOption;
 
     return (
       <li
@@ -58,20 +98,62 @@ const BookingLocationAutocomplete = ({
                 paddingTop: 10,
               }
             : {}),
+          ...(isOffice
+            ? {
+                backgroundColor: "rgba(46, 125, 50, 0.06)",
+              }
+            : {}),
         }}
       >
-        {labelText}
+        <Box sx={{ display: "flex", flexDirection: "column", width: "100%", py: 0.25 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              flexWrap: "wrap",
+            }}
+          >
+            <Typography component="span" variant="body2" sx={{ fontWeight: isOffice ? 700 : 500 }}>
+              {isOffice ? labelText.split(" — ")[0] : labelText}
+            </Typography>
+            {isOffice && (
+              <Chip
+                size="small"
+                label={freeNote || "Free"}
+                color="success"
+                variant="outlined"
+                sx={{ height: 20, fontSize: "0.65rem" }}
+              />
+            )}
+          </Box>
+          {isOffice && address ? (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ lineHeight: 1.3, mt: 0.15 }}
+            >
+              {address}
+            </Typography>
+          ) : null}
+        </Box>
       </li>
     );
   };
 
   return (
     <StyledAutocomplete
-      freeSolo
+      freeSolo={freeSolo}
       options={options}
-      value={value}
+      value={resolvedValue}
       filterOptions={filterOptions}
-      onChange={onChange}
+      getOptionLabel={optionLabel}
+      isOptionEqualToValue={(opt, val) =>
+        optionValue(opt) === optionValue(val)
+      }
+      onChange={(event, newValue, reason, details) => {
+        if (onChange) onChange(event, newValue, reason, details);
+      }}
       onInputChange={onInputChange}
       renderOption={renderOption}
       sx={sx}

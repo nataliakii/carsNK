@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import {
   MenuItem,
   CircularProgress,
   IconButton,
+  Grow,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import {
@@ -23,6 +24,7 @@ import {
   BookingTimeField,
   BookingTextField,
   BookingLocationAutocomplete,
+  BookingAddressPlacesField,
   BookingFlightField,
 } from "../ui";
 import BookingContactSection from "@/app/components/orders/BookingContactSection";
@@ -50,6 +52,7 @@ import {
   DEFAULT_BOOKING_LOCATION,
   LOCATION_DIVIDER_BEFORE,
   SELECTED_LOCATION_STORAGE_KEY,
+  SELECTED_RETURN_LOCATION_STORAGE_KEY,
 } from "@/domain/orders/locationOptions";
 import {
   isAllowedBookingLocation,
@@ -57,12 +60,24 @@ import {
   resolveBookingLocationOrDefault,
 } from "@/domain/platform/bookingLocations";
 import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
+import { getSiteCountryCode } from "@config/siteCountry";
+import {
+  isSpainBookingSite,
+  resolveCatalogDefaultPlace,
+  resolveCatalogPlaceOptions,
+  resolvePlaceRequiresAddressDetail,
+} from "@/domain/orders/catalogPlaceOptions";
 import { normalizeDeliveryPricingLocation } from "@/domain/orders/bookingPricingOptions";
 import {
   buildBookingPriceSummary,
   createEmptyBookingPriceSummary,
 } from "@/domain/orders/bookingPriceSummary";
 import { buildDeliveryHelperText } from "@/domain/orders/bookingDeliveryPresentation";
+import {
+  buildBookingPlaceOptionsWithOffices,
+  findCarOfficeForPlace,
+  isPlaceMatchingCarOffice,
+} from "@/domain/orders/carOffices";
 import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
 import { reportGoogleAdsPurchaseFromOrder } from "@/domain/analytics/googleAdsConversion";
 import "@/styles/animations.css";
@@ -85,9 +100,22 @@ function formatEuroAmount(value, locale) {
   }).format(roundedValue);
 }
 
+/** Soft fade + scale for booking dialog open/close (~280ms enter). */
+const BookingDialogTransition = React.forwardRef(
+  function BookingDialogTransition(props, ref) {
+    return <Grow ref={ref} {...props} />;
+  }
+);
+
+const BOOKING_DIALOG_TRANSITION = {
+  enter: 280,
+  exit: 200,
+};
+
 const BookingModal = ({
   open,
   onClose,
+  onExited,
   car,
   presetDates = null,
   fetchAndUpdateOrders,
@@ -110,11 +138,72 @@ const BookingModal = ({
     forNewOrder: true,
   });
   const {
-    names: placeOptions,
-    defaultName: defaultBookingLocation,
-    requiresDetail,
+    names: companyPlaceOptions,
+    defaultName: companyDefaultBookingLocation,
+    requiresDetail: companyRequiresDetail,
     isAirport,
   } = useCompanyBookingLocations(car?.ownerId || company?._id);
+  const siteCountry = getSiteCountryCode();
+  const spainSite = isSpainBookingSite(siteCountry);
+  const catalogPlaceNames = useMemo(
+    () => resolveCatalogPlaceOptions(companyPlaceOptions, siteCountry),
+    [companyPlaceOptions, siteCountry]
+  );
+  const officeFreeNote = t("order.officeDeliveryFreeShort");
+  const placeOptions = useMemo(
+    () =>
+      buildBookingPlaceOptionsWithOffices({
+        cityNames: catalogPlaceNames,
+        carOffices: car?.offices,
+        company,
+        freeNote: officeFreeNote,
+      }),
+    [catalogPlaceNames, car?.offices, company, officeFreeNote]
+  );
+  const placeOptionNames = useMemo(
+    () =>
+      placeOptions.map((opt) =>
+        typeof opt === "string" ? opt : String(opt?.value || opt?.label || "")
+      ),
+    [placeOptions]
+  );
+  const defaultBookingLocation = resolveCatalogDefaultPlace(
+    companyDefaultBookingLocation,
+    siteCountry
+  );
+  const requiresDetail = useCallback(
+    (value) =>
+      resolvePlaceRequiresAddressDetail(
+        value,
+        companyRequiresDetail,
+        siteCountry
+      ),
+    [companyRequiresDetail, siteCountry]
+  );
+  const locationOutsideMsg =
+    t(
+      spainSite
+        ? "order.spainLocationOutsideServiceArea"
+        : "order.locationOutsideServiceArea"
+    ) ||
+    (spainSite
+      ? "Choose a city from the list"
+      : "Choose pickup and return from the list");
+  const addressDetailRequiredMsg =
+    t(
+      spainSite
+        ? "order.spainDetailRequired"
+        : "order.thessalonikiDetailRequired"
+    ) || "Enter hotel or full address (min. 3 characters).";
+  const hotelOrAddressLabel =
+    t(
+      spainSite
+        ? "order.spainHotelOrAddress"
+        : "order.thessalonikiHotelOrAddress"
+    ) || "Hotel or address";
+  const locationDividerBefore = spainSite
+    ? undefined
+    : LOCATION_DIVIDER_BEFORE;
   // carId (_id) is always unique in MongoDB. Fallback: carNumber, regNumber.
   const carApiIdentifier = car?._id?.toString?.() || car?.carNumber || car?.regNumber || "";
 
@@ -151,8 +240,74 @@ const BookingModal = ({
   const [placeOut, setPlaceOut] = useState("");
   const [placeInDetail, setPlaceInDetail] = useState("");
   const [placeOutDetail, setPlaceOutDetail] = useState("");
+  const [placeInGeo, setPlaceInGeo] = useState(null);
+  const [placeOutGeo, setPlaceOutGeo] = useState(null);
   const [flightNumber, setFlightNumber] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+
+  const placeInIsOffice = isPlaceMatchingCarOffice(placeIn, car?.offices);
+  const placeOutIsOffice = isPlaceMatchingCarOffice(placeOut, car?.offices);
+
+  const applyPlaceSelection = useCallback(
+    (rawValue, which) => {
+      const setPlace = which === "in" ? setPlaceIn : setPlaceOut;
+      const setDetail = which === "in" ? setPlaceInDetail : setPlaceOutDetail;
+      const setGeo = which === "in" ? setPlaceInGeo : setPlaceOutGeo;
+      setGeo(null);
+
+      if (rawValue == null || rawValue === "") {
+        setPlace("");
+        return;
+      }
+      if (typeof rawValue === "object") {
+        const name = String(rawValue.value || rawValue.label || "").trim();
+        setPlace(name);
+        if (rawValue.kind === "office") {
+          setDetail(String(rawValue.address || "").trim());
+        }
+        return;
+      }
+      const name = String(rawValue).trim();
+      setPlace(name);
+      const office = findCarOfficeForPlace(name, car?.offices);
+      if (office) {
+        const enriched = office;
+        const addr =
+          String(enriched.address || "").trim() ||
+          String(company?.address || "").trim();
+        if (addr) setDetail(addr);
+      }
+    },
+    [car?.offices, company?.address]
+  );
+
+  const formatOutsideHelper = useCallback(
+    (geo) => {
+      if (!geo) return "";
+      if (geo.deliveryBlocked) {
+        return t("order.addressBeyondServiceArea");
+      }
+      if (geo.explanation && geo.explanation.km > 0) {
+        return t("order.addressOutsideCityBreakdown", {
+          km: formatEuroAmount(geo.explanation.km, lang),
+          city: geo.explanation.city || "",
+          rate: formatEuroAmount(geo.explanation.perKm, lang),
+          fee: formatEuroAmount(geo.deliveryFeeEstimate, lang),
+        });
+      }
+      if (geo.outsideCity === true) {
+        const fee = Number(geo.deliveryFeeEstimate);
+        if (Number.isFinite(fee) && fee > 0) {
+          return t("order.addressOutsideCityWithFee", {
+            fee: formatEuroAmount(fee, lang),
+          });
+        }
+        return t("order.addressOutsideCity");
+      }
+      return "";
+    },
+    [t, lang]
+  );
 
   // Получение стоимости с сервера при изменении дат
   const fetchTotalPrice = useCallback(
@@ -209,6 +364,14 @@ const BookingModal = ({
             timeOut: timeOutServer,
             placeIn: normalizedPlaceIn,
             placeOut: normalizedPlaceOut,
+            placeInDetail: String(placeInDetail || "").trim() || undefined,
+            placeOutDetail: String(placeOutDetail || "").trim() || undefined,
+            placeInLat: placeInGeo?.lat,
+            placeInLon: placeInGeo?.lon,
+            placeOutLat: placeOutGeo?.lat,
+            placeOutLon: placeOutGeo?.lon,
+            placeInLocality: placeInGeo?.locality,
+            placeOutLocality: placeOutGeo?.locality,
           }
         );
         if (signal?.aborted) return;
@@ -234,6 +397,10 @@ const BookingModal = ({
       endTime,
       placeIn,
       placeOut,
+      placeInDetail,
+      placeOutDetail,
+      placeInGeo,
+      placeOutGeo,
       TIME_ZONE,
     ]
   );
@@ -247,12 +414,24 @@ const BookingModal = ({
   }, [fetchTotalPrice]);
 
   useEffect(() => {
-    if (!requiresDetail(placeIn)) setPlaceInDetail("");
-  }, [placeIn, requiresDetail]);
+    if (
+      !requiresDetail(placeIn) &&
+      !isPlaceMatchingCarOffice(placeIn, car?.offices)
+    ) {
+      setPlaceInDetail("");
+      setPlaceInGeo(null);
+    }
+  }, [placeIn, requiresDetail, car?.offices]);
 
   useEffect(() => {
-    if (!requiresDetail(placeOut)) setPlaceOutDetail("");
-  }, [placeOut, requiresDetail]);
+    if (
+      !requiresDetail(placeOut) &&
+      !isPlaceMatchingCarOffice(placeOut, car?.offices)
+    ) {
+      setPlaceOutDetail("");
+      setPlaceOutGeo(null);
+    }
+  }, [placeOut, requiresDetail, car?.offices]);
 
   // Лог: даты бронирования, отображаемые в BookingModal (start/end + времена)
   useEffect(() => {
@@ -509,18 +688,53 @@ const BookingModal = ({
 
   useEffect(() => {
     if (!open || !placeOptions.length) return;
-    const savedLocation =
+    const savedPickup =
       typeof window !== "undefined"
         ? localStorage.getItem(SELECTED_LOCATION_STORAGE_KEY)
         : null;
-    const nextLocation = resolveBookingLocationOrDefault(
-      savedLocation || defaultBookingLocation || DEFAULT_BOOKING_LOCATION,
-      placeOptions,
-      defaultBookingLocation || DEFAULT_BOOKING_LOCATION
+    const savedReturn =
+      typeof window !== "undefined"
+        ? localStorage.getItem(SELECTED_RETURN_LOCATION_STORAGE_KEY)
+        : null;
+    const fallback =
+      defaultBookingLocation ||
+      (spainSite ? "" : DEFAULT_BOOKING_LOCATION);
+    const nextPickup = resolveBookingLocationOrDefault(
+      savedPickup || fallback,
+      placeOptionNames,
+      fallback
     );
-    setPlaceIn(nextLocation);
-    setPlaceOut(nextLocation);
-  }, [open, placeOptions, defaultBookingLocation]);
+    const nextReturn = resolveBookingLocationOrDefault(
+      savedReturn || savedPickup || fallback,
+      placeOptionNames,
+      fallback
+    );
+    setPlaceIn(nextPickup);
+    setPlaceOut(nextReturn);
+  }, [open, placeOptionNames, defaultBookingLocation, spainSite]);
+
+  // Prefill office address when place matches a car office
+  useEffect(() => {
+    if (!placeInIsOffice) return;
+    const office = findCarOfficeForPlace(placeIn, car?.offices);
+    const addr =
+      String(office?.address || "").trim() ||
+      String(company?.address || "").trim();
+    if (addr && !String(placeInDetail || "").trim()) {
+      setPlaceInDetail(addr);
+    }
+  }, [placeIn, placeInIsOffice, car?.offices, company?.address, placeInDetail]);
+
+  useEffect(() => {
+    if (!placeOutIsOffice) return;
+    const office = findCarOfficeForPlace(placeOut, car?.offices);
+    const addr =
+      String(office?.address || "").trim() ||
+      String(company?.address || "").trim();
+    if (addr && !String(placeOutDetail || "").trim()) {
+      setPlaceOutDetail(addr);
+    }
+  }, [placeOut, placeOutIsOffice, car?.offices, company?.address, placeOutDetail]);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
@@ -539,35 +753,29 @@ const BookingModal = ({
     if (timeErrors) newErrors.time = timeErrors;
     const pin = String(placeIn || "").trim();
     const pout = String(placeOut || "").trim();
-    if (!isAllowedBookingLocation(pin, placeOptions)) {
-      newErrors.placeIn =
-        t("order.locationOutsideServiceArea") ||
-        "Choose pickup from the list of cities this company serves";
+    if (!isAllowedBookingLocation(pin, placeOptionNames)) {
+      newErrors.placeIn = locationOutsideMsg;
     }
-    if (!isAllowedBookingLocation(pout, placeOptions)) {
-      newErrors.placeOut =
-        t("order.locationOutsideServiceArea") ||
-        "Choose return from the list of cities this company serves";
+    if (!isAllowedBookingLocation(pout, placeOptionNames)) {
+      newErrors.placeOut = locationOutsideMsg;
     }
-    const canonIn = canonicalizeBookingLocation(pin, placeOptions);
-    const canonOut = canonicalizeBookingLocation(pout, placeOptions);
+    const canonIn = canonicalizeBookingLocation(pin, placeOptionNames);
+    const canonOut = canonicalizeBookingLocation(pout, placeOptionNames);
     if (
       canonIn &&
       requiresDetail(canonIn) &&
+      !isPlaceMatchingCarOffice(canonIn, car?.offices) &&
       String(placeInDetail || "").trim().length < 3
     ) {
-      newErrors.placeInDetail =
-        t("order.thessalonikiDetailRequired") ||
-        "Enter hotel or full address (min. 3 characters).";
+      newErrors.placeInDetail = addressDetailRequiredMsg;
     }
     if (
       canonOut &&
       requiresDetail(canonOut) &&
+      !isPlaceMatchingCarOffice(canonOut, car?.offices) &&
       String(placeOutDetail || "").trim().length < 3
     ) {
-      newErrors.placeOutDetail =
-        t("order.thessalonikiDetailRequired") ||
-        "Enter hotel or full address (min. 3 characters).";
+      newErrors.placeOutDetail = addressDetailRequiredMsg;
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -690,6 +898,8 @@ const BookingModal = ({
     setPlaceOut("");
     setPlaceInDetail("");
     setPlaceOutDetail("");
+    setPlaceInGeo(null);
+    setPlaceOutGeo(null);
     setFlightNumber("");
     setDaysAndTotal(createEmptyBookingPriceSummary());
     setCalcLoading(false);
@@ -709,22 +919,66 @@ const BookingModal = ({
     }
   };
 
-  const pickupDeliveryHelperText = buildDeliveryHelperText({
-    locationValue: placeIn,
-    deliveryCost: daysAndTotal.pickupDeliveryCost,
-    locale: lang,
-    deliveryLabel: t("order.delivery"),
-    isLoading: calcLoading,
-    hideWhenZero: true,
-  });
-  const returnDeliveryHelperText = buildDeliveryHelperText({
-    locationValue: placeOut,
-    deliveryCost: daysAndTotal.returnDeliveryCost,
-    locale: lang,
-    deliveryLabel: t("order.delivery"),
-    isLoading: calcLoading,
-    hideWhenZero: true,
-  });
+  const pickupDeliveryHelperText = (() => {
+    const priced = buildDeliveryHelperText({
+      locationValue: placeIn,
+      deliveryCost: daysAndTotal.pickupDeliveryCost,
+      locale: lang,
+      deliveryLabel: t("order.delivery"),
+      isLoading: calcLoading,
+      hideWhenZero: true,
+    });
+    if (priced) return priced;
+    if (
+      String(placeIn || "").trim() &&
+      !calcLoading &&
+      daysAndTotal.pickupDeliveryCost === 0 &&
+      placeInIsOffice
+    ) {
+      return t("order.officeDeliveryFree");
+    }
+    const outsideNote = formatOutsideHelper(placeInGeo);
+    if (outsideNote) return outsideNote;
+    if (
+      spainSite &&
+      String(placeIn || "").trim() &&
+      !calcLoading &&
+      daysAndTotal.pickupDeliveryCost === 0
+    ) {
+      return t("order.deliveryQuotedWithOrder");
+    }
+    return "";
+  })();
+  const returnDeliveryHelperText = (() => {
+    const priced = buildDeliveryHelperText({
+      locationValue: placeOut,
+      deliveryCost: daysAndTotal.returnDeliveryCost,
+      locale: lang,
+      deliveryLabel: t("order.delivery"),
+      isLoading: calcLoading,
+      hideWhenZero: true,
+    });
+    if (priced) return priced;
+    if (
+      String(placeOut || "").trim() &&
+      !calcLoading &&
+      daysAndTotal.returnDeliveryCost === 0 &&
+      placeOutIsOffice
+    ) {
+      return t("order.officeDeliveryFree");
+    }
+    const outsideNote = formatOutsideHelper(placeOutGeo);
+    if (outsideNote) return outsideNote;
+    if (
+      spainSite &&
+      String(placeOut || "").trim() &&
+      !calcLoading &&
+      daysAndTotal.returnDeliveryCost === 0
+    ) {
+      return t("order.deliveryQuotedWithOrder");
+    }
+    return "";
+  })();
 
   return (
     <Dialog
@@ -733,6 +987,16 @@ const BookingModal = ({
       disableEscapeKeyDown={true}
       fullWidth
       maxWidth="sm"
+      TransitionComponent={BookingDialogTransition}
+      transitionDuration={BOOKING_DIALOG_TRANSITION}
+      TransitionProps={{
+        onExited,
+        easing: {
+          enter: "cubic-bezier(0, 0, 0.2, 1)",
+          exit: "cubic-bezier(0.4, 0, 1, 1)",
+        },
+        style: { transformOrigin: "center center" },
+      }}
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
@@ -1014,11 +1278,11 @@ const BookingModal = ({
                       />
                     </Box>
                   </Box>
-                  {/* Места получения/возврата — всегда в одну строку */}
+                  {/* Locations: stack below md; city + detail/flight always stacked full-width */}
                   <Box
                     sx={{
                       display: "flex",
-                      flexDirection: "row",
+                      flexDirection: { xs: "column", md: "row" },
                       gap: 2,
                       mb: { xs: 1, sm: 2 },
                       mt: 0,
@@ -1026,143 +1290,38 @@ const BookingModal = ({
                       alignItems: "stretch",
                     }}
                   >
-                    {/* Airport: pickup + flight; Thessaloniki: pickup + hotel/address; else pickup only */}
-                    {placeIn && isAirportLocation(placeIn) ? (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          width: "50%",
-                          gap: 2,
-                          alignItems: "stretch",
-                        }}
-                      >
-                        <BookingLocationAutocomplete
-                          label={t("order.pickupLocation") || "Место получения"}
-                          options={placeOptions}
-                          dividerBeforeOption={LOCATION_DIVIDER_BEFORE}
-                          value={placeIn}
-                          onChange={(e, newValue) => {
-                            if (newValue != null) setPlaceIn(String(newValue));
-                          }}
-                          onInputChange={(event, newInputValue) => {
-                            setPlaceIn(newInputValue);
-                            if (errors.placeIn) {
-                              setErrors((prev) => {
-                                const { placeIn: _p, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          error={Boolean(errors.placeIn)}
-                          helperText={errors.placeIn || pickupDeliveryHelperText}
-                          FormHelperTextProps={{
-                            sx: {
-                              fontSize: "0.72rem",
-                              color: errors.placeIn
-                                ? "error.main"
-                                : "text.secondary",
-                              lineHeight: 1.3,
-                              mt: 0.5,
-                            },
-                          }}
-                          sx={{
-                            width: "60%",
-                            minWidth: 0,
-                          }}
-                        />
-                        <BookingFlightField
-                          label={t("order.flightNumber") || "Номер рейса"}
-                          value={flightNumber}
-                          onChange={(e) => setFlightNumber(e.target.value)}
-                          sx={{
-                            width: "40%",
-                            alignSelf: "stretch",
-                          }}
-                        />
-                      </Box>
-                    ) : placeIn &&
-                      requiresDetail(placeIn) ? (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          width: "50%",
-                          gap: 2,
-                          alignItems: "stretch",
-                        }}
-                      >
-                        <BookingLocationAutocomplete
-                          label={t("order.pickupLocation") || "Место получения"}
-                          options={placeOptions}
-                          dividerBeforeOption={LOCATION_DIVIDER_BEFORE}
-                          value={placeIn}
-                          onChange={(e, newValue) => {
-                            if (newValue != null) setPlaceIn(String(newValue));
-                          }}
-                          onInputChange={(event, newInputValue) => {
-                            setPlaceIn(newInputValue);
-                            if (errors.placeIn) {
-                              setErrors((prev) => {
-                                const { placeIn: _p, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          error={Boolean(errors.placeIn)}
-                          sx={{
-                            flex: 1,
-                            minWidth: 0,
-                          }}
-                          helperText={errors.placeIn || pickupDeliveryHelperText}
-                          FormHelperTextProps={{
-                            sx: {
-                              fontSize: "0.72rem",
-                              color: errors.placeIn
-                                ? "error.main"
-                                : "text.secondary",
-                              lineHeight: 1.3,
-                              mt: 0.5,
-                            },
-                          }}
-                        />
-                        <BookingTextField
-                          label={
-                            t("order.thessalonikiHotelOrAddress") ||
-                            "Hotel or address"
-                          }
-                          value={placeInDetail}
-                          onChange={(e) => {
-                            setPlaceInDetail(e.target.value);
-                            if (errors.placeInDetail) {
-                              setErrors((prev) => {
-                                const { placeInDetail: _d, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          error={Boolean(errors.placeInDetail)}
-                          helperText={errors.placeInDetail || ""}
-                          FormHelperTextProps={{
-                            sx: { color: "error.main", fontSize: "0.72rem" },
-                          }}
-                          sx={{
-                            width: { xs: "100%", sm: "40%" },
-                            minWidth: 0,
-                            alignSelf: "stretch",
-                          }}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Box>
-                    ) : (
+                    {/* Pickup column */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        width: { xs: "100%", md: "50%" },
+                        minWidth: 0,
+                        gap: 1,
+                        alignItems: "stretch",
+                      }}
+                    >
                       <BookingLocationAutocomplete
                         label={t("order.pickupLocation") || "Место получения"}
                         options={placeOptions}
-                        dividerBeforeOption={LOCATION_DIVIDER_BEFORE}
+                        freeSolo={!spainSite}
+                        dividerBeforeOption={locationDividerBefore}
                         value={placeIn}
                         onChange={(e, newValue) => {
-                          if (newValue != null) setPlaceIn(String(newValue));
+                          applyPlaceSelection(newValue, "in");
+                          if (errors.placeIn) {
+                            setErrors((prev) => {
+                              const { placeIn: _p, ...rest } = prev;
+                              return rest;
+                            });
+                          }
                         }}
-                        onInputChange={(event, newInputValue) => {
-                          setPlaceIn(newInputValue);
+                        onInputChange={(event, newInputValue, reason) => {
+                          if (reason === "reset") return;
+                          if (event?.type === "change" || reason === "clear") {
+                            setPlaceIn(newInputValue);
+                            setPlaceInGeo(null);
+                          }
                           if (errors.placeIn) {
                             setErrors((prev) => {
                               const { placeIn: _p, ...rest } = prev;
@@ -1171,103 +1330,124 @@ const BookingModal = ({
                           }
                         }}
                         error={Boolean(errors.placeIn)}
-                        sx={{
-                          width: "50%",
-                          minWidth: 0,
-                        }}
                         helperText={errors.placeIn || pickupDeliveryHelperText}
                         FormHelperTextProps={{
                           sx: {
                             fontSize: "0.72rem",
                             color: errors.placeIn
                               ? "error.main"
-                              : "text.secondary",
+                              : placeInIsOffice
+                                ? "success.main"
+                                : "text.secondary",
                             lineHeight: 1.3,
                             mt: 0.5,
+                            whiteSpace: "normal",
                           },
                         }}
+                        sx={{ width: "100%", minWidth: 0 }}
                       />
-                    )}
-                    {placeOut &&
-                    requiresDetail(placeOut) ? (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          width: "50%",
-                          gap: 2,
-                          alignItems: "stretch",
-                        }}
-                      >
-                        <BookingLocationAutocomplete
-                          label={t("order.returnLocation") || "Место возврата"}
-                          options={placeOptions}
-                          dividerBeforeOption={LOCATION_DIVIDER_BEFORE}
-                          value={placeOut}
-                          onChange={(e, newValue) => {
-                            if (newValue != null) setPlaceOut(String(newValue));
-                          }}
-                          onInputChange={(event, newInputValue) => {
-                            setPlaceOut(newInputValue);
-                            if (errors.placeOut) {
-                              setErrors((prev) => {
-                                const { placeOut: _p, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          error={Boolean(errors.placeOut)}
-                          sx={{ flex: 1, minWidth: 0 }}
-                          helperText={errors.placeOut || returnDeliveryHelperText}
-                          FormHelperTextProps={{
-                            sx: {
-                              fontSize: "0.72rem",
-                              color: errors.placeOut
-                                ? "error.main"
-                                : "text.secondary",
-                              lineHeight: 1.3,
-                              mt: 0.5,
-                            },
-                          }}
-                        />
-                        <BookingTextField
-                          label={
-                            t("order.thessalonikiHotelOrAddress") ||
-                            "Hotel or address"
-                          }
-                          value={placeOutDetail}
-                          onChange={(e) => {
-                            setPlaceOutDetail(e.target.value);
-                            if (errors.placeOutDetail) {
-                              setErrors((prev) => {
-                                const { placeOutDetail: _d, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          error={Boolean(errors.placeOutDetail)}
-                          helperText={errors.placeOutDetail || ""}
-                          FormHelperTextProps={{
-                            sx: { color: "error.main", fontSize: "0.72rem" },
-                          }}
+                      {placeIn && isAirportLocation(placeIn) ? (
+                        <BookingFlightField
+                          label={t("order.flightNumber") || "Номер рейса"}
+                          value={flightNumber}
+                          onChange={(e) => setFlightNumber(e.target.value)}
                           sx={{
-                            width: { xs: "100%", sm: "40%" },
+                            width: "100%",
                             minWidth: 0,
                             alignSelf: "stretch",
                           }}
-                          InputLabelProps={{ shrink: true }}
                         />
-                      </Box>
-                    ) : (
+                      ) : null}
+                      {placeIn && placeInIsOffice && placeInDetail ? (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontSize: "0.72rem", lineHeight: 1.35, px: 0.25 }}
+                        >
+                          {placeInDetail}
+                        </Typography>
+                      ) : null}
+                      {placeIn &&
+                      requiresDetail(placeIn) &&
+                      !placeInIsOffice &&
+                      !isAirportLocation(placeIn) ? (
+                        <BookingAddressPlacesField
+                          label={hotelOrAddressLabel}
+                          value={placeInDetail}
+                          country={siteCountry}
+                          language={lang}
+                          cityBias={placeIn}
+                          companyId={car?.ownerId || company?._id}
+                          carId={car?._id}
+                          onChange={(next) => {
+                            setPlaceInDetail(next);
+                            setPlaceInGeo(null);
+                            if (errors.placeInDetail) {
+                              setErrors((prev) => {
+                                const { placeInDetail: _d, ...rest } = prev;
+                                return rest;
+                              });
+                            }
+                          }}
+                          onResolved={(geo) => setPlaceInGeo(geo)}
+                          error={Boolean(errors.placeInDetail)}
+                          helperText={
+                            errors.placeInDetail ||
+                            formatOutsideHelper(placeInGeo) ||
+                            ""
+                          }
+                          FormHelperTextProps={{
+                            sx: {
+                              color: errors.placeInDetail
+                                ? "error.main"
+                                : placeInGeo?.outsideCity
+                                  ? "warning.main"
+                                  : "text.secondary",
+                              fontSize: "0.72rem",
+                              whiteSpace: "normal",
+                            },
+                          }}
+                          sx={{
+                            width: "100%",
+                            minWidth: 0,
+                            alignSelf: "stretch",
+                          }}
+                        />
+                      ) : null}
+                    </Box>
+
+                    {/* Return column */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        width: { xs: "100%", md: "50%" },
+                        minWidth: 0,
+                        gap: 1,
+                        alignItems: "stretch",
+                      }}
+                    >
                       <BookingLocationAutocomplete
                         label={t("order.returnLocation") || "Место возврата"}
                         options={placeOptions}
-                        dividerBeforeOption={LOCATION_DIVIDER_BEFORE}
+                        freeSolo={!spainSite}
+                        dividerBeforeOption={locationDividerBefore}
                         value={placeOut}
                         onChange={(e, newValue) => {
-                          if (newValue != null) setPlaceOut(String(newValue));
+                          applyPlaceSelection(newValue, "out");
+                          if (errors.placeOut) {
+                            setErrors((prev) => {
+                              const { placeOut: _p, ...rest } = prev;
+                              return rest;
+                            });
+                          }
                         }}
-                        onInputChange={(event, newInputValue) => {
-                          setPlaceOut(newInputValue);
+                        onInputChange={(event, newInputValue, reason) => {
+                          if (reason === "reset") return;
+                          if (event?.type === "change" || reason === "clear") {
+                            setPlaceOut(newInputValue);
+                            setPlaceOutGeo(null);
+                          }
                           if (errors.placeOut) {
                             setErrors((prev) => {
                               const { placeOut: _p, ...rest } = prev;
@@ -1276,20 +1456,78 @@ const BookingModal = ({
                           }
                         }}
                         error={Boolean(errors.placeOut)}
-                        sx={{ width: "50%", minWidth: 0 }}
                         helperText={errors.placeOut || returnDeliveryHelperText}
                         FormHelperTextProps={{
                           sx: {
                             fontSize: "0.72rem",
                             color: errors.placeOut
                               ? "error.main"
-                              : "text.secondary",
+                              : placeOutIsOffice
+                                ? "success.main"
+                                : "text.secondary",
                             lineHeight: 1.3,
                             mt: 0.5,
+                            whiteSpace: "normal",
                           },
                         }}
+                        sx={{ width: "100%", minWidth: 0 }}
                       />
-                    )}
+                      {placeOut && placeOutIsOffice && placeOutDetail ? (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontSize: "0.72rem", lineHeight: 1.35, px: 0.25 }}
+                        >
+                          {placeOutDetail}
+                        </Typography>
+                      ) : null}
+                      {placeOut &&
+                      requiresDetail(placeOut) &&
+                      !placeOutIsOffice ? (
+                        <BookingAddressPlacesField
+                          label={hotelOrAddressLabel}
+                          value={placeOutDetail}
+                          country={siteCountry}
+                          language={lang}
+                          cityBias={placeOut}
+                          companyId={car?.ownerId || company?._id}
+                          carId={car?._id}
+                          onChange={(next) => {
+                            setPlaceOutDetail(next);
+                            setPlaceOutGeo(null);
+                            if (errors.placeOutDetail) {
+                              setErrors((prev) => {
+                                const { placeOutDetail: _d, ...rest } = prev;
+                                return rest;
+                              });
+                            }
+                          }}
+                          onResolved={(geo) => setPlaceOutGeo(geo)}
+                          error={Boolean(errors.placeOutDetail)}
+                          helperText={
+                            errors.placeOutDetail ||
+                            formatOutsideHelper(placeOutGeo) ||
+                            ""
+                          }
+                          FormHelperTextProps={{
+                            sx: {
+                              color: errors.placeOutDetail
+                                ? "error.main"
+                                : placeOutGeo?.outsideCity
+                                  ? "warning.main"
+                                  : "text.secondary",
+                              fontSize: "0.72rem",
+                              whiteSpace: "normal",
+                            },
+                          }}
+                          sx={{
+                            width: "100%",
+                            minWidth: 0,
+                            alignSelf: "stretch",
+                          }}
+                        />
+                      ) : null}
+                    </Box>
                   </Box>
                   {/* <TextField
                     label={t("order.name")}

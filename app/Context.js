@@ -18,7 +18,10 @@ import {
 } from "@utils/action";
 import { COMPANY_ID } from "@config/company";
 import { buildPendingConfirmBlockMap } from "@/domain/orders/buildPendingConfirmBlockMap";
-import { SELECTED_LOCATION_STORAGE_KEY } from "@/domain/orders/locationOptions";
+import {
+  SELECTED_LOCATION_STORAGE_KEY,
+  SELECTED_RETURN_LOCATION_STORAGE_KEY,
+} from "@/domain/orders/locationOptions";
 import { resolveBookingLocationFromPickupParam } from "@/domain/orders/bookingLocationPathResolver";
 import {
   normalizeSearchDates,
@@ -41,10 +44,10 @@ const MainContext = createContext({
   platform: null,
   carSearchQuery: "",
   setCarSearchQuery: () => {},
-  selectedRegion: "All",
-  setSelectedRegion: () => {},
-  arrayOfAvailableRegions: [],
-  ownerIdsByRegion: {},
+  bookingPlaceIn: "",
+  setBookingPlaceIn: () => {},
+  bookingPlaceOut: "",
+  setBookingPlaceOut: () => {},
   searchDates: { start: null, end: null },
   setSearchDates: () => {},
   clearSearchDates: () => {},
@@ -245,20 +248,33 @@ export const MainContextProvider = ({
   const [selectedTransmission, setSelectedTransmission] = useState("All"); // Новый фильтр по коробке передач
   const [selectedSeats, setSelectedSeats] = useState("All");
   const [carSearchQuery, setCarSearchQuery] = useState("");
-  const [selectedRegion, setSelectedRegionState] = useState("All");
-  const [arrayOfAvailableRegions, setArrayOfAvailableRegions] = useState([]);
-  const [ownerIdsByRegion, setOwnerIdsByRegion] = useState({});
+  const [bookingPlaceIn, setBookingPlaceInState] = useState("");
+  const [bookingPlaceOut, setBookingPlaceOutState] = useState("");
   const [searchDates, setSearchDatesState] = useState({
     start: null,
     end: null,
   });
 
-  const setSelectedRegion = useCallback((value) => {
-    const next = value === "" || value == null ? "All" : String(value);
-    setSelectedRegionState(next);
+  const setBookingPlaceIn = useCallback((value) => {
+    const next = value == null ? "" : String(value).trim();
+    setBookingPlaceInState(next);
     if (typeof window !== "undefined") {
-      if (next && next !== "All") {
+      if (next) {
         localStorage.setItem(SELECTED_LOCATION_STORAGE_KEY, next);
+      } else {
+        localStorage.removeItem(SELECTED_LOCATION_STORAGE_KEY);
+      }
+    }
+  }, []);
+
+  const setBookingPlaceOut = useCallback((value) => {
+    const next = value == null ? "" : String(value).trim();
+    setBookingPlaceOutState(next);
+    if (typeof window !== "undefined") {
+      if (next) {
+        localStorage.setItem(SELECTED_RETURN_LOCATION_STORAGE_KEY, next);
+      } else {
+        localStorage.removeItem(SELECTED_RETURN_LOCATION_STORAGE_KEY);
       }
     }
   }, []);
@@ -274,7 +290,7 @@ export const MainContextProvider = ({
     writeStoredSearchDates({ start: null, end: null });
   }, []);
 
-  // Restore catalog search dates + region from storage / ?pickup= CTA.
+  // Restore catalog search dates + pickup/return from storage / ?pickup= CTA.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const storedDates = readStoredSearchDates();
@@ -284,43 +300,22 @@ export const MainContextProvider = ({
 
     const fromPickup = resolveBookingLocationFromPickupParam(initialPickup);
     if (fromPickup) {
-      setSelectedRegionState(fromPickup);
+      setBookingPlaceInState(fromPickup);
       localStorage.setItem(SELECTED_LOCATION_STORAGE_KEY, fromPickup);
       return;
     }
 
-    const storedRegion = localStorage.getItem(SELECTED_LOCATION_STORAGE_KEY);
-    if (storedRegion && storedRegion.trim()) {
-      setSelectedRegionState(storedRegion.trim());
+    const storedPickup = localStorage.getItem(SELECTED_LOCATION_STORAGE_KEY);
+    if (storedPickup && storedPickup.trim()) {
+      setBookingPlaceInState(storedPickup.trim());
+    }
+    const storedReturn = localStorage.getItem(
+      SELECTED_RETURN_LOCATION_STORAGE_KEY
+    );
+    if (storedReturn && storedReturn.trim()) {
+      setBookingPlaceOutState(storedReturn.trim());
     }
   }, [initialPickup]);
-
-  // Marketplace regions for the Region filter (company operating areas).
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/public/marketplace-regions", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((body) => {
-        if (cancelled || !body?.success) return;
-        const names = Array.isArray(body.names)
-          ? body.names.filter(Boolean)
-          : [];
-        setArrayOfAvailableRegions(names);
-        setOwnerIdsByRegion(
-          body.ownerIdsByRegion && typeof body.ownerIdsByRegion === "object"
-            ? body.ownerIdsByRegion
-            : {}
-        );
-        setSelectedRegionState((prev) => {
-          if (!prev || prev === "All") return prev;
-          return names.includes(prev) ? prev : "All";
-        });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const arrayOfAvailableClasses = useMemo(() => {
     return [...new Set(cars.map((car) => car.class))];
@@ -618,10 +613,10 @@ export const MainContextProvider = ({
       arrayOfAvailableSeats,
       carSearchQuery,
       setCarSearchQuery,
-      selectedRegion,
-      setSelectedRegion,
-      arrayOfAvailableRegions,
-      ownerIdsByRegion,
+      bookingPlaceIn,
+      setBookingPlaceIn,
+      bookingPlaceOut,
+      setBookingPlaceOut,
       searchDates,
       setSearchDates,
       clearSearchDates,
@@ -654,10 +649,10 @@ export const MainContextProvider = ({
       selectedSeats,
       arrayOfAvailableSeats,
       carSearchQuery,
-      selectedRegion,
-      setSelectedRegion,
-      arrayOfAvailableRegions,
-      ownerIdsByRegion,
+      bookingPlaceIn,
+      setBookingPlaceIn,
+      bookingPlaceOut,
+      setBookingPlaceOut,
       searchDates,
       setSearchDates,
       clearSearchDates,

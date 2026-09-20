@@ -27,6 +27,7 @@ export const ORDERED_LOCATION_OPTIONS = [
 
 export const DEFAULT_BOOKING_LOCATION = "Nea Kallikratia";
 export const SELECTED_LOCATION_STORAGE_KEY = "selectedLocation";
+export const SELECTED_RETURN_LOCATION_STORAGE_KEY = "selectedReturnLocation";
 
 export const LOCATION_DIVIDER_BEFORE = "Afitos";
 

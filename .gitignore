@@ -18,6 +18,8 @@
 
 # next.js
 /.next/
+# alternate build output (NEXT_DIST_DIR) so builds can run beside `next dev`
+/.next-build/
 /out/
 
 # production

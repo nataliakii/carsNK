@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -20,13 +19,9 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import MyLocationIcon from "@mui/icons-material/MyLocation";
 import { useTranslation } from "react-i18next";
 import { emptyMeetingContact } from "@/domain/company/meetingContacts";
-import { parseLatLon } from "@/domain/geo/haversineKm";
-
-function cityOptionLabel(city) {
-  if (!city) return "";
-  const country = city.country ? ` (${city.country})` : "";
-  return `${city.name || ""}${country}`;
-}
+import CityPlacesAutocomplete from "@/app/components/ui/inputs/CityPlacesAutocomplete";
+import { dedupeCitiesByName } from "@/domain/geo/cityLookupOptions";
+import { spainFallbackCities } from "@/domain/geo/spainCityCoords";
 
 export default function EditCompanyContactsDialog({
   open,
@@ -55,14 +50,14 @@ export default function EditCompanyContactsDialog({
 }) {
   const { t } = useTranslation();
   const [cities, setCities] = useState([]);
-  const [cityPick, setCityPick] = useState(null);
+  const [cityFieldKey, setCityFieldKey] = useState(0);
   const [locating, setLocating] = useState(false);
   const [coordsHint, setCoordsHint] = useState("");
 
   useEffect(() => {
     if (!open) return undefined;
     let cancelled = false;
-    setCityPick(null);
+    setCityFieldKey((k) => k + 1);
     setCoordsHint("");
     (async () => {
       let list = [];
@@ -94,12 +89,7 @@ export default function EditCompanyContactsDialog({
         }
       }
       if (!cancelled) {
-        setCities(
-          list.filter((c) => {
-            const p = parseLatLon(c?.coords);
-            return Boolean(p);
-          })
-        );
+        setCities(dedupeCitiesByName(list, spainFallbackCities()));
       }
     })();
     return () => {
@@ -118,34 +108,30 @@ export default function EditCompanyContactsDialog({
           },
         ];
 
-  const cityOptions = useMemo(
-    () =>
-      [...cities].sort((a, b) =>
-        String(a.name || "").localeCompare(String(b.name || ""))
-      ),
-    [cities]
-  );
-
   const applyCoords = (lat, lon, hint) => {
     onBaseLatChange?.(String(lat));
     onBaseLonChange?.(String(lon));
     setCoordsHint(hint || "");
   };
 
-  const handleCityPick = (_event, value) => {
-    setCityPick(value);
-    if (!value) return;
-    const point = parseLatLon(value.coords);
-    if (!point) {
-      setCoordsHint(t("companyProfile.baseCityNoCoords"));
-      return;
-    }
-    applyCoords(
-      point.lat,
-      point.lon,
-      t("companyProfile.baseCoordsFromCity", { city: value.name })
-    );
-  };
+  const handleCityPick = useCallback(
+    (picked) => {
+      if (!picked) {
+        setCoordsHint("");
+        return;
+      }
+      onBaseLatChange?.(String(picked.lat));
+      onBaseLonChange?.(String(picked.lon));
+      setCoordsHint(
+        t("companyProfile.baseCoordsFromCity", { city: picked.name })
+      );
+    },
+    [onBaseLatChange, onBaseLonChange, t]
+  );
+
+  const handleCityError = useCallback((message) => {
+    setCoordsHint(message || "");
+  }, []);
 
   const handleUseMyLocation = () => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -157,7 +143,7 @@ export default function EditCompanyContactsDialog({
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        setCityPick(null);
+        setCityFieldKey((k) => k + 1);
         applyCoords(
           Number(pos.coords.latitude.toFixed(6)),
           Number(pos.coords.longitude.toFixed(6)),
@@ -245,22 +231,15 @@ export default function EditCompanyContactsDialog({
             {t("companyProfile.baseCoordsHelper")}
           </Typography>
 
-          <Autocomplete
-            size="small"
-            options={cityOptions}
-            value={cityPick}
-            onChange={handleCityPick}
-            getOptionLabel={cityOptionLabel}
-            isOptionEqualToValue={(a, b) => String(a?._id) === String(b?._id)}
+          <CityPlacesAutocomplete
+            key={cityFieldKey}
+            label={t("companyProfile.baseCityLookup")}
+            placeholder={t("companyProfile.baseCityLookupPlaceholder")}
+            helperText={t("companyProfile.baseCityLookupHelp")}
+            catalogCities={cities}
             disabled={busy}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={t("companyProfile.baseCityLookup")}
-                placeholder={t("companyProfile.baseCityLookupPlaceholder")}
-                helperText={t("companyProfile.baseCityLookupHelp")}
-              />
-            )}
+            onSelect={handleCityPick}
+            onError={handleCityError}
           />
 
           <Stack
@@ -274,7 +253,7 @@ export default function EditCompanyContactsDialog({
               type="number"
               value={baseLat}
               onChange={(e) => {
-                setCityPick(null);
+                setCoordsHint("");
                 onBaseLatChange(e.target.value);
               }}
               fullWidth
@@ -287,7 +266,7 @@ export default function EditCompanyContactsDialog({
               type="number"
               value={baseLon}
               onChange={(e) => {
-                setCityPick(null);
+                setCoordsHint("");
                 onBaseLonChange(e.target.value);
               }}
               fullWidth

@@ -39,6 +39,7 @@ export default function CompanyStorefrontCard({
   const [listedOnMarketplace, setListedOnMarketplace] = useState(
     company?.listedOnMarketplace !== false
   );
+  const [useSeasons, setUseSeasons] = useState(company?.useSeasons !== false);
   const [bufferTime, setBufferTime] = useState(company?.bufferTime ?? 2);
   const [minRentalDuration, setMinRentalDuration] = useState(
     company?.minRentalDuration ?? 1
@@ -59,6 +60,7 @@ export default function CompanyStorefrontCard({
     setSlug(company?.slug || "");
     setStorefrontEnabled(company?.storefrontEnabled !== false);
     setListedOnMarketplace(company?.listedOnMarketplace !== false);
+    setUseSeasons(company?.useSeasons !== false);
     setBufferTime(company?.bufferTime ?? 2);
     setMinRentalDuration(company?.minRentalDuration ?? 1);
     setDefaultStart(company?.defaultStart || "14:00");
@@ -164,6 +166,7 @@ export default function CompanyStorefrontCard({
           slug,
           storefrontEnabled,
           listedOnMarketplace,
+          useSeasons,
           bufferTime: Number(bufferTime),
           minRentalDuration: Number(minRentalDuration),
           defaultStart,
@@ -190,6 +193,7 @@ export default function CompanyStorefrontCard({
     slug,
     storefrontEnabled,
     listedOnMarketplace,
+    useSeasons,
     bufferTime,
     minRentalDuration,
     defaultStart,
@@ -318,6 +322,27 @@ export default function CompanyStorefrontCard({
               <Typography variant="body2" sx={{ pt: 0.75 }}>
                 {t("companyProfile.listedOnMarketplace")}
               </Typography>
+            }
+          />
+          <FormControlLabel
+            sx={{ m: 0, alignItems: "flex-start", mr: 0, gridColumn: { sm: "1 / -1" } }}
+            control={
+              <Switch
+                checked={useSeasons}
+                onChange={(e) => setUseSeasons(e.target.checked)}
+                disabled={disabled}
+                size="small"
+              />
+            }
+            label={
+              <Box sx={{ pt: 0.75 }}>
+                <Typography variant="body2">
+                  {t("companyProfile.useSeasons")}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {t("companyProfile.useSeasonsHelp")}
+                </Typography>
+              </Box>
             }
           />
         </Box>

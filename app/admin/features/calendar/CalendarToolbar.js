@@ -126,14 +126,17 @@ export default function CalendarToolbar({
               aria-label={t("calendar.toolbar.periodAria")}
               sx={toggleGroupSx}
             >
-              <ToggleButton value="15d" type="button">
-                {t("calendar.toolbar.range15d")}
-              </ToggleButton>
               <ToggleButton value="1m" type="button">
                 {t("calendar.toolbar.range1m")}
               </ToggleButton>
               <ToggleButton value="2m" type="button">
                 {t("calendar.toolbar.range2m")}
+              </ToggleButton>
+              <ToggleButton value="3m" type="button">
+                {t("calendar.toolbar.range3m")}
+              </ToggleButton>
+              <ToggleButton value="6m" type="button">
+                {t("calendar.toolbar.range6m")}
               </ToggleButton>
             </ToggleButtonGroup>
           </ToolbarGroup>

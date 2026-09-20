@@ -11,6 +11,12 @@ import { useMainContext } from "@app/Context";
 import { withLocalePrefix } from "@domain/locationSeo/locationSeoService";
 import RovaroLogo from "@app/components/brand/RovaroLogo";
 import { BRAND, isGreeceSite } from "@config/brand";
+import {
+  getOperatorLine,
+  getRegistrationLine,
+  getBusinessAddressLine,
+  getPublicLegalEntity,
+} from "@config/legalEntity";
 
 const CallIcon = dynamic(() => import("@mui/icons-material/Call"), {
   ssr: false,
@@ -129,13 +135,25 @@ function Footer() {
   const tel2 = company?.tel2 || "+353 85 270 96 05";
   const email = company?.email || "admin@bbqr.site";
 
+  /** Operator identification is localised inside @config/legalEntity. */
+  const legalLang = lang || "en";
+  const legalEntity = getPublicLegalEntity(legalLang);
+  const operatorLine = getOperatorLine(legalLang);
+  const registrationLine = getRegistrationLine(legalLang);
+  const addressLine = getBusinessAddressLine(legalLang);
+  /** Brand casing for the copyright line comes from config, not a literal. */
+  const copyrightBrand = greece ? name : legalEntity.platformBrand;
+
   const localeLink = (path) => withLocalePrefix(lang || "en", path);
   const guideHref = `https://kalikratia.bbqr.site/${lang || "en"}`;
 
   const legalLinks = [
+    { href: localeLink("/booking-terms"), label: t("footer.bookingTerms") },
     { href: localeLink("/privacy-policy"), label: t("footer.privacyPolicy") },
-    { href: localeLink("/terms-of-service"), label: t("footer.termsOfService") },
     { href: localeLink("/cookie-policy"), label: t("footer.cookiePolicy") },
+    { href: localeLink("/partner-terms"), label: t("footer.partnerTerms") },
+    { href: localeLink("/contacts"), label: t("footer.contact") },
+    { href: localeLink("/terms-of-service"), label: t("footer.termsOfService") },
     { href: localeLink("/rental-terms"), label: t("footer.rentalTerms") },
     { href: "/login", label: t("footer.adminLogin") },
   ];
@@ -290,6 +308,9 @@ function Footer() {
           ) : null}
         </Box>
 
+        {/* Single sign-off area: one divider, one operator line, one email,
+            one copyright line. Registration number and address appear only
+            once confirmed — never as a placeholder. */}
         <Box
           sx={{
             mt: { xs: 4, md: 5 },
@@ -297,20 +318,67 @@ function Footer() {
             borderTop: "1px solid rgba(255,255,255,0.12)",
             display: "flex",
             flexDirection: { xs: "column", sm: "row" },
-            alignItems: "center",
+            alignItems: { xs: "center", sm: "flex-end" },
             justifyContent: "space-between",
             gap: 1.5,
           }}
         >
-          <Typography
+          <Stack
+            spacing={0.25}
             sx={{
+              textAlign: { xs: "center", sm: "left" },
               fontSize: "0.72rem",
+              lineHeight: 1.7,
               color: "rgba(255,255,255,0.5)",
-              letterSpacing: "0.04em",
             }}
           >
-            © {currentYear} {name}. {t("footer.rights")}
-          </Typography>
+            {greece ? null : (
+              <Typography
+                component="span"
+                sx={{
+                  fontSize: "inherit",
+                  lineHeight: "inherit",
+                  color: "rgba(255,255,255,0.62)",
+                }}
+              >
+                {operatorLine}
+              </Typography>
+            )}
+            {!greece && registrationLine ? (
+              <Typography
+                component="span"
+                sx={{ fontSize: "inherit", lineHeight: "inherit" }}
+              >
+                {registrationLine}
+              </Typography>
+            ) : null}
+            {!greece && addressLine ? (
+              <Typography
+                component="span"
+                sx={{ fontSize: "inherit", lineHeight: "inherit" }}
+              >
+                {addressLine}
+              </Typography>
+            ) : null}
+            {greece ? null : (
+              <Typography
+                component="span"
+                sx={{ fontSize: "inherit", lineHeight: "inherit" }}
+              >
+                {legalEntity.legalEmail}
+              </Typography>
+            )}
+            <Typography
+              component="span"
+              sx={{
+                fontSize: "inherit",
+                lineHeight: "inherit",
+                letterSpacing: "0.04em",
+              }}
+            >
+              © {currentYear} {copyrightBrand}. {t("footer.rights")}
+            </Typography>
+          </Stack>
 
           <Stack
             direction={{ xs: "column", sm: "row" }}

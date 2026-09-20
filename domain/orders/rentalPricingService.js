@@ -23,6 +23,7 @@ import {
   canonicalizeTimezone,
   LEGACY_FALLBACK_TZ,
 } from "@/domain/time/resolveBusinessTimezone";
+import { companyUsesSeasons } from "@/domain/orders/flatDailyRate";
 
 export const RENTAL_PRICING_VERSION = 1;
 export const RENTAL_CURRENCY = "EUR";
@@ -187,6 +188,14 @@ export async function calculateAuthoritativeRentalPrice({
   secondDriver,
   placeIn,
   placeOut,
+  placeInDetail,
+  placeOutDetail,
+  placeInLat,
+  placeInLon,
+  placeOutLat,
+  placeOutLon,
+  placeInLocality,
+  placeOutLocality,
   company,
   bookingMode,
   platformSettings,
@@ -220,7 +229,8 @@ export async function calculateAuthoritativeRentalPrice({
     selections.insurance,
     selections.childSeats,
     selections.secondDriver,
-    tz
+    tz,
+    { useSeasons: companyUsesSeasons(company) }
   );
 
   assertNonNegativeFinite("rentalTotal", total);
@@ -233,6 +243,15 @@ export async function calculateAuthoritativeRentalPrice({
       companyId: car.ownerId ? String(car.ownerId) : company?._id ? String(company._id) : undefined,
       timeIn: pickupAtUtc,
       timeOut: returnAtUtc,
+      carOffices: car.offices,
+      placeInDetail,
+      placeOutDetail,
+      placeInLat,
+      placeInLon,
+      placeOutLat,
+      placeOutLon,
+      placeInLocality,
+      placeOutLocality,
     });
   } catch (err) {
     console.error("[rentalPricing] delivery calc error:", err?.message || err);

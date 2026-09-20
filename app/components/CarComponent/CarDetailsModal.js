@@ -1,237 +1,104 @@
-import React from "react";
-import { Modal, Box, Typography, Button, Grid } from "@mui/material";
-import Image from "next/image";
-import CarTypography from "@/app/components/ui/typography/CarTypography";
-import { useTranslation } from "react-i18next";
+"use client";
 
+import React, { useMemo } from "react";
+import { Modal, Box, Typography, Button, Divider } from "@mui/material";
+import { useTranslation } from "react-i18next";
+import { buildCarSpecGroups } from "@/domain/cars/carSpecs";
+import CarSpecSection from "./CarSpecList";
+import CarPhoto from "./CarPhoto";
+
+/**
+ * Enlarged detail sheet: photo + the same specification rows the card shows.
+ * Spec rows come from buildCarSpecGroups, so labels/formatting cannot drift
+ * away from the catalog card.
+ */
 const CarDetailsModal = ({ open, onClose, car }) => {
   const { t } = useTranslation();
+  const groups = useMemo(() => buildCarSpecGroups(car, t), [car, t]);
 
-  const additionalDetails = [
-    {
-      key: "registration",
-      label: t("car.reg-year"),
-      icon: "/icons/registration.png",
-      getValue: (car) => car.registration,
-    },
-    {
-      key: "regNumber",
-      label: t("car.reg-numb"),
-      icon: "/icons/regnumber.png",
-      getValue: (car) => car.regNumber,
-    },
-    {
-      key: "color",
-      label: t("car.color"),
-      icon: "/icons/color.png",
-      getValue: (car) =>
-        car.color ? car.color.charAt(0).toUpperCase() + car.color.slice(1) : "",
-    },
-    {
-      key: "numberOfDoors",
-      label: t("car.doors"),
-      icon: "/icons/doors2.png",
-      getValue: (car) => car.numberOfDoors,
-    },
-    {
-      key: "enginePower",
-      label: t("car.engine-pow"),
-      icon: "/icons/engine_power.png",
-      getValue: (car) =>
-        car.enginePower || car.enginePower === 0
-          ? `${car.enginePower} bhp`
-          : "",
-    },
-    {
-      key: "engine",
-      label: t("car.engine"),
-      icon: "/icons/engine.png",
-      getValue: (car) => {
-        if (car.engine || car.engine === 0) {
-          const base =
-            typeof car.engine === "string" && car.engine
-              ? car.engine.charAt(0).toUpperCase() + car.engine.slice(1)
-              : car.engine;
-          return `${base} c.c.`;
-        }
-        return "";
-      },
-    },
-  ];
-
-  const defaultDetails = [
-    {
-      key: "class",
-      label: t("car.class"),
-      icon: "/icons/klass.png",
-      getValue: (car) =>
-        car.class ? car.class.charAt(0).toUpperCase() + car.class.slice(1) : "",
-    },
-    {
-      key: "transmission",
-      label: t("car.transmission"),
-      icon: "/icons/transmission.png",
-      getValue: (car) =>
-        car.transmission
-          ? car.transmission.charAt(0).toUpperCase() + car.transmission.slice(1)
-          : "",
-    },
-    {
-      key: "fueltype",
-      label: t("car.fuel"),
-      icon: "/icons/fuel.png",
-      getValue: (car) =>
-        car.fueltype
-          ? car.fueltype.charAt(0).toUpperCase() + car.fueltype.slice(1)
-          : "",
-    },
-    {
-      key: "seats",
-      label: t("car.seats"),
-      icon: "/icons/seat.png",
-      getValue: (car) => car.seats,
-    },
-    {
-      key: "airConditioning",
-      label: t("car.air"),
-      icon: "/icons/ac.png",
-      getValue: (car) => (car.airConditioning ? "Yes" : "No"),
-    },
-  ];
-
-  // Финансовые / страховые детали, добавленные по запросу:
-  const financialDetails = [
-    {
-      key: "PriceChildSeats",
-      label: t("car.childSeatsPrice"),
-      icon: "/icons/childseat.png",
-      getValue: (car) =>
-        car.PriceChildSeats || car.PriceChildSeats === 0
-          ? `${car.PriceChildSeats} € / ${t("order.perDay")}`
-          : "-",
-    },
-    {
-      key: "insuranceTPLFree",
-      label: t("car.insuranceTPLFree"), // Строка без значения, просто текст (исправлен ключ)
-      icon: "/icons/insurance_tpl.png",
-      getValue: () => "", // Ничего справа, вся информация в label
-    },
-    {
-      key: "PriceKacko",
-      label: t("car.KackoPrice"),
-      icon: "/icons/insurance_kasko.png",
-      getValue: (car) =>
-        car.PriceKacko || car.PriceKacko === 0
-          ? `${car.PriceKacko} € / ${t("order.perDay")}`
-          : "-",
-    },
-    {
-      key: "franchiseKacko",
-      label: t("car.franchiseKacko"),
-      icon: "/icons/franchise.png",
-      getValue: (car) =>
-        car.franchise || car.franchise === 0 ? `${car.franchise} €` : "-",
-    },
-    {
-      key: "deposit",
-      label: t("car.deposit"),
-      icon: "/icons/deposit.png",
-      getValue: (car) =>
-        car.deposit && car.deposit > 0
-          ? `${car.deposit} €`
-          : t("car.noDeposit"),
-    },
-  ];
-
-  const allDetails = [
-    ...defaultDetails,
-    ...additionalDetails,
-    ...financialDetails,
-  ];
   return (
-    <Modal open={open} onClose={onClose} sx={{ textAlign: "center" }}>
+    <Modal open={open} onClose={onClose}>
       <Box
-        onClick={() => onClose()}
         sx={{
           position: "absolute",
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: { xs: "90%", sm: 400 },
+          width: { xs: "92%", sm: 480 },
           maxHeight: "90vh",
           bgcolor: "background.paper",
+          borderRadius: 2,
           boxShadow: 24,
-          pt: 0,
-          px: 4,
-          pb: 4,
           overflowY: "auto",
-          cursor: "pointer",
+          outline: "none",
         }}
       >
-        {/* Заголовок с названием автомобиля (липкий при прокрутке, непрозрачный фон) */}
         <Box
           sx={{
             position: "sticky",
             top: 0,
             zIndex: 5,
-            bgcolor: "background.default",
-            py: 1,
-            mb: 2,
+            bgcolor: "background.paper",
+            px: { xs: 2, sm: 3 },
+            py: 1.5,
             borderBottom: "1px solid",
             borderColor: "divider",
           }}
         >
           <Typography
-            variant="h5"
+            variant="h6"
             component="h2"
             sx={{
               textTransform: "uppercase",
               fontWeight: 700,
               color: "primary.main",
+              lineHeight: 1.2,
             }}
           >
-            {car?.model || "Car Details"}
+            {car?.model || t("car.model")}
           </Typography>
         </Box>
-        <Grid container direction="column" spacing={2}>
-          {allDetails.map((detail) => (
-            <Grid item key={detail.key}>
-              <Grid container alignItems="center" spacing={2}>
-                <Grid item>
-                  <Image
-                    src={detail.icon}
-                    alt={detail.label}
-                    width={24}
-                    height={24}
-                  />
-                </Grid>
-                <Grid item>
-                  <CarTypography>
-                    {detail.label}
-                    {(() => {
-                      const value = detail.getValue(car);
-                      // Для insuranceTPLFree (строка без значения) двоеточие не выводим
-                      if (detail.key === "insuranceTPLFree") return "";
-                      // Если значение пустое или отсутствует, тоже не ставим двоеточие
-                      if (value === "" || value === null || value === undefined)
-                        return "";
-                      return ": ";
-                    })()}
-                    {(() => {
-                      const value = detail.getValue(car);
-                      if (typeof value === "string" && value)
-                        return value.charAt(0).toUpperCase() + value.slice(1);
-                      return value;
-                    })()}
-                  </CarTypography>
-                </Grid>
-              </Grid>
-            </Grid>
+
+        <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3, pt: 2 }}>
+          <Box
+            sx={{
+              position: "relative",
+              width: "100%",
+              aspectRatio: "3 / 2",
+              borderRadius: 1.5,
+              overflow: "hidden",
+              bgcolor: "action.hover",
+              mb: 2.5,
+            }}
+          >
+            <CarPhoto
+              photoUrl={car?.photoUrl}
+              alt={car?.model || ""}
+              sizes="(max-width: 600px) 92vw, 480px"
+            />
+          </Box>
+
+          {groups.map((group, index) => (
+            <React.Fragment key={group.id}>
+              {index > 0 ? <Divider sx={{ my: 1.75 }} /> : null}
+              {/* Single column: the sheet is only ~480px wide. */}
+              <CarSpecSection
+                title={group.title}
+                items={group.items}
+                columns={1}
+              />
+            </React.Fragment>
           ))}
-        </Grid>
-        <Button onClick={onClose} variant="contained" sx={{ mt: 3 }}>
-          {t("basic.close")}
-        </Button>
+
+          <Button
+            onClick={onClose}
+            variant="contained"
+            fullWidth
+            sx={{ mt: 3 }}
+          >
+            {t("basic.close")}
+          </Button>
+        </Box>
       </Box>
     </Modal>
   );

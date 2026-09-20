@@ -152,6 +152,9 @@ export async function PATCH(request, { params }) {
   if (body?.listedOnMarketplace != null) {
     updates.listedOnMarketplace = Boolean(body.listedOnMarketplace);
   }
+  if (body?.useSeasons != null) {
+    updates.useSeasons = Boolean(body.useSeasons);
+  }
   // Country is fixed to the deployment site — ignore client overrides.
   if (body?.country != null) {
     const { getSiteCountryCode } = await import("@config/siteCountry");

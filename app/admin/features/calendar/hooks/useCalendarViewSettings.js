@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const STORAGE_KEY = "calendar_view_settings_v1";
 
-/** @typedef {'15d' | '1m' | '2m'} DayRange */
+/** @typedef {'1m' | '2m' | '3m' | '6m'} DayRange */
 /** @typedef {'inline'} LegendPlacement */
 
 /**
@@ -32,7 +32,15 @@ const DEFAULT_SETTINGS = {
   showFleetTransfers: false,
 };
 
-const VALID_DAY_RANGE = new Set(["15d", "1m", "2m"]);
+const VALID_DAY_RANGE = new Set(["1m", "2m", "3m", "6m"]);
+
+/** Периоды, снятые с UI, — переносим сохранённый выбор на ближайший живой. */
+const RETIRED_DAY_RANGE = { "15d": "1m" };
+
+function migrateDayRange(dayRange) {
+  const migrated = RETIRED_DAY_RANGE[dayRange] ?? dayRange;
+  return VALID_DAY_RANGE.has(migrated) ? migrated : DEFAULT_SETTINGS.dayRange;
+}
 
 function safeParse(raw) {
   if (raw == null || typeof raw !== "string") return null;
@@ -54,9 +62,7 @@ function normalizeSettings(parsed) {
   }
 
   return {
-    dayRange: VALID_DAY_RANGE.has(merged.dayRange)
-      ? merged.dayRange
-      : DEFAULT_SETTINGS.dayRange,
+    dayRange: migrateDayRange(merged.dayRange),
     // Легенда всегда inline: опция смены расположения удалена из UI.
     legendPlacement: "inline",
     showLegend:
@@ -178,19 +184,13 @@ export function useCalendarViewSettings() {
     }));
   }, []);
 
-  /** Called when BigCalendar navigation toggles view (full ↔ range15). */
-  const applyViewModeFromCalendar = useCallback((viewMode) => {
-    setSettings((s) => {
-      if (viewMode === "range15") return { ...s, dayRange: "15d" };
-      if (viewMode === "full")
-        return { ...s, dayRange: s.dayRange === "15d" ? "1m" : s.dayRange };
-      return s;
-    });
-  }, []);
+  /**
+   * BigCalendar reports its view mode back; every toolbar period is a whole-month
+   * window, so the calendar stays in "full" and there is nothing to sync.
+   */
+  const applyViewModeFromCalendar = useCallback(() => {}, []);
 
-  const viewModeForCalendar = useMemo(() => {
-    return settings.dayRange === "15d" ? "range15" : "full";
-  }, [settings.dayRange]);
+  const viewModeForCalendar = "full";
 
   return {
     settings,

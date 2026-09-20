@@ -38,7 +38,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import AcUnitIcon from "@mui/icons-material/AcUnit";
-import { CLOUDINARY_PLACEHOLDER_PUBLIC_ID } from "@config/cloudinary";
 import SpeedIcon from "@mui/icons-material/Speed";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { lazy, Suspense } from "react";
@@ -46,7 +45,11 @@ import { fetchCar } from "@utils/action";
 import { fetchOrdersByCar } from "@utils/action";
 import TimeToLeaveIcon from "@mui/icons-material/TimeToLeave";
 import { useMainContext } from "@app/Context";
-
+import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
+import {
+  resolveCatalogPlaceOptions,
+} from "@/domain/orders/catalogPlaceOptions";
+import { getSiteCountryCode } from "@config/siteCountry";
 
 // Lazy load тяжелых компонентов для улучшения производительности
 const BookingModal = lazy(() => import("./BookingModal"));
@@ -54,9 +57,12 @@ const CalendarPicker = lazy(() => import("./CalendarPicker"));
 const PricingTiers = lazy(() => import("@app/components/CarComponent/PricingTiers"));
 const CarDetails = lazy(() => import("./CarDetails"));
 const CarDetailsModal = lazy(() => import("./CarDetailsModal"));
+const CarDeliveryInfo = lazy(() => import("./CarDeliveryInfo"));
 
-import { CldImage } from "next-cloudinary";
 import { useTranslation } from "react-i18next";
+import CarPhoto from "./CarPhoto";
+import CarCitiesSummary from "./CarCitiesSummary";
+import { resolveCarOperatingZones } from "@/domain/cars/carOperatingZones";
 import { useSnackbar } from "notistack";
 
 // ДОБАВИТЬ ЭТУ СТРОКУ:
@@ -91,7 +97,10 @@ function getSlugFromCar(car) {
 const StyledCarItem = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(0.5), // Уменьшили с 1 до 0.5
   marginLeft: 2,
+  width: "100%",
   maxWidth: 400,
+  minWidth: 0,
+  boxSizing: "border-box",
   zIndex: 22,
   display: "flex",
   justifyContent: "center",
@@ -101,6 +110,7 @@ const StyledCarItem = styled(Paper)(({ theme }) => ({
   flexDirection: "column",
   boxShadow: theme.shadows[4],
   transition: "transform 0.3s",
+  overflow: "visible",
   "&:hover": {
     transform: "scale(1.02)",
     boxShadow: theme.shadows[5],
@@ -111,13 +121,12 @@ const StyledCarItem = styled(Paper)(({ theme }) => ({
   [theme.breakpoints.up("sm")]: {
     flexDirection: "row",
     alignItems: "center",
-    minWidth: 700,
+    // Fit the catalog column instead of forcing a wider min-width that overflows.
+    maxWidth: 920,
     padding: theme.spacing(3),
   },
   [theme.breakpoints.up("md")]: {
-    // flexDirection: "row",
-    // alignItems: "center",
-    minWidth: 980,
+    maxWidth: 1100,
     padding: theme.spacing(3),
   },
 }));
@@ -126,6 +135,9 @@ const Wrapper = styled(Box)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
 }));
 
 const CarImage = styled(Box)(({ theme }) => ({
@@ -149,11 +161,13 @@ const CarImage = styled(Box)(({ theme }) => ({
     },
   },
 
-  // Desktop: фиксированные размеры
+  // Desktop: cap width but allow shrink when the calendar column needs space
   [theme.breakpoints.up("md")]: {
-    width: 450,
-    height: 300,
-    paddingBottom: 0, // Отключаем padding-bottom, используем height
+    width: "100%",
+    maxWidth: 450,
+    aspectRatio: "3 / 2",
+    height: "auto",
+    paddingBottom: 0,
   },
 }));
 
@@ -162,6 +176,7 @@ const MediaRow = styled(Box)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
   width: "100%",
+  minWidth: 0,
   gap: theme.spacing(2),
   ["@media (max-width:600px) and (orientation: portrait)"]: {
     gap: theme.spacing(1),
@@ -169,21 +184,32 @@ const MediaRow = styled(Box)(({ theme }) => ({
   [theme.breakpoints.up("sm")]: {
     flexDirection: "row",
     alignItems: "flex-start",
+    "& .car-image-wrapper": {
+      flex: "1 1 0",
+      minWidth: 0,
+    },
+    "& .calendar-wrapper": {
+      flex: "1 1 0",
+      minWidth: 0,
+      // Let the Ant calendar shrink to the column instead of overflowing.
+      overflow: "visible",
+    },
   },
   // For small landscape phones split 40/60
   "@media (max-width:900px) and (orientation: landscape)": {
     flexDirection: "row",
     "& .car-image-wrapper": {
-      flex: "0 0 40%",
+      flex: "0 1 40%",
       maxWidth: "40%",
+      minWidth: 0,
     },
     "& .calendar-wrapper": {
-      flex: "0 0 60%",
+      flex: "0 1 60%",
       maxWidth: "60%",
+      minWidth: 0,
     },
   },
 }));
-
 // const StyledCarDetails = styled(Box)(({ theme }) => ({
 //   display: "flex",
 //   flexDirection: "column",
@@ -224,7 +250,11 @@ const CarItemComponent = React.memo(function CarItemComponent({
 
   const [bookDates, setBookedDates] = useState({ start: null, end: null });
   const [modalOpen, setModalOpen] = useState(false);
+  // Keep BookingModal mounted until exit transition finishes
+  const [bookingModalMounted, setBookingModalMounted] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const detailsPanelId = `car-details-${car._id}`;
   const [selectedTimes, setSelectedTimes] = useState({
     start: null,
     end: null,
@@ -239,6 +269,25 @@ const CarItemComponent = React.memo(function CarItemComponent({
   // ✅ CLIENT-SAFE: используем fetchAndUpdateActiveOrders (только активные заказы)
   const { fetchAndUpdateActiveOrders, isLoading, ordersByCarId, allOrders, company } =
     useMainContext();
+
+  const { names: bookingZoneNames } = useCompanyBookingLocations(
+    car?.ownerId || company?._id
+  );
+  const operatingZoneNames = React.useMemo(
+    () => resolveCatalogPlaceOptions(bookingZoneNames, getSiteCountryCode()),
+    [bookingZoneNames]
+  );
+  // Same list the expanded delivery block renders, so the compact summary
+  // above can preview the first few places without a second source of truth.
+  const operatingZones = React.useMemo(
+    () =>
+      resolveCarOperatingZones({
+        car,
+        company,
+        zoneNames: operatingZoneNames,
+      }),
+    [car, company, operatingZoneNames]
+  );
   
   // Мемоизируем carOrders вместо useState + useEffect для снижения TBT
   const carOrders = React.useMemo(() => {
@@ -246,6 +295,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
   }, [ordersByCarId, car._id]);
 
   const handleBookingComplete = () => {
+    setBookingModalMounted(true);
     setModalOpen(true);
   };
 
@@ -305,60 +355,143 @@ const CarItemComponent = React.memo(function CarItemComponent({
           <CarTitle variant="h5">{car.model}</CarTitle>
         )}
         <MediaRow>
-          <Box className="car-image-wrapper">
+          <Box
+            className="car-image-wrapper"
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: { xs: 1, sm: 1.5 },
+              minWidth: 0,
+              width: "100%",
+              // Match the image cap so every block in this column shares one
+              // right edge instead of the text running wider than the photo.
+              maxWidth: { xs: "100%", md: 450 },
+            }}
+          >
             <CarImage
               ref={carImageRef}
+              onClick={() => setDetailsModalOpen(true)}
               sx={{
                 position: "relative",
                 cursor: "pointer",
-                marginBottom: { xs: 1, sm: 3 },
+                bgcolor: "action.hover",
+                marginBottom: 0,
                 "@media (max-width:600px) and (orientation: portrait)": {
-                  marginBottom: 0.5,
+                  marginBottom: 0,
                 },
               }}
             >
               {/* КРИТИЧНО для CLS: используем fill prop от next/image
                   - Родитель (CarImage) имеет position: relative + фиксированные размеры
                   - fill заставляет изображение заполнить родителя БЕЗ layout shift */}
-                  <CldImage
-                    onClick={() => setDetailsModalOpen(true)}
-                    src={car?.photoUrl || CLOUDINARY_PLACEHOLDER_PUBLIC_ID}
-                    alt={`Natali-Cars-${car.model}`}
-                fill
-                    crop="fill"
+              <CarPhoto
+                photoUrl={car?.photoUrl}
+                alt={car?.model || ""}
                 priority={isFirstCar}
                 sizes="(max-width: 600px) 100vw, (max-width: 900px) 50vw, 450px"
-                    style={{
-                  objectFit: "cover",
-                      cursor: "pointer",
-                    }}
-                  />
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDetailsModalOpen(true);
-                    }}
-                    variant="outlined"
-                    size="small"
-                    sx={{
-                      position: "absolute",
-                      bottom: { xs: 4, sm: 8 },
-                      right: { xs: 4, sm: 8 },
-                      backgroundColor: "rgba(255, 255, 255, 0.9)",
-                      "&:hover": {
-                        backgroundColor: "rgba(255, 255, 255, 1)",
-                      },
-                      fontSize: { xs: "0.65rem", sm: "0.75rem" },
-                      padding: { xs: "2px 6px", sm: "4px 8px" },
-                      zIndex: 1,
-                    }}
-                  >
-                    {t("car.viewDetails")}
-                  </Button>
+              />
             </CarImage>
+
             <Suspense fallback={null}>
-              <CarDetails car={car} />
+              <CarDetails car={car} sections="highlights" />
             </Suspense>
+
+            {detailsExpanded ? null : (
+              <CarCitiesSummary
+                zones={operatingZones}
+                onShowAll={() => setDetailsExpanded(true)}
+              />
+            )}
+
+            {/* Collapsed by default: the card stays short until asked. */}
+            <Button
+              onClick={() => setDetailsExpanded((prev) => !prev)}
+              aria-expanded={detailsExpanded}
+              aria-controls={detailsPanelId}
+              fullWidth
+              variant="text"
+              size="small"
+              endIcon={
+                <ExpandMoreIcon
+                  sx={{
+                    transform: detailsExpanded
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                    transition: (t) =>
+                      t.transitions.create("transform", {
+                        duration: t.transitions.duration.shortest,
+                      }),
+                  }}
+                />
+              }
+              sx={{
+                justifyContent: "center",
+                py: 0.5,
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                textTransform: "none",
+                color: "text.secondary",
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 1.5,
+                "&:hover": {
+                  borderColor: "primary.main",
+                  color: "primary.main",
+                  backgroundColor: "transparent",
+                },
+              }}
+            >
+              {detailsExpanded ? t("car.hideDetails") : t("car.showDetails")}
+            </Button>
+
+            <Collapse in={detailsExpanded} unmountOnExit>
+              <Box
+                id={detailsPanelId}
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: { xs: 1, sm: 1.5 },
+                  minWidth: 0,
+                }}
+              >
+                <Suspense fallback={null}>
+                  <CarDetails car={car} sections="details" />
+                </Suspense>
+
+                <Divider sx={{ borderStyle: "dashed" }} />
+
+                <Suspense fallback={null}>
+                  <CarDeliveryInfo
+                    car={car}
+                    company={company}
+                    zoneNames={operatingZoneNames}
+                  />
+                </Suspense>
+
+                <Button
+                  onClick={() => setDetailsModalOpen(true)}
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    alignSelf: "flex-start",
+                    mt: 0.5,
+                    px: 1.5,
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    textTransform: "none",
+                    borderColor: "divider",
+                    color: "text.primary",
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      color: "primary.main",
+                      backgroundColor: "transparent",
+                    },
+                  }}
+                >
+                  {t("car.viewDetails")}
+                </Button>
+              </Box>
+            </Collapse>
           </Box>
           <Box className="calendar-wrapper">
             <Suspense fallback={null}>
@@ -382,7 +515,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
             </Suspense>
             {/* Информация о дискаунте с логикой как в PricingTiers */}
             {(() => {
-              // При useSeasons=false скидка показывается в скобках у строки «Цены» в PricingTiers
+              // При useSeasons=false скидка показывается в скобках у строки цены в PricingTiers
               if (company?.useSeasons === false) return null;
               // Логика отображения надписи о скидке:
               // Для будущих месяцев — как раньше (весь месяц),
@@ -461,7 +594,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
           </Box>
         </MediaRow>
       </Wrapper>
-      {modalOpen && (
+      {bookingModalMounted && (
         <Suspense fallback={null}>
           <BookingModal
             fetchAndUpdateOrders={fetchAndUpdateActiveOrders}
@@ -476,6 +609,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
               setModalOpen(false);
               setCalculatedPrice(null); // Сбрасываем цену при закрытии
             }}
+            onExited={() => setBookingModalMounted(false)}
           />
         </Suspense>
       )}

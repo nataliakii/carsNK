@@ -5,11 +5,50 @@
 
 import { getBaseUrl, getCanonicalHost } from "@config/domain";
 import { getActiveBrand, isGreeceSite } from "@config/brand";
+import {
+  getPublicLegalEntity,
+  getBusinessAddressLine,
+  getRegistrationLine,
+} from "@config/legalEntity";
+
+/**
+ * Legal operator block for the Rovaro deployment.
+ *
+ * The customer sees the Rovaro brand; the legal footer identifies the actual
+ * operator. Registration number and address appear only once configured —
+ * an unconfirmed value is omitted rather than guessed.
+ *
+ * @returns {{ html: string, text: string }}
+ */
+function buildLegalFooter() {
+  if (isGreeceSite()) return { html: "", text: "" };
+
+  const entity = getPublicLegalEntity();
+  const registration = getRegistrationLine();
+  const address = getBusinessAddressLine();
+
+  const lines = [
+    entity.platformBrand,
+    `Operated by ${entity.ownerLegalName}, trading as ${entity.tradingName}`,
+    registration,
+    address,
+    entity.legalEmail,
+  ].filter(Boolean);
+
+  return {
+    html: `
+    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #eeeeee; font-size: 11px; color: #9e9e9e; line-height: 1.7;">
+      ${lines.map((line) => line.replace(/&/g, "&amp;").replace(/</g, "&lt;")).join("<br />")}
+    </div>`,
+    text: `\n\n${lines.join("\n")}`,
+  };
+}
 
 function buildSignature() {
   const brand = getActiveBrand();
   const base = getBaseUrl();
   const host = getCanonicalHost();
+  const legal = buildLegalFooter();
   const line = isGreeceSite()
     ? "Car rental aggregator in Greece · Halkidiki &amp; Thessaloniki"
     : `${brand.tagline} · Spain`;
@@ -33,6 +72,7 @@ function buildSignature() {
         🌐 ${host}
       </a>
     </div>
+    ${legal.html}
   </div>
 </div>`,
     text: `--
@@ -40,7 +80,7 @@ function buildSignature() {
 ${brand.name} Support
 ${lineText}
 
-Website: ${base}`,
+Website: ${base}${legal.text}`,
   };
 }
 

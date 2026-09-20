@@ -11,6 +11,9 @@ export { default as BookingEditableDateField } from "./BookingEditableDateField"
 export { default as BookingTimeField } from "./BookingTimeField";
 export { default as BookingTextField } from "./BookingTextField";
 export { default as BookingLocationAutocomplete } from "./BookingLocationAutocomplete";
+export { default as BookingAddressPlacesField } from "./BookingAddressPlacesField";
+export { default as CityPlacesAutocomplete } from "./CityPlacesAutocomplete";
+export { default as FilterLocationAutocomplete } from "./FilterLocationAutocomplete";
 export { default as BookingFlightField } from "./BookingFlightField";
 export { default as DrivingLicenceUploadField } from "./DrivingLicenceUploadField";
 

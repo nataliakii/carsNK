@@ -46,27 +46,83 @@ import {
   forBusinessNo,
   forBusinessSv,
 } from "./forBusinessExtra";
+import {
+  PARTNER_LEGAL_NAV,
+  partnerLegalDe,
+  partnerLegalEl,
+  partnerLegalEn,
+  partnerLegalEs,
+  partnerLegalRu,
+  partnerLegalUk,
+  withPartnerLegal,
+} from "./partnerLegal";
 import { ALL_UI_LOCALE_CODES } from "@/domain/platform/uiLocales";
 
 const supportedLngs = [...ALL_UI_LOCALE_CODES];
 
 const resources = {
-  en: { translation: translationsEn },
-  el: { translation: translationsEl },
-  ru: { translation: translationsRu },
-  de: { translation: translationsDe },
-  bg: { translation: translationsBg },
-  ro: { translation: translationsRo },
-  sr: { translation: translationsSr },
-  uk: { translation: translationsUk },
-  pl: { translation: translationsPl },
-  es: { translation: translationsEs },
+  en: {
+    translation: withPartnerLegal(translationsEn, partnerLegalEn, PARTNER_LEGAL_NAV.en),
+  },
+  el: {
+    translation: withPartnerLegal(translationsEl, partnerLegalEl, PARTNER_LEGAL_NAV.el),
+  },
+  ru: {
+    translation: withPartnerLegal(translationsRu, partnerLegalRu, PARTNER_LEGAL_NAV.ru),
+  },
+  de: {
+    translation: withPartnerLegal(translationsDe, partnerLegalDe, PARTNER_LEGAL_NAV.de),
+  },
+  bg: {
+    translation: withPartnerLegal(translationsBg, partnerLegalEn, PARTNER_LEGAL_NAV.en),
+  },
+  ro: {
+    translation: withPartnerLegal(translationsRo, partnerLegalEn, PARTNER_LEGAL_NAV.en),
+  },
+  sr: {
+    translation: withPartnerLegal(translationsSr, partnerLegalEn, PARTNER_LEGAL_NAV.en),
+  },
+  uk: {
+    translation: withPartnerLegal(translationsUk, partnerLegalUk, PARTNER_LEGAL_NAV.uk),
+  },
+  pl: {
+    translation: withPartnerLegal(translationsPl, partnerLegalEn, PARTNER_LEGAL_NAV.en),
+  },
+  es: {
+    translation: withPartnerLegal(translationsEs, partnerLegalEs, PARTNER_LEGAL_NAV.es),
+  },
   // UI chrome falls back to English until dedicated files exist
-  fr: { translation: { ...translationsEn, forBusiness: forBusinessFr } },
-  it: { translation: translationsEn },
-  sv: { translation: { ...translationsEn, forBusiness: forBusinessSv } },
-  no: { translation: { ...translationsEn, forBusiness: forBusinessNo } },
-  ca: { translation: { ...translationsEn, forBusiness: forBusinessCa } },
+  fr: {
+    translation: withPartnerLegal(
+      { ...translationsEn, forBusiness: forBusinessFr },
+      partnerLegalEn,
+      PARTNER_LEGAL_NAV.en
+    ),
+  },
+  it: {
+    translation: withPartnerLegal(translationsEn, partnerLegalEn, PARTNER_LEGAL_NAV.en),
+  },
+  sv: {
+    translation: withPartnerLegal(
+      { ...translationsEn, forBusiness: forBusinessSv },
+      partnerLegalEn,
+      PARTNER_LEGAL_NAV.en
+    ),
+  },
+  no: {
+    translation: withPartnerLegal(
+      { ...translationsEn, forBusiness: forBusinessNo },
+      partnerLegalEn,
+      PARTNER_LEGAL_NAV.en
+    ),
+  },
+  ca: {
+    translation: withPartnerLegal(
+      { ...translationsEn, forBusiness: forBusinessCa },
+      partnerLegalEn,
+      PARTNER_LEGAL_NAV.en
+    ),
+  },
 };
 
 // Функция для определения языка браузера

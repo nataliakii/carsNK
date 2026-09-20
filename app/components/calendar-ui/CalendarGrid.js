@@ -103,6 +103,20 @@ export default function CalendarGrid(props) {
         tableLayout: "fixed",
       }}
     >
+      {/*
+        table-layout: fixed reads widths from the first row, and on multi-month
+        periods that row is the month band (colSpan cells with no width), which
+        squeezes day columns to ~10px. colgroup pins the widths instead.
+      */}
+      <colgroup>
+        <col style={{ width: "var(--resource-col-width, 160px)" }} />
+        {days.length > 0 ? (
+          <col
+            span={days.length}
+            style={{ width: "var(--calendar-day-width, 34px)" }}
+          />
+        ) : null}
+      </colgroup>
       <CalendarHeader data={headerData} actions={headerActions} />
       <TableBody>
         {carsToRender.map((car, index) => (

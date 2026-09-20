@@ -42,7 +42,7 @@ const CompanySchema = new Schema({
     MiddleSeason: { type: SeasonSchema, required: true },
     HighSeason: { type: SeasonSchema, required: true },
   },
-  /** Включить учёт сезонов (ценовые периоды и т.п.). При false в UI/API можно отключать сезонную логику. */
+  /** Seasonal + duration-tier pricing. When false: one daily rate year-round (NoSeason), no season UI/tiers. Default true (Greece). */
   useSeasons: { type: Boolean, default: true },
   /** Язык текста уведомлений (email) админу компании: en, ru, uk, … */
   langAdmin: { type: String, default: "en", trim: true },
@@ -69,7 +69,22 @@ const CompanySchema = new Schema({
   deliveryPricing: {
     type: new Schema(
       {
+        /**
+         * zones — legacy named DeliveryZone rows
+         * radius — free/fixed inside radiusKm of office, then outside rule
+         * cities — free/fixed inside operatingCities list, €/km outside from office
+         */
+        strategy: {
+          type: String,
+          enum: ["zones", "radius", "cities"],
+          default: undefined,
+        },
+        /** Free radius from office (km). Also used as optional free band in cities strategy. */
         radiusKm: { type: Number, default: null, min: 0 },
+        /** City names the company operates in (cities strategy). */
+        operatingCities: { type: [String], default: [] },
+        /** Beyond this distance from office → blocked / contact us. */
+        maxDistanceKm: { type: Number, default: null, min: 0 },
         inside: {
           mode: {
             type: String,
@@ -303,7 +318,14 @@ if (Company?.schema && !Company.schema.path("deliveryPricing")) {
     deliveryPricing: {
       type: new Schema(
         {
+          strategy: {
+            type: String,
+            enum: ["zones", "radius", "cities"],
+            default: undefined,
+          },
           radiusKm: { type: Number, default: null, min: 0 },
+          operatingCities: { type: [String], default: [] },
+          maxDistanceKm: { type: Number, default: null, min: 0 },
           inside: {
             mode: { type: String, enum: ["fixed", "free", "perKm"], default: "perKm" },
             amount: { type: Number, default: 0, min: 0 },
@@ -323,6 +345,19 @@ if (Company?.schema && !Company.schema.path("deliveryPricing")) {
       default: undefined,
     },
   });
+} else if (Company?.schema?.path("deliveryPricing")) {
+  const dp = Company.schema.path("deliveryPricing");
+  if (dp?.schema && !dp.schema.path("strategy")) {
+    dp.schema.add({
+      strategy: {
+        type: String,
+        enum: ["zones", "radius", "cities"],
+        default: undefined,
+      },
+      operatingCities: { type: [String], default: [] },
+      maxDistanceKm: { type: Number, default: null, min: 0 },
+    });
+  }
 }
 
 if (Company?.schema && !Company.schema.path("bookingMode")) {

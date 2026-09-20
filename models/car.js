@@ -9,6 +9,10 @@ import {
   getBusinessRentalDaysByMinutes,
   toBusinessDateTime,
 } from "@/domain/orders/numberOfDays";
+import {
+  companyUsesSeasons,
+  getFlatDailyRateFromPricingTiers,
+} from "@/domain/orders/flatDailyRate";
 dayjs.extend(isBetween);
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -208,6 +212,15 @@ const CarSchema = new Schema({
   dateLastModified: {
     type: Date,
   },
+  /**
+   * Booking place names (pickup/return) that count as this car's office(s).
+   * Matching placeIn / placeOut → that delivery leg is free (€0).
+   * Entries: string or { name, address?, lat?, lon? }. Normalized on write.
+   */
+  offices: {
+    type: [Schema.Types.Mixed],
+    default: [],
+  },
 });
 
 CarSchema.methods.getSeason = function (date) {
@@ -279,7 +292,8 @@ CarSchema.methods.calculateTotalRentalPricePerDay = async function (
   kacko = "TPL",
   childSeats = 0,
   secondDriver = false,
-  timezone
+  timezone,
+  pricingOptions = {}
 ) {
   console.log("[DEBUG] calculateTotalRentalPricePerDay called with:", {
     startDate,
@@ -301,6 +315,24 @@ CarSchema.methods.calculateTotalRentalPricePerDay = async function (
   }
   let total = 0;
   let logs = [];
+
+  let useSeasons = pricingOptions?.useSeasons;
+  if (useSeasons === undefined) {
+    useSeasons = true;
+    try {
+      if (this.ownerId) {
+        const Company = (await import("@models/company")).default;
+        const ownerCompany = await Company.findById(this.ownerId)
+          .select("useSeasons")
+          .lean();
+        useSeasons = companyUsesSeasons(ownerCompany);
+      }
+    } catch (err) {
+      console.error("Error resolving company.useSeasons for pricing:", err);
+    }
+  } else {
+    useSeasons = useSeasons !== false;
+  }
 
   let discountSetting = null;
   let discountStartDay = null;
@@ -329,22 +361,36 @@ CarSchema.methods.calculateTotalRentalPricePerDay = async function (
     console.error("Error fetching discount settings:", err);
   }
 
+  const flatDailyRate = !useSeasons
+    ? getFlatDailyRateFromPricingTiers(this.pricingTiers)
+    : null;
+
   for (let i = 0; i < days; i++) {
     const currentDate = dayjsStart.add(i, "day");
-    // 1. Определяем сезон для текущего дня
-    const season = this.getSeason(currentDate);
-    // 2. Определяем тариф
+    let season;
     let targetDays;
-    if (days >= 1 && days <= 4) {
-      targetDays = 4;
-    } else if (days >= 5 && days <= 14) {
-      targetDays = 7;
+    let price;
+
+    if (!useSeasons) {
+      // Flat mode: one daily rate × days (NoSeason), no season / duration tiers
+      season = "NoSeason";
+      targetDays = 1;
+      price = flatDailyRate || 0;
     } else {
-      targetDays = 14;
+      // 1. Определяем сезон для текущего дня
+      season = this.getSeason(currentDate);
+      // 2. Определяем тариф
+      if (days >= 1 && days <= 4) {
+        targetDays = 4;
+      } else if (days >= 5 && days <= 14) {
+        targetDays = 7;
+      } else {
+        targetDays = 14;
+      }
+      // 3. Получаем цену за день
+      const pricingTiers = this.pricingTiers.get(season);
+      price = pricingTiers?.days?.get(targetDays.toString()) || 0;
     }
-    // 3. Получаем цену за день
-    const pricingTiers = this.pricingTiers.get(season);
-    let price = pricingTiers?.days?.get(targetDays.toString()) || 0;
 
     // 4. Проверяем скидку
     let discount = 0;

@@ -27,6 +27,14 @@ const platformSettingsSchema = new mongoose.Schema(
     },
     defaultTimezone: { type: String, default: "", trim: true },
     prepaymentPercent: { type: Number, default: null, min: 0, max: 100 },
+    /**
+     * Commercial + operational parameters referenced by the legal documents
+     * and the booking workflow. Mixed so the shape can evolve without a
+     * migration; validated by domain/legal/legalSettings.resolveLegalSettings.
+     * Commercial amounts stay null until superadmin fills them in — they are
+     * never defaulted to an invented number.
+     */
+    legal: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   { timestamps: true, collection: "platform_settings" }
 );
@@ -34,5 +42,12 @@ const platformSettingsSchema = new mongoose.Schema(
 const PlatformSettings =
   mongoose.models?.PlatformSettings ||
   mongoose.model("PlatformSettings", platformSettingsSchema);
+
+// HMR safety for cached model
+if (PlatformSettings?.schema && !PlatformSettings.schema.path("legal")) {
+  PlatformSettings.schema.add({
+    legal: { type: mongoose.Schema.Types.Mixed, default: null },
+  });
+}
 
 export default PlatformSettings;

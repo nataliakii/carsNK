@@ -14,7 +14,7 @@ import { MainContextProvider } from "../Context";
 import dynamic from "next/dynamic";
 import ScrollButton from "@/app/components/ui/buttons/ScrollButton";
 
-import Navbar from "@app/components/Navbar";
+import Navbar, { CATALOG_CHROME_OFFSET_VAR } from "@app/components/Navbar";
 import { usePathname } from "next/navigation";
 
 // Lazy load Footer (below fold, can load after initial render)
@@ -30,13 +30,18 @@ function Feed({ children, ...props }) {
   const shouldShowFooter = !props.isAdmin && !isAccessLink;
 
   // Admin AppBar is fixed at 64px — clear it so page titles are not hidden.
-  // Cars page still adds its own offset for the fixed AdminTopBar below.
+  // Catalog (isMain) uses a CSS var measured by Navbar for the fixed header +
+  // filter bar, plus a small gap so results/meta text is not under the black bar.
   const mainPt = useMemo(() => {
     if (props.isAdmin || isAccessLink) {
       return { xs: "64px", md: "64px" };
     }
-    return { xs: "168px", md: "128px" };
-  }, [props.isAdmin, isAccessLink]);
+    if (props.isMain) {
+      // Fallback covers a wrapped multi-row filter until ResizeObserver runs.
+      return `var(${CATALOG_CHROME_OFFSET_VAR}, 280px)`;
+    }
+    return { xs: "64px", md: "64px" };
+  }, [props.isAdmin, props.isMain, isAccessLink]);
 
   // Admin calendar passes fillsViewport; accept fillViewport typo too.
   const fillViewport = Boolean(props.fillsViewport || props.fillViewport);

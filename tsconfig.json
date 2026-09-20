@@ -18,14 +18,30 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@app/*": ["./app/*"],
-      "@utils/*": ["./utils/*"],
-      "@styles/*": ["./styles/*"],
-      "@config/*": ["./config/*"],
-      "@domain/*": ["./domain/*"],
-      "@models/*": ["./models/*"],
-      "@lib/*": ["./lib/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@app/*": [
+        "./app/*"
+      ],
+      "@utils/*": [
+        "./utils/*"
+      ],
+      "@styles/*": [
+        "./styles/*"
+      ],
+      "@config/*": [
+        "./config/*"
+      ],
+      "@domain/*": [
+        "./domain/*"
+      ],
+      "@models/*": [
+        "./models/*"
+      ],
+      "@lib/*": [
+        "./lib/*"
+      ]
     },
     "plugins": [
       {
@@ -37,7 +53,8 @@
     "next-env.d.ts",
     ".next/types/**/*.ts",
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    ".next-build/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

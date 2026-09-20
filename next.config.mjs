@@ -8,6 +8,11 @@ const __dirname = path.dirname(__filename);
 
 const nextConfig = {
   basePath: "",
+  /**
+   * Defaults to .next. Set NEXT_DIST_DIR to build into a separate directory
+   * so a production build can run while `next dev` owns .next.
+   */
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   reactStrictMode: true,
   images: { unoptimized: true },
   env: {

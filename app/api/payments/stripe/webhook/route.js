@@ -8,6 +8,7 @@ import {
 import { getStripeClient } from "@/lib/stripe";
 import { markTransferPaidFromCheckoutSession } from "@/domain/transfers/stripeCheckout";
 import { markRentalPaidFromCheckoutSession } from "@/domain/orders/rentalStripeCheckout";
+import { createConfirmedBookingSnapshot } from "@/domain/booking/partnerBookingConfirmation";
 
 export const runtime = "nodejs";
 
@@ -74,6 +75,19 @@ export async function POST(request) {
         const result = await markRentalPaidFromCheckoutSession(session);
         if (!result.ok && result.code !== "not_paid") {
           console.error("[stripe webhook] rental pay failed", result);
+        }
+        // Successful prepayment is what makes the booking binding, so this is
+        // where the immutable record of the agreed terms is written. It is
+        // idempotent, and a failure here must not fail the webhook.
+        if (result.ok && result.order?._id) {
+          await createConfirmedBookingSnapshot({
+            orderId: String(result.order._id),
+          }).catch((err) => {
+            console.error(
+              "[stripe webhook] booking snapshot failed",
+              err?.message || err
+            );
+          });
         }
       } else if (kind === "transfer") {
         const result = await markTransferPaidFromCheckoutSession(session);

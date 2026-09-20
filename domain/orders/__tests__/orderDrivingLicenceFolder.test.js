@@ -1,6 +1,19 @@
 import { buildOrderDrivingLicenceFolderPath } from "../orderDrivingLicenceFolder";
 
 describe("buildOrderDrivingLicenceFolderPath", () => {
+  // Pin the root so the path does not depend on the deployment's
+  // CLOUDINARY_ROOT_FOLDER (ES deploys set it to "rovaro").
+  const originalRoot = process.env.CLOUDINARY_ROOT_FOLDER;
+
+  beforeAll(() => {
+    process.env.CLOUDINARY_ROOT_FOLDER = "carsnk";
+  });
+
+  afterAll(() => {
+    if (originalRoot === undefined) delete process.env.CLOUDINARY_ROOT_FOLDER;
+    else process.env.CLOUDINARY_ROOT_FOLDER = originalRoot;
+  });
+
   it("builds carsnk/orders/{name-startDate}/driving-licence", () => {
     const p = buildOrderDrivingLicenceFolderPath(
       "John Doe",

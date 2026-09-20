@@ -23,6 +23,8 @@ import { useTranslation } from "react-i18next";
 import { CalendarNavButton, CalendarDayCell } from "../ui";
 import { calendarStyles } from "@/theme";
 import {
+  getDayRangeEnd,
+  getDayRangeMonths,
   getShortPeriodEnd,
   getShortPeriodStart,
 } from "@/app/admin/features/calendar/hooks/calendarDays";
@@ -289,6 +291,8 @@ function HeaderNavBlock({
   onYearChange,
   preferShortMonthLabels,
 }) {
+  const monthSpan = getDayRangeMonths(calendarDayRange);
+
   return (
     <Box
       sx={{
@@ -316,12 +320,9 @@ function HeaderNavBlock({
             },
           }}
           renderValue={() => {
-            if (calendarDayRange === "2m") {
-              const start = dayjs().year(year).month(month).date(1);
-              const end = start.add(1, "month").endOf("month");
-              const y1 = start.year();
-              const y2 = end.year();
-              return y1 === y2 ? `${y1}` : `${y1}–${y2}`;
+            if (monthSpan > 1) {
+              const end = getDayRangeEnd({ year, month, calendarDayRange });
+              return year === end.year() ? `${year}` : `${year}–${end.year()}`;
             }
             if (viewMode === "range15") {
               const start = getShortPeriodStart({
@@ -404,13 +405,13 @@ function HeaderNavBlock({
               const useShort =
                 preferShortMonthLabels ||
                 isPortraitPhone ||
-                calendarDayRange === "2m" ||
+                monthSpan > 1 ||
                 viewMode === "range15";
               const abbr = (name) =>
                 useShort ? shortMonthName(name, 3) : name;
-              if (calendarDayRange === "2m") {
+              if (monthSpan > 1) {
                 const a = months[month];
-                const b = months[(month + 1) % 12];
+                const b = months[(month + monthSpan - 1) % 12];
                 return `${abbr(a)}–${abbr(b)}`;
               }
               if (viewMode === "range15") {

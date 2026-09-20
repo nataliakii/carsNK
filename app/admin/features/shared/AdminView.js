@@ -8,6 +8,8 @@ import Feed from "@app/components/Feed";
 
 // Shared components from new structure
 import { AdminLoader, AdminNotifications, AdminTopBar } from "@app/admin/shared";
+import PartnerComplianceGate from "@/app/admin/legal-profile/_components/PartnerComplianceGate";
+import usePartnerLegalStatus from "@/app/admin/legal-profile/_components/usePartnerLegalStatus";
 
 function FeatureLoader({ i18nKey }) {
   const { t, i18n } = useTranslation();
@@ -149,6 +151,8 @@ function AdminViewContent({ viewType }) {
     setNotification(null);
   }, []);
 
+  const { gate } = usePartnerLegalStatus();
+
   // Memoize feature config lookup
   const featureConfig = useMemo(
     () => FEATURES[viewType] || FEATURES.cars,
@@ -177,7 +181,19 @@ function AdminViewContent({ viewType }) {
         onAddClick={viewType === "cars" ? openAddCarModal : undefined}
         onBulkAddClick={viewType === "cars" ? openBulkCarsModal : undefined}
       />
-      
+
+      {gate && !gate.canOperate ? (
+        <Box
+          sx={{
+            px: { xs: 1, md: 2 },
+            pt: featureConfig.feature === "cars" ? 9 : 2,
+            flexShrink: 0,
+          }}
+        >
+          <PartnerComplianceGate gate={gate} hideWhenOpen />
+        </Box>
+      ) : null}
+
       {/* Feature section — lazy loading handled by dynamic() */}
       <Box
         sx={
