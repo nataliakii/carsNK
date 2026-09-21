@@ -21,6 +21,9 @@ import { buildPendingConfirmBlockMap } from "@/domain/orders/buildPendingConfirm
 import {
   SELECTED_LOCATION_STORAGE_KEY,
   SELECTED_RETURN_LOCATION_STORAGE_KEY,
+  SELECTED_PICKUP_TIME_STORAGE_KEY,
+  SELECTED_RETURN_TIME_STORAGE_KEY,
+  normalizeBookingTimeHm,
 } from "@/domain/orders/locationOptions";
 import { resolveBookingLocationFromPickupParam } from "@/domain/orders/bookingLocationPathResolver";
 import {
@@ -48,6 +51,10 @@ const MainContext = createContext({
   setBookingPlaceIn: () => {},
   bookingPlaceOut: "",
   setBookingPlaceOut: () => {},
+  bookingTimeIn: "",
+  setBookingTimeIn: () => {},
+  bookingTimeOut: "",
+  setBookingTimeOut: () => {},
   searchDates: { start: null, end: null },
   setSearchDates: () => {},
   clearSearchDates: () => {},
@@ -250,6 +257,8 @@ export const MainContextProvider = ({
   const [carSearchQuery, setCarSearchQuery] = useState("");
   const [bookingPlaceIn, setBookingPlaceInState] = useState("");
   const [bookingPlaceOut, setBookingPlaceOutState] = useState("");
+  const [bookingTimeIn, setBookingTimeInState] = useState("");
+  const [bookingTimeOut, setBookingTimeOutState] = useState("");
   const [searchDates, setSearchDatesState] = useState({
     start: null,
     end: null,
@@ -279,6 +288,30 @@ export const MainContextProvider = ({
     }
   }, []);
 
+  const setBookingTimeIn = useCallback((value) => {
+    const next = normalizeBookingTimeHm(value);
+    setBookingTimeInState(next);
+    if (typeof window !== "undefined") {
+      if (next) {
+        localStorage.setItem(SELECTED_PICKUP_TIME_STORAGE_KEY, next);
+      } else {
+        localStorage.removeItem(SELECTED_PICKUP_TIME_STORAGE_KEY);
+      }
+    }
+  }, []);
+
+  const setBookingTimeOut = useCallback((value) => {
+    const next = normalizeBookingTimeHm(value);
+    setBookingTimeOutState(next);
+    if (typeof window !== "undefined") {
+      if (next) {
+        localStorage.setItem(SELECTED_RETURN_TIME_STORAGE_KEY, next);
+      } else {
+        localStorage.removeItem(SELECTED_RETURN_TIME_STORAGE_KEY);
+      }
+    }
+  }, []);
+
   const setSearchDates = useCallback((next) => {
     const normalized = normalizeSearchDates(next);
     setSearchDatesState(normalized);
@@ -296,6 +329,19 @@ export const MainContextProvider = ({
     const storedDates = readStoredSearchDates();
     if (storedDates.start && storedDates.end) {
       setSearchDatesState(storedDates);
+    }
+
+    const storedPickupTime = normalizeBookingTimeHm(
+      localStorage.getItem(SELECTED_PICKUP_TIME_STORAGE_KEY)
+    );
+    if (storedPickupTime) {
+      setBookingTimeInState(storedPickupTime);
+    }
+    const storedReturnTime = normalizeBookingTimeHm(
+      localStorage.getItem(SELECTED_RETURN_TIME_STORAGE_KEY)
+    );
+    if (storedReturnTime) {
+      setBookingTimeOutState(storedReturnTime);
     }
 
     const fromPickup = resolveBookingLocationFromPickupParam(initialPickup);
@@ -617,6 +663,10 @@ export const MainContextProvider = ({
       setBookingPlaceIn,
       bookingPlaceOut,
       setBookingPlaceOut,
+      bookingTimeIn,
+      setBookingTimeIn,
+      bookingTimeOut,
+      setBookingTimeOut,
       searchDates,
       setSearchDates,
       clearSearchDates,
@@ -653,6 +703,10 @@ export const MainContextProvider = ({
       setBookingPlaceIn,
       bookingPlaceOut,
       setBookingPlaceOut,
+      bookingTimeIn,
+      setBookingTimeIn,
+      bookingTimeOut,
+      setBookingTimeOut,
       searchDates,
       setSearchDates,
       clearSearchDates,

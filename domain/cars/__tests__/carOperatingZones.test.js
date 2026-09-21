@@ -13,26 +13,31 @@ describe("resolveCarOperatingZones", () => {
     expect(zones).toEqual(["Barcelona", "Girona"]);
   });
 
-  it("falls back to zone names, then company locations, then offices", () => {
-    const car = { offices: ["Airport"] };
-    expect(
-      resolveCarOperatingZones({ car, company: {}, zoneNames: ["Sitges"] })
-    ).toEqual(["Sitges"]);
+  it("falls back to car offices when the company has no operating cities", () => {
     expect(
       resolveCarOperatingZones({
-        car,
+        car: { offices: ["Airport"] },
         company: { locations: [{ name: "Madrid" }] },
-        zoneNames: [],
+        zoneNames: ["Sitges"],
       })
-    ).toEqual(["Madrid"]);
-    expect(resolveCarOperatingZones({ car, company: {} })).toEqual(["Airport"]);
+    ).toEqual(["Airport"]);
   });
 
-  it("drops blanks and duplicates", () => {
+  it("ignores the booking catalog even when it is the only long list", () => {
+    const catalog = ["Barcelona", "Girona", "Costa Brava", "Madrid", "Valencia"];
+    expect(
+      resolveCarOperatingZones({
+        car: {},
+        company: {},
+        zoneNames: catalog,
+      })
+    ).toEqual([]);
+  });
+
+  it("drops blanks and duplicates on offices", () => {
     const zones = resolveCarOperatingZones({
-      car: {},
+      car: { offices: [" Girona ", "", null, "Girona", "Blanes"] },
       company: {},
-      zoneNames: [" Girona ", "", null, "Girona", "Blanes"],
     });
     expect(zones).toEqual(["Girona", "Blanes"]);
   });

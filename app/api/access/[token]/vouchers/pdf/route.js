@@ -3,7 +3,10 @@ import Company from "@models/company";
 import { connectToDB } from "@lib/database";
 import { ACCESS_SCOPE } from "@/domain/auth/accessScopes";
 import { resolveScopedAccessToken } from "@/domain/auth/scopedAccessToken";
-import { normalizeTransferVoucherData } from "@/domain/vouchers/transferVoucher";
+import {
+  normalizeTransferVoucherData,
+  resolveVoucherLocaleForMarket,
+} from "@/domain/vouchers/transferVoucher";
 import { buildTransferVoucherPdf } from "@/domain/vouchers/transferVoucherPdf";
 import { getCompanyVoucherStampSrc } from "@/domain/vouchers/companyStamp";
 
@@ -41,8 +44,10 @@ export async function POST(request, { params }) {
   }
 
   const stampSrc = getCompanyVoucherStampSrc(company);
+  const raw = body?.voucher || {};
   const voucher = normalizeTransferVoucherData({
-    ...(body?.voucher || {}),
+    ...raw,
+    locale: resolveVoucherLocaleForMarket(raw.locale, company?.country),
     stampSrc,
   });
 

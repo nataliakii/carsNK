@@ -1,5 +1,11 @@
 import Link from "next/link";
 
+/** Keep English (and other Latin) copy readable — this site's default type can smash words. */
+const SEO_READABLE_TEXT = {
+  wordSpacing: "0.12em",
+  letterSpacing: "0.01em",
+};
+
 function renderIntroTextWithInlineLink(introText, inlineLink) {
   if (
     typeof introText !== "string" ||
@@ -48,10 +54,28 @@ function renderIntroTextWithInlineLink(introText, inlineLink) {
 export function SeoIntroBlock({ title, introText, skipTitle, inlineLink }) {
   if (!introText && !title) return null;
   return (
-    <section style={{ maxWidth: 980, margin: "0 auto", padding: "32px 16px 8px" }}>
-      {!skipTitle && title && <h1 style={{ marginBottom: 12 }}>{title}</h1>}
+    <section
+      style={{
+        maxWidth: 980,
+        margin: "0 auto",
+        padding: "32px 16px 8px",
+        ...SEO_READABLE_TEXT,
+      }}
+    >
+      {!skipTitle && title && (
+        <h1
+          style={{
+            marginBottom: 12,
+            fontWeight: 600,
+            lineHeight: 1.25,
+            ...SEO_READABLE_TEXT,
+          }}
+        >
+          {title}
+        </h1>
+      )}
       {introText && (
-        <p style={{ margin: 0, lineHeight: 1.6 }}>
+        <p style={{ margin: 0, lineHeight: 1.6, ...SEO_READABLE_TEXT }}>
           {renderIntroTextWithInlineLink(introText, inlineLink)}
         </p>
       )}
@@ -115,6 +139,7 @@ export function SeoLinksBlock({ title, links }) {
         border: "1px solid #e0e0e0",
         borderRadius: 8,
         backgroundColor: "#fafafa",
+        ...SEO_READABLE_TEXT,
       }}
     >
       <h2
@@ -240,6 +265,7 @@ export function SeoFaqBlock({ title, faq }) {
         border: "1px solid #e0e0e0",
         borderRadius: 8,
         backgroundColor: "#fafafa",
+        ...SEO_READABLE_TEXT,
       }}
     >
       <h2 style={{ marginBottom: 12, marginTop: 0, fontSize: "1.125rem", fontWeight: 600, color: "#333" }}>
@@ -261,8 +287,15 @@ export function SeoVehicleSpecsBlock({ title, specs }) {
   if (!specs || specs.length === 0) return null;
 
   return (
-    <section style={{ maxWidth: 980, margin: "0 auto", padding: "16px 16px 8px" }}>
-      <h2 style={{ marginBottom: 12 }}>{title}</h2>
+    <section
+      style={{
+        maxWidth: 980,
+        margin: "0 auto",
+        padding: "16px 16px 8px",
+        ...SEO_READABLE_TEXT,
+      }}
+    >
+      <h2 style={{ marginBottom: 12, ...SEO_READABLE_TEXT }}>{title}</h2>
       <div
         style={{
           display: "grid",
@@ -294,8 +327,17 @@ export function SeoQuickSpecsBlock({ title, specs }) {
   if (!specs || specs.length === 0) return null;
 
   return (
-    <section style={{ maxWidth: 980, margin: "0 auto", padding: "12px 16px 16px" }}>
-      <h2 style={{ marginBottom: 12, fontSize: "1.1rem" }}>{title}</h2>
+    <section
+      style={{
+        maxWidth: 980,
+        margin: "0 auto",
+        padding: "12px 16px 16px",
+        ...SEO_READABLE_TEXT,
+      }}
+    >
+      <h2 style={{ marginBottom: 12, fontSize: "1.1rem", ...SEO_READABLE_TEXT }}>
+        {title}
+      </h2>
       <div
         style={{
           display: "flex",
@@ -319,8 +361,15 @@ export function SeoCarFeaturesBlock({ title, features }) {
   if (!features || features.length === 0) return null;
 
   return (
-    <section style={{ maxWidth: 980, margin: "0 auto", padding: "16px 16px 8px" }}>
-      <h2 style={{ marginBottom: 12 }}>{title}</h2>
+    <section
+      style={{
+        maxWidth: 980,
+        margin: "0 auto",
+        padding: "16px 16px 8px",
+        ...SEO_READABLE_TEXT,
+      }}
+    >
+      <h2 style={{ marginBottom: 12, ...SEO_READABLE_TEXT }}>{title}</h2>
       <ul style={{ margin: 0, paddingLeft: 20, listStyle: "none" }}>
         {features.map((feature, i) => (
           <li key={i} style={{ marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -346,9 +395,17 @@ export function SeoWhyRentBlock({
     <section
       id={sectionId || undefined}
       aria-labelledby={sectionId ? `${sectionId}-heading` : undefined}
-      style={{ maxWidth: 980, margin: "0 auto", padding: "16px 16px 8px" }}
+      style={{
+        maxWidth: 980,
+        margin: "0 auto",
+        padding: "16px 16px 8px",
+        ...SEO_READABLE_TEXT,
+      }}
     >
-      <h2 id={sectionId ? `${sectionId}-heading` : undefined} style={{ marginBottom: 12 }}>
+      <h2
+        id={sectionId ? `${sectionId}-heading` : undefined}
+        style={{ marginBottom: 12, ...SEO_READABLE_TEXT }}
+      >
         {title}
       </h2>
       <ul
@@ -465,11 +522,36 @@ export function SeoPillarLinksBlock({ title, links }) {
   if (!links || links.length === 0) return null;
 
   return (
-    <section style={{ maxWidth: 980, margin: "0 auto", padding: "8px 16px 16px" }}>
-      <h2 style={{ marginBottom: 8, fontSize: "1rem", fontWeight: 600 }}>{title}</h2>
+    <section
+      style={{
+        maxWidth: 980,
+        margin: "0 auto",
+        padding: "8px 16px 16px",
+        ...SEO_READABLE_TEXT,
+      }}
+    >
+      <h2
+        style={{
+          marginBottom: 8,
+          fontSize: "1rem",
+          fontWeight: 600,
+          ...SEO_READABLE_TEXT,
+        }}
+      >
+        {title}
+      </h2>
       <p style={{ margin: 0, display: "flex", flexWrap: "wrap", gap: "8px 16px" }}>
         {links.map((link) => (
-          <Link key={link.href} href={link.href} style={{ color: "#1a73e8", textDecoration: "none" }}>
+          <Link
+            key={link.href}
+            href={link.href}
+            style={{
+              color: "#1a73e8",
+              textDecoration: "none",
+              fontSize: "1rem",
+              ...SEO_READABLE_TEXT,
+            }}
+          >
             {link.label}
           </Link>
         ))}
@@ -484,7 +566,12 @@ export function SeoBreadcrumbNav({ items }) {
   return (
     <nav
       aria-label="Breadcrumb"
-      style={{ maxWidth: 980, margin: "0 auto", padding: "16px 16px 0" }}
+      style={{
+        maxWidth: 980,
+        margin: "0 auto",
+        padding: "16px 16px 0",
+        ...SEO_READABLE_TEXT,
+      }}
     >
       <ol
         style={{

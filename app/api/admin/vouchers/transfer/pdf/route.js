@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@lib/adminAuth";
-import { normalizeTransferVoucherData } from "@/domain/vouchers/transferVoucher";
+import {
+  normalizeTransferVoucherData,
+  resolveVoucherLocaleForMarket,
+} from "@/domain/vouchers/transferVoucher";
 import { buildTransferVoucherPdf } from "@/domain/vouchers/transferVoucherPdf";
 import { resolveAdminVoucherCompany } from "@/domain/vouchers/resolveAdminVoucherCompany";
 
@@ -25,13 +28,15 @@ export async function POST(request) {
     return json({ success: false, message: "Invalid JSON" }, 400);
   }
 
-  const { stampSrc, defaults } = await resolveAdminVoucherCompany(
+  const { company, stampSrc, defaults } = await resolveAdminVoucherCompany(
     session,
     body?.companyId
   );
 
+  const raw = body?.voucher || {};
   const voucher = normalizeTransferVoucherData({
-    ...(body?.voucher || {}),
+    ...raw,
+    locale: resolveVoucherLocaleForMarket(raw.locale, company?.country),
     // Server-enforced branding — never print another company's stamp
     stampSrc,
     companyHeaderTitle:

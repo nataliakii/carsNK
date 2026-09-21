@@ -181,7 +181,7 @@ export function buildCarMetadata(input: {
   fuelType?: string;
   seats?: string;
 }): Metadata {
-  const locale = normalizeLocale(input.localeCandidate);
+  const locale = normalizeRoutableLocale(input.localeCandidate);
   const canonicalPath = `/${locale}/cars/${encodeURIComponent(input.carSlug)}`;
   const carSeo = buildCarSeoText(locale, {
     carModel: input.carModel,

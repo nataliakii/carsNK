@@ -45,11 +45,6 @@ import { fetchCar } from "@utils/action";
 import { fetchOrdersByCar } from "@utils/action";
 import TimeToLeaveIcon from "@mui/icons-material/TimeToLeave";
 import { useMainContext } from "@app/Context";
-import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
-import {
-  resolveCatalogPlaceOptions,
-} from "@/domain/orders/catalogPlaceOptions";
-import { getSiteCountryCode } from "@config/siteCountry";
 
 // Lazy load тяжелых компонентов для улучшения производительности
 const BookingModal = lazy(() => import("./BookingModal"));
@@ -270,23 +265,11 @@ const CarItemComponent = React.memo(function CarItemComponent({
   const { fetchAndUpdateActiveOrders, isLoading, ordersByCarId, allOrders, company } =
     useMainContext();
 
-  const { names: bookingZoneNames } = useCompanyBookingLocations(
-    car?.ownerId || company?._id
-  );
-  const operatingZoneNames = React.useMemo(
-    () => resolveCatalogPlaceOptions(bookingZoneNames, getSiteCountryCode()),
-    [bookingZoneNames]
-  );
   // Same list the expanded delivery block renders, so the compact summary
   // above can preview the first few places without a second source of truth.
   const operatingZones = React.useMemo(
-    () =>
-      resolveCarOperatingZones({
-        car,
-        company,
-        zoneNames: operatingZoneNames,
-      }),
-    [car, company, operatingZoneNames]
+    () => resolveCarOperatingZones({ car, company }),
+    [car, company]
   );
   
   // Мемоизируем carOrders вместо useState + useEffect для снижения TBT
@@ -442,7 +425,6 @@ const CarItemComponent = React.memo(function CarItemComponent({
                   <CarDeliveryInfo
                     car={car}
                     company={company}
-                    zoneNames={operatingZoneNames}
                   />
                 </Suspense>
 

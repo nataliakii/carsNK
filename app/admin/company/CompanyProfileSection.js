@@ -1,27 +1,118 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Alert, Box, CircularProgress, Stack, Typography } from "@mui/material";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import {
+  Alert,
+  Box,
+  CircularProgress,
+  Stack,
+  Tab,
+  Tabs,
+  Typography,
+} from "@mui/material";
 import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
-import CompanyContactsCard from "@/app/admin/shared/components/CompanyContactsCard";
-import EditCompanyContactsDialog from "@/app/admin/shared/components/EditCompanyContactsDialog";
 import CompanyStorefrontCard from "@/app/admin/shared/components/CompanyStorefrontCard";
+import CompanyCoverageCard from "@/app/admin/shared/components/CompanyCoverageCard";
+import CompanyDeliveryPricingCard from "@/app/admin/shared/components/CompanyDeliveryPricingCard";
 import CompanyTransferServicesCard from "@/app/admin/shared/components/CompanyTransferServicesCard";
 import CompanyRentalPaymentsCard from "@/app/admin/shared/components/CompanyRentalPaymentsCard";
+import CompanyAdminsCard from "@/app/admin/shared/components/CompanyAdminsCard";
+import CompanyMeetingContactsCard from "@/app/admin/shared/components/CompanyMeetingContactsCard";
 import PartnerComplianceCard from "@/app/admin/shared/components/PartnerComplianceCard";
-import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
+import { adminReadableTextSx } from "@/app/admin/shared/components/AdminSettingsSection";
+import { adminSectionTabsSx } from "@app/admin/shared/components/AdminSectionTabs";
 import {
-  meetingContactsFromCompany,
-  meetingContactsUpdatePayload,
-} from "@/domain/company/meetingContacts";
+  getCompanyHubTabIds,
+  resolveCompanyHubTab,
+} from "@app/admin/shared/adminNav";
+import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 import { useMainContext } from "@app/Context";
 
-export default function CompanyProfileSection({ companyId: companyIdProp } = {}) {
+function TabLoader() {
+  return (
+    <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+      <CircularProgress />
+    </Box>
+  );
+}
+
+const DeliveryZonesSection = dynamic(
+  () => import("@/app/admin/delivery-zones/DeliveryZonesSection"),
+  { ssr: false, loading: TabLoader }
+);
+const TransferVouchersSection = dynamic(
+  () => import("@app/admin/vouchers/TransferVouchersSection"),
+  { ssr: false, loading: TabLoader }
+);
+const AccessTokensSection = dynamic(
+  () => import("@app/admin/access-tokens/AccessTokensSection"),
+  { ssr: false, loading: TabLoader }
+);
+const PlatformCatalogSection = dynamic(
+  () => import("@app/admin/platform/PlatformCatalogSection"),
+  { ssr: false, loading: TabLoader }
+);
+const TransferPricingSection = dynamic(
+  () => import("@app/admin/platform/TransferPricingSection"),
+  { ssr: false, loading: TabLoader }
+);
+
+const TAB_STOREFRONT = "storefront";
+const TAB_PEOPLE = "people";
+const TAB_DELIVERY = "delivery";
+const TAB_PRICING = "pricing";
+const TAB_VOUCHERS = "vouchers";
+const TAB_TRANSFER = "transfer";
+const TAB_ACCESS = "access-links";
+const TAB_PLATFORM = "platform";
+
+function companyTabDefs({ hasCompanyContext, showSuperAdminTabs, t }) {
+  const labels = {
+    [TAB_STOREFRONT]: t("companyProfile.tabStorefront", {
+      defaultValue: "Storefront & booking",
+    }),
+    [TAB_PEOPLE]: t("companyProfile.tabPeople", {
+      defaultValue: "People",
+    }),
+    [TAB_DELIVERY]: t("companyProfile.tabDelivery", {
+      defaultValue: "Delivery",
+    }),
+    [TAB_PRICING]: t("companyProfile.tabPricing", {
+      defaultValue: "Pricing",
+    }),
+    [TAB_TRANSFER]: t("companyProfile.tabTransfer", {
+      defaultValue: "Transfer",
+    }),
+    [TAB_VOUCHERS]: t("companyProfile.tabVouchers", {
+      defaultValue: "Vouchers",
+    }),
+    [TAB_ACCESS]: t("header.accessLinks", { defaultValue: "Access links" }),
+    [TAB_PLATFORM]: t("header.platform", { defaultValue: "Platform" }),
+  };
+  return getCompanyHubTabIds({ hasCompanyContext, showSuperAdminTabs }).map(
+    (id) => ({ id, label: labels[id] || id })
+  );
+}
+
+function isGreeceCompany(company) {
+  return String(company?.country || "").toUpperCase() === "GR";
+}
+
+function CompanyHubInner({
+  companyId: companyIdProp,
+  hasCompanyContext = true,
+  voucherHub = null,
+} = {}) {
   const { t } = useTranslation();
   const { data: session } = useSession();
   const { updateCompanyInContext } = useMainContext();
   const { active: viewAsActive, company: viewAsCompany } = useAdminViewAs();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const ownerId =
     (companyIdProp && String(companyIdProp)) ||
     (viewAsActive && viewAsCompany?._id
@@ -30,24 +121,34 @@ export default function CompanyProfileSection({ companyId: companyIdProp } = {})
         ? String(session.user.ownerId)
         : "");
 
+  const showSuperAdminTabs = Boolean(voucherHub?.showSuperAdminTabs);
+  const tabs = useMemo(
+    () => companyTabDefs({ hasCompanyContext, showSuperAdminTabs, t }),
+    [hasCompanyContext, showSuperAdminTabs, t]
+  );
+  const tabIds = useMemo(() => tabs.map((tab) => tab.id), [tabs]);
+  const requested = searchParams?.get("tab");
+  const fallbackTab = tabIds[0] || (hasCompanyContext ? TAB_STOREFRONT : TAB_ACCESS);
+  const tab = resolveCompanyHubTab(requested, tabIds) || fallbackTab;
+
+  const setTab = useCallback(
+    (next) => {
+      const params = new URLSearchParams(searchParams?.toString() || "");
+      if (next === fallbackTab) params.delete("tab");
+      else params.set("tab", next);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    },
+    [fallbackTab, pathname, router, searchParams]
+  );
+
   const [company, setCompany] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(hasCompanyContext);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
 
-  const [editOpen, setEditOpen] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editTel, setEditTel] = useState("");
-  const [editBaseLat, setEditBaseLat] = useState("");
-  const [editBaseLon, setEditBaseLon] = useState("");
-  const [editMeetingContacts, setEditMeetingContacts] = useState(() =>
-    meetingContactsFromCompany(null)
-  );
-
   const load = useCallback(async () => {
-    if (!ownerId) {
+    if (!ownerId || !hasCompanyContext) {
       setCompany(null);
       setLoading(false);
       return;
@@ -65,75 +166,69 @@ export default function CompanyProfileSection({ companyId: companyIdProp } = {})
     } finally {
       setLoading(false);
     }
-  }, [ownerId, t]);
+  }, [hasCompanyContext, ownerId, t]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const openEdit = () => {
-    if (!company) return;
-    setEditName(company.name || "");
-    setEditEmail(company.email || "");
-    setEditTel(company.tel || "");
-    setEditBaseLat(company?.coords?.lat != null ? String(company.coords.lat) : "");
-    setEditBaseLon(company?.coords?.lon != null ? String(company.coords.lon) : "");
-    setEditMeetingContacts(meetingContactsFromCompany(company));
-    setEditOpen(true);
-  };
-
-  const saveContacts = async () => {
-    if (!ownerId) return;
-    setBusy(true);
-    setError("");
-    setOk("");
-    try {
-      const meetingPayload = meetingContactsUpdatePayload(editMeetingContacts);
-      const res = await fetch(`/api/company/${ownerId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editName,
-          email: editEmail,
-          tel: editTel,
-          coords: {
-            lat: editBaseLat,
-            lon: editBaseLon,
-          },
-          ...meetingPayload,
-        }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error || body.message || "Failed");
-      setCompany(body);
-      setEditOpen(false);
-      setOk(t("companyProfile.updated", { name: body.name }));
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("company-contacts-updated"));
+  const handleCompanySaved = useCallback(
+    (updated) => {
+      setCompany(updated);
+      setOk(t("companyProfile.updated", { name: updated.name }));
+      if (updated?._id) {
+        updateCompanyInContext(String(updated._id), updated);
       }
-    } catch (err) {
-      setError(err.message || "Failed");
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+    [t, updateCompanyInContext]
+  );
 
-  if (loading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const needsCompany =
+    tab === TAB_STOREFRONT ||
+    tab === TAB_PEOPLE ||
+    tab === TAB_DELIVERY ||
+    tab === TAB_PRICING;
+
+  const wideTab =
+    tab === TAB_DELIVERY ||
+    tab === TAB_PRICING ||
+    tab === TAB_VOUCHERS ||
+    tab === TAB_PLATFORM;
 
   return (
-    <Box sx={{ px: { xs: 1, md: 2 }, pb: 6, pt: { xs: 2, md: 2 }, maxWidth: { xs: "100%", md: 960 }, mx: "auto", overflowX: "hidden" }}>
-      <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>
-        {t("companyProfile.title")}
+    <Box
+      sx={{
+        px: { xs: 1, md: 2 },
+        pb: 6,
+        pt: { xs: 2, md: 2 },
+        maxWidth: wideTab ? { xs: "100%", md: 1200 } : { xs: "100%", md: 960 },
+        mx: "auto",
+        overflowX: "hidden",
+      }}
+    >
+      <Typography variant="h4" fontWeight={700} sx={{ mb: 1, ...adminReadableTextSx }}>
+        {t("companyProfile.hubTitle", { defaultValue: t("header.companyProfile") })}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {t("companyProfile.subtitle")}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, ...adminReadableTextSx }}>
+        {t("companyProfile.hubSubtitle", {
+          defaultValue: t("companyProfile.subtitle"),
+        })}
       </Typography>
+
+      {hasCompanyContext ? <PartnerComplianceCard /> : null}
+
+      <Tabs
+        value={Math.max(tabIds.indexOf(tab), 0)}
+        onChange={(_, v) => setTab(tabIds[v] || fallbackTab)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        sx={{ ...adminSectionTabsSx, px: 0 }}
+      >
+        {tabs.map((item) => (
+          <Tab key={item.id} label={item.label} />
+        ))}
+      </Tabs>
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -146,52 +241,92 @@ export default function CompanyProfileSection({ companyId: companyIdProp } = {})
         </Alert>
       ) : null}
 
-      <PartnerComplianceCard />
+      {needsCompany && hasCompanyContext && loading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+          <CircularProgress />
+        </Box>
+      ) : null}
 
-      <Stack spacing={2.5}>
-        <CompanyContactsCard company={company} onEdit={openEdit} canEdit />
+      {tab === TAB_STOREFRONT && !loading ? (
+        <CompanyStorefrontCard company={company} onSaved={handleCompanySaved} />
+      ) : null}
 
-        <CompanyStorefrontCard
-          company={company}
-          onEditBaseLocation={openEdit}
-          onSaved={(updated) => {
-            setCompany(updated);
-            setOk(t("companyProfile.updated", { name: updated.name }));
-            if (updated?._id) {
-              updateCompanyInContext(String(updated._id), updated);
-            }
-          }}
+      {tab === TAB_PEOPLE && !loading ? (
+        <Stack gap={2.5} sx={{ mt: 1 }}>
+          <CompanyAdminsCard
+            companyId={ownerId}
+            companyName={company?.name || ""}
+          />
+          <CompanyMeetingContactsCard
+            company={company}
+            onSaved={handleCompanySaved}
+          />
+        </Stack>
+      ) : null}
+
+      {tab === TAB_DELIVERY ? (
+        hasCompanyContext && !loading ? (
+          <CompanyCoverageCard company={company} onSaved={handleCompanySaved} />
+        ) : (
+          <DeliveryZonesSection variant="coverage" />
+        )
+      ) : null}
+
+      {tab === TAB_PRICING ? (
+        hasCompanyContext && !loading ? (
+          <Stack gap={2.5} sx={{ mt: 1 }}>
+            <CompanyDeliveryPricingCard
+              company={company}
+              onSaved={handleCompanySaved}
+            />
+            <CompanyRentalPaymentsCard
+              company={company}
+              onSaved={handleCompanySaved}
+            />
+            {isGreeceCompany(company) ? (
+              <DeliveryZonesSection variant="pricing" />
+            ) : null}
+          </Stack>
+        ) : (
+          <DeliveryZonesSection variant="pricing" />
+        )
+      ) : null}
+
+      {tab === TAB_VOUCHERS ? (
+        <TransferVouchersSection
+          company={voucherHub?.company}
+          companies={voucherHub?.companies}
+          canPickCompany={voucherHub?.canPickCompany}
+          initialDefaults={voucherHub?.initialDefaults}
         />
+      ) : null}
 
+      {tab === TAB_TRANSFER ? (
         <CompanyTransferServicesCard companyId={ownerId} />
+      ) : null}
 
-        <CompanyRentalPaymentsCard
-          company={company}
-          onSaved={(updated) => {
-            setCompany(updated);
-            setOk(t("companyProfile.updated", { name: updated.name }));
-          }}
-        />
-      </Stack>
+      {tab === TAB_ACCESS ? <AccessTokensSection /> : null}
 
-      <EditCompanyContactsDialog
-        open={editOpen}
-        busy={busy}
-        name={editName}
-        email={editEmail}
-        tel={editTel}
-        baseLat={editBaseLat}
-        baseLon={editBaseLon}
-        meetingContacts={editMeetingContacts}
-        onNameChange={setEditName}
-        onEmailChange={setEditEmail}
-        onTelChange={setEditTel}
-        onBaseLatChange={setEditBaseLat}
-        onBaseLonChange={setEditBaseLon}
-        onMeetingContactsChange={setEditMeetingContacts}
-        onClose={() => setEditOpen(false)}
-        onSave={saveContacts}
-      />
+      {tab === TAB_PLATFORM ? (
+        <>
+          <PlatformCatalogSection />
+          <TransferPricingSection />
+        </>
+      ) : null}
     </Box>
+  );
+}
+
+export default function CompanyProfileSection(props) {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <CompanyHubInner {...props} />
+    </Suspense>
   );
 }

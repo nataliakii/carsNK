@@ -8,7 +8,7 @@
 
 import {
   normalizeCarOffices,
-  enrichOfficeWithCompany,
+  resolveBookingDisplayOffices,
 } from "@/domain/orders/carOffices";
 import { normalizeOperatingCities } from "@/domain/delivery/cityDeliveryPricing";
 
@@ -22,30 +22,30 @@ const cleanNames = (values) =>
  * build the "free pickup at …" line.
  */
 export function resolveCarOffices(car, company) {
-  return normalizeCarOffices(car?.offices).map((office) =>
-    enrichOfficeWithCompany(office, company)
-  );
+  return resolveBookingDisplayOffices(car, company);
 }
 
 /**
- * First non-empty source wins:
- *   1. the company's configured delivery operating cities
- *   2. booking zone names passed in by the card
- *   3. the company's saved locations
- *   4. the car's own offices
+ * Cities shown as "available in" chips.
+ *
+ *   1. company.deliveryPricing.operatingCities — where the company delivers
+ *   2. the car's own offices — honest fallback when no city list is saved
+ *
+ * `zoneNames` (booking catalog / SPAIN_CITY_OPTIONS) is ignored on purpose.
+ * That list is the pickup autocomplete for the whole market, not a claim
+ * that every car covers Spain.
  *
  * @returns {string[]} de-duplicated place names, order preserved.
  */
-export function resolveCarOperatingZones({ car, company, zoneNames = [] }) {
-  const offices = resolveCarOffices(car, company);
+export function resolveCarOperatingZones({ car, company } = {}) {
+  const operatingCities = normalizeOperatingCities(
+    company?.deliveryPricing?.operatingCities
+  );
+  if (operatingCities.length) return operatingCities;
 
-  const sources = [
-    normalizeOperatingCities(company?.deliveryPricing?.operatingCities),
-    cleanNames(zoneNames),
-    cleanNames((company?.locations || []).map((loc) => loc?.name)),
-    cleanNames(offices.map((office) => office.name)),
-  ];
-
-  const chosen = sources.find((source) => source.length > 0) || [];
-  return Array.from(new Set(chosen));
+  return Array.from(
+    new Set(
+      cleanNames(normalizeCarOffices(car?.offices).map((office) => office.name))
+    )
+  );
 }

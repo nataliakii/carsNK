@@ -20,10 +20,13 @@ const FilterLocationAutocomplete = ({
   onChange,
   emptyOptionLabel = "—",
   disabled = false,
+  /** Navbar filter bar is dark; dialogs use light. */
+  variant = "dark",
 }) => {
   const brand = getActiveBrand();
   const accent = brand.primary;
   const accentLight = brand.primaryLight;
+  const light = variant === "light";
 
   const filterOptions = useMemo(
     () =>
@@ -78,13 +81,13 @@ const FilterLocationAutocomplete = ({
         m: 0,
         mt: 0,
         width: "100%",
-        minWidth: { xs: "100%", sm: 220 },
-        maxWidth: { xs: "100%", sm: 300 },
+        minWidth: light ? "100%" : { xs: "100%", sm: 220 },
+        maxWidth: light ? "100%" : { xs: "100%", sm: 300 },
         "& .MuiInputBase-root": {
-          color: "#fff",
+          color: light ? "text.primary" : "#fff",
           fontSize: "0.85rem",
           height: FILTER_CONTROL_HEIGHT,
-          backgroundColor: "rgba(255,255,255,0.04)",
+          backgroundColor: light ? "background.paper" : "rgba(255,255,255,0.04)",
           borderRadius: "10px",
         },
         "& .MuiOutlinedInput-input": {
@@ -95,17 +98,17 @@ const FilterLocationAutocomplete = ({
           whiteSpace: "nowrap",
         },
         "& .MuiInputLabel-root": {
-          color: "rgba(255,255,255,0.72)",
+          color: light ? "text.secondary" : "rgba(255,255,255,0.72)",
           fontSize: "0.85rem",
         },
         "& .MuiInputLabel-root.Mui-focused": {
           color: accent,
         },
         "& .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-clearIndicator": {
-          color: "rgba(255,255,255,0.85)",
+          color: light ? "text.secondary" : "rgba(255,255,255,0.85)",
         },
         "& .MuiOutlinedInput-notchedOutline": {
-          borderColor: "rgba(255,255,255,0.28)",
+          borderColor: light ? "rgba(0,0,0,0.23)" : "rgba(255,255,255,0.28)",
         },
         "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
           borderColor: accentLight,

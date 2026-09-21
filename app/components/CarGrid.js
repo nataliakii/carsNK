@@ -20,6 +20,7 @@ import { calculateTotalPrice } from "@utils/action";
 import dayjs from "dayjs";
 import { getSiteCountryCode } from "@config/siteCountry";
 import { isSpainBookingSite } from "@/domain/orders/catalogPlaceOptions";
+import { resolveDefaultInsurance } from "@/domain/orders/defaultInsurance";
 import BookingContextDetailsDialog from "./BookingContextDetailsDialog";
 
 const Section = styled("section")(({ theme }) => ({
@@ -202,7 +203,7 @@ function CarGrid() {
             carApiIdentifier,
             searchDates.start,
             searchDates.end,
-            "TPL",
+            resolveDefaultInsurance(car),
             0,
             {
               signal: abort.signal,

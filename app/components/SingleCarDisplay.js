@@ -8,7 +8,12 @@ import dayjs from "dayjs";
 function SingleCarDisplay({ carSlug }) {
   const { cars } = useMainContext();
   const car = useMemo(
-    () => cars.find((c) => c.slug === carSlug),
+    () =>
+      (cars || []).find(
+        (c) =>
+          c?.slug &&
+          String(c.slug).toLowerCase() === String(carSlug || "").toLowerCase()
+      ),
     [cars, carSlug]
   );
 
@@ -50,14 +55,24 @@ function SingleCarDisplay({ carSlug }) {
   if (!car) return null;
 
   return (
-    <Container sx={{ mt: 2 }}>
+    <Container sx={{ mt: 2, mb: 2 }}>
       <Grid
         container
-        spacing={{ sm: 2, sx: 0.4 }}
+        spacing={{ sm: 2, xs: 0.4 }}
         direction="column"
         sx={{ alignItems: "center", alignContent: "center" }}
       >
-        <Grid item xs={12} sx={{ padding: 2 }}>
+        <Grid
+          item
+          xs={12}
+          sx={{
+            padding: 2,
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
+            boxSizing: "border-box",
+          }}
+        >
           <CarItemComponent
             car={car}
             discount={discount}

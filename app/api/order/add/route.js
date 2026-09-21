@@ -28,6 +28,12 @@ import {
   locationRequiresAddressDetail,
 } from "@/domain/platform/bookingLocations";
 import { loadCompanyBookingCities } from "@/domain/platform/companyBookingCities";
+import { resolveAllowedCustomerPlaceNames } from "@/domain/orders/customerBookingPlaces";
+import {
+  isPlaceMatchingCarOffice,
+  resolveBookingDisplayOffices,
+} from "@/domain/orders/carOffices";
+import { isSpainBookingSite } from "@/domain/orders/catalogPlaceOptions";
 import { toBooleanField } from "@/domain/orders/fieldUtils";
 import {
   resolveCreateDrivingLicenceUrls,
@@ -488,18 +494,33 @@ async function postOrderAddHandler(request) {
     const returnAtUtc = endDate.utc().toDate();
 
     if (isCustomerSelfServiceBooking) {
-      const bookingNames = bookingCities.map((city) => city.name);
+      const ownerBookingCityNames = bookingCities.map((city) => city.name);
+      const siteCountry = getSiteCountryCode();
+      const allowedNames = resolveAllowedCustomerPlaceNames({
+        countryCode: siteCountry,
+        company: ownerCompany,
+        car: existingCar,
+        ownerBookingCityNames,
+      });
+      const displayOffices = resolveBookingDisplayOffices(
+        existingCar,
+        ownerCompany,
+        { countryCode: siteCountry, selectedCity: placeInToSave }
+      );
       const pin = placeInToSave;
       const pout = placeOutToSave;
+      const outsideKey = isSpainBookingSite(siteCountry)
+        ? "order.spainLocationOutsideServiceArea"
+        : "order.locationOutsideServiceArea";
       if (
-        !isAllowedBookingLocation(pin, bookingNames) ||
-        !isAllowedBookingLocation(pout, bookingNames)
+        !isAllowedBookingLocation(pin, allowedNames) ||
+        !isAllowedBookingLocation(pout, allowedNames)
       ) {
         return new Response(
           JSON.stringify({
             message:
               "Pickup and return must match a location served by this car's owner.",
-            messageKey: "order.locationOutsideServiceArea",
+            messageKey: outsideKey,
           }),
           {
             status: 400,
@@ -507,13 +528,13 @@ async function postOrderAddHandler(request) {
           }
         );
       }
-      const pinCanon = canonicalizeBookingLocation(pin, bookingNames);
-      const poutCanon = canonicalizeBookingLocation(pout, bookingNames);
+      const pinCanon = canonicalizeBookingLocation(pin, allowedNames);
+      const poutCanon = canonicalizeBookingLocation(pout, allowedNames);
       if (!pinCanon || !poutCanon) {
         return new Response(
           JSON.stringify({
             message: "Invalid pickup or return location.",
-            messageKey: "order.locationOutsideServiceArea",
+            messageKey: outsideKey,
           }),
           {
             status: 400,
@@ -523,7 +544,10 @@ async function postOrderAddHandler(request) {
       }
       placeInToSave = pinCanon;
       placeOutToSave = poutCanon;
+      const pinIsOffice = isPlaceMatchingCarOffice(pinCanon, displayOffices);
+      const poutIsOffice = isPlaceMatchingCarOffice(poutCanon, displayOffices);
       if (
+        !pinIsOffice &&
         locationRequiresAddressDetail(pinCanon, bookingCities) &&
         placeInDetailToSave.length < 3
       ) {
@@ -540,6 +564,7 @@ async function postOrderAddHandler(request) {
         );
       }
       if (
+        !poutIsOffice &&
         locationRequiresAddressDetail(poutCanon, bookingCities) &&
         placeOutDetailToSave.length < 3
       ) {

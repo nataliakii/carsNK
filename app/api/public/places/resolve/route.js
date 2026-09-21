@@ -98,7 +98,7 @@ export async function POST(request) {
     await connectToDB();
     company = await Company.findById(companyId)
       .select(
-        "coords address orderRadiusKm deliveryPricing deliveryPricePerKm country cityIds locations name"
+        "coords address orderRadiusKm deliveryPricing deliveryPricePerKm country cityIds locations name offices"
       )
       .lean();
     const cityName = String(body.cityName || "").trim();

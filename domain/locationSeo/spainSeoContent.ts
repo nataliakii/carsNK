@@ -61,6 +61,35 @@ const CAR = {
     carH1Template: "Rent {carModel} in {locationName}",
     introTemplate: `The {carModel} is available for rent in {locationName}, Spain, with flexible pickup and return. {transmission} transmission, {fuelType} fuel, {seats} seats.`,
     introLongTemplate: `Rent the {carModel} in {locationName} with ${brand()}. Ideal for city trips and coastal drives across Spain. {transmission} transmission and air conditioning included. Book online for clear terms and easy confirmation.`,
+    specsTitle: "Vehicle specifications",
+    quickSpecsTitle: "At a glance",
+    featuresTitle: "Features of {carModel}",
+    whyRentTitle: "Why choose {carModel} for your {locationName} trip",
+    whyRentBullets: [
+      "Practical for city streets and day trips along the Catalan coast",
+      "Book online with clear terms and easy confirmation",
+      "Flexible pickup near Barcelona and Costa Brava",
+    ],
+    faqTitle: "Frequently asked questions",
+    faq: [
+      {
+        question: "Where can I pick up this car in {locationName}?",
+        answer: `Pickup is arranged with the local partner when you book. ${brand()} lists cars for Barcelona and Costa Brava — the exact meeting point is confirmed with your reservation.`,
+      },
+      {
+        question: "Can I review the rental terms before booking?",
+        answer: "Yes. Open the rental terms on this site before you confirm. The partner confirms pickup details with your booking.",
+      },
+      {
+        question: "How do I book the {carModel}?",
+        answer: "Choose your dates on this page and send a booking request. You get confirmation after the partner accepts.",
+      },
+    ],
+    breadcrumbHome: "Home",
+    breadcrumbCars: "Cars",
+    breadcrumbCarRentalLocation: "Car rental {locationName}",
+    pickupTitle: "Pickup locations",
+    pillarLinksTitle: "Car rental by location",
   },
   es: {
     seoTitleTemplate: `Alquila {carModel} en España | ${brand()}`,
@@ -68,6 +97,35 @@ const CAR = {
     carH1Template: "Alquila {carModel} en {locationName}",
     introTemplate: `El {carModel} está disponible para alquilar en {locationName}, España, con recogida y devolución flexibles. Cambio {transmission}, combustible {fuelType}, {seats} plazas.`,
     introLongTemplate: `Alquila el {carModel} en {locationName} con ${brand()}. Ideal para ciudad y costa en España. Cambio {transmission} y aire acondicionado. Reserva online con condiciones claras.`,
+    specsTitle: "Especificaciones del vehículo",
+    quickSpecsTitle: "De un vistazo",
+    featuresTitle: "Características de {carModel}",
+    whyRentTitle: "Por qué elegir {carModel} para tu viaje a {locationName}",
+    whyRentBullets: [
+      "Cómodo para la ciudad y excursiones por la costa catalana",
+      "Reserva online con condiciones claras",
+      "Recogida flexible cerca de Barcelona y Costa Brava",
+    ],
+    faqTitle: "Preguntas frecuentes",
+    faq: [
+      {
+        question: "¿Dónde puedo recoger este coche en {locationName}?",
+        answer: `La recogida la confirma el socio local al reservar. ${brand()} muestra coches para Barcelona y Costa Brava; el punto exacto se confirma con tu reserva.`,
+      },
+      {
+        question: "¿Puedo ver las condiciones antes de reservar?",
+        answer: "Sí. Consulta las condiciones de alquiler en este sitio antes de confirmar. El socio confirma los detalles de recogida con tu reserva.",
+      },
+      {
+        question: "¿Cómo reservo el {carModel}?",
+        answer: "Elige las fechas en esta página y envía la solicitud. Recibirás la confirmación cuando el socio acepte.",
+      },
+    ],
+    breadcrumbHome: "Inicio",
+    breadcrumbCars: "Coches",
+    breadcrumbCarRentalLocation: "Alquiler de coches {locationName}",
+    pickupTitle: "Puntos de recogida",
+    pillarLinksTitle: "Alquiler de coches por destino",
   },
 } as const;
 

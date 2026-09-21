@@ -8,7 +8,7 @@ import { PARTNER_GATE_STEP } from "@/domain/legal/partnerGate";
 
 const STEP_HREF = {
   [PARTNER_GATE_STEP.PROFILE]: "/admin/legal-profile",
-  [PARTNER_GATE_STEP.AGREEMENT]: "/admin/legal-profile/agreement",
+  [PARTNER_GATE_STEP.AGREEMENT]: "/admin/legal-profile?tab=agreement",
 };
 
 /**

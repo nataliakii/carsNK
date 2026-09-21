@@ -30,14 +30,13 @@ import {
   getVoucherMarketLocales,
   normalizeTransferVoucherData,
   resolveVoucherLocaleForMarket,
-  TRANSFER_VOUCHER_LOCALES,
   voucherFieldLabel,
   voucherUiText,
 } from "@/domain/vouchers/transferVoucher";
 import { buildCompanyVoucherDefaults } from "@/domain/vouchers/companyStamp";
 
-function normalizeVoucherLocale(value) {
-  return TRANSFER_VOUCHER_LOCALES.includes(value) ? value : "el";
+function normalizeVoucherLocale(value, country) {
+  return resolveVoucherLocaleForMarket(value, country);
 }
 
 const DRAFT_KEY = "natali_transfer_voucher_draft_v1";
@@ -504,7 +503,7 @@ export default function TransferVouchersSection({
       normalizeTransferVoucherData({
         ...form,
         bilingual: false,
-        locale: normalizeVoucherLocale(form.locale),
+        locale: normalizeVoucherLocale(form.locale, activeCompany?.country),
       }),
     [form]
   );
@@ -625,11 +624,12 @@ export default function TransferVouchersSection({
   const withCompanyBranding = (payload) => {
     const branding = brandingFor(
       activeCompany,
-      normalizeVoucherLocale(payload.locale)
+      normalizeVoucherLocale(payload.locale, activeCompany?.country)
     );
     return normalizeTransferVoucherData({
       ...payload,
       bilingual: false,
+      locale: normalizeVoucherLocale(payload.locale, activeCompany?.country),
       stampSrc: branding.stampSrc,
       companyHeaderTitle:
         payload.companyHeaderTitle || branding.companyHeaderTitle,
@@ -640,7 +640,7 @@ export default function TransferVouchersSection({
   const handleSave = async () => {
     setBusy("save");
     setStatus(null);
-    const locale = normalizeVoucherLocale(form.locale);
+    const locale = normalizeVoucherLocale(form.locale, activeCompany?.country);
     try {
       const voucher = withCompanyBranding(form);
 
@@ -687,7 +687,7 @@ export default function TransferVouchersSection({
   };
 
   const handleSend = async () => {
-    const locale = normalizeVoucherLocale(form.locale);
+    const locale = normalizeVoucherLocale(form.locale, activeCompany?.country);
     const target = String(email || "").trim().toLowerCase();
     if (!target.includes("@")) {
       setStatus({
@@ -731,7 +731,7 @@ export default function TransferVouchersSection({
     }
   };
 
-  const uiLocale = normalizeVoucherLocale(form.locale);
+  const uiLocale = normalizeVoucherLocale(form.locale, activeCompany?.country);
   const setLocale = (next) => {
     const locale = resolveVoucherLocaleForMarket(next, activeCompany?.country);
     const branding = brandingFor(activeCompany, locale);

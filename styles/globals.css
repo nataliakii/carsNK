@@ -148,6 +148,50 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/*
+  Catalog display type (Nunito + tight tracking) smashes Latin words.
+  Public pages add word-spacing locally; admin gets a readable default.
+  Also undo global `a` / `button` catalog rules that leak into admin.
+*/
+.admin-shell {
+  letter-spacing: 0.01em;
+  word-spacing: 0.16em;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.admin-shell .MuiTypography-root,
+.admin-shell .MuiButton-root,
+.admin-shell .MuiChip-label,
+.admin-shell .MuiInputLabel-root,
+.admin-shell .MuiFormHelperText-root,
+.admin-shell .MuiFormControlLabel-label,
+.admin-shell .MuiToggleButton-root,
+.admin-shell .MuiTab-root {
+  letter-spacing: 0.01em;
+  word-spacing: 0.16em;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.admin-shell a {
+  font-size: inherit;
+}
+
+/* Admin top bar sits outside .admin-shell — same readable tracking as cards. */
+.admin-nav,
+.admin-nav .MuiTypography-root,
+.admin-nav .MuiButton-root,
+.admin-nav .MuiChip-label,
+.admin-nav .admin-nav-link {
+  letter-spacing: 0.01em !important;
+  word-spacing: 0.16em !important;
+}
+
+.admin-shell button {
+  margin-top: 0;
+}
+
 #root-layout {
   font-family: 'PT Sans', 'Roboto', 'Helvetica', 'Arial', sans-serif;
   text-align: center;

@@ -4,6 +4,7 @@ import { COMPANY_ID } from "@config/company";
 import {
   applyCarOfficeFreeDelivery,
   isPlaceMatchingCarOffice,
+  resolveBookingDisplayOffices,
 } from "@/domain/orders/carOffices";
 import { computeZoneDeliveryPrice } from "./deliveryPriceFormula";
 import { resolveDeliveryZoneName } from "./resolveDeliveryZoneName";
@@ -19,6 +20,7 @@ import {
 } from "./cityDeliveryPricing";
 import { getDistanceFromBase } from "@/domain/transfers/getTransferDistance";
 import { parseLatLon } from "@/domain/geo/haversineKm";
+import { getSiteCountryCode } from "@config/siteCountry";
 
 function calculateZonePrice(zone, pricePerKm) {
   if (!zone) return { price: 0, zone: null, distanceKm: 0 };
@@ -123,9 +125,14 @@ export async function calculateDeliveryPrice({
   const strategy = resolveDeliveryStrategy(policy);
   const useRadiusRules = hasActiveRadiusDeliveryPricing(policy);
 
+  const displayOffices = resolveBookingDisplayOffices(
+    { offices: carOffices },
+    company,
+    { countryCode: getSiteCountryCode(), selectedCity: placeIn }
+  );
   // Office pickup/return → free (handled at end too, but short-circuit cities/radius)
-  const officeIn = isPlaceMatchingCarOffice(placeIn, carOffices);
-  const officeOut = isPlaceMatchingCarOffice(placeOut, carOffices);
+  const officeIn = isPlaceMatchingCarOffice(placeIn, displayOffices);
+  const officeOut = isPlaceMatchingCarOffice(placeOut, displayOffices);
 
   if (strategy === "cities" && policy) {
     const priceCityLeg = async (place, detail, lat, lon, locality, isOffice) => {
@@ -302,5 +309,5 @@ export async function calculateDeliveryPrice({
     strategy,
   };
 
-  return applyCarOfficeFreeDelivery(base, carOffices);
+  return applyCarOfficeFreeDelivery(base, displayOffices);
 }

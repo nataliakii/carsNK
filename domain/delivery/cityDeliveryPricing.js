@@ -118,9 +118,10 @@ export function resolveNearestOfficePoint({
   company,
 }) {
   const addr = parseLatLon(addressCoords);
-  const offices = normalizeCarOffices(carOffices).map((o) =>
-    enrichOfficeWithCompany(o, company)
-  );
+  const offices = [
+    ...normalizeCarOffices(carOffices),
+    ...normalizeCarOffices(company?.offices),
+  ].map((o) => enrichOfficeWithCompany(o, company));
 
   const candidates = [];
   for (const o of offices) {

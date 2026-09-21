@@ -50,6 +50,26 @@ const CompanySchema = new Schema({
   langSuperadmin: { type: String, default: "en", trim: true },
   useEmail: { type: Boolean, default: false, required: true },
   locations: [locationsSchema],
+
+  /**
+   * Pickup / return offices. Street address is the customer-facing base;
+   * coords are geocoded from the address (or typed as a fallback).
+   * Shape: { name, address, lat, lon } — lng accepted on write.
+   */
+  offices: {
+    type: [
+      new Schema(
+        {
+          name: { type: String, default: "", trim: true },
+          address: { type: String, default: "", trim: true },
+          lat: { type: String, default: "", trim: true },
+          lon: { type: String, default: "", trim: true },
+        },
+        { _id: false }
+      ),
+    ],
+    default: [],
+  },
   notSendIP1: { type: String, trim: true, default: "" },
   notSendIP2: { type: String, trim: true, default: "" },
   notSendIP3: { type: String, trim: true, default: "" },
@@ -304,6 +324,25 @@ if (Company?.schema && !Company.schema.path("meetingContactPhone")) {
     meetingContactPhone: { type: String, default: "", trim: true },
     meetingContactName: { type: String, default: "", trim: true },
     meetingContactChannel: { type: String, default: "WhatsApp", trim: true },
+  });
+}
+
+if (Company?.schema && !Company.schema.path("offices")) {
+  Company.schema.add({
+    offices: {
+      type: [
+        new Schema(
+          {
+            name: { type: String, default: "", trim: true },
+            address: { type: String, default: "", trim: true },
+            lat: { type: String, default: "", trim: true },
+            lon: { type: String, default: "", trim: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
   });
 }
 

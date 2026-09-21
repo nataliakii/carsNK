@@ -46,7 +46,7 @@ describe("fetchPlaceAutocomplete", () => {
       unavailable: true,
       predictions: [],
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     const second = await fetchPlaceAutocomplete({
       input: "diagonal 123",
@@ -54,7 +54,7 @@ describe("fetchPlaceAutocomplete", () => {
     });
     expect(second.configured).toBe(false);
     expect(second.unavailable).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("returns predictions when Google answers OK", async () => {
@@ -87,6 +87,65 @@ describe("fetchPlaceAutocomplete", () => {
         },
       ],
     });
+  });
+
+  it("uses Places API (New) when that endpoint returns suggestions", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => ({
+        suggestions: [
+          {
+            placePrediction: {
+              placeId: "new-1",
+              text: { text: "Carrer de Diagonal, Barcelona" },
+              structuredFormat: {
+                mainText: { text: "Carrer de Diagonal" },
+                secondaryText: { text: "Barcelona" },
+              },
+            },
+          },
+        ],
+      }),
+    });
+
+    const result = await fetchPlaceAutocomplete({ input: "diagonal" });
+    expect(result.ok).toBe(true);
+    expect(result.predictions[0].placeId).toBe("new-1");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(String(global.fetch.mock.calls[0][0])).toContain(
+      "places.googleapis.com"
+    );
+  });
+
+  it("falls back to legacy autocomplete when New is not enabled", async () => {
+    global.fetch = jest.fn(async (url) => {
+      const href = String(url);
+      if (href.includes("places.googleapis.com")) {
+        return {
+          json: async () => ({
+            error: {
+              status: "PERMISSION_DENIED",
+              message: "Places API (New) has not been used in project",
+            },
+          }),
+        };
+      }
+      return {
+        json: async () => ({
+          status: "OK",
+          predictions: [
+            {
+              place_id: "legacy-1",
+              description: "Carrer de Diagonal, Barcelona",
+            },
+          ],
+        }),
+      };
+    });
+
+    const result = await fetchPlaceAutocomplete({ input: "diagonal" });
+    expect(result.ok).toBe(true);
+    expect(result.predictions[0].placeId).toBe("legacy-1");
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   it("omits types when none is requested so hotels and streets can both match", () => {

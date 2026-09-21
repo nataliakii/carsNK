@@ -7,7 +7,21 @@ import {
   useTheme,
   Grid,
 } from "@mui/material";
-import { Calendar, DatePicker } from "antd";
+import { Calendar, ConfigProvider } from "antd";
+import enUS from "antd/locale/en_US";
+import esES from "antd/locale/es_ES";
+import ruRU from "antd/locale/ru_RU";
+import ukUA from "antd/locale/uk_UA";
+import elGR from "antd/locale/el_GR";
+import deDE from "antd/locale/de_DE";
+import bgBG from "antd/locale/bg_BG";
+import roRO from "antd/locale/ro_RO";
+import plPL from "antd/locale/pl_PL";
+import frFR from "antd/locale/fr_FR";
+import itIT from "antd/locale/it_IT";
+import svSE from "antd/locale/sv_SE";
+import caES from "antd/locale/ca_ES";
+import nbNO from "antd/locale/nb_NO";
 import dayjs from "dayjs";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
@@ -34,10 +48,44 @@ import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import "dayjs/locale/ru";
 import "dayjs/locale/el";
+import "dayjs/locale/es";
+import "dayjs/locale/uk";
+import "dayjs/locale/de";
+import "dayjs/locale/bg";
+import "dayjs/locale/ro";
+import "dayjs/locale/sr";
+import "dayjs/locale/pl";
+import "dayjs/locale/fr";
+import "dayjs/locale/it";
+import "dayjs/locale/sv";
+import "dayjs/locale/nb";
+import "dayjs/locale/ca";
+
+const ANTD_LOCALES = {
+  en: enUS,
+  es: esES,
+  ru: ruRU,
+  uk: ukUA,
+  el: elGR,
+  de: deDE,
+  bg: bgBG,
+  ro: roRO,
+  pl: plPL,
+  fr: frFR,
+  it: itIT,
+  sv: svSE,
+  ca: caES,
+  no: nbNO,
+};
+
+const DAYJS_LOCALE = {
+  no: "nb",
+};
 import { useMainContext } from "@app/Context";
 import { resolveBusinessTimezone } from "@/domain/time/resolveBusinessTimezone";
 import { getSiteCountryCode } from "@config/siteCountry";
 import { isSpainBookingSite } from "@/domain/orders/catalogPlaceOptions";
+import { resolveDefaultInsurance } from "@/domain/orders/defaultInsurance";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -67,6 +115,9 @@ const CalendarPicker = ({
   presetSearchDates = null,
 }) => {
   const { t, i18n } = useTranslation();
+  const uiLang = (i18n.language || "en").split("-")[0];
+  const dayjsLang = DAYJS_LOCALE[uiLang] || uiLang;
+  const antdLocale = ANTD_LOCALES[uiLang] || enUS;
   const { company, platform, bookingPlaceIn, bookingPlaceOut } = useMainContext();
   const calendarTz = resolveBusinessTimezone({
     company,
@@ -120,8 +171,12 @@ const CalendarPicker = ({
     if (!companyUsesSeasons(company)) {
       const rate = getFlatDailyRateFromPricingTiers(car?.pricingTiers);
       if (rate > 0) {
+        const insurance = resolveDefaultInsurance(car);
+        const cdwPerDay =
+          insurance === "CDW" ? Number(car?.PriceKacko) || 0 : 0;
+        const total = rate * days + cdwPerDay * days;
         return {
-          totalPrice: Math.round(rate * days * 100) / 100,
+          totalPrice: Math.round(total * 100) / 100,
           days,
           approximate: true,
         };
@@ -129,7 +184,7 @@ const CalendarPicker = ({
     }
 
     return null;
-  }, [selectedRange, calendarTz, company, car?.pricingTiers]);
+  }, [selectedRange, calendarTz, company, car?.pricingTiers, car?.PriceKacko]);
 
   // Расчет суммы заказа через action (+ client estimate so UI never sticks on "...")
   const fetchTotalPrice = useCallback(
@@ -155,7 +210,7 @@ const CalendarPicker = ({
           carApiIdentifier,
           selectedRange[0].toDate(),
           selectedRange[1].toDate(),
-          "TPL",
+          resolveDefaultInsurance(car),
           0,
           {
             signal,
@@ -204,6 +259,7 @@ const CalendarPicker = ({
       pickupForPricing,
       returnForPricing,
       spainDeliveryMayVary,
+      car,
     ]
   );
 
@@ -488,9 +544,9 @@ const CalendarPicker = ({
       if (isConfirmed) return t("order.unavailableDate");
       if (isUnavailable) return t("order.not100Date");
       if (isStartDate && startEndInfo.type == "confirmed")
-        return `Car needs to be returned after ${startEndInfo.time} `;
+        return t("order.returnAfterTime", { time: startEndInfo.time });
       if (isEndDate && startEndInfo.type == "confirmed")
-        return `Car is availabe after ${startEndInfo.time} `;
+        return t("order.availableAfterTime", { time: startEndInfo.time });
       return null;
     };
 
@@ -941,9 +997,8 @@ const CalendarPicker = ({
   const headerRender = ({ value }) => {
     const current = value.clone();
     // Получаем текущий язык из i18n
-    const currentLang = i18n.language || "en";
     // Локализуем название месяца и делаем первую букву заглавной
-    let month = current.locale(currentLang).format("MMMM");
+    let month = current.locale(dayjsLang).format("MMMM");
     month = month.charAt(0).toUpperCase() + month.slice(1);
     const year = current.year();
 
@@ -1035,12 +1090,13 @@ const CalendarPicker = ({
   // compute header spacing depending on device
   const headerSx = {
     lineHeight: isPortraitPhone ? "1.15rem" : "1.3rem",
-    letterSpacing: isPortraitPhone ? "0.04rem" : "0.06rem",
+    letterSpacing: "0.02em",
+    wordSpacing: "0.18em",
     fontSize: isPortraitPhone ? "0.95rem" : { xs: "1rem", sm: "1.1rem" },
     textTransform: "uppercase",
     whiteSpace: "normal",
-    overflowWrap: "anywhere",
-    wordBreak: "break-word",
+    overflowWrap: "break-word",
+    wordBreak: "normal",
     maxWidth: "100%",
     marginBottom: showDiscountInfo
       ? isPortraitPhone
@@ -1154,10 +1210,10 @@ const CalendarPicker = ({
                 >
                   <Box component="span">
                     {`${t("order.bookShort")}\n${selectedRange[0]
-                      ?.locale(i18n.language)
+                      ?.locale(dayjsLang)
                       .format("DD MMM")
                       .replace(/\./g, "")} - ${selectedRange[1]
-                      ?.locale(i18n.language)
+                      ?.locale(dayjsLang)
                       .format("DD MMM")
                       .replace(/\./g, "")}`}
                   </Box>
@@ -1248,6 +1304,7 @@ const CalendarPicker = ({
               </GradientBookButton>
             </Box>
 
+          <ConfigProvider locale={antdLocale}>
           <Calendar
             fullscreen={false}
             onSelect={onSelect}
@@ -1256,6 +1313,7 @@ const CalendarPicker = ({
             value={currentDate}
             disabledDate={disabledDate}
           />
+          </ConfigProvider>
     </Box>
   );
 };

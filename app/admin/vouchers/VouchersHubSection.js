@@ -12,7 +12,7 @@ import TransferPricingSection from "@app/admin/platform/TransferPricingSection";
 const VOUCHERS_TAB = "vouchers";
 const ACCESS_LINKS_TAB = "access-links";
 const PLATFORM_TAB = "platform";
-const TAB_ORDER = [VOUCHERS_TAB, ACCESS_LINKS_TAB, PLATFORM_TAB];
+const TAB_ORDER = [ACCESS_LINKS_TAB, PLATFORM_TAB, VOUCHERS_TAB];
 const SUPERADMIN_TABS = [ACCESS_LINKS_TAB, PLATFORM_TAB];
 
 function VouchersHubInner({
@@ -69,11 +69,11 @@ function VouchersHubInner({
           mb: 1,
         }}
       >
-        <Tab label={t("header.vouchers", { defaultValue: "Vouchers" })} />
         <Tab
           label={t("header.accessLinks", { defaultValue: "Access links" })}
         />
         <Tab label={t("header.platform", { defaultValue: "Platform" })} />
+        <Tab label={t("header.vouchers", { defaultValue: "Vouchers" })} />
       </Tabs>
       {tab === ACCESS_LINKS_TAB ? <AccessTokensSection /> : null}
       {tab === PLATFORM_TAB ? (

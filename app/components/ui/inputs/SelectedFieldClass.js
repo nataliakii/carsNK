@@ -7,6 +7,7 @@ import {
   Select,
   MenuItem,
 } from "@mui/material";
+import { useTranslation } from "react-i18next";
 import { getActiveBrand } from "@config/brand";
 
 /** Shared height with Navbar search TextField (MUI size=small). */
@@ -26,26 +27,30 @@ const SelectedFieldClass = ({
   includeAllOption = true,
   /** Label for empty selection when includeAllOption is false. */
   emptyOptionLabel = "—",
+  /** Navbar filter bar is dark; dialogs use light. */
+  variant = "dark",
 }) => {
+  const { t } = useTranslation();
   const brand = getActiveBrand();
   const accent = brand.primary;
   const accentLight = brand.primaryLight;
+  const light = variant === "light";
 
   return (
     <FormControl
       size="small"
-      fullWidth={false}
+      fullWidth={light}
       required={required}
       sx={{
         m: 0,
         mt: 0,
-        minWidth: { xs: 120, sm: 160 },
-        maxWidth: { xs: 200, sm: 220 },
+        minWidth: light ? "100%" : { xs: 120, sm: 160 },
+        maxWidth: light ? "100%" : { xs: 200, sm: 220 },
         "& .MuiInputBase-root": {
-          color: "#fff",
+          color: light ? "text.primary" : "#fff",
           fontSize: "0.85rem",
           height: FILTER_CONTROL_HEIGHT,
-          backgroundColor: "rgba(255,255,255,0.04)",
+          backgroundColor: light ? "background.paper" : "rgba(255,255,255,0.04)",
           borderRadius: "10px",
         },
         "& .MuiOutlinedInput-input": {
@@ -54,17 +59,23 @@ const SelectedFieldClass = ({
           alignItems: "center",
         },
         "& .MuiInputLabel-root": {
-          color: "rgba(255,255,255,0.72)",
+          color: light ? "text.secondary" : "rgba(255,255,255,0.72)",
           fontSize: "0.85rem",
+          letterSpacing: "0.01em",
+          wordSpacing: "0.12em",
+        },
+        "& .MuiSelect-select": {
+          letterSpacing: "0.01em",
+          wordSpacing: "0.12em",
         },
         "& .MuiInputLabel-root.Mui-focused": {
           color: accent,
         },
         "& .MuiSelect-icon": {
-          color: "rgba(255,255,255,0.85)",
+          color: light ? "text.secondary" : "rgba(255,255,255,0.85)",
         },
         "& .MuiOutlinedInput-notchedOutline": {
-          borderColor: "rgba(255,255,255,0.28)",
+          borderColor: light ? "rgba(0,0,0,0.23)" : "rgba(255,255,255,0.28)",
         },
         "& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline": {
           borderColor: accentLight,
@@ -91,7 +102,7 @@ const SelectedFieldClass = ({
         displayEmpty={!includeAllOption}
       >
         {includeAllOption ? (
-          <MenuItem value="All">All</MenuItem>
+          <MenuItem value="All">{t("header.filterAll")}</MenuItem>
         ) : (
           <MenuItem value="">
             <em>{emptyOptionLabel}</em>

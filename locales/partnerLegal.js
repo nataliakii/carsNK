@@ -6,12 +6,12 @@
  */
 
 export const PARTNER_LEGAL_NAV = {
-  en: "Legal profile",
-  es: "Perfil legal",
-  ru: "Legal profile",
-  uk: "Legal profile",
-  el: "Legal profile",
-  de: "Legal profile",
+  en: "Legal",
+  es: "Legal",
+  ru: "Юридическое",
+  uk: "Юридичне",
+  el: "Νομικά",
+  de: "Rechtliches",
 };
 
 export const partnerLegalEn = {

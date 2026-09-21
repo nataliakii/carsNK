@@ -10,7 +10,7 @@ import { ROLE } from "@models/user";
 import { applyAdminViewAsFromCookies } from "@/domain/owners/adminViewAs";
 import { getEffectiveOwnerId } from "@/domain/owners/ownerScope";
 
-import PartnerLegalProfileSection from "./PartnerLegalProfileSection";
+import LegalProfileHubSection from "./LegalProfileHubSection";
 
 /**
  * /admin/legal-profile — the partner's own legal onboarding.
@@ -49,7 +49,7 @@ export default async function PartnerLegalProfilePage() {
       isAdmin
       isMain={false}
     >
-      <PartnerLegalProfileSection />
+      <LegalProfileHubSection />
     </Feed>
   );
 }

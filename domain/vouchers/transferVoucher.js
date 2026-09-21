@@ -3,6 +3,8 @@
  * Locales: `el` (Greece), `es` (Spain), `en` (always secondary).
  */
 
+import { getSiteCountryCode } from "@config/siteCountry";
+
 const MAX_TEXT_LENGTH = 800;
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
@@ -13,13 +15,26 @@ export const TRANSFER_VOUCHER_STAMP_SRC = "/vouchers/natali-cars-stamp.png";
 export const TRANSFER_VOUCHER_LOCALES = ["el", "es", "en"];
 
 /**
+ * ES | GR for voucher copy. Explicit company country wins; otherwise the
+ * deployment (Rovaro / isSpainSite → ES, Greece → GR).
+ */
+export function resolveVoucherMarketCountry(country) {
+  const code = String(country || "")
+    .trim()
+    .toUpperCase();
+  if (code === "ES" || code === "GR") return code;
+  const site = String(getSiteCountryCode() || "")
+    .trim()
+    .toUpperCase();
+  return site === "ES" ? "ES" : "GR";
+}
+
+/**
  * Which pair of language tabs to show for a company market.
  * Spain → Español + English; Greece (default) → Ελληνικά + English.
  */
 export function getVoucherMarketLocales(country) {
-  const code = String(country || "")
-    .trim()
-    .toUpperCase();
+  const code = resolveVoucherMarketCountry(country);
   if (code === "ES") {
     return {
       country: "ES",
@@ -30,7 +45,7 @@ export function getVoucherMarketLocales(country) {
     };
   }
   return {
-    country: code || "GR",
+    country: "GR",
     primary: "el",
     secondary: "en",
     locales: ["el", "en"],
@@ -264,17 +279,19 @@ function pickLocaleText(entry, locale) {
   return entry.el || entry.en || entry.es || "";
 }
 
-export function formatVoucherLabel(key, { locale = "el", bilingual = false } = {}) {
+export function formatVoucherLabel(
+  key,
+  { locale = "el", bilingual = false, country } = {}
+) {
   const entry = TRANSFER_VOUCHER_LABELS[key];
   if (!entry) return { primary: key, secondary: "" };
   if (bilingual) {
-    const primary = entry.en || entry.es || entry.el;
-    const secondary =
-      locale === "es"
-        ? entry.es
-        : locale === "en"
-          ? entry.el
-          : entry.el;
+    const marketCountry =
+      country ||
+      (locale === "es" ? "ES" : locale === "el" ? "GR" : undefined);
+    const market = getVoucherMarketLocales(marketCountry);
+    const primary = entry.en || pickLocaleText(entry, market.primary);
+    const secondary = pickLocaleText(entry, market.primary);
     return {
       primary,
       secondary: secondary && secondary !== primary ? secondary : "",
@@ -291,6 +308,15 @@ export function voucherUiText(key, locale = "el") {
 
 export function voucherFieldLabel(key, locale = "el") {
   return formatVoucherLabel(key, { locale, bilingual: false }).primary;
+}
+
+/** Plain-text email intro: English + market language (never the other market). */
+export function voucherEmailPlainMessage(country) {
+  const market = getVoucherMarketLocales(country);
+  const en = voucherFieldLabel("title", "en");
+  const local = voucherFieldLabel("title", market.primary);
+  const pair = local && local !== en ? `${en} / ${local}` : en;
+  return `${pair} — PDF attached. See also HTML version.`;
 }
 
 export const createDefaultTransferVoucherData = () => ({

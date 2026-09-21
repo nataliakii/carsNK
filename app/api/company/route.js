@@ -43,6 +43,9 @@ export const PATCH = async (request) => {
     const updates = await request.json();
     // Country is deployment-scoped — never change via this route.
     delete updates.country;
+    // Rental Stripe settings are superadmin-only (PATCH /api/company/:id).
+    delete updates.rentalPayments;
+    delete updates.prepaymentPercent;
 
     const company = await Company.findByIdAndUpdate(COMPANY_ID, updates, {
       new: true,

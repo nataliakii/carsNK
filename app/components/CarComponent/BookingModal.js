@@ -53,6 +53,7 @@ import {
   LOCATION_DIVIDER_BEFORE,
   SELECTED_LOCATION_STORAGE_KEY,
   SELECTED_RETURN_LOCATION_STORAGE_KEY,
+  normalizeBookingTimeHm,
 } from "@/domain/orders/locationOptions";
 import {
   isAllowedBookingLocation,
@@ -68,6 +69,7 @@ import {
   resolvePlaceRequiresAddressDetail,
 } from "@/domain/orders/catalogPlaceOptions";
 import { normalizeDeliveryPricingLocation } from "@/domain/orders/bookingPricingOptions";
+import { resolveDefaultInsurance } from "@/domain/orders/defaultInsurance";
 import {
   buildBookingPriceSummary,
   createEmptyBookingPriceSummary,
@@ -77,7 +79,10 @@ import {
   buildBookingPlaceOptionsWithOffices,
   findCarOfficeForPlace,
   isPlaceMatchingCarOffice,
+  resolveBookingDisplayOffices,
+  resolveOfficeFormAddress,
 } from "@/domain/orders/carOffices";
+import BookingOfficeDeliveryChoice from "./BookingOfficeDeliveryChoice";
 import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
 import { reportGoogleAdsPurchaseFromOrder } from "@/domain/analytics/googleAdsConversion";
 import "@/styles/animations.css";
@@ -130,7 +135,15 @@ const BookingModal = ({
   const [calcLoading, setCalcLoading] = useState(false);
   const { t } = useTranslation();
   const secondDriverPriceLabelValue = getSecondDriverPriceLabelValue();
-  const { company, companyLoading, companyError, lang, platform } = useMainContext();
+  const {
+    company,
+    companyLoading,
+    companyError,
+    lang,
+    platform,
+    bookingTimeIn,
+    bookingTimeOut,
+  } = useMainContext();
   const TIME_ZONE = resolveBusinessTimezone({
     company,
     countryCode: company?.country || platform?.country,
@@ -150,15 +163,27 @@ const BookingModal = ({
     [companyPlaceOptions, siteCountry]
   );
   const officeFreeNote = t("order.officeDeliveryFreeShort");
+  const defaultBookingLocation = resolveCatalogDefaultPlace(
+    companyDefaultBookingLocation,
+    siteCountry
+  );
+  const displayOffices = useMemo(
+    () =>
+      resolveBookingDisplayOffices(car, company, {
+        countryCode: siteCountry,
+        selectedCity: defaultBookingLocation,
+      }),
+    [car, company, siteCountry, defaultBookingLocation]
+  );
   const placeOptions = useMemo(
     () =>
       buildBookingPlaceOptionsWithOffices({
         cityNames: catalogPlaceNames,
-        carOffices: car?.offices,
+        carOffices: displayOffices,
         company,
         freeNote: officeFreeNote,
       }),
-    [catalogPlaceNames, car?.offices, company, officeFreeNote]
+    [catalogPlaceNames, displayOffices, company, officeFreeNote]
   );
   const placeOptionNames = useMemo(
     () =>
@@ -166,10 +191,6 @@ const BookingModal = ({
         typeof opt === "string" ? opt : String(opt?.value || opt?.label || "")
       ),
     [placeOptions]
-  );
-  const defaultBookingLocation = resolveCatalogDefaultPlace(
-    companyDefaultBookingLocation,
-    siteCountry
   );
   const requiresDetail = useCallback(
     (value) =>
@@ -242,11 +263,17 @@ const BookingModal = ({
   const [placeOutDetail, setPlaceOutDetail] = useState("");
   const [placeInGeo, setPlaceInGeo] = useState(null);
   const [placeOutGeo, setPlaceOutGeo] = useState(null);
+  const [pickupMethod, setPickupMethod] = useState("delivery");
+  const [returnMethod, setReturnMethod] = useState("delivery");
   const [flightNumber, setFlightNumber] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  const placeInIsOffice = isPlaceMatchingCarOffice(placeIn, car?.offices);
-  const placeOutIsOffice = isPlaceMatchingCarOffice(placeOut, car?.offices);
+  const placeInIsOffice =
+    pickupMethod === "office" ||
+    isPlaceMatchingCarOffice(placeIn, displayOffices);
+  const placeOutIsOffice =
+    returnMethod === "office" ||
+    isPlaceMatchingCarOffice(placeOut, displayOffices);
 
   const applyPlaceSelection = useCallback(
     (rawValue, which) => {
@@ -263,22 +290,49 @@ const BookingModal = ({
         const name = String(rawValue.value || rawValue.label || "").trim();
         setPlace(name);
         if (rawValue.kind === "office") {
-          setDetail(String(rawValue.address || "").trim());
+          setDetail(resolveOfficeFormAddress(rawValue, company));
         }
         return;
       }
       const name = String(rawValue).trim();
       setPlace(name);
-      const office = findCarOfficeForPlace(name, car?.offices);
+      const office = findCarOfficeForPlace(name, displayOffices);
       if (office) {
-        const enriched = office;
-        const addr =
-          String(enriched.address || "").trim() ||
-          String(company?.address || "").trim();
+        const addr = resolveOfficeFormAddress(office, company);
         if (addr) setDetail(addr);
       }
     },
-    [car?.offices, company?.address]
+    [displayOffices, company]
+  );
+
+  const switchLegMethod = useCallback(
+    (which, nextMethod, office) => {
+      const setMethod = which === "in" ? setPickupMethod : setReturnMethod;
+      setMethod(nextMethod);
+      if (nextMethod === "office") {
+        const target = office || displayOffices[0];
+        if (target) {
+          applyPlaceSelection(
+            { value: target.name, kind: "office", address: target.address },
+            which
+          );
+        }
+        return;
+      }
+      const fallback =
+        defaultBookingLocation ||
+        (spainSite ? "Barcelona" : DEFAULT_BOOKING_LOCATION);
+      if (which === "in") {
+        setPlaceIn(fallback);
+        setPlaceInDetail("");
+        setPlaceInGeo(null);
+      } else {
+        setPlaceOut(fallback);
+        setPlaceOutDetail("");
+        setPlaceOutGeo(null);
+      }
+    },
+    [applyPlaceSelection, defaultBookingLocation, displayOffices, spainSite]
   );
 
   const formatOutsideHelper = useCallback(
@@ -415,23 +469,25 @@ const BookingModal = ({
 
   useEffect(() => {
     if (
+      pickupMethod !== "office" &&
       !requiresDetail(placeIn) &&
-      !isPlaceMatchingCarOffice(placeIn, car?.offices)
+      !isPlaceMatchingCarOffice(placeIn, displayOffices)
     ) {
       setPlaceInDetail("");
       setPlaceInGeo(null);
     }
-  }, [placeIn, requiresDetail, car?.offices]);
+  }, [placeIn, requiresDetail, displayOffices, pickupMethod]);
 
   useEffect(() => {
     if (
+      returnMethod !== "office" &&
       !requiresDetail(placeOut) &&
-      !isPlaceMatchingCarOffice(placeOut, car?.offices)
+      !isPlaceMatchingCarOffice(placeOut, displayOffices)
     ) {
       setPlaceOutDetail("");
       setPlaceOutGeo(null);
     }
-  }, [placeOut, requiresDetail, car?.offices]);
+  }, [placeOut, requiresDetail, displayOffices, returnMethod]);
 
   // Лог: даты бронирования, отображаемые в BookingModal (start/end + времена)
   useEffect(() => {
@@ -555,8 +611,10 @@ const BookingModal = ({
 
     let minStart = null; // нижняя граница для старта
     let maxEnd = null; // верхняя граница для окончания
-    let startDefault = company.defaultStart; // строка HH:mm
-    let endDefault = company.defaultEnd; // строка HH:mm
+    const storedStart = normalizeBookingTimeHm(bookingTimeIn);
+    const storedEnd = normalizeBookingTimeHm(bookingTimeOut);
+    let startDefault = storedStart || company.defaultStart; // строка HH:mm
+    let endDefault = storedEnd || company.defaultEnd; // строка HH:mm
 
     // Если есть предыдущий граничный заказ: старт = (конец предыдущего + diffStart часов)
     if (prevEndRaw) {
@@ -595,7 +653,7 @@ const BookingModal = ({
         );
       } else setTimeErrors(null);
     } else setTimeErrors(null);
-  }, [presetDates, selectedTimes, company, t]);
+  }, [presetDates, selectedTimes, company, t, bookingTimeIn, bookingTimeOut]);
 
   // Клампинг ручного ввода времени старта
   const handleStartTimeChange = (value) => {
@@ -666,7 +724,7 @@ const BookingModal = ({
   useEffect(() => {
     if (open) {
       resetForm(); // Сбросить форму при каждом открытии модального окна
-      setInsurance("TPL"); // Всегда по умолчанию внутренний код ОСАГО
+      setInsurance(resolveDefaultInsurance(car));
       setChildSeats(0); // Всегда по умолчанию 0
       setOrderNumber(generateOrderNumber(TIME_ZONE));
       if (car && typeof car.franchise !== "undefined") {
@@ -709,32 +767,44 @@ const BookingModal = ({
       placeOptionNames,
       fallback
     );
+    if (displayOffices.length) {
+      const office = displayOffices[0];
+      setPickupMethod("office");
+      setReturnMethod("office");
+      applyPlaceSelection(
+        { value: office.name, kind: "office", address: office.address },
+        "in"
+      );
+      applyPlaceSelection(
+        { value: office.name, kind: "office", address: office.address },
+        "out"
+      );
+      return;
+    }
+    setPickupMethod("delivery");
+    setReturnMethod("delivery");
     setPlaceIn(nextPickup);
     setPlaceOut(nextReturn);
-  }, [open, placeOptionNames, defaultBookingLocation, spainSite]);
+  }, [open, placeOptionNames, defaultBookingLocation, spainSite, displayOffices, applyPlaceSelection]);
 
   // Prefill office address when place matches a car office
   useEffect(() => {
     if (!placeInIsOffice) return;
-    const office = findCarOfficeForPlace(placeIn, car?.offices);
-    const addr =
-      String(office?.address || "").trim() ||
-      String(company?.address || "").trim();
+    const office = findCarOfficeForPlace(placeIn, displayOffices);
+    const addr = resolveOfficeFormAddress(office, company);
     if (addr && !String(placeInDetail || "").trim()) {
       setPlaceInDetail(addr);
     }
-  }, [placeIn, placeInIsOffice, car?.offices, company?.address, placeInDetail]);
+  }, [placeIn, placeInIsOffice, displayOffices, company, placeInDetail]);
 
   useEffect(() => {
     if (!placeOutIsOffice) return;
-    const office = findCarOfficeForPlace(placeOut, car?.offices);
-    const addr =
-      String(office?.address || "").trim() ||
-      String(company?.address || "").trim();
+    const office = findCarOfficeForPlace(placeOut, displayOffices);
+    const addr = resolveOfficeFormAddress(office, company);
     if (addr && !String(placeOutDetail || "").trim()) {
       setPlaceOutDetail(addr);
     }
-  }, [placeOut, placeOutIsOffice, car?.offices, company?.address, placeOutDetail]);
+  }, [placeOut, placeOutIsOffice, displayOffices, company, placeOutDetail]);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
@@ -762,17 +832,19 @@ const BookingModal = ({
     const canonIn = canonicalizeBookingLocation(pin, placeOptionNames);
     const canonOut = canonicalizeBookingLocation(pout, placeOptionNames);
     if (
+      pickupMethod === "delivery" &&
       canonIn &&
       requiresDetail(canonIn) &&
-      !isPlaceMatchingCarOffice(canonIn, car?.offices) &&
+      !placeInIsOffice &&
       String(placeInDetail || "").trim().length < 3
     ) {
       newErrors.placeInDetail = addressDetailRequiredMsg;
     }
     if (
+      returnMethod === "delivery" &&
       canonOut &&
       requiresDetail(canonOut) &&
-      !isPlaceMatchingCarOffice(canonOut, car?.offices) &&
+      !placeOutIsOffice &&
       String(placeOutDetail || "").trim().length < 3
     ) {
       newErrors.placeOutDetail = addressDetailRequiredMsg;
@@ -863,9 +935,17 @@ const BookingModal = ({
           setErrors({ submit: response.message });
           break;
         case "error":
-          throw new Error(response.message);
+          setErrors({
+            submit: response.messageKey
+              ? t(response.messageKey, { defaultValue: response.message })
+              : response.message,
+          });
+          break;
         default:
-          throw new Error(`Unexpected response status: ${response.status}`);
+          setErrors({
+            submit: response.message || `Unexpected response status: ${response.status}`,
+          });
+          break;
       }
     } catch (error) {
       if (process.env.NODE_ENV === "development") {
@@ -898,6 +978,8 @@ const BookingModal = ({
     setPlaceOut("");
     setPlaceInDetail("");
     setPlaceOutDetail("");
+    setPickupMethod("delivery");
+    setReturnMethod("delivery");
     setPlaceInGeo(null);
     setPlaceOutGeo(null);
     setFlightNumber("");
@@ -1301,52 +1383,67 @@ const BookingModal = ({
                         alignItems: "stretch",
                       }}
                     >
-                      <BookingLocationAutocomplete
-                        label={t("order.pickupLocation") || "Место получения"}
-                        options={placeOptions}
-                        freeSolo={!spainSite}
-                        dividerBeforeOption={locationDividerBefore}
-                        value={placeIn}
-                        onChange={(e, newValue) => {
-                          applyPlaceSelection(newValue, "in");
-                          if (errors.placeIn) {
-                            setErrors((prev) => {
-                              const { placeIn: _p, ...rest } = prev;
-                              return rest;
-                            });
-                          }
-                        }}
-                        onInputChange={(event, newInputValue, reason) => {
-                          if (reason === "reset") return;
-                          if (event?.type === "change" || reason === "clear") {
-                            setPlaceIn(newInputValue);
-                            setPlaceInGeo(null);
-                          }
-                          if (errors.placeIn) {
-                            setErrors((prev) => {
-                              const { placeIn: _p, ...rest } = prev;
-                              return rest;
-                            });
-                          }
-                        }}
-                        error={Boolean(errors.placeIn)}
-                        helperText={errors.placeIn || pickupDeliveryHelperText}
-                        FormHelperTextProps={{
-                          sx: {
-                            fontSize: "0.72rem",
-                            color: errors.placeIn
-                              ? "error.main"
-                              : placeInIsOffice
-                                ? "success.main"
-                                : "text.secondary",
-                            lineHeight: 1.3,
-                            mt: 0.5,
-                            whiteSpace: "normal",
-                          },
-                        }}
-                        sx={{ width: "100%", minWidth: 0 }}
+                      <BookingOfficeDeliveryChoice
+                        method={pickupMethod}
+                        onMethodChange={(next) => switchLegMethod("in", next)}
+                        offices={displayOffices}
+                        selectedOfficeName={placeIn}
+                        onSelectOffice={(office) =>
+                          switchLegMethod("in", "office", office)
+                        }
+                        officeLabel={t("order.pickupAtOffice")}
+                        deliveryLabel={t("order.deliveryToAddress")}
                       />
-                      {placeIn && isAirportLocation(placeIn) ? (
+                      {pickupMethod === "delivery" || !displayOffices.length ? (
+                        <BookingLocationAutocomplete
+                          label={t("order.pickupLocation") || "Место получения"}
+                          options={placeOptions}
+                          freeSolo={!spainSite}
+                          dividerBeforeOption={locationDividerBefore}
+                          value={placeIn}
+                          onChange={(e, newValue) => {
+                            applyPlaceSelection(newValue, "in");
+                            if (errors.placeIn) {
+                              setErrors((prev) => {
+                                const { placeIn: _p, ...rest } = prev;
+                                return rest;
+                              });
+                            }
+                          }}
+                          onInputChange={(event, newInputValue, reason) => {
+                            if (reason === "reset") return;
+                            if (event?.type === "change" || reason === "clear") {
+                              setPlaceIn(newInputValue);
+                              setPlaceInGeo(null);
+                            }
+                            if (errors.placeIn) {
+                              setErrors((prev) => {
+                                const { placeIn: _p, ...rest } = prev;
+                                return rest;
+                              });
+                            }
+                          }}
+                          error={Boolean(errors.placeIn)}
+                          helperText={errors.placeIn || pickupDeliveryHelperText}
+                          FormHelperTextProps={{
+                            sx: {
+                              fontSize: "0.72rem",
+                              color: errors.placeIn
+                                ? "error.main"
+                                : placeInIsOffice
+                                  ? "success.main"
+                                  : "text.secondary",
+                              lineHeight: 1.3,
+                              mt: 0.5,
+                              whiteSpace: "normal",
+                            },
+                          }}
+                          sx={{ width: "100%", minWidth: 0 }}
+                        />
+                      ) : null}
+                      {placeIn &&
+                      pickupMethod === "delivery" &&
+                      isAirportLocation(placeIn) ? (
                         <BookingFlightField
                           label={t("order.flightNumber") || "Номер рейса"}
                           value={flightNumber}
@@ -1358,16 +1455,8 @@ const BookingModal = ({
                           }}
                         />
                       ) : null}
-                      {placeIn && placeInIsOffice && placeInDetail ? (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ fontSize: "0.72rem", lineHeight: 1.35, px: 0.25 }}
-                        >
-                          {placeInDetail}
-                        </Typography>
-                      ) : null}
-                      {placeIn &&
+                      {pickupMethod === "delivery" &&
+                      placeIn &&
                       requiresDetail(placeIn) &&
                       !placeInIsOffice &&
                       !isAirportLocation(placeIn) ? (
@@ -1427,61 +1516,66 @@ const BookingModal = ({
                         alignItems: "stretch",
                       }}
                     >
-                      <BookingLocationAutocomplete
-                        label={t("order.returnLocation") || "Место возврата"}
-                        options={placeOptions}
-                        freeSolo={!spainSite}
-                        dividerBeforeOption={locationDividerBefore}
-                        value={placeOut}
-                        onChange={(e, newValue) => {
-                          applyPlaceSelection(newValue, "out");
-                          if (errors.placeOut) {
-                            setErrors((prev) => {
-                              const { placeOut: _p, ...rest } = prev;
-                              return rest;
-                            });
-                          }
-                        }}
-                        onInputChange={(event, newInputValue, reason) => {
-                          if (reason === "reset") return;
-                          if (event?.type === "change" || reason === "clear") {
-                            setPlaceOut(newInputValue);
-                            setPlaceOutGeo(null);
-                          }
-                          if (errors.placeOut) {
-                            setErrors((prev) => {
-                              const { placeOut: _p, ...rest } = prev;
-                              return rest;
-                            });
-                          }
-                        }}
-                        error={Boolean(errors.placeOut)}
-                        helperText={errors.placeOut || returnDeliveryHelperText}
-                        FormHelperTextProps={{
-                          sx: {
-                            fontSize: "0.72rem",
-                            color: errors.placeOut
-                              ? "error.main"
-                              : placeOutIsOffice
-                                ? "success.main"
-                                : "text.secondary",
-                            lineHeight: 1.3,
-                            mt: 0.5,
-                            whiteSpace: "normal",
-                          },
-                        }}
-                        sx={{ width: "100%", minWidth: 0 }}
+                      <BookingOfficeDeliveryChoice
+                        method={returnMethod}
+                        onMethodChange={(next) => switchLegMethod("out", next)}
+                        offices={displayOffices}
+                        selectedOfficeName={placeOut}
+                        onSelectOffice={(office) =>
+                          switchLegMethod("out", "office", office)
+                        }
+                        officeLabel={t("order.returnAtOffice")}
+                        deliveryLabel={t("order.returnDeliveryToAddress")}
                       />
-                      {placeOut && placeOutIsOffice && placeOutDetail ? (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ fontSize: "0.72rem", lineHeight: 1.35, px: 0.25 }}
-                        >
-                          {placeOutDetail}
-                        </Typography>
+                      {returnMethod === "delivery" || !displayOffices.length ? (
+                        <BookingLocationAutocomplete
+                          label={t("order.returnLocation") || "Место возврата"}
+                          options={placeOptions}
+                          freeSolo={!spainSite}
+                          dividerBeforeOption={locationDividerBefore}
+                          value={placeOut}
+                          onChange={(e, newValue) => {
+                            applyPlaceSelection(newValue, "out");
+                            if (errors.placeOut) {
+                              setErrors((prev) => {
+                                const { placeOut: _p, ...rest } = prev;
+                                return rest;
+                              });
+                            }
+                          }}
+                          onInputChange={(event, newInputValue, reason) => {
+                            if (reason === "reset") return;
+                            if (event?.type === "change" || reason === "clear") {
+                              setPlaceOut(newInputValue);
+                              setPlaceOutGeo(null);
+                            }
+                            if (errors.placeOut) {
+                              setErrors((prev) => {
+                                const { placeOut: _p, ...rest } = prev;
+                                return rest;
+                              });
+                            }
+                          }}
+                          error={Boolean(errors.placeOut)}
+                          helperText={errors.placeOut || returnDeliveryHelperText}
+                          FormHelperTextProps={{
+                            sx: {
+                              fontSize: "0.72rem",
+                              color: errors.placeOut
+                                ? "error.main"
+                                : placeOutIsOffice
+                                  ? "success.main"
+                                  : "text.secondary",
+                              lineHeight: 1.3,
+                              mt: 0.5,
+                              whiteSpace: "normal",
+                            },
+                          }}
+                          sx={{ width: "100%", minWidth: 0 }}
+                        />
                       ) : null}
-                      {placeOut &&
+                      {returnMethod === "delivery" &&
+                      placeOut &&
                       requiresDetail(placeOut) &&
                       !placeOutIsOffice ? (
                         <BookingAddressPlacesField

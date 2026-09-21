@@ -12,6 +12,7 @@ import {
   companyUsesSeasons,
   getFlatDailyRateFromPricingTiers,
 } from "@/domain/orders/flatDailyRate";
+import { translateSeasonName } from "@/domain/cars/translateCarEnum";
 
 const DAY_RANGE_TRANSLATION_KEYS = {
   4: "carPark.1-4days",
@@ -178,8 +179,8 @@ const PricingDisplay = ({
           </>
         ) : (
           <>
-            {t("car.pricesFor")} {currentSeason} ({t("basic.from")}{" "}
-            {currentSeasonRange?.start} {t("basic.till")}{" "}
+            {t("car.pricesFor")} {translateSeasonName(t, currentSeason)}{" "}
+            ({t("basic.from")} {currentSeasonRange?.start} {t("basic.till")}{" "}
             {currentSeasonRange?.end})
           </>
         )}

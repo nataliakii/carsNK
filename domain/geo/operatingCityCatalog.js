@@ -43,13 +43,25 @@ export function sortCatalogByDistance(cities, base) {
 }
 
 export function citiesWithinRadius(cities, base, radiusKm) {
-  const origin = parseLatLon(base);
+  return citiesWithinRadiusOfOrigins(cities, [base], radiusKm);
+}
+
+/**
+ * Cities inside `radiusKm` of any origin (each office, or a single base).
+ */
+export function citiesWithinRadiusOfOrigins(cities, origins, radiusKm) {
   const radius = Number(radiusKm);
-  if (!origin || !Number.isFinite(radius) || radius < 0) return [];
+  if (!Number.isFinite(radius) || radius < 0) return [];
+  const points = (Array.isArray(origins) ? origins : [])
+    .map((origin) => parseLatLon(origin))
+    .filter(Boolean);
+  if (!points.length) return [];
   return (cities || []).filter((city) => {
     const point = parseLatLon(city?.coords);
     if (!point) return false;
-    return isWithinOrderRadius(radius, haversineKm(origin, point));
+    return points.some((origin) =>
+      isWithinOrderRadius(radius, haversineKm(origin, point))
+    );
   });
 }
 

@@ -9,6 +9,7 @@ import { ROLE } from "@models/user";
 import { applyAdminViewAsFromCookies } from "@/domain/owners/adminViewAs";
 import { getEffectiveOwnerId } from "@/domain/owners/ownerScope";
 import CompanyProfileSection from "./CompanyProfileSection";
+import { loadVoucherHubData } from "@/app/admin/vouchers/loadVoucherHubData";
 
 export default async function CompanyProfilePage() {
   unstable_noStore();
@@ -18,9 +19,10 @@ export default async function CompanyProfilePage() {
   if (!session?.user?.isAdmin) redirect("/login");
 
   const viewAsOwnerId = getEffectiveOwnerId(session?.user);
-  if (Number(session.user.role) === ROLE.SUPERADMIN && !viewAsOwnerId) {
-    redirect("/admin/owners");
-  }
+  const hasCompanyContext = Boolean(
+    viewAsOwnerId ||
+      (Number(session.user.role) !== ROLE.SUPERADMIN && session.user.ownerId)
+  );
 
   const companyId =
     viewAsOwnerId ||
@@ -32,6 +34,13 @@ export default async function CompanyProfilePage() {
     getAllOrders({ session }),
   ]);
 
+  let voucherHub = null;
+  try {
+    voucherHub = await loadVoucherHubData(session);
+  } catch (err) {
+    console.error("[company] voucher hub data", err);
+  }
+
   return (
     <Feed
       cars={JSON.parse(JSON.stringify(cars || []))}
@@ -40,7 +49,11 @@ export default async function CompanyProfilePage() {
       isAdmin
       isMain={false}
     >
-      <CompanyProfileSection companyId={companyId} />
+      <CompanyProfileSection
+        companyId={hasCompanyContext ? companyId : ""}
+        hasCompanyContext={hasCompanyContext}
+        voucherHub={voucherHub}
+      />
     </Feed>
   );
 }

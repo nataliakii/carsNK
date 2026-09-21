@@ -1,12 +1,21 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { Box, Button, Divider, Grow, Typography } from "@mui/material";
+import React, { useEffect, useMemo, useState } from "react";
+import { Box, Button, Divider, Grow, TextField, Typography } from "@mui/material";
 import { useTranslation } from "react-i18next";
-import dayjs from "dayjs";
 
 import DialogLayout from "@/app/components/ui/modals/DialogLayout";
+import FilterLocationAutocomplete from "@/app/components/ui/inputs/FilterLocationAutocomplete";
+import SelectedFieldClass from "@/app/components/ui/inputs/SelectedFieldClass";
+import BookingTimeField from "@/app/components/ui/inputs/BookingTimeField";
 import { useMainContext } from "../Context";
+import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
+import { getSiteCountryCode } from "@config/siteCountry";
+import {
+  isSpainBookingSite,
+  resolveCatalogPlaceOptions,
+} from "@/domain/orders/catalogPlaceOptions";
+import { normalizeBookingTimeHm } from "@/domain/orders/locationOptions";
 
 /** Same soft fade + scale as BookingModal (~280ms enter). */
 const BookingContextDialogTransition = React.forwardRef(
@@ -20,59 +29,79 @@ const BOOKING_CONTEXT_DIALOG_TRANSITION = {
   exit: 200,
 };
 
+const fieldSx = {
+  width: "100%",
+  "& .MuiInputBase-root": {
+    height: 40,
+    borderRadius: "10px",
+  },
+};
+
 function formatFilterValue(value) {
   const text = String(value || "").trim();
   if (!text) return "";
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/**
- * Catalog search stores YYYY-MM-DD only. Show a time only when context
- * actually carries one (not midnight on a date-only key).
- */
-function formatSearchTime(value) {
-  if (!value) return null;
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
-    return null;
-  }
-  const d = dayjs(value);
-  if (!d.isValid()) return null;
-  const time = d.format("HH:mm");
-  if (time === "00:00") return null;
-  return time;
+function todayDateKey() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function focusCatalogFilter(target) {
-  if (typeof document === "undefined") return;
-  const bar = document.getElementById("catalog-filters");
-  if (bar) {
-    bar.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-  const selectors = {
-    dates: 'input[name="searchStart"]',
-    pickup: "#pickupLocation, input[name='pickupLocation']",
-    return: "#returnLocation, input[name='returnLocation']",
-    search: 'input[name="carSearch"]',
-  };
-  const el = document.querySelector(selectors[target] || selectors.dates);
-  if (!el || typeof el.focus !== "function") return;
-  window.setTimeout(() => {
-    el.focus();
-  }, 50);
+function defaultBookingTime(stored, companyValue, fallback) {
+  return (
+    normalizeBookingTimeHm(stored) ||
+    normalizeBookingTimeHm(companyValue) ||
+    fallback
+  );
 }
 
-function DetailRow({ label, value, muted = false, stacked = false }) {
+function CatalogPlaceField({
+  name,
+  label,
+  options,
+  value,
+  onChange,
+  spainSite,
+  emptyOptionLabel,
+}) {
+  if (spainSite) {
+    return (
+      <FilterLocationAutocomplete
+        name={name}
+        label={label}
+        options={options}
+        value={value}
+        onChange={onChange}
+        emptyOptionLabel={emptyOptionLabel}
+        variant="light"
+      />
+    );
+  }
+  return (
+    <SelectedFieldClass
+      name={name}
+      label={label}
+      options={options}
+      value={value}
+      handleChange={onChange}
+      includeAllOption={false}
+      emptyOptionLabel={emptyOptionLabel}
+      formatMenuItemLabel={(opt) => opt}
+      variant="light"
+    />
+  );
+}
+
+function FilterRow({ label, value }) {
   return (
     <Box
       sx={{
         display: "flex",
-        flexDirection: stacked ? "column" : { xs: "column", sm: "row" },
-        alignItems: stacked
-          ? "flex-start"
-          : { xs: "flex-start", sm: "baseline" },
+        flexDirection: { xs: "column", sm: "row" },
+        alignItems: { xs: "flex-start", sm: "baseline" },
         justifyContent: "space-between",
-        gap: stacked ? 0.5 : { xs: 0.25, sm: 2 },
-        py: 1,
+        gap: { xs: 0.25, sm: 2 },
+        py: 0.75,
       }}
     >
       <Typography
@@ -84,12 +113,7 @@ function DetailRow({ label, value, muted = false, stacked = false }) {
       </Typography>
       <Typography
         variant="body1"
-        sx={{
-          fontWeight: muted ? 500 : 700,
-          color: muted ? "text.secondary" : "text.primary",
-          textAlign: stacked ? "left" : { xs: "left", sm: "right" },
-          lineHeight: 1.45,
-        }}
+        sx={{ fontWeight: 700, textAlign: { xs: "left", sm: "right" } }}
       >
         {value}
       </Typography>
@@ -98,8 +122,8 @@ function DetailRow({ label, value, muted = false, stacked = false }) {
 }
 
 /**
- * Search/booking context sheet — not the per-car BookingModal.
- * Lists pickup/return, dates, delivery notes, and active filters. No prices.
+ * Catalog booking-context editor: pickup/return place, dates, and times.
+ * Apply writes the same context + storage as the Navbar / BookingModal.
  */
 export default function BookingContextDetailsDialog({
   open,
@@ -114,15 +138,53 @@ export default function BookingContextDetailsDialog({
     selectedSeats,
     carSearchQuery,
     bookingPlaceIn,
+    setBookingPlaceIn,
     bookingPlaceOut,
+    setBookingPlaceOut,
+    bookingTimeIn,
+    setBookingTimeIn,
+    bookingTimeOut,
+    setBookingTimeOut,
     searchDates,
+    setSearchDates,
+    clearSearchDates,
+    company,
   } = useMainContext();
 
-  const [focusAfterClose, setFocusAfterClose] = useState(null);
+  const { names: companyBookingLocationOptions } = useCompanyBookingLocations(
+    company?._id
+  );
+  const spainSite = isSpainBookingSite(getSiteCountryCode());
+  const bookingLocationOptions = useMemo(
+    () =>
+      resolveCatalogPlaceOptions(
+        companyBookingLocationOptions,
+        getSiteCountryCode()
+      ),
+    [companyBookingLocationOptions]
+  );
 
-  const hasActiveDateSearch = Boolean(searchDates?.start && searchDates?.end);
-  const pickup = bookingPlaceIn?.trim() || "";
-  const dropoff = bookingPlaceOut?.trim() || "";
+  const [draftPickup, setDraftPickup] = useState("");
+  const [draftReturn, setDraftReturn] = useState("");
+  const [draftStart, setDraftStart] = useState("");
+  const [draftEnd, setDraftEnd] = useState("");
+  const [draftPickupTime, setDraftPickupTime] = useState("10:00");
+  const [draftReturnTime, setDraftReturnTime] = useState("10:00");
+
+  useEffect(() => {
+    if (!open) return;
+    setDraftPickup(bookingPlaceIn?.trim() || "");
+    setDraftReturn(bookingPlaceOut?.trim() || "");
+    setDraftStart(searchDates?.start || "");
+    setDraftEnd(searchDates?.end || "");
+    setDraftPickupTime(
+      defaultBookingTime(bookingTimeIn, company?.defaultStart, "10:00")
+    );
+    setDraftReturnTime(
+      defaultBookingTime(bookingTimeOut, company?.defaultEnd, "10:00")
+    );
+  }, [open]); // snapshot when the dialog opens
+
   const searchQuery = String(carSearchQuery || "").trim();
   const classValue =
     selectedClass && selectedClass !== "All"
@@ -136,74 +198,71 @@ export default function BookingContextDetailsDialog({
     selectedSeats && selectedSeats !== "All"
       ? t("header.seatsOption", { count: Number(selectedSeats) })
       : "";
-
-  const dateLabel = useMemo(() => {
-    if (!hasActiveDateSearch) return null;
-    return t("catalog.bookingDetailsDateRange", {
-      from: dayjs(searchDates.start).format("DD.MM.YYYY"),
-      to: dayjs(searchDates.end).format("DD.MM.YYYY"),
-    });
-  }, [hasActiveDateSearch, searchDates?.start, searchDates?.end, t]);
-
-  const timeLabel = useMemo(() => {
-    const startTime = formatSearchTime(searchDates?.start);
-    const endTime = formatSearchTime(searchDates?.end);
-    if (!startTime && !endTime) return null;
-    if (startTime && endTime) {
-      return t("catalog.bookingDetailsTimeRange", {
-        from: startTime,
-        to: endTime,
-      });
-    }
-    return startTime || endTime;
-  }, [searchDates?.start, searchDates?.end, t]);
-
   const hasFilters = Boolean(
     classValue || transmissionValue || seatsValue || searchQuery
   );
 
-  const resolveFocusTarget = () => {
-    if (!hasActiveDateSearch) return "dates";
-    if (!pickup) return "pickup";
-    return "dates";
+  const datesIncomplete = Boolean(draftStart) !== Boolean(draftEnd);
+  const datesOutOfOrder = Boolean(
+    draftStart && draftEnd && draftEnd < draftStart
+  );
+  const applyDisabled = datesIncomplete || datesOutOfOrder;
+
+  const handlePlaceChange = (setter) => (eventOrValue) => {
+    const next =
+      eventOrValue && typeof eventOrValue === "object" && eventOrValue.target
+        ? eventOrValue.target.value
+        : eventOrValue;
+    setter(next ?? "");
   };
 
-  const handleEditFilters = () => {
-    setFocusAfterClose(resolveFocusTarget());
+  const handleApply = () => {
+    if (applyDisabled) return;
+    setBookingPlaceIn(draftPickup);
+    setBookingPlaceOut(draftReturn);
+    setBookingTimeIn(draftPickupTime);
+    setBookingTimeOut(draftReturnTime);
+    if (draftStart && draftEnd) {
+      setSearchDates({ start: draftStart, end: draftEnd });
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+      }
+    } else {
+      clearSearchDates();
+    }
     onClose();
   };
 
-  const handleDialogClose = (event, reason) => {
+  const handleCancel = (event, reason) => {
     onClose(event, reason);
   };
+
+  const emptyLocationLabel = t("header.locationNotSet");
+  const minStart = todayDateKey();
 
   return (
     <DialogLayout
       open={open}
-      onClose={handleDialogClose}
+      onClose={handleCancel}
       title={t("catalog.bookingDetailsTitle")}
       maxWidth="sm"
       closeOnBackdropClick
       closeOnEscape
-      disableRestoreFocus={Boolean(focusAfterClose)}
       TransitionComponent={BookingContextDialogTransition}
       transitionDuration={BOOKING_CONTEXT_DIALOG_TRANSITION}
       TransitionProps={{
-        onExited: () => {
-          if (!focusAfterClose) return;
-          focusCatalogFilter(focusAfterClose);
-          setFocusAfterClose(null);
-        },
         easing: {
           enter: "cubic-bezier(0, 0, 0.2, 1)",
           exit: "cubic-bezier(0.4, 0, 1, 1)",
         },
         style: { transformOrigin: "center center" },
       }}
+      contentSx={{ px: { xs: 2, sm: 3 }, pt: 1, pb: 1 }}
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
           m: { xs: 1, sm: 2 },
+          width: { xs: "calc(100% - 16px)", sm: "auto" },
           maxHeight: { xs: "95vh", sm: "90vh" },
         },
       }}
@@ -211,7 +270,7 @@ export default function BookingContextDetailsDialog({
         <>
           <Button
             variant="outlined"
-            onClick={handleEditFilters}
+            onClick={handleCancel}
             sx={{
               textTransform: "none",
               fontWeight: 700,
@@ -219,11 +278,12 @@ export default function BookingContextDetailsDialog({
               px: 2,
             }}
           >
-            {t("catalog.bookingDetailsEdit")}
+            {t("catalog.bookingDetailsCancel")}
           </Button>
           <Button
             variant="contained"
-            onClick={handleDialogClose}
+            onClick={handleApply}
+            disabled={applyDisabled}
             sx={{
               textTransform: "none",
               fontWeight: 700,
@@ -232,45 +292,136 @@ export default function BookingContextDetailsDialog({
               boxShadow: "none",
             }}
           >
-            {t("catalog.bookingDetailsClose")}
+            {t("catalog.bookingDetailsApply")}
           </Button>
         </>
       }
     >
-      <Box sx={{ m: 0 }}>
-        <DetailRow
-          label={t("catalog.bookingDetailsPickup")}
-          value={pickup || t("catalog.locationNotSet")}
-          muted={!pickup}
-        />
-        <DetailRow
-          label={t("catalog.bookingDetailsReturn")}
-          value={dropoff || t("catalog.locationNotSet")}
-          muted={!dropoff}
-        />
-        <DetailRow
-          label={t("catalog.bookingDetailsDates")}
-          value={
-            dateLabel ||
-            (deliveryHint
-              ? t("catalog.locationNotSet")
-              : t("catalog.bookingDetailsDatesEmpty"))
-          }
-          muted={!dateLabel}
-        />
-        {timeLabel ? (
-          <DetailRow
-            label={t("catalog.bookingDetailsTimes")}
-            value={timeLabel}
-          />
+      <Box
+        component="form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          handleApply();
+        }}
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 1.5,
+          m: 0,
+        }}
+      >
+        {bookingLocationOptions.length > 0 ? (
+          <>
+            <CatalogPlaceField
+              name="pickupLocation"
+              label={t("catalog.bookingDetailsPickup")}
+              options={bookingLocationOptions}
+              value={draftPickup}
+              onChange={handlePlaceChange(setDraftPickup)}
+              spainSite={spainSite}
+              emptyOptionLabel={emptyLocationLabel}
+            />
+            <CatalogPlaceField
+              name="returnLocation"
+              label={t("catalog.bookingDetailsReturn")}
+              options={bookingLocationOptions}
+              value={draftReturn}
+              onChange={handlePlaceChange(setDraftReturn)}
+              spainSite={spainSite}
+              emptyOptionLabel={emptyLocationLabel}
+            />
+          </>
         ) : null}
-        {deliveryHint || deliveryNote ? (
-          <DetailRow
-            label={t("catalog.bookingDetailsDelivery")}
-            value={deliveryHint || deliveryNote}
-            muted
-            stacked
+
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+            gap: 1.5,
+          }}
+        >
+          <TextField
+            size="small"
+            type="date"
+            name="searchStart"
+            label={t("header.searchFrom")}
+            value={draftStart}
+            onChange={(e) => setDraftStart(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            inputProps={{
+              min: minStart,
+              "aria-label": t("header.searchFrom"),
+            }}
+            error={datesOutOfOrder}
+            sx={fieldSx}
           />
+          <TextField
+            size="small"
+            type="date"
+            name="searchEnd"
+            label={t("header.searchTo")}
+            value={draftEnd}
+            onChange={(e) => setDraftEnd(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            inputProps={{
+              min: draftStart || minStart,
+              "aria-label": t("header.searchTo"),
+            }}
+            error={datesOutOfOrder}
+            sx={fieldSx}
+          />
+          <BookingTimeField
+            label={t("order.pickupTime")}
+            value={draftPickupTime}
+            onChange={(e) =>
+              setDraftPickupTime(
+                normalizeBookingTimeHm(e.target.value) || draftPickupTime
+              )
+            }
+            sx={fieldSx}
+            fullWidth
+          />
+          <BookingTimeField
+            label={t("order.returnTime")}
+            value={draftReturnTime}
+            onChange={(e) =>
+              setDraftReturnTime(
+                normalizeBookingTimeHm(e.target.value) || draftReturnTime
+              )
+            }
+            sx={fieldSx}
+            fullWidth
+          />
+        </Box>
+
+        {draftStart || draftEnd ? (
+          <Button
+            type="button"
+            size="small"
+            onClick={() => {
+              setDraftStart("");
+              setDraftEnd("");
+            }}
+            sx={{
+              alignSelf: "flex-start",
+              textTransform: "none",
+              fontWeight: 600,
+              px: 0,
+              minWidth: 0,
+            }}
+          >
+            {t("header.clearSearchDates")}
+          </Button>
+        ) : null}
+
+        {deliveryHint || deliveryNote ? (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ textAlign: "left", lineHeight: 1.45 }}
+          >
+            {deliveryHint || deliveryNote}
+          </Typography>
         ) : null}
       </Box>
 
@@ -285,25 +436,25 @@ export default function BookingContextDetailsDialog({
           </Typography>
           <Box sx={{ m: 0 }}>
             {classValue ? (
-              <DetailRow
+              <FilterRow
                 label={t("catalog.bookingDetailsClass")}
                 value={classValue}
               />
             ) : null}
             {transmissionValue ? (
-              <DetailRow
+              <FilterRow
                 label={t("catalog.bookingDetailsTransmission")}
                 value={transmissionValue}
               />
             ) : null}
             {seatsValue ? (
-              <DetailRow
+              <FilterRow
                 label={t("catalog.bookingDetailsSeats")}
                 value={seatsValue}
               />
             ) : null}
             {searchQuery ? (
-              <DetailRow
+              <FilterRow
                 label={t("catalog.bookingDetailsSearch")}
                 value={searchQuery}
               />

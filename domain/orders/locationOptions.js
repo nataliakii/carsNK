@@ -28,6 +28,31 @@ export const ORDERED_LOCATION_OPTIONS = [
 export const DEFAULT_BOOKING_LOCATION = "Nea Kallikratia";
 export const SELECTED_LOCATION_STORAGE_KEY = "selectedLocation";
 export const SELECTED_RETURN_LOCATION_STORAGE_KEY = "selectedReturnLocation";
+export const SELECTED_PICKUP_TIME_STORAGE_KEY = "selectedPickupTime";
+export const SELECTED_RETURN_TIME_STORAGE_KEY = "selectedReturnTime";
+
+/**
+ * Catalog / booking clock time as HH:mm. Empty string if missing or invalid.
+ * Accepts "H:mm" and optional seconds ("HH:mm:ss").
+ */
+export function normalizeBookingTimeHm(value) {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!match) return "";
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return "";
+  }
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
 
 export const LOCATION_DIVIDER_BEFORE = "Afitos";
 

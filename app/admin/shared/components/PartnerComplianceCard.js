@@ -76,7 +76,7 @@ export default function PartnerComplianceCard() {
         <Button
           size="small"
           component={Link}
-          href="/admin/legal-profile/agreement"
+          href="/admin/legal-profile?tab=agreement"
         >
           {t("partnerLegal.card.openAgreement")}
         </Button>

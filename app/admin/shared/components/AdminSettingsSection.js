@@ -2,16 +2,23 @@
 
 import { Box, Typography } from "@mui/material";
 
+/** Readable Latin copy — catalog Nunito tracking otherwise smashes words. */
+export const adminReadableTextSx = {
+  letterSpacing: "0.01em",
+  wordSpacing: "0.16em",
+  overflowWrap: "break-word",
+  wordBreak: "normal",
+};
+
 export const adminCardSx = {
-  p: { xs: 2, sm: 2.5 },
+  p: { xs: 2.5, sm: 3 },
   border: "1px solid",
   borderColor: "divider",
   borderRadius: 2,
-  bgcolor: "background.paper",
+  bgcolor: "#fff",
   maxWidth: "100%",
   boxSizing: "border-box",
-  letterSpacing: "normal",
-  wordSpacing: "normal",
+  ...adminReadableTextSx,
 };
 
 export const adminFieldSx = {
@@ -21,13 +28,18 @@ export const adminFieldSx = {
     whiteSpace: "normal",
     overflow: "visible",
     maxWidth: "none",
-    lineHeight: 1.3,
+    lineHeight: 1.35,
+    ...adminReadableTextSx,
   },
   "& .MuiFormHelperText-root": {
     whiteSpace: "normal",
     mx: 0,
     mt: 0.75,
-    lineHeight: 1.4,
+    lineHeight: 1.45,
+    ...adminReadableTextSx,
+  },
+  "& .MuiInputBase-input": {
+    ...adminReadableTextSx,
   },
 };
 
@@ -38,21 +50,16 @@ export default function AdminSettingsSection({
   sx,
 }) {
   return (
-    <Box
-      sx={{
-        p: { xs: 1.75, sm: 2 },
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: 2,
-        bgcolor: "action.hover",
-        ...sx,
-      }}
-    >
+    <Box sx={{ ...sx }}>
       {title ? (
         <Typography
           variant="subtitle1"
           fontWeight={700}
-          sx={{ mb: description ? 0.5 : 1.5, letterSpacing: "normal", lineHeight: 1.35 }}
+          sx={{
+            mb: description ? 0.5 : 1.5,
+            lineHeight: 1.35,
+            ...adminReadableTextSx,
+          }}
         >
           {title}
         </Typography>
@@ -64,9 +71,8 @@ export default function AdminSettingsSection({
           sx={{
             mb: 1.75,
             whiteSpace: "normal",
-            letterSpacing: "normal",
-            wordSpacing: "normal",
             lineHeight: 1.5,
+            ...adminReadableTextSx,
           }}
         >
           {description}

@@ -16,19 +16,20 @@ import {
 } from "@app/components/seo/SeoContentBlocks";
 import {
   buildCarSeoText,
-  getAllLocationsForLocale,
   getCarPath,
+  getCarSeoJsonLdLocation,
+  getCarSeoPickupLinks,
+  getCarSeoPillarLinks,
+  getCarSeoPrimaryLocationName,
   getLocaleDictionary,
-  getLocationById,
-  getLocationPathFromLocation,
   getLocationSeoSlug,
   getSupportedLocales,
   isRoutableLocale,
   normalizeRoutableLocale,
   getSeoLocale,
-  normalizeLocale,
+  usesLegacySeoLocations,
 } from "@domain/locationSeo/locationSeoService";
-import { LOCATION_IDS } from "@domain/locationSeo/locationSeoKeys";
+import { getCarSeoUiCopy } from "@domain/locationSeo/carSeoUiCopy";
 import { COMPANY_ID } from "@config/company";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@lib/authOptions";
@@ -55,15 +56,9 @@ import {
   getSeoPagePath,
   buildBrandPageSlug,
   extractBrandFromModel,
-  extractUniqueBrands,
 } from "@domain/seoPages/seoPageRegistry";
 
 const MONGO_ID_REGEX = /^[0-9a-f]{24}$/i;
-
-function capitalize(str) {
-  if (!str) return "";
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
 
 function getLowestDailyPrice(car) {
   const tiers = car?.pricingTiers;
@@ -101,26 +96,26 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }) {
-  const locale = normalizeLocale(params.locale);
+  const routeLocale = normalizeRoutableLocale(params.locale);
   const car = await getCarBySlug(params.slug).catch(() => null);
 
   if (!car) {
     return { robots: { index: false, follow: false } };
   }
 
-  const fallbackLocation = getLocationById(locale, LOCATION_IDS.HALKIDIKI);
-  const locationName = fallbackLocation?.shortName || "Halkidiki";
+  const locationName = getCarSeoPrimaryLocationName(routeLocale);
+  const ui = getCarSeoUiCopy(routeLocale);
 
   // Use DB slug for canonical so /en/cars/Toyota-Yaris and /en/cars/toyota-yaris converge.
   const canonicalSlug = car.slug || params.slug;
 
   return buildCarMetadata({
-    localeCandidate: locale,
+    localeCandidate: routeLocale,
     carSlug: canonicalSlug,
     carModel: car.model || canonicalSlug,
     locationName,
-    transmission: capitalize(car.transmission),
-    fuelType: capitalize(car.fueltype),
+    transmission: ui.translateValue(car.transmission),
+    fuelType: ui.translateValue(car.fueltype),
     seats: car.seats ? String(car.seats) : "",
   });
 }
@@ -138,7 +133,7 @@ export default async function LocalizedCarPage({ params }) {
   if (MONGO_ID_REGEX.test(params.slug)) {
     const carById = await getCarById(params.slug, { session }).catch(() => null);
     if (carById?.slug) {
-      permanentRedirect(getCarPath(locale, carById.slug));
+      permanentRedirect(getCarPath(routeLocale, carById.slug));
     }
     notFound();
   }
@@ -168,76 +163,85 @@ export default async function LocalizedCarPage({ params }) {
 
   // Redirect to canonical slug when URL differs (e.g. case) to avoid duplicate content.
   if (params.slug !== resolvedCar.slug) {
-    permanentRedirect(getCarPath(locale, resolvedCar.slug));
+    permanentRedirect(getCarPath(routeLocale, resolvedCar.slug));
   }
 
   const car = resolvedCar;
 
   // ── Locale dictionary & location data ──────────────────────────────
   const dictionary = getLocaleDictionary(locale);
-  const carDict = dictionary.car;
-  const fallbackLocation =
-    getLocationById(locale, LOCATION_IDS.HALKIDIKI) ||
-    getAllLocationsForLocale(locale)[0] ||
-    null;
-
-  const locationName = fallbackLocation?.shortName || "Halkidiki";
+  const greeceSeo = usesLegacySeoLocations();
+  const ui = getCarSeoUiCopy(routeLocale);
+  const locationName = getCarSeoPrimaryLocationName(routeLocale);
   const carModel = car?.model || car?.slug || params.slug;
 
-  const carSeoText = buildCarSeoText(locale, {
+  const carSeoText = buildCarSeoText(routeLocale, {
     carModel,
     locationName,
-    transmission: capitalize(car?.transmission),
-    fuelType: capitalize(car?.fueltype),
+    transmission: ui.translateValue(car?.transmission),
+    fuelType: ui.translateValue(car?.fueltype),
     seats: car?.seats ? String(car.seats) : "",
   });
 
-  // ── Pillar links (Car rental in Halkidiki, Car rental at Thessaloniki Airport, etc.) ─
-  const pillarLocations = getAllLocationsForLocale(locale).filter((loc) =>
-    [LOCATION_IDS.HALKIDIKI, LOCATION_IDS.THESSALONIKI_AIRPORT, LOCATION_IDS.NEA_KALLIKRATIA].includes(loc.id)
-  );
-  const pillarLinks = pillarLocations.slice(0, 3).map((loc) => ({
-    href: getLocationPathFromLocation(locale, loc),
-    label: (carDict.breadcrumbCarRentalLocation || "").replace(/\{locationName\}/g, loc.shortName) || `Car rental ${loc.shortName}`,
-  }));
+  const pillarLinks = getCarSeoPillarLinks(routeLocale);
 
-  // ── Quick specs (at a glance: Transmission, Fuel, Seats, AC, Luggage) ─
+  // ── Quick specs (at a glance — only real car fields) ─
   const quickSpecs = [
-    car?.transmission && { label: "Transmission", value: capitalize(car.transmission) },
-    car?.fueltype && { label: "Fuel type", value: capitalize(car.fueltype) },
-    car?.seats && { label: "Seats", value: String(car.seats) },
-    car?.airConditioning != null && { label: "Air conditioning", value: car.airConditioning ? "Yes" : "No" },
-    { label: "Luggage", value: "2 suitcases" },
+    car?.transmission && {
+      label: ui.transmission,
+      value: ui.translateValue(car.transmission),
+    },
+    car?.fueltype && {
+      label: ui.fuel,
+      value: ui.translateValue(car.fueltype),
+    },
+    car?.seats && { label: ui.seats, value: String(car.seats) },
+    car?.airConditioning != null && {
+      label: ui.air,
+      value: car.airConditioning ? ui.yes : ui.no,
+    },
   ].filter(Boolean);
 
   // ── Car features list (for Features of X block) ─
   const carFeatures = [
-    car?.transmission && `${capitalize(car.transmission)} transmission`,
-    car?.airConditioning && "Air conditioning",
-    "Bluetooth audio",
-    "Fuel efficient engine",
-    "Compact size – easy parking",
+    car?.transmission &&
+      `${ui.translateValue(car.transmission)} ${ui.transmission}`.trim(),
+    car?.airConditioning && ui.air,
   ].filter(Boolean);
 
   // ── Pickup locations with links ────────────────────────────────────
-  const locationLinks = getAllLocationsForLocale(locale).map((location) => ({
-    href: getLocationPathFromLocation(locale, location),
-    label: location.shortName,
-  }));
+  const locationLinks = getCarSeoPickupLinks(routeLocale);
 
   // ── Vehicle specifications ─────────────────────────────────────────
   const vehicleSpecs = [
-    car?.transmission && { label: "Transmission", value: capitalize(car.transmission) },
-    car?.fueltype && { label: "Fuel Type", value: capitalize(car.fueltype) },
-    car?.seats && { label: "Seats", value: String(car.seats) },
-    car?.airConditioning != null && { label: "Air Conditioning", value: car.airConditioning ? "Yes" : "No" },
-    { label: "Luggage capacity", value: "2 suitcases" },
-    car?.numberOfDoors && { label: "Doors", value: String(car.numberOfDoors) },
-    car?.enginePower && { label: "Engine Power", value: `${car.enginePower} HP` },
-    car?.engine && { label: "Engine", value: `${car.engine} cc` },
-    car?.registration && { label: "Year", value: String(car.registration) },
-    car?.class && { label: "Class", value: capitalize(car.class) },
-    car?.deposit != null && { label: "Deposit", value: car.deposit > 0 ? `${car.deposit} €` : "No deposit" },
+    car?.transmission && {
+      label: ui.transmission,
+      value: ui.translateValue(car.transmission),
+    },
+    car?.fueltype && {
+      label: ui.fuel,
+      value: ui.translateValue(car.fueltype),
+    },
+    car?.seats && { label: ui.seats, value: String(car.seats) },
+    car?.airConditioning != null && {
+      label: ui.air,
+      value: car.airConditioning ? ui.yes : ui.no,
+    },
+    car?.numberOfDoors && { label: ui.doors, value: String(car.numberOfDoors) },
+    car?.enginePower && {
+      label: ui.enginePow,
+      value: `${car.enginePower} HP`,
+    },
+    car?.engine && { label: ui.engine, value: `${car.engine} cc` },
+    car?.registration && { label: ui.year, value: String(car.registration) },
+    car?.class && {
+      label: ui.classLabel,
+      value: ui.translateValue(car.class),
+    },
+    car?.deposit != null && {
+      label: ui.deposit,
+      value: car.deposit > 0 ? `${car.deposit} €` : ui.noDeposit,
+    },
   ].filter(Boolean);
 
   // ── Related cars: same class first, then fill up to 4 ──────────────
@@ -252,66 +256,99 @@ export default async function LocalizedCarPage({ params }) {
   );
   const relatedCars = [...sameClassCars, ...otherCars].slice(0, 4);
   const relatedCarLinks = relatedCars.map((c) => ({
-    href: getCarPath(locale, c.slug),
+    href: getCarPath(routeLocale, c.slug),
     label: c.model || c.slug,
   }));
 
-  // ── Category × location links (cross-linking to SEO landing pages) ─
-  const categoryLinks = SEO_LOCATIONS.slice(0, 2).flatMap((location) =>
-    CAR_CATEGORIES.filter((cat) => {
-      if (cat.filter.type === "transmission" && car?.transmission) {
-        return cat.filter.value === car.transmission.toLowerCase();
-      }
-      if (cat.filter.type === "classes" && car?.class) {
-        return (cat.filter.value).includes(car.class.toLowerCase());
-      }
-      return false;
-    }).map((cat) => {
-      const locationName = location.nameByLocale[locale];
-      const content = getResolvedCategoryContent(cat.id, locale, locationName);
-      const locSlug = getLocationSeoSlug(location.locationId, locale);
-      return {
-        href: getSeoPagePath(locale, `${cat.id}-car-rental-${locSlug}`),
-        label: content?.h1 || `${cat.id} car rental`,
-      };
-    })
-  );
-
-  // Add general category links for the main location
-  const mainLocation = SEO_LOCATIONS[0];
-  const mainLocSlug = getLocationSeoSlug(mainLocation.locationId, locale);
-  const generalCategoryLinks = CAR_CATEGORIES
-    .filter((cat) => !categoryLinks.some((cl) => cl.href.includes(cat.id)))
-    .slice(0, 3)
-    .map((cat) => {
-      const content = getResolvedCategoryContent(cat.id, locale, mainLocation.nameByLocale[locale]);
-      return {
-        href: getSeoPagePath(locale, `${cat.id}-car-rental-${mainLocSlug}`),
-        label: content?.h1 || `${cat.id} car rental`,
-      };
-    });
-
-  const allCategoryLinks = [...categoryLinks, ...generalCategoryLinks].slice(0, 5);
-
-  // ── Brand links (link to brand pages for this car's brand) ─────────
-  const carBrand = car ? extractBrandFromModel(car.model || "") : "";
-  const carBrandSlug = carBrand.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  const brandLinks = carBrandSlug
-    ? SEO_LOCATIONS.slice(0, 2).map((location) => {
-        const brandContent = getResolvedBrandContent(carBrand, locale, location.nameByLocale[locale]);
-        const locSlug = getLocationSeoSlug(location.locationId, locale);
-        return {
-          href: getSeoPagePath(locale, buildBrandPageSlug(carBrandSlug, locSlug)),
-          label: brandContent.h1,
-        };
-      })
+  // Greece-only programmatic SEO landings (404 on Spain / Rovaro).
+  const categoryLinks = greeceSeo
+    ? SEO_LOCATIONS.slice(0, 2).flatMap((location) =>
+        CAR_CATEGORIES.filter((cat) => {
+          if (cat.filter.type === "transmission" && car?.transmission) {
+            return cat.filter.value === car.transmission.toLowerCase();
+          }
+          if (cat.filter.type === "classes" && car?.class) {
+            return cat.filter.value.includes(car.class.toLowerCase());
+          }
+          return false;
+        }).map((cat) => {
+          const categoryLocationName = location.nameByLocale[locale];
+          const content = getResolvedCategoryContent(
+            cat.id,
+            locale,
+            categoryLocationName
+          );
+          const locSlug = getLocationSeoSlug(location.locationId, locale);
+          return {
+            href: getSeoPagePath(locale, `${cat.id}-car-rental-${locSlug}`),
+            label: content?.h1 || `${cat.id} car rental`,
+          };
+        })
+      )
     : [];
 
-  // ── Breadcrumbs (Home → Cars → Toyota Yaris Automatic) for SEO and internal linking ─
+  const mainLocation = greeceSeo ? SEO_LOCATIONS[0] : null;
+  const mainLocSlug = mainLocation
+    ? getLocationSeoSlug(mainLocation.locationId, locale)
+    : "";
+  const generalCategoryLinks =
+    greeceSeo && mainLocation
+      ? CAR_CATEGORIES.filter(
+          (cat) => !categoryLinks.some((cl) => cl.href.includes(cat.id))
+        )
+          .slice(0, 3)
+          .map((cat) => {
+            const content = getResolvedCategoryContent(
+              cat.id,
+              locale,
+              mainLocation.nameByLocale[locale]
+            );
+            return {
+              href: getSeoPagePath(
+                locale,
+                `${cat.id}-car-rental-${mainLocSlug}`
+              ),
+              label: content?.h1 || `${cat.id} car rental`,
+            };
+          })
+      : [];
+
+  const allCategoryLinks = [...categoryLinks, ...generalCategoryLinks].slice(
+    0,
+    5
+  );
+
+  const carBrand = car ? extractBrandFromModel(car.model || "") : "";
+  const carBrandSlug = carBrand
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const brandLinks =
+    greeceSeo && carBrandSlug
+      ? SEO_LOCATIONS.slice(0, 2).map((location) => {
+          const brandContent = getResolvedBrandContent(
+            carBrand,
+            locale,
+            location.nameByLocale[locale]
+          );
+          const locSlug = getLocationSeoSlug(location.locationId, locale);
+          return {
+            href: getSeoPagePath(
+              locale,
+              buildBrandPageSlug(carBrandSlug, locSlug)
+            ),
+            label: brandContent.h1,
+          };
+        })
+      : [];
+
   const breadcrumbItems = [
-    { href: `/${locale}`, label: carDict.breadcrumbHome },
-    { href: `/${locale}/cars`, label: carDict.breadcrumbCars },
-    { href: getCarPath(locale, car?.slug || params.slug), label: carModel },
+    { href: `/${routeLocale}`, label: carSeoText.breadcrumbHome },
+    { href: `/${routeLocale}/cars`, label: carSeoText.breadcrumbCars },
+    {
+      href: getCarPath(routeLocale, car?.slug || params.slug),
+      label: carModel,
+    },
   ];
 
   const breadcrumbJsonLdItems = breadcrumbItems.map((item) => ({
@@ -319,30 +356,26 @@ export default async function LocalizedCarPage({ params }) {
     url: toAbsoluteUrl(item.href),
   }));
 
-  // ── FAQ ─────────────────────────────────────────────────────────────
-  const faqItems = carDict.faq || [];
+  const faqItems = carSeoText.faq || [];
 
-  // ── JSON-LD structured data ────────────────────────────────────────
-  const carPagePath = getCarPath(locale, car?.slug || params.slug);
+  const carPagePath = getCarPath(routeLocale, car?.slug || params.slug);
+  const jsonLdLocation = getCarSeoJsonLdLocation(
+    routeLocale,
+    carSeoText.seoDescription
+  );
 
-  const autoRentalJsonLd = fallbackLocation
+  const autoRentalJsonLd = jsonLdLocation
     ? buildAutoRentalJsonLd({
-        localeCandidate: locale,
+        localeCandidate: routeLocale,
         pagePath: carPagePath,
         offerUrlPath: carPagePath,
-        location: {
-          seoDescription: carSeoText.seoDescription,
-          areaServed: fallbackLocation.areaServed,
-          pickupLocation: fallbackLocation.pickupLocation,
-          offerName: fallbackLocation.offerName,
-          offerDescription: fallbackLocation.offerDescription,
-        },
+        location: jsonLdLocation,
       })
     : null;
 
   const productJsonLd = car
     ? buildCarProductJsonLd({
-        localeCandidate: locale,
+        localeCandidate: routeLocale,
         pagePath: carPagePath,
         car: {
           model: car.model,
@@ -367,10 +400,10 @@ export default async function LocalizedCarPage({ params }) {
   // ── Render ──────────────────────────────────────────────────────────
   return (
     <>
-      <JsonLdScript id={`car-autorental-${car?.slug || params.slug}-${locale}`} data={autoRentalJsonLd} />
-      <JsonLdScript id={`car-product-${car?.slug || params.slug}-${locale}`} data={productJsonLd} />
-      <JsonLdScript id={`car-faq-${car?.slug || params.slug}-${locale}`} data={faqJsonLd} />
-      <JsonLdScript id={`car-breadcrumb-${car?.slug || params.slug}-${locale}`} data={breadcrumbJsonLd} />
+      <JsonLdScript id={`car-autorental-${car?.slug || params.slug}-${routeLocale}`} data={autoRentalJsonLd} />
+      <JsonLdScript id={`car-product-${car?.slug || params.slug}-${routeLocale}`} data={productJsonLd} />
+      <JsonLdScript id={`car-faq-${car?.slug || params.slug}-${routeLocale}`} data={faqJsonLd} />
+      <JsonLdScript id={`car-breadcrumb-${car?.slug || params.slug}-${routeLocale}`} data={breadcrumbJsonLd} />
 
       <Feed
         cars={allCarsData}
@@ -381,7 +414,7 @@ export default async function LocalizedCarPage({ params }) {
         {/* 1. Breadcrumbs */}
         <SeoBreadcrumbNav items={breadcrumbItems} />
 
-        {/* 2. Pillar links (Car rental in Halkidiki, Car rental at Thessaloniki Airport) */}
+        {/* 2. Pillar links (country-specific SEO locations) */}
         {pillarLinks.length > 0 && (
           <SeoPillarLinksBlock title={carSeoText.pillarLinksTitle} links={pillarLinks} />
         )}
@@ -390,19 +423,19 @@ export default async function LocalizedCarPage({ params }) {
         <SeoIntroBlock title={carSeoText.h1Text || carModel} introText={carSeoText.introLongText || carSeoText.introText} />
 
         {/* 4. Quick specs (at a glance) */}
-        <SeoQuickSpecsBlock title={carDict.quickSpecsTitle} specs={quickSpecs} />
+        <SeoQuickSpecsBlock title={carSeoText.quickSpecsTitle} specs={quickSpecs} />
 
-        {/* 5. Hero: Car card with gallery, calendar, booking */}
+        {/* 5. Hero: catalog booking card */}
         <SingleCarDisplay carSlug={params.slug} />
 
         {/* 6. Car features (checkmarks) */}
         <SeoCarFeaturesBlock title={carSeoText.featuresTitle} features={carFeatures} />
 
         {/* 7. Full vehicle specifications */}
-        <SeoVehicleSpecsBlock title={carDict.specsTitle} specs={vehicleSpecs} />
+        <SeoVehicleSpecsBlock title={carSeoText.specsTitle} specs={vehicleSpecs} />
 
         {/* 8. Pickup locations with links */}
-        <SeoLinksBlock title={carDict.pickupTitle} links={locationLinks} />
+        <SeoLinksBlock title={carSeoText.pickupTitle} links={locationLinks} />
 
         {/* 9. Why rent this car */}
         {carSeoText.whyRentBullets?.length > 0 && (
@@ -425,12 +458,12 @@ export default async function LocalizedCarPage({ params }) {
         )}
 
         {/* 13. FAQ */}
-        <SeoFaqBlock title={carDict.faqTitle} faq={faqItems} />
+        <SeoFaqBlock title={carSeoText.faqTitle} faq={faqItems} />
 
         {/* 14. Back to hub */}
         <SeoSingleLinkBlock
           title={dictionary.links.mainHubLabel}
-          href={`/${locale}`}
+          href={`/${routeLocale}`}
           label={dictionary.links.carsToHubLabel}
         />
       </Feed>

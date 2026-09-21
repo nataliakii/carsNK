@@ -4,7 +4,11 @@ import { connectToDB } from "@lib/database";
 import { ACCESS_SCOPE } from "@/domain/auth/accessScopes";
 import { resolveScopedAccessToken } from "@/domain/auth/scopedAccessToken";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
-import { normalizeTransferVoucherData } from "@/domain/vouchers/transferVoucher";
+import {
+  normalizeTransferVoucherData,
+  resolveVoucherLocaleForMarket,
+  voucherEmailPlainMessage,
+} from "@/domain/vouchers/transferVoucher";
 import { buildTransferVoucherEmailHtml } from "@/domain/vouchers/transferVoucherEmailHtml";
 import { buildTransferVoucherPdf } from "@/domain/vouchers/transferVoucherPdf";
 import { getRequestOrigin } from "@/domain/auth/passwordReset";
@@ -49,8 +53,10 @@ export async function POST(request, { params }) {
   }
 
   const stampSrc = getCompanyVoucherStampSrc(company);
+  const raw = body?.voucher || {};
   const voucher = normalizeTransferVoucherData({
-    ...(body?.voucher || {}),
+    ...raw,
+    locale: resolveVoucherLocaleForMarket(raw.locale, company?.country),
     stampSrc,
   });
 
@@ -70,8 +76,7 @@ export async function POST(request, { params }) {
     });
     await sendEmailDirect({
       title,
-      message:
-        "Transfer voucher / Κουπόνι μεταφοράς — PDF attached. See also HTML version.",
+      message: voucherEmailPlainMessage(company?.country),
       html,
       to: [email],
       attachments: [

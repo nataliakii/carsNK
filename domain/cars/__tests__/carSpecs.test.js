@@ -57,8 +57,18 @@ describe("buildCarSpecGroups", () => {
     expect(vehicle.items.map((i) => i.key)).toContain("airConditioning");
   });
 
-  it("capitalizes enum-style values and formats units", () => {
-    expect(findItem(baseCar, "transmission").value).toBe("Automatic");
+  it("translates known enum values and formats units", () => {
+    const withValues = (key) => {
+      if (key === "car.value.automatic") return "Automatic";
+      if (key === "order.perDay") return "day";
+      if (key === "car.yes") return "Yes";
+      if (key === "car.no") return "No";
+      return key;
+    };
+    expect(
+      buildCarSpecList(baseCar, withValues).find((item) => item.key === "transmission")
+        .value
+    ).toBe("Automatic");
     expect(findItem(baseCar, "engine").value).toBe("1.500 c.c.");
     expect(findItem(baseCar, "enginePower").value).toBe("110 bhp");
     expect(findItem(baseCar, "PriceKacko").value).toBe("5 € / day");

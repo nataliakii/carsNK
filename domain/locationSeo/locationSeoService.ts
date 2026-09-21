@@ -50,8 +50,14 @@ import { getSiteCountryConfig } from "@config/siteCountry";
 import {
   getSpainCarTemplates,
   getSpainHubSeo,
+  getSpainPrimaryLocationForJsonLd,
   getSpainStaticPageSeo,
 } from "./spainSeoContent";
+import {
+  SPAIN_LOCATION_IDS,
+  getSpainLocationCopy,
+  getSpainLocationGroupsForNav,
+} from "./spainLocations";
 
 const SUPPORTED_LOCALE_SET = new Set<string>(SUPPORTED_LOCALES);
 const ROUTABLE_LOCALE_SET = new Set<string>(ROUTABLE_LOCALES);
@@ -123,10 +129,104 @@ function normalizePath(path: string): string {
 }
 
 function fillTemplate(template: string, values: Record<string, string>): string {
+  if (!template) return "";
   return Object.entries(values).reduce(
     (acc, [key, value]) => acc.replaceAll(`{${key}}`, value),
     template
   );
+}
+
+const GREECE_CAR_PILLAR_IDS = [
+  LOCATION_IDS.HALKIDIKI,
+  LOCATION_IDS.THESSALONIKI_AIRPORT,
+  LOCATION_IDS.NEA_KALLIKRATIA,
+] as const;
+
+export type CarSeoLocationLink = { href: string; label: string };
+
+/** Greece SEO tree vs Spain (Barcelona / Costa Brava) landings. */
+export function usesLegacySeoLocations(): boolean {
+  return getSiteCountryConfig().showLegacySeoLocations;
+}
+
+export function getCarSeoPrimaryLocationName(
+  localeCandidate: string | undefined | null
+): string {
+  if (!usesLegacySeoLocations()) {
+    const copy = getSpainLocationCopy(
+      SPAIN_LOCATION_IDS.BARCELONA,
+      localeCandidate
+    );
+    return copy?.shortName || "Barcelona";
+  }
+  const locale = normalizeLocale(localeCandidate);
+  return (
+    getLocationById(locale, LOCATION_IDS.HALKIDIKI)?.shortName || "Halkidiki"
+  );
+}
+
+export function getCarSeoPillarLinks(
+  localeCandidate: string | undefined | null
+): CarSeoLocationLink[] {
+  if (!usesLegacySeoLocations()) {
+    const template =
+      getSpainCarTemplates(localeCandidate).breadcrumbCarRentalLocation ||
+      "Car rental {locationName}";
+    return getSpainLocationGroupsForNav(localeCandidate).map((loc) => ({
+      href: loc.href,
+      label: fillTemplate(template, { locationName: loc.label }) || loc.label,
+    }));
+  }
+  const locale = normalizeLocale(localeCandidate);
+  const template =
+    localeSeoDictionary[locale].car.breadcrumbCarRentalLocation ||
+    "Car rental {locationName}";
+  return getAllLocationsForLocale(locale)
+    .filter((loc) =>
+      (GREECE_CAR_PILLAR_IDS as readonly string[]).includes(loc.id)
+    )
+    .slice(0, 3)
+    .map((loc) => ({
+      href: getLocationPathFromLocation(locale, loc),
+      label:
+        fillTemplate(template, { locationName: loc.shortName }) ||
+        `Car rental ${loc.shortName}`,
+    }));
+}
+
+export function getCarSeoPickupLinks(
+  localeCandidate: string | undefined | null
+): CarSeoLocationLink[] {
+  if (!usesLegacySeoLocations()) {
+    return getSpainLocationGroupsForNav(localeCandidate);
+  }
+  const locale = normalizeLocale(localeCandidate);
+  return getAllLocationsForLocale(locale).map((location) => ({
+    href: getLocationPathFromLocation(locale, location),
+    label: location.shortName,
+  }));
+}
+
+export function getCarSeoJsonLdLocation(
+  localeCandidate: string | undefined | null,
+  seoDescription: string
+) {
+  if (!usesLegacySeoLocations()) {
+    return getSpainPrimaryLocationForJsonLd(localeCandidate);
+  }
+  const locale = normalizeLocale(localeCandidate);
+  const fallbackLocation =
+    getLocationById(locale, LOCATION_IDS.HALKIDIKI) ||
+    getAllLocationsForLocale(locale)[0] ||
+    null;
+  if (!fallbackLocation) return null;
+  return {
+    seoDescription,
+    areaServed: fallbackLocation.areaServed,
+    pickupLocation: fallbackLocation.pickupLocation,
+    offerName: fallbackLocation.offerName,
+    offerDescription: fallbackLocation.offerDescription,
+  };
 }
 
 function getSlugCandidatesForLocale(
@@ -678,7 +778,7 @@ export function getLocationByPath(
 }
 
 export function getCarPath(localeCandidate: string | undefined | null, carSlug: string): string {
-  const locale = normalizeLocale(localeCandidate);
+  const locale = normalizeRoutableLocale(localeCandidate);
   return `/${locale}/${CARS_ROUTE_SEGMENT}/${encodeURIComponent(carSlug)}`;
 }
 
@@ -864,7 +964,7 @@ export function buildCarSeoText(
 ) {
   const locale = normalizeLocale(localeCandidate);
   const dictionary = localeSeoDictionary[locale];
-  const carTemplates = !getSiteCountryConfig().showLegacySeoLocations
+  const carTemplates = !usesLegacySeoLocations()
     ? getSpainCarTemplates(localeCandidate)
     : dictionary.car;
 
@@ -876,6 +976,11 @@ export function buildCarSeoText(
     seats: input.seats || "",
   };
 
+  const faqItems = (carTemplates.faq || []).map((item) => ({
+    question: fillTemplate(item.question, templateValues),
+    answer: fillTemplate(item.answer, templateValues),
+  }));
+
   return {
     seoTitle: fillTemplate(carTemplates.seoTitleTemplate, templateValues),
     seoDescription: fillTemplate(
@@ -885,15 +990,24 @@ export function buildCarSeoText(
     introText: fillTemplate(carTemplates.introTemplate, templateValues),
     h1Text: fillTemplate(carTemplates.carH1Template, templateValues),
     introLongText: fillTemplate(carTemplates.introLongTemplate, templateValues),
-    quickSpecsTitle: dictionary.car.quickSpecsTitle,
-    featuresTitle: fillTemplate(dictionary.car.featuresTitle, templateValues),
-    whyRentTitle: fillTemplate(dictionary.car.whyRentTitle, templateValues),
-    whyRentBullets: dictionary.car.whyRentBullets || [],
-    pillarLinksTitle: dictionary.car.pillarLinksTitle,
+    specsTitle: carTemplates.specsTitle || dictionary.car.specsTitle,
+    quickSpecsTitle:
+      carTemplates.quickSpecsTitle || dictionary.car.quickSpecsTitle,
+    featuresTitle: fillTemplate(carTemplates.featuresTitle, templateValues),
+    whyRentTitle: fillTemplate(carTemplates.whyRentTitle, templateValues),
+    whyRentBullets: (carTemplates.whyRentBullets || []).map((bullet) =>
+      fillTemplate(bullet, templateValues)
+    ),
+    pillarLinksTitle: carTemplates.pillarLinksTitle,
+    breadcrumbHome: carTemplates.breadcrumbHome,
+    breadcrumbCars: carTemplates.breadcrumbCars,
     breadcrumbCarRentalLocation: fillTemplate(
-      dictionary.car.breadcrumbCarRentalLocation,
+      carTemplates.breadcrumbCarRentalLocation,
       templateValues
     ),
+    pickupTitle: carTemplates.pickupTitle,
+    faqTitle: carTemplates.faqTitle,
+    faq: faqItems,
   };
 }
 

@@ -13,10 +13,9 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import EditIcon from "@mui/icons-material/Edit";
 import { useTranslation } from "react-i18next";
 import {
-  formatMeetingContactsDisplay,
-  meetingContactsFromCompany,
-} from "@/domain/company/meetingContacts";
-import { adminCardSx } from "@/app/admin/shared/components/AdminSettingsSection";
+  adminCardSx,
+  adminReadableTextSx,
+} from "@/app/admin/shared/components/AdminSettingsSection";
 
 export function shortCompanyId(id) {
   const s = String(id || "");
@@ -30,13 +29,13 @@ function MetaRow({ label, children }) {
       <Typography
         variant="caption"
         color="text.secondary"
-        sx={{ display: "block", lineHeight: 1.2, mb: 0.15 }}
+        sx={{ display: "block", lineHeight: 1.2, mb: 0.15, ...adminReadableTextSx }}
       >
         {label}
       </Typography>
       <Typography
         variant="body2"
-        sx={{ wordBreak: "break-word", lineHeight: 1.35 }}
+        sx={{ wordBreak: "break-word", lineHeight: 1.35, ...adminReadableTextSx }}
       >
         {children}
       </Typography>
@@ -62,13 +61,6 @@ export default function CompanyContactsCard({
     }
   };
 
-  const meetingContacts = meetingContactsFromCompany(company).filter(
-    (c) => c.name || c.phone
-  );
-  const meetingDisplay = meetingContacts.length
-    ? formatMeetingContactsDisplay(meetingContacts)
-    : null;
-
   return (
     <Box sx={adminCardSx}>
       <Stack gap={1.5}>
@@ -84,7 +76,10 @@ export default function CompanyContactsCard({
             <Typography
               variant="h6"
               fontWeight={700}
-              sx={{ fontSize: { xs: "1.05rem", sm: "1.25rem" } }}
+              sx={{
+                fontSize: { xs: "1.05rem", sm: "1.25rem" },
+                ...adminReadableTextSx,
+              }}
               noWrap
             >
               {company.name}
@@ -109,8 +104,10 @@ export default function CompanyContactsCard({
             sx={{
               "& .MuiButton-root": {
                 textTransform: "none",
-                flex: { xs: "1 1 calc(50% - 8px)", sm: "0 1 auto" },
+                whiteSpace: "nowrap",
+                flex: { xs: "1 1 auto", sm: "0 1 auto" },
                 minWidth: { xs: 0, sm: "auto" },
+                ...adminReadableTextSx,
               },
             }}
           >
@@ -134,9 +131,9 @@ export default function CompanyContactsCard({
             display: "grid",
             gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
             gap: { xs: 1, sm: 1.25 },
-            p: 1.25,
+            p: 1.5,
             borderRadius: 1.5,
-            bgcolor: "action.hover",
+            bgcolor: "grey.50",
           }}
         >
           <MetaRow label={t("companyProfile.email")}>
@@ -155,13 +152,6 @@ export default function CompanyContactsCard({
               ? `${company?.coords?.lat || "—"}, ${company?.coords?.lon || "—"}`
               : "—"}
           </MetaRow>
-          {meetingDisplay ? (
-            <Box sx={{ gridColumn: { xs: "1", sm: "1 / -1" } }}>
-              <MetaRow label={t("companyProfile.meetingContactTitle")}>
-                {meetingDisplay}
-              </MetaRow>
-            </Box>
-          ) : null}
           <Box sx={{ gridColumn: { xs: "1", sm: "1 / -1" } }}>
             <Typography
               variant="caption"

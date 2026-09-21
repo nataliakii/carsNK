@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Merged into the vouchers hub — kept so old links and bookmarks keep working. */
+/** Merged into Company tabs — kept so old links and bookmarks keep working. */
 export default function AccessTokensPage() {
-  redirect("/admin/vouchers?tab=access-links");
+  redirect("/admin/company?tab=access-links");
 }

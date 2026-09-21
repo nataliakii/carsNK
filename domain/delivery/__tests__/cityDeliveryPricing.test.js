@@ -14,6 +14,8 @@ import {
   isPlaceMatchingCarOffice,
   applyCarOfficeFreeDelivery,
   buildBookingPlaceOptionsWithOffices,
+  resolveBookingDisplayOffices,
+  googleMapsSearchUrl,
 } from "@/domain/orders/carOffices";
 
 describe("cityDeliveryPricing", () => {
@@ -155,5 +157,22 @@ describe("carOffices", () => {
 
   test("isPlaceMatchingCarOffice aliases Airport", () => {
     expect(isPlaceMatchingCarOffice("airport", ["Airport"])).toBe(true);
+  });
+
+  test("resolveBookingDisplayOffices falls back to company base", () => {
+    const offices = resolveBookingDisplayOffices(
+      { offices: [] },
+      {
+        name: "Rovaro",
+        address: "Carrer Example 1, Barcelona",
+        coords: { lat: "41.4", lon: "2.17" },
+      }
+    );
+    expect(offices).toHaveLength(1);
+    expect(offices[0].name).toBe("Rovaro");
+    expect(offices[0].address).toContain("Barcelona");
+    expect(googleMapsSearchUrl(offices[0])).toContain(
+      encodeURIComponent("41.4,2.17")
+    );
   });
 });

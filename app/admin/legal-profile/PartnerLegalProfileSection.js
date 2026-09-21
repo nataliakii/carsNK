@@ -373,7 +373,7 @@ export default function PartnerLegalProfileSection() {
         ) : null}
         <Button
           component={Link}
-          href="/admin/legal-profile/agreement"
+          href="/admin/legal-profile?tab=agreement"
           color="secondary"
         >
           {t("partnerLegal.form.goToAgreement")}

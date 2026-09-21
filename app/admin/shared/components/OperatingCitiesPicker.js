@@ -6,6 +6,7 @@ import {
   Chip,
   CircularProgress,
   TextField,
+  Tooltip,
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/domain/geo/cityLookupOptions";
 import { parseLatLon, haversineKm } from "@/domain/geo/haversineKm";
 import { findCatalogCityByName } from "@/domain/geo/operatingCityCatalog";
+import { insertComunaSearchOptions } from "@/domain/geo/spainCityComunas";
 import { adminFieldSx } from "./AdminSettingsSection";
 
 function newSessionToken() {
@@ -29,6 +31,23 @@ function optionName(option) {
   if (!option) return "";
   if (typeof option === "string") return option.trim();
   return String(option.name || "").trim();
+}
+
+function optionIdentity(option) {
+  if (option?.source === "comuna") {
+    return String(option.id || `comuna:${foldCityText(optionName(option))}`);
+  }
+  return foldCityText(optionName(option));
+}
+
+function comunaOptionLabel(t, option) {
+  const label = option?.labelKey
+    ? t(`companyProfile.${option.labelKey}`)
+    : t("companyProfile.comunaLabelGeneric");
+  return t("companyProfile.comunaSearchRow", {
+    city: optionName(option),
+    label,
+  });
 }
 
 /**
@@ -79,13 +98,16 @@ export default function OperatingCitiesPicker({
 
   const options = useMemo(
     () =>
-      mergeCityLookupOptions({
-        catalogOptions,
-        predictions,
-        query,
-        limit: 40,
-      }),
-    [catalogOptions, predictions, query]
+      insertComunaSearchOptions(
+        mergeCityLookupOptions({
+          catalogOptions,
+          predictions,
+          query,
+          limit: 40,
+        }),
+        { query, country }
+      ),
+    [catalogOptions, predictions, query, country]
   );
 
   const selected = useMemo(() => {
@@ -93,10 +115,14 @@ export default function OperatingCitiesPicker({
       .map((name) => {
         const match =
           catalogOptions.find(
-            (option) => foldCityText(option.name) === foldCityText(name)
+            (option) =>
+              option.source !== "comuna" &&
+              foldCityText(option.name) === foldCityText(name)
           ) ||
           options.find(
-            (option) => foldCityText(option.name) === foldCityText(name)
+            (option) =>
+              option.source !== "comuna" &&
+              foldCityText(option.name) === foldCityText(name)
           );
         return match || { source: "custom", id: name, name };
       })
@@ -156,11 +182,17 @@ export default function OperatingCitiesPicker({
     const seen = new Set();
     const names = [];
     for (const item of next || []) {
-      const name = optionName(item);
-      const key = foldCityText(name);
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      names.push(name);
+      const extras =
+        item?.source === "comuna"
+          ? [optionName(item), ...(item.towns || [])]
+          : [optionName(item)];
+      for (const name of extras) {
+        const trimmed = String(name || "").trim();
+        const key = foldCityText(trimmed);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        names.push(trimmed);
+      }
     }
     onChange?.(names);
   };
@@ -183,10 +215,12 @@ export default function OperatingCitiesPicker({
             option.source === "places" || matchesCityQuery(option, needle)
         );
       }}
-      getOptionLabel={(option) => optionName(option)}
-      isOptionEqualToValue={(a, b) =>
-        foldCityText(optionName(a)) === foldCityText(optionName(b))
+      getOptionLabel={(option) =>
+        option?.source === "comuna"
+          ? comunaOptionLabel(t, option)
+          : optionName(option)
       }
+      isOptionEqualToValue={(a, b) => optionIdentity(a) === optionIdentity(b)}
       onInputChange={(_event, next, reason) => {
         if (reason === "reset") return;
         setQuery(next);
@@ -204,19 +238,36 @@ export default function OperatingCitiesPicker({
           const point = parseLatLon(city?.coords);
           const km = origin && point ? haversineKm(origin, point) : null;
           const { key, ...tagProps } = getTagProps({ index });
-          return (
+          const chip = (
             <Chip
-              key={key}
               {...tagProps}
               size="small"
-              label={km != null ? `${name} · ${Math.round(km)} km` : name}
+              label={name}
               sx={{ textTransform: "none" }}
             />
+          );
+          if (km == null) {
+            return <span key={key}>{chip}</span>;
+          }
+          return (
+            <Tooltip
+              key={key}
+              title={t("companyProfile.cityKmFromBase", { km: Math.round(km) })}
+            >
+              {chip}
+            </Tooltip>
           );
         })
       }
       renderOption={(props, option) => {
         const { key, ...rest } = props;
+        if (option.source === "comuna") {
+          return (
+            <li key={key || option.id} {...rest}>
+              {comunaOptionLabel(t, option)}
+            </li>
+          );
+        }
         const point = parseLatLon(option.coords);
         const km = origin && point ? haversineKm(origin, point) : null;
         const extra =

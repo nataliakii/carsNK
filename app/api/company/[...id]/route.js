@@ -10,6 +10,7 @@ import {
   getSessionOwnerId,
   isSuperAdminUser,
 } from "@/domain/owners/ownerScope";
+import { rentalPaymentUpdatesFromPatch } from "@/domain/company/rentalPaymentSettingsPatch";
 
 // Кеширование для статических данных (company меняется очень редко)
 // Revalidate каждый час (3600 секунд)
@@ -197,6 +198,20 @@ export async function PATCH(request, { params }) {
     );
     updates.langSuperadmin = normalizeNotifyLocale(body.langSuperadmin);
   }
+  if (Array.isArray(body?.offices)) {
+    const { companyOfficesPatchValue, primaryOfficePoint } = await import(
+      "@/domain/company/companyOffices"
+    );
+    const offices = companyOfficesPatchValue(body.offices);
+    updates.offices = offices;
+    const primary = primaryOfficePoint(offices);
+    if (primary) {
+      updates.coords = {
+        lat: String(primary.lat),
+        lon: String(primary.lon),
+      };
+    }
+  }
   if (Array.isArray(body?.cityIds)) {
     const ids = body.cityIds
       .map((id) => String(id || "").trim())
@@ -235,31 +250,14 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  if (body?.prepaymentPercent !== undefined) {
-    if (body.prepaymentPercent === null || body.prepaymentPercent === "") {
-      updates.prepaymentPercent = null;
-    } else {
-      const n = Number(body.prepaymentPercent);
-      if (!Number.isFinite(n) || n < 0 || n > 100) {
-        return NextResponse.json(
-          { error: "prepaymentPercent must be 0–100 or empty" },
-          { status: 400 }
-        );
-      }
-      updates.prepaymentPercent = n;
-    }
+  const rentalPaymentPatch = rentalPaymentUpdatesFromPatch(body, user);
+  if (!rentalPaymentPatch.ok) {
+    return NextResponse.json(
+      { error: rentalPaymentPatch.error },
+      { status: rentalPaymentPatch.status }
+    );
   }
-
-  if (body?.rentalPayments != null && typeof body.rentalPayments === "object") {
-    const timingRaw = String(body.rentalPayments.timing || "after_confirm")
-      .trim()
-      .toLowerCase();
-    updates.rentalPayments = {
-      stripeEnabled: Boolean(body.rentalPayments.stripeEnabled),
-      timing:
-        timingRaw === "before_confirm" ? "before_confirm" : "after_confirm",
-    };
-  }
+  Object.assign(updates, rentalPaymentPatch.updates);
 
   try {
     await connectToDB();

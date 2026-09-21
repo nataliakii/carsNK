@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Box, Typography, Chip, Stack, Collapse, ButtonBase } from "@mui/material";
+import { Box, Typography, Chip, Stack, Collapse, ButtonBase, Link as MuiLink } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { buildDeliveryRuleSummary } from "@/domain/delivery/cityDeliveryPricing";
 import {
   resolveCarOffices,
   resolveCarOperatingZones,
 } from "@/domain/cars/carOperatingZones";
+import { googleMapsSearchUrl } from "@/domain/orders/carOffices";
 import { CarSpecCaption } from "./CarSpecList";
 
 /**
@@ -20,7 +21,6 @@ const COLLAPSED_ZONE_COUNT = 6;
 export default function CarDeliveryInfo({
   car,
   company,
-  zoneNames = [],
   compact = false,
 }) {
   const { t } = useTranslation();
@@ -34,8 +34,8 @@ export default function CarDeliveryInfo({
   const rule = useMemo(() => buildDeliveryRuleSummary(company), [company]);
 
   const zones = useMemo(
-    () => resolveCarOperatingZones({ car, company, zoneNames }),
-    [car, company, zoneNames]
+    () => resolveCarOperatingZones({ car, company }),
+    [car, company]
   );
 
   const officeLine = offices.length
@@ -84,6 +84,19 @@ export default function CarDeliveryInfo({
                 places: officeLine,
               })
             : t("car.deliveryCondOfficeFree")}
+          {offices[0] && googleMapsSearchUrl(offices[0]) && !offices[0].addressUnset ? (
+            <>
+              {" · "}
+              <MuiLink
+                href={googleMapsSearchUrl(offices[0])}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ fontSize: "inherit", fontWeight: 600 }}
+              >
+                {t("order.openInGoogleMaps")}
+              </MuiLink>
+            </>
+          ) : null}
         </li>
         {rule.strategy === "cities" && citiesLabel ? (
           <li>

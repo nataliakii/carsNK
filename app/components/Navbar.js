@@ -48,6 +48,7 @@ import {
   withLocalePrefix,
 } from "@domain/locationSeo/locationSeoService";
 import { ALL_UI_LOCALES } from "@/domain/platform/uiLocales";
+import { translateCarEnumValue } from "@/domain/cars/translateCarEnum";
 import { getSiteCountryCode, getSiteCountryConfig } from "@config/siteCountry";
 import { useNavLocations } from "@app/context/NavLocationsContext";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
@@ -62,7 +63,10 @@ import AdminCountrySwitch from "@app/admin/shared/components/AdminCountrySwitch"
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { useAdminPendingInbox } from "@app/hooks/useAdminPendingInbox";
-import PendingCountBadge from "@app/admin/shared/components/PendingCountBadge";
+import AdminNavLinks, {
+  adminNavLinkSx,
+} from "@app/admin/shared/components/AdminNavLinks";
+import { getAdminNavItems } from "@app/admin/shared/adminNav";
 
 const AdminPendingInboxBell = dynamic(
   () => import("@app/admin/shared/components/AdminPendingInboxBell"),
@@ -467,6 +471,8 @@ export default function NavBar({
     "& .MuiInputLabel-root": {
       color: "rgba(255,255,255,0.72)",
       fontSize: "0.85rem",
+      letterSpacing: "0.01em",
+      wordSpacing: "0.12em",
     },
     "& .MuiInputLabel-root.Mui-focused": {
       color: BRAND.pink,
@@ -852,47 +858,22 @@ export default function NavBar({
 
   const discountButtonLabel = getDiscountButtonLabel();
   const discountActiveNow = isDiscountActiveToday();
-  const isAdminCarsRoute = pathname?.startsWith("/admin/cars");
-  const isAdminCalendarRoute = pathname?.startsWith("/admin/orders-calendar");
-  const isAdminOrdersRoute =
-    pathname === "/admin/orders" || pathname?.startsWith("/admin/transfers");
-  const isAdminZonesRoute = pathname?.startsWith("/admin/delivery-zones");
-  const isAdminVisitsRoute = pathname?.startsWith("/admin/website-visits");
-  const isAdminVouchersRoute =
-    pathname?.startsWith("/admin/vouchers") ||
-    pathname?.startsWith("/admin/access-tokens") ||
-    pathname?.startsWith("/admin/platform");
-  const isAdminOwnersRoute = pathname?.startsWith("/admin/owners");
-  const isAdminCompanyRoute = pathname?.startsWith("/admin/company");
-  const isAdminLegalProfileRoute = pathname?.startsWith("/admin/legal-profile");
-  const adminNavLinkSx = {
-    px: { md: 0.65, lg: 1 },
-    py: 0.35,
-    fontSize: { md: 12.5, lg: 13.5 },
-    fontWeight: 500,
-    textTransform: "none",
-    whiteSpace: "nowrap",
-    lineHeight: 1.2,
-    letterSpacing: 0.15,
-    color: "inherit",
-    opacity: 0.78,
-    borderBottom: "1px solid transparent",
-    borderRadius: 0,
-    minWidth: "auto",
-    "&:hover": {
-      opacity: 1,
-      backgroundColor: "transparent",
-    },
-  };
-  const adminNavActiveSx = {
-    opacity: 1,
-    fontWeight: 600,
-    borderBottom: "1px solid rgba(255,255,255,0.8)",
-  };
+  const showPartnerAdminChrome = (isAdmin && !isSuperAdmin) || viewAsActive;
+  const adminNavItems = isAdmin
+    ? getAdminNavItems({
+        t,
+        showSuperAdminChrome,
+        showCompanyNav: isAdmin,
+        showLegalNav: showPartnerAdminChrome,
+        pendingCount: pendingOrdersTotal,
+      })
+    : [];
   const adminActionLinkSx = {
     ...adminNavLinkSx,
     opacity: 0.9,
     px: { md: 0.75, lg: 1.1 },
+    letterSpacing: "normal",
+    wordSpacing: "normal",
   };
 
   return (
@@ -900,6 +881,7 @@ export default function NavBar({
       <GradientAppBar
         ref={headerRef}
         scrolled={scrolled}
+        className={isAdmin ? "admin-nav" : undefined}
         sx={{
           display: "flex",
           // Явно показываем Navbar на landscape телефоне
@@ -907,6 +889,9 @@ export default function NavBar({
           "@media (max-width:900px) and (orientation: landscape)": {
             display: "flex",
           },
+          ...(isAdmin
+            ? { letterSpacing: "normal", wordSpacing: "normal" }
+            : null),
         }}
       >
         <Toolbar
@@ -1094,128 +1079,7 @@ export default function NavBar({
             )}
             {isAdmin && (
               <>
-                <Link href="/admin/cars" style={{ textDecoration: "none" }}>
-                  <Typography
-                    sx={{
-                      ...adminNavLinkSx,
-                      ...(isAdminCarsRoute ? adminNavActiveSx : null),
-                    }}
-                  >
-                    {t("header.cars")}
-                  </Typography>
-                </Link>
-                <Link
-                  href="/admin/orders-calendar"
-                  style={{ textDecoration: "none" }}
-                >
-                  <Typography
-                    sx={{
-                      ...adminNavLinkSx,
-                      ...(isAdminCalendarRoute ? adminNavActiveSx : null),
-                    }}
-                  >
-                    {t("header.calendar")}
-                  </Typography>
-                </Link>
-                <Link
-                  href="/admin/orders"
-                  style={{
-                    textDecoration: "none",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      ...adminNavLinkSx,
-                      ...(isAdminOrdersRoute ? adminNavActiveSx : null),
-                    }}
-                  >
-                    {t("header.table")}
-                  </Typography>
-                  <PendingCountBadge count={pendingOrdersTotal} sx={{ ml: 0 }} />
-                </Link>
-                <Link
-                  href="/admin/delivery-zones"
-                  style={{ textDecoration: "none" }}
-                >
-                  <Typography
-                    sx={{
-                      ...adminNavLinkSx,
-                      ...(isAdminZonesRoute ? adminNavActiveSx : null),
-                    }}
-                  >
-                    {t("header.deliveryZones")}
-                  </Typography>
-                </Link>
-                {showSuperAdminChrome && (
-                  <Link
-                    href="/admin/website-visits"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <Typography
-                      sx={{
-                        ...adminNavLinkSx,
-                        ...(isAdminVisitsRoute ? adminNavActiveSx : null),
-                      }}
-                    >
-                      {t("header.websiteVisits")}
-                    </Typography>
-                  </Link>
-                )}
-                <Link href="/admin/vouchers" style={{ textDecoration: "none" }}>
-                  <Typography
-                    sx={{
-                      ...adminNavLinkSx,
-                      ...(isAdminVouchersRoute ? adminNavActiveSx : null),
-                    }}
-                  >
-                    {t("header.vouchersAndLinks")}
-                  </Typography>
-                </Link>
-                {showSuperAdminChrome && (
-                  <Link href="/admin/owners" style={{ textDecoration: "none" }}>
-                    <Typography
-                      sx={{
-                        ...adminNavLinkSx,
-                        ...(isAdminOwnersRoute ? adminNavActiveSx : null),
-                      }}
-                    >
-                      {t("header.owners")}
-                    </Typography>
-                  </Link>
-                )}
-                {(isAdmin && !isSuperAdmin) || viewAsActive ? (
-                  <Link
-                    href="/admin/company"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <Typography
-                      sx={{
-                        ...adminNavLinkSx,
-                        ...(isAdminCompanyRoute ? adminNavActiveSx : null),
-                      }}
-                    >
-                      {t("header.companyProfile")}
-                    </Typography>
-                  </Link>
-                ) : null}
-                {(isAdmin && !isSuperAdmin) || viewAsActive ? (
-                  <Link
-                    href="/admin/legal-profile"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <Typography
-                      sx={{
-                        ...adminNavLinkSx,
-                        ...(isAdminLegalProfileRoute ? adminNavActiveSx : null),
-                      }}
-                    >
-                      {t("header.legalProfile")}
-                    </Typography>
-                  </Link>
-                ) : null}
+                <AdminNavLinks items={adminNavItems} pathname={pathname} />
                 <Box
                   aria-hidden
                   sx={{
@@ -1575,6 +1439,8 @@ export default function NavBar({
                     "& .MuiInputBase-input::placeholder": {
                       color: "rgba(255,255,255,0.55)",
                       opacity: 1,
+                      letterSpacing: "0.01em",
+                      wordSpacing: "0.12em",
                     },
                   }}
                 />
@@ -1596,6 +1462,9 @@ export default function NavBar({
                     options={Object.values(arrayOfAvailableClasses)}
                     value={selectedClass}
                     handleChange={handleCarClassChange}
+                    formatMenuItemLabel={(opt) =>
+                      translateCarEnumValue(t, opt)
+                    }
                   />
                 </Box>
 
@@ -1617,6 +1486,9 @@ export default function NavBar({
                     options={Object.values(arrayOfAvailableTransmissions)}
                     value={selectedTransmission}
                     handleChange={handleTransmissionChange}
+                    formatMenuItemLabel={(opt) =>
+                      translateCarEnumValue(t, opt)
+                    }
                   />
                 </Box>
 
@@ -1774,6 +1646,9 @@ export default function NavBar({
                     fontWeight: 700,
                     px: 2,
                     borderRadius: "10px",
+                    letterSpacing: "0.01em",
+                    wordSpacing: "0.16em",
+                    whiteSpace: "nowrap",
                     backgroundColor: BRAND.pink,
                     "&:hover": { backgroundColor: BRAND.pinkLight },
                     "&.Mui-disabled": {
@@ -1906,93 +1781,12 @@ export default function NavBar({
               </>
             ) : (
               <>
-                <ListItem button component={Link} href="/admin/cars">
-                  <ListItemText primary={t("header.cars")} />
-                </ListItem>
-                <ListItem button component={Link} href="/admin/orders-calendar">
-                  <ListItemText primary={t("header.calendar")} />
-                </ListItem>
-                <ListItem
-                  button
-                  component={Link}
-                  href="/admin/orders"
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  <ListItemText
-                    primary={
-                      <Box
-                        component="span"
-                        sx={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 0.75,
-                        }}
-                      >
-                        {t("header.table")}
-                        <PendingCountBadge
-                          count={pendingOrdersTotal}
-                          sx={{ ml: 0 }}
-                        />
-                      </Box>
-                    }
-                  />
-                </ListItem>
-                <ListItem
-                  button
-                  component={Link}
-                  href="/admin/delivery-zones"
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  <ListItemText primary={t("header.deliveryZones")} />
-                </ListItem>
-                {showSuperAdminChrome && (
-                  <ListItem
-                    button
-                    component={Link}
-                    href="/admin/website-visits"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    <ListItemText primary={t("header.websiteVisits")} />
-                  </ListItem>
-                )}
-                <ListItem
-                  button
-                  component={Link}
-                  href="/admin/vouchers"
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  <ListItemText primary={t("header.vouchersAndLinks")} />
-                </ListItem>
-                {showSuperAdminChrome && (
-                  <ListItem
-                    button
-                    component={Link}
-                    href="/admin/owners"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    <ListItemText primary={t("header.owners")} />
-                  </ListItem>
-                )}
-                {((isAdmin && !isSuperAdmin) || viewAsActive) && (
-                  <ListItem
-                    button
-                    component={Link}
-                    href="/admin/company"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    <ListItemText primary={t("header.companyProfile")} />
-                  </ListItem>
-                )}
-                {((isAdmin && !isSuperAdmin) || viewAsActive) && (
-                  <ListItem
-                    button
-                    component={Link}
-                    href="/admin/legal-profile"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    <ListItemText primary={t("header.legalProfile")} />
-                  </ListItem>
-                )}
+                <AdminNavLinks
+                  items={adminNavItems}
+                  pathname={pathname}
+                  variant="drawer"
+                  onNavigate={() => setDrawerOpen(false)}
+                />
                 {isAdmin && (
                   <ListItem
                     button

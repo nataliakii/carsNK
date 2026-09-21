@@ -17,11 +17,19 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useSession } from "next-auth/react";
+import { useTranslation } from "react-i18next";
+import { ROLE } from "@/domain/orders/admin-rbac";
 
 /**
  * Per-company rental Stripe / on-site payment settings.
+ * Visible to company admins (read-only); only superadmin can change them.
  */
 export default function CompanyRentalPaymentsCard({ company, onSaved }) {
+  const { t } = useTranslation();
+  const { data: session, status } = useSession();
+  const sessionReady = status !== "loading";
+  const canEdit = Number(session?.user?.role) === ROLE.SUPERADMIN;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
@@ -47,6 +55,7 @@ export default function CompanyRentalPaymentsCard({ company, onSaved }) {
   if (!company?._id) return null;
 
   const save = async () => {
+    if (!canEdit) return;
     setBusy(true);
     setError("");
     setOk("");
@@ -88,12 +97,21 @@ export default function CompanyRentalPaymentsCard({ company, onSaved }) {
         <Stack spacing={1.5}>
           {error && <Alert severity="error">{error}</Alert>}
           {ok && <Alert severity="success">{ok}</Alert>}
+          {sessionReady && !canEdit ? (
+            <Alert severity="info">
+              {t("companyProfile.rentalPaymentsLockedNote", {
+                defaultValue:
+                  "Only the platform superadmin can change these settings.",
+              })}
+            </Alert>
+          ) : null}
 
           <FormControlLabel
             control={
               <Switch
                 checked={stripeEnabled}
                 onChange={(e) => setStripeEnabled(e.target.checked)}
+                disabled={!canEdit}
               />
             }
             label="Stripe — charge rental prepayment online"
@@ -106,11 +124,12 @@ export default function CompanyRentalPaymentsCard({ company, onSaved }) {
             value={prepaymentPercent}
             onChange={(e) => setPrepaymentPercent(e.target.value)}
             helperText="Empty = platform default (e.g. 10% marketplace / 0% calendar). Required for Stripe amounts."
-            inputProps={{ min: 0, max: 100 }}
+            inputProps={{ min: 0, max: 100, readOnly: !canEdit }}
+            disabled={!canEdit}
             sx={{ maxWidth: 280 }}
           />
 
-          <FormControl disabled={!stripeEnabled}>
+          <FormControl disabled={!canEdit || !stripeEnabled}>
             <FormLabel>When to create the Stripe pay link</FormLabel>
             <RadioGroup
               value={timing}
@@ -147,9 +166,11 @@ export default function CompanyRentalPaymentsCard({ company, onSaved }) {
             </Typography>
           </Box>
 
-          <Button variant="contained" onClick={save} disabled={busy}>
-            Save rental payment settings
-          </Button>
+          {sessionReady && canEdit ? (
+            <Button variant="contained" onClick={save} disabled={busy}>
+              Save rental payment settings
+            </Button>
+          ) : null}
         </Stack>
       </CardContent>
     </Card>

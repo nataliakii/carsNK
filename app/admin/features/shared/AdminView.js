@@ -7,7 +7,8 @@ import { useTranslation } from "react-i18next";
 import Feed from "@app/components/Feed";
 
 // Shared components from new structure
-import { AdminLoader, AdminNotifications, AdminTopBar } from "@app/admin/shared";
+import { AdminLoader, AdminNotifications } from "@app/admin/shared";
+import CalendarHubTabs from "@app/admin/features/calendar/CalendarHubTabs";
 import PartnerComplianceGate from "@/app/admin/legal-profile/_components/PartnerComplianceGate";
 import usePartnerLegalStatus from "@/app/admin/legal-profile/_components/usePartnerLegalStatus";
 
@@ -175,18 +176,18 @@ function AdminViewContent({ viewType }) {
 
   return (
     <>
-      {/* Top bar with feature-specific actions */}
-      <AdminTopBar
-        feature={featureConfig.feature}
-        onAddClick={viewType === "cars" ? openAddCarModal : undefined}
-        onBulkAddClick={viewType === "cars" ? openBulkCarsModal : undefined}
-      />
+      {viewType === "cars" ? (
+        <CalendarHubTabs
+          onAddClick={openAddCarModal}
+          onBulkAddClick={openBulkCarsModal}
+        />
+      ) : null}
 
       {gate && !gate.canOperate ? (
         <Box
           sx={{
             px: { xs: 1, md: 2 },
-            pt: featureConfig.feature === "cars" ? 9 : 2,
+            pt: 2,
             flexShrink: 0,
           }}
         >

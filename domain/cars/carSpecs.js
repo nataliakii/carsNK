@@ -7,6 +7,8 @@
  * Deposit is intentionally absent — it was removed from the public card.
  */
 
+import { translateCarEnumValue } from "@/domain/cars/translateCarEnum";
+
 const capitalize = (value) => {
   if (typeof value !== "string" || !value) return value;
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -37,19 +39,19 @@ function buildHighlightItems(car, t) {
       key: "class",
       label: t("car.class"),
       icon: "/icons/klass.png",
-      value: capitalize(car?.class),
+      value: translateCarEnumValue(t, car?.class),
     },
     {
       key: "transmission",
       label: t("car.transmission"),
       icon: "/icons/transmission.png",
-      value: capitalize(car?.transmission),
+      value: translateCarEnumValue(t, car?.transmission),
     },
     {
       key: "fueltype",
       label: t("car.fuel"),
       icon: "/icons/fuel.png",
-      value: capitalize(car?.fueltype),
+      value: translateCarEnumValue(t, car?.fueltype),
     },
     {
       key: "seats",
@@ -96,7 +98,7 @@ function buildVehicleItems(car, t) {
       key: "color",
       label: t("car.color"),
       icon: "/icons/color.png",
-      value: capitalize(car?.color),
+      value: translateCarEnumValue(t, car?.color),
     },
     {
       key: "regNumber",

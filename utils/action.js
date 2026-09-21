@@ -278,7 +278,11 @@ export const addOrderNew = async (orderData) => {
       // Confirmed dates conflict
       return { status: "conflict", message: result.message };
     } else {
-      return { status: "error", message: result.message };
+      return {
+        status: "error",
+        message: result.message,
+        messageKey: result.messageKey,
+      };
       // throw new Error(`Unexpected response status: ${response.status}`);
     }
   } catch (error) {

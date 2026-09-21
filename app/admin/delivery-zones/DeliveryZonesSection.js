@@ -95,13 +95,11 @@ function hasFixedPrice(zone) {
   return Number.isFinite(Number(zone.fixedPrice));
 }
 
-function TabPanel({ value, index, children }) {
-  if (value !== index) return null;
-  return <Box sx={{ pt: 2 }}>{children}</Box>;
-}
-
-export default function DeliveryZonesSection() {
+export default function DeliveryZonesSection({ variant = "all" } = {}) {
   const { t } = useTranslation();
+  const showInnerTabs = variant === "all";
+  const showCoverage = variant !== "pricing";
+  const showPricing = variant !== "coverage";
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
   const { active: viewAsActive, company: viewAsCompany } = useAdminViewAs();
@@ -588,12 +586,14 @@ export default function DeliveryZonesSection() {
 
   return (
     <Box sx={{ p: 3, maxWidth: 960, mx: "auto" }}>
+      {variant === "all" ? (
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
         <LocalShippingIcon sx={{ fontSize: 28 }} />
         <Typography variant="h5" fontWeight={700}>
           {t("deliveryZonesPage.title")}
         </Typography>
       </Stack>
+      ) : null}
 
       {showCompanyPicker && (
         <FormControl size="small" sx={{ mb: 2, minWidth: 260 }}>
@@ -613,6 +613,7 @@ export default function DeliveryZonesSection() {
         </FormControl>
       )}
 
+      {showPricing ? (
       <Paper sx={{ p: 2, mb: 2, bgcolor: "grey.50" }}>
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
           {t("deliveryZonesPage.summaryTitle")}
@@ -622,7 +623,9 @@ export default function DeliveryZonesSection() {
         <Typography variant="body2">{summaryText.outside}</Typography>
         <Typography variant="body2">{summaryText.afterHours}</Typography>
       </Paper>
+      ) : null}
 
+      {showInnerTabs ? (
       <Tabs
         value={tab}
         onChange={(_, v) => setTab(v)}
@@ -632,9 +635,13 @@ export default function DeliveryZonesSection() {
         <Tab label={t("deliveryZonesPage.tabOutsideZones")} />
         <Tab label={t("deliveryZonesPage.tabAfterHours")} />
       </Tabs>
+      ) : null}
 
-      <TabPanel value={tab} index={0}>
+      {(showInnerTabs ? tab === 0 : showCoverage || showPricing) ? (
+      <Box sx={{ pt: showInnerTabs ? 2 : 0 }}>
         <Paper sx={{ p: 2, mb: 2 }}>
+          {showCoverage ? (
+          <>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             {t("deliveryZonesPage.baseSection")}
           </Typography>
@@ -699,13 +706,19 @@ export default function DeliveryZonesSection() {
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             {t("deliveryZonesPage.areaRules")}
           </Typography>
+          </>
+          ) : null}
 
+          {showPricing ? (
           <DeliveryPricingExplainer
             insideMode={policy.inside.mode}
             radiusKm={policy.radiusKm}
           />
+          ) : null}
 
           <Stack spacing={2}>
+            {showCoverage ? (
+            <>
             <FormControl size="small" sx={{ maxWidth: 360 }}>
               <InputLabel id="delivery-strategy-label">
                 {t("deliveryZonesPage.strategyTitle")}
@@ -830,7 +843,11 @@ export default function DeliveryZonesSection() {
                 inputProps={{ min: 0, step: 1 }}
               />
             ) : null}
+            </>
+            ) : null}
 
+            {showPricing ? (
+            <>
             <Box>
               <Typography variant="body2" fontWeight={600} sx={{ mb: 0.75 }}>
                 {t("deliveryZonesPage.insideMode")}
@@ -992,8 +1009,12 @@ export default function DeliveryZonesSection() {
             >
               {t("deliveryZonesPage.saveRules")}
             </Button>
+            </>
+            ) : null}
           </Stack>
 
+          {showPricing ? (
+          <>
           <Divider sx={{ my: 2 }} />
 
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -1058,10 +1079,14 @@ export default function DeliveryZonesSection() {
               components={{ bold: <b /> }}
             />
           </Typography>
+          </>
+          ) : null}
         </Paper>
-      </TabPanel>
+      </Box>
+      ) : null}
 
-      <TabPanel value={tab} index={1}>
+      {(showInnerTabs ? tab === 1 : showPricing) ? (
+      <Box sx={{ pt: showInnerTabs ? 2 : 0 }}>
         <Alert severity="info" sx={{ mb: 2 }}>
           {t("deliveryZonesPage.outsideZonesHelp")}
         </Alert>
@@ -1184,9 +1209,11 @@ export default function DeliveryZonesSection() {
             </Table>
           </TableContainer>
         </Paper>
-      </TabPanel>
+      </Box>
+      ) : null}
 
-      <TabPanel value={tab} index={2}>
+      {(showInnerTabs ? tab === 2 : showPricing) ? (
+      <Box sx={{ pt: showInnerTabs ? 2 : 0 }}>
         <Paper sx={{ p: 2 }}>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             {t("deliveryZonesPage.afterHoursSection")}
@@ -1238,7 +1265,8 @@ export default function DeliveryZonesSection() {
             {t("deliveryZonesPage.saveRules")}
           </Button>
         </Paper>
-      </TabPanel>
+      </Box>
+      ) : null}
 
       <Dialog
         open={dialogOpen}

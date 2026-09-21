@@ -1,14 +1,64 @@
 import { NextResponse } from "next/server";
 import { hashSync } from "bcrypt";
-import { requireSuperAdmin } from "@lib/adminAuth";
+import { requireAdmin, requireSuperAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
 import { User, ROLE } from "@models/user";
-import { normalizeOwnerId } from "@/domain/owners/ownerScope";
+import {
+  getSessionOwnerId,
+  isSuperAdminUser,
+  normalizeOwnerId,
+} from "@/domain/owners/ownerScope";
 
 export const runtime = "nodejs";
 
 function json(body, status = 200) {
   return NextResponse.json(body, { status });
+}
+
+function publicAdminUser(user) {
+  return {
+    _id: user._id,
+    email: user.email,
+    username: user.username,
+    role: user.role,
+    ownerId: user.ownerId,
+    createdAt: user.createdAt,
+  };
+}
+
+/**
+ * GET: list company admins (no passwords).
+ * Superadmin: any ownerId. Company admin: own company only.
+ */
+export async function GET(request) {
+  const { session, errorResponse } = await requireAdmin(request);
+  if (errorResponse) return errorResponse;
+
+  const url = new URL(request.url);
+  const requestedOwnerId = normalizeOwnerId(url.searchParams.get("ownerId"));
+  const ownerId = isSuperAdminUser(session.user)
+    ? requestedOwnerId
+    : getSessionOwnerId(session.user);
+
+  if (!ownerId) {
+    return json({ success: false, message: "ownerId is required" }, 400);
+  }
+
+  await connectToDB();
+  const users = await User.find({
+    isAdmin: true,
+    role: { $ne: ROLE.SUPERADMIN },
+    ownerId,
+  })
+    .select("username email role ownerId isAdmin createdAt")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return json({
+    success: true,
+    users: users.map(publicAdminUser),
+    canManage: isSuperAdminUser(session.user),
+  });
 }
 
 /**

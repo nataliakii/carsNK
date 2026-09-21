@@ -30,6 +30,17 @@ describe("spainCityOptions", () => {
         "Barcelona Airport",
         "Girona Airport",
         "Tenerife South Airport",
+        "Elche",
+        "Torrevieja",
+        "Gandia",
+        "Denia",
+        "Calpe",
+        "Peniscola",
+        "Hospitalet de Llobregat",
+        "Torrent",
+        "Alcala de Henares",
+        "Aranjuez",
+        "El Escorial",
       ])
     );
     expect(SPAIN_CITY_OPTIONS.length).toBeGreaterThanOrEqual(70);
