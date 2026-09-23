@@ -18,9 +18,11 @@ import {
 } from "@/domain/booking/bookingMode";
 import { isPublicCar } from "@/domain/owners/ownerScope";
 import {
+  buildAgreementPackage,
   getActiveAgreement,
   getCurrentPackageChecksum,
 } from "./agreementService";
+import { withCustomAgreement } from "./companyLegalPage";
 import {
   evaluatePartnerOperatingGate,
   PARTNER_GATE_BLOCKER,
@@ -324,13 +326,21 @@ export async function loadPartnerOperatingInputs(companyId, { companyHint = null
     };
   }
 
-  const [profile, activeAgreement, currentPackageChecksum] = await Promise.all([
+  const [profile, activeAgreement, standardChecksum] = await Promise.all([
     PartnerLegalProfile.findOne({ companyId: company._id })
-      .select("companyId verificationStatus legalName")
+      .select("companyId verificationStatus legalName customAgreement")
       .lean(),
     getActiveAgreement(company._id),
     getCurrentPackageChecksum(),
   ]);
+  let currentPackageChecksum = standardChecksum;
+  if (profile?.customAgreement?.documentId) {
+    const pkg = await buildAgreementPackage();
+    currentPackageChecksum = withCustomAgreement(
+      pkg,
+      profile.customAgreement
+    ).packageChecksum;
+  }
 
   return {
     company,
@@ -514,9 +524,9 @@ export async function ownerIdsHiddenFromPublicMarketplace(companies = []) {
 
   if (!needLegal.length) return hide;
 
-  let checksum = "";
+  let standardChecksum = "";
   try {
-    checksum = await getCurrentPackageChecksum();
+    standardChecksum = await getCurrentPackageChecksum();
   } catch (err) {
     console.error(
       "[partnerOperatingPolicy] checksum load failed; hiding marketplace fleets",
@@ -531,7 +541,7 @@ export async function ownerIdsHiddenFromPublicMarketplace(companies = []) {
   try {
     [profiles, agreements] = await Promise.all([
       PartnerLegalProfile.find({ companyId: { $in: ids } })
-        .select("companyId verificationStatus")
+        .select("companyId verificationStatus customAgreement")
         .lean(),
       PartnerAgreementAcceptance.find({
         companyId: { $in: ids },
@@ -561,11 +571,20 @@ export async function ownerIdsHiddenFromPublicMarketplace(companies = []) {
 
   for (const company of needLegal) {
     const key = String(company._id);
+    const profile = profileByCompany.get(key) || null;
+    let currentPackageChecksum = standardChecksum;
+    if (profile?.customAgreement?.documentId) {
+      const pkg = await buildAgreementPackage();
+      currentPackageChecksum = withCustomAgreement(
+        pkg,
+        profile.customAgreement
+      ).packageChecksum;
+    }
     const state = evaluateMarketplaceOperatingState({
       company,
-      profile: profileByCompany.get(key) || null,
+      profile,
       activeAgreement: agreementByCompany.get(key) || null,
-      currentPackageChecksum: checksum,
+      currentPackageChecksum,
       requireListed: true,
     });
     if (!state.allowed) hide.push(company._id);

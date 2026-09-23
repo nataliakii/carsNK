@@ -4,6 +4,12 @@ import { useState } from "react";
 import {
   Alert,
   Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Paper,
   Stack,
   TextField,
@@ -13,17 +19,16 @@ import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 
 import { ROLE } from "@/domain/orders/admin-rbac";
-import {
-  PARTNER_VERIFICATION_STATUS,
-  canTransitionVerification,
-} from "@/domain/legal/partnerVerification";
+import { PARTNER_VERIFICATION_STATUS } from "@/domain/legal/partnerVerification";
+import { reviewControlsForStatus } from "@/domain/legal/partnerReviewWorkspace";
 import { useAdminViewAs } from "@/app/hooks/useAdminViewAs";
 
 const S = PARTNER_VERIFICATION_STATUS;
 
 /**
- * Superadmin-only bar to set VERIFIED / REJECTED on the partner being
- * viewed. Platform contract publish stays on /admin/legal.
+ * Superadmin actions for one partner legal profile.
+ * Draft can only be moved into the review queue. Approve and reject
+ * appear once the profile is pending. A verified profile can be suspended.
  */
 export default function PartnerReviewActions({
   profile,
@@ -39,6 +44,7 @@ export default function PartnerReviewActions({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [confirmMove, setConfirmMove] = useState(false);
 
   if (!isSuperAdmin) return null;
 
@@ -46,10 +52,14 @@ export default function PartnerReviewActions({
     profile?.companyId || companyIdProp || company?._id || ""
   );
   const status = profile?.verificationStatus || null;
+  const controls = reviewControlsForStatus(status);
 
   async function apply(to) {
     if (!companyId) return;
-    if ((to === S.REJECTED || to === S.SUSPENDED) && !reason.trim()) {
+    if (
+      (to === S.REJECTED || to === S.SUSPENDED || to === S.PENDING_VERIFICATION) &&
+      !reason.trim()
+    ) {
       setError(t("partnerLegal.review.reasonRequired"));
       return;
     }
@@ -71,6 +81,7 @@ export default function PartnerReviewActions({
       }
       setNotice(t("partnerLegal.review.done"));
       setReason("");
+      setConfirmMove(false);
       await onChanged?.();
     } catch (err) {
       setError(err.message || t("partnerLegal.review.failed"));
@@ -79,8 +90,22 @@ export default function PartnerReviewActions({
     }
   }
 
-  const can = (to) =>
-    Boolean(status) && canTransitionVerification(status, to);
+  const titleKey =
+    status === S.DRAFT
+      ? "partnerLegal.review.draftTitle"
+      : status === S.PENDING_VERIFICATION
+        ? "partnerLegal.review.pendingTitle"
+        : status === S.VERIFIED
+          ? "partnerLegal.review.verifiedTitle"
+          : "partnerLegal.review.title";
+  const bodyKey =
+    status === S.DRAFT
+      ? "partnerLegal.review.draftBody"
+      : status === S.PENDING_VERIFICATION
+        ? "partnerLegal.review.pendingBody"
+        : status === S.VERIFIED
+          ? "partnerLegal.review.verifiedBody"
+          : "partnerLegal.review.body";
 
   return (
     <Paper
@@ -92,11 +117,21 @@ export default function PartnerReviewActions({
         bgcolor: "action.hover",
       }}
     >
-      <Typography variant="h6" sx={{ fontSize: "1.05rem", fontWeight: 800 }}>
-        {t("partnerLegal.review.title")}
-      </Typography>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+        <Typography variant="h6" sx={{ fontSize: "1.05rem", fontWeight: 800 }}>
+          {t(titleKey)}
+        </Typography>
+        {status ? (
+          <Chip
+            size="small"
+            label={t(`partnerLegal.status.${status}.label`, {
+              defaultValue: status,
+            })}
+          />
+        ) : null}
+      </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t("partnerLegal.review.body")}
+        {t(bodyKey)}
       </Typography>
 
       {!profile ? (
@@ -113,7 +148,7 @@ export default function PartnerReviewActions({
               {notice}
             </Alert>
           ) : null}
-          {(can(S.REJECTED) || can(S.SUSPENDED)) ? (
+          {controls.reject || controls.suspend ? (
             <TextField
               size="small"
               fullWidth
@@ -123,7 +158,21 @@ export default function PartnerReviewActions({
             />
           ) : null}
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-            {can(S.VERIFIED) ? (
+            {controls.moveToReview ? (
+              <Button
+                variant="contained"
+                size="large"
+                disabled={busy || !companyId}
+                onClick={() => {
+                  setError("");
+                  setConfirmMove(true);
+                }}
+                sx={{ fontWeight: 800, py: 1.25 }}
+              >
+                {t("partnerLegal.review.moveToReview")}
+              </Button>
+            ) : null}
+            {controls.approve ? (
               <Button
                 variant="contained"
                 size="large"
@@ -131,10 +180,10 @@ export default function PartnerReviewActions({
                 onClick={() => apply(S.VERIFIED)}
                 sx={{ fontWeight: 800, py: 1.25 }}
               >
-                {t("partnerLegal.review.verify")}
+                {t("partnerLegal.review.approve")}
               </Button>
             ) : null}
-            {can(S.REJECTED) ? (
+            {controls.reject ? (
               <Button
                 variant="contained"
                 color="error"
@@ -143,10 +192,10 @@ export default function PartnerReviewActions({
                 onClick={() => apply(S.REJECTED)}
                 sx={{ fontWeight: 800, py: 1.25 }}
               >
-                {t("partnerLegal.review.reject")}
+                {t("partnerLegal.review.requestChanges")}
               </Button>
             ) : null}
-            {can(S.SUSPENDED) ? (
+            {controls.suspend ? (
               <Button
                 variant="outlined"
                 color="warning"
@@ -156,7 +205,7 @@ export default function PartnerReviewActions({
                 {t("partnerLegal.review.suspend")}
               </Button>
             ) : null}
-            {can(S.DRAFT) ? (
+            {controls.reopenDraft ? (
               <Button
                 variant="outlined"
                 disabled={busy || !companyId}
@@ -168,6 +217,43 @@ export default function PartnerReviewActions({
           </Stack>
         </Stack>
       )}
+
+      <Dialog
+        open={confirmMove}
+        onClose={() => {
+          if (!busy) setConfirmMove(false);
+        }}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>{t("partnerLegal.review.moveToReviewTitle")}</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {t("partnerLegal.review.moveToReviewBody")}
+          </DialogContentText>
+          <TextField
+            autoFocus
+            fullWidth
+            required
+            size="small"
+            label={t("partnerLegal.review.reason")}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmMove(false)} disabled={busy}>
+            {t("partnerLegal.review.moveToReviewCancel")}
+          </Button>
+          <Button
+            variant="contained"
+            disabled={busy || !reason.trim()}
+            onClick={() => apply(S.PENDING_VERIFICATION)}
+          >
+            {t("partnerLegal.review.moveToReviewConfirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }

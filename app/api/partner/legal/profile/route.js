@@ -10,6 +10,7 @@ import {
   applyVerificationTransition,
 } from "@/domain/legal/partnerVerification";
 import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
+import { ownCompanyScope } from "@/domain/legal/companyLegalPage";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
 import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
 import { absoluteUrl } from "@config/domain";
@@ -29,7 +30,9 @@ export const dynamic = "force-dynamic";
  * body. A superadmin may target another company explicitly.
  */
 function resolveCompanyId(session, requested) {
-  return resolvePartnerCompanyId(session, requested);
+  const scope = ownCompanyScope(session, requested);
+  if (scope.forbidden) return "";
+  return scope.companyId || resolvePartnerCompanyId(session, requested);
 }
 
 /** Fields the partner may set. Verification state is not among them. */

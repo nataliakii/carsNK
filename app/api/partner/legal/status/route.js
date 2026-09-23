@@ -10,6 +10,11 @@ import {
 } from "@/domain/legal/agreementService";
 import { normalizeLegalLanguage } from "@/domain/legal/documentTypes";
 import { evaluatePartnerOperatingGate } from "@/domain/legal/partnerGate";
+import {
+  companyMayOperate,
+  ownCompanyScope,
+  withCustomAgreement,
+} from "@/domain/legal/companyLegalPage";
 import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
 import { evaluateProfileCompleteness } from "@/domain/legal/partnerVerification";
 
@@ -17,7 +22,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function resolveCompanyId(session, requested) {
-  return resolvePartnerCompanyId(session, requested);
+  const scope = ownCompanyScope(session, requested);
+  if (scope.forbidden) return "";
+  return scope.companyId || resolvePartnerCompanyId(session, requested);
 }
 
 /**
@@ -60,12 +67,13 @@ export async function GET(request) {
       .lean(),
   ]);
 
+  const terms = withCustomAgreement(pkg, profile?.customAgreement);
   const completeness = profile ? evaluateProfileCompleteness(profile) : null;
   const gate = evaluatePartnerOperatingGate({
     profile,
     completeness,
     activeAgreement,
-    currentPackageChecksum: pkg.packageChecksum,
+    currentPackageChecksum: terms.packageChecksum,
   });
 
   const listedOnMarketplace = company?.listedOnMarketplace !== false;
@@ -76,8 +84,8 @@ export async function GET(request) {
     gate,
     completeness,
     listedOnMarketplace,
-    canListPublicly: Boolean(gate.canOperate && listedOnMarketplace),
-    currentPackageChecksum: pkg.packageChecksum,
+    canListPublicly: companyMayOperate({ gate, listedOnMarketplace }),
+    currentPackageChecksum: terms.packageChecksum,
     containsDrafts: pkg.anyDraft,
     signedAgreement: activeAgreement
       ? {

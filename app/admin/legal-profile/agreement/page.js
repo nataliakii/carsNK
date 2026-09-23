@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
-/** Merged into Legal tabs — Profile | Agreement. */
+import { COMPANY_LEGAL_PATH } from "@/domain/legal/companyLegalPage";
+
 export default function PartnerAgreementPage() {
-  redirect("/admin/legal-profile?tab=agreement");
+  redirect(`${COMPANY_LEGAL_PATH}?tab=terms`);
 }

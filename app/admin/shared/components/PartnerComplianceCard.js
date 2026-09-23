@@ -74,14 +74,14 @@ export default function PartnerComplianceCard() {
           size="small"
           variant="outlined"
           component={Link}
-          href="/admin/legal-profile"
+          href="/admin/company/legal"
         >
           {t("partnerLegal.card.openProfile")}
         </Button>
         <Button
           size="small"
           component={Link}
-          href="/admin/legal-profile?tab=agreement"
+          href="/admin/company/legal?tab=terms"
         >
           {t("partnerLegal.card.openAgreement")}
         </Button>

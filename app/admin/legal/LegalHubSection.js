@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 
 import PartnerReviewQueue from "./PartnerReviewQueue";
+import { standardPackageNeedsPublish } from "@/domain/legal/companyLegalPage";
 
 /**
  * Superadmin legal hub: partner document review + platform publish.
@@ -157,6 +158,9 @@ function DocumentsTab() {
   return (
     <Stack spacing={3}>
       {error ? <Alert severity="error">{error}</Alert> : null}
+      {standardPackageNeedsPublish(data?.documents) ? (
+        <Alert severity="warning">{t("admin.legalHub.publishHint")}</Alert>
+      ) : null}
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1.5}

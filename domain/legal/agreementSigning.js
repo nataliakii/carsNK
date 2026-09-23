@@ -54,12 +54,10 @@ export function evaluateAgreementSigningBlockers({
   if (!documents.length) {
     blockers.push({
       code: AGREEMENT_SIGNING_BLOCKER.EMPTY_PACKAGE,
-      href: "/admin/legal",
     });
   } else if (containsDrafts) {
     blockers.push({
       code: AGREEMENT_SIGNING_BLOCKER.UNPUBLISHED_DOCUMENTS,
-      href: "/admin/legal",
     });
   }
 
@@ -85,8 +83,10 @@ export function evaluateAgreementSigningBlockers({
       step: blocker.step,
       href:
         blocker.step === PARTNER_GATE_STEP.PROFILE
-          ? "/admin/legal-profile"
-          : undefined,
+          ? "/admin/company/legal"
+          : blocker.step === PARTNER_GATE_STEP.AGREEMENT
+            ? "/admin/company/legal?tab=terms"
+            : undefined,
     });
   }
 

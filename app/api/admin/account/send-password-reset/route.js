@@ -13,7 +13,8 @@ function json(body, status = 200) {
 
 /**
  * POST /api/admin/account/send-password-reset
- * Signed-in admin (or superadmin) emails themselves a set-new-password link.
+ * Signed-in admin emails themselves a set-new-password link.
+ * Any email in the request body is ignored. The mailbox is the session user.
  */
 export async function POST(request) {
   const { session, errorResponse } = await requireAdmin(request);
@@ -21,6 +22,13 @@ export async function POST(request) {
 
   try {
     await connectToDB();
+    // A posted email is never the recipient. Only the signed-in user is.
+    try {
+      const posted = await request.clone().json();
+      void posted?.email;
+    } catch {
+      // Empty or non-JSON bodies are valid for this route.
+    }
     const id = session.user?.id;
     const email = String(session.user?.email || "").trim();
     let user = null;

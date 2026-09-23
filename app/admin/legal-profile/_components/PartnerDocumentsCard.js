@@ -119,6 +119,8 @@ export default function PartnerDocumentsCard({
   async function view(kind) {
     setBusyKind(kind);
     setError("");
+    // Open during the click so the browser does not block the tab after await.
+    const tab = window.open("about:blank", "_blank");
     try {
       const qs = companyId
         ? `?companyId=${encodeURIComponent(companyId)}`
@@ -134,8 +136,28 @@ export default function PartnerDocumentsCard({
       }
       const match = (json.documents || []).find((doc) => doc.kind === kind);
       if (!match?.url) throw new Error(t("partnerLegal.documents.viewFailed"));
-      window.open(match.url, "_blank", "noopener,noreferrer");
+      // PDFs are Cloudinary raw files. The delivery URL answers with
+      // Content-Disposition: attachment and octet-stream, so a new tab
+      // downloads an extensionless file. Load the bytes and show a PDF.
+      let href = match.url;
+      if (match.resourceType === "raw") {
+        const fileRes = await fetch(match.url);
+        if (!fileRes.ok) {
+          throw new Error(t("partnerLegal.documents.viewFailed"));
+        }
+        const bytes = await fileRes.blob();
+        href = URL.createObjectURL(
+          new Blob([bytes], { type: "application/pdf" })
+        );
+      }
+      if (tab) {
+        tab.location.href = href;
+        tab.opener = null;
+      } else {
+        window.location.assign(href);
+      }
     } catch (err) {
+      tab?.close();
       setError(err.message);
     } finally {
       setBusyKind("");

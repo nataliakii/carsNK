@@ -34,6 +34,7 @@ import { buildDocumentRef } from "./documentKeys";
 import { loadLegalSettingsWithTokens } from "./legalSettingsService";
 import { resolveEsignProvider } from "./esign";
 import { assertAgreementPackageAcceptable } from "./agreementSigning";
+import { withCustomAgreement } from "./companyLegalPage";
 import {
   PARTNER_VERIFICATION_STATUS,
   canPartnerOperate,
@@ -155,7 +156,8 @@ export async function acceptMasterAgreement(input) {
     };
   }
 
-  const pkg = await buildAgreementPackage({ language: input.language });
+  const built = await buildAgreementPackage({ language: input.language });
+  const pkg = withCustomAgreement(built, profile.customAgreement);
   const packageOk = assertAgreementPackageAcceptable(pkg);
   if (!packageOk.ok) return packageOk;
 

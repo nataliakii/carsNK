@@ -366,6 +366,48 @@ export const partnerLegalEn = {
     failed: "Could not update verification.",
     done: "Verification updated.",
     noProfile: "This partner has not submitted a legal profile yet.",
+    draftTitle: "Status: Draft",
+    draftBody:
+      "The partner has uploaded documents but has not submitted the profile for review.",
+    moveToReview: "Move to review",
+    moveToReviewTitle: "Move to review",
+    moveToReviewBody:
+      "This puts the profile in Needs review. It does not approve the partner.",
+    moveToReviewConfirm: "Move to review",
+    moveToReviewCancel: "Cancel",
+    approve: "Approve",
+    requestChanges: "Reject / request changes",
+    pendingTitle: "Review this partner",
+    pendingBody:
+      "Open the papers, then approve or ask for changes. Approval does not by itself let the company operate.",
+    verifiedTitle: "Verified partner",
+    verifiedBody:
+      "This profile is already verified. You can suspend it. Approving again is not available.",
+  },
+  companyPage: {
+    details: "Company details",
+    documents: "Documents",
+    terms: "Terms",
+    draft: "Draft",
+    submitted: "Submitted",
+    underReview: "Under review",
+    verified: "Verified",
+    rejected: "Rejected",
+    suspended: "Suspended",
+    standardApply: "Standard Rovaro Terms apply",
+    standardTerms: "Standard terms",
+    customAgreement: "Custom agreement",
+    termsReady: "Terms ready to accept",
+    acceptTerms: "Accept terms",
+    termsAccepted: "Terms accepted",
+    termsUpdated: "Updated terms require acceptance",
+    preparing:
+      "Rovaro is preparing the terms. No action is required from you yet.",
+    signerName: "Your name",
+    signerRole: "Your role",
+    signerEmail: "Email",
+    acceptFailed: "Could not record the acceptance.",
+    saved: "Saved.",
   },
 };
 
@@ -725,6 +767,48 @@ export const partnerLegalEs = {
     failed: "No se pudo actualizar la verificación.",
     done: "Verificación actualizada.",
     noProfile: "Este partner aún no ha enviado un perfil legal.",
+    draftTitle: "Estado: borrador",
+    draftBody:
+      "El partner ha subido documentos, pero no ha enviado el perfil a revisión.",
+    moveToReview: "Pasar a revisión",
+    moveToReviewTitle: "Pasar a revisión",
+    moveToReviewBody:
+      "El perfil entra en Necesita revisión. Esto no aprueba al partner.",
+    moveToReviewConfirm: "Pasar a revisión",
+    moveToReviewCancel: "Cancelar",
+    approve: "Aprobar",
+    requestChanges: "Rechazar / pedir cambios",
+    pendingTitle: "Revisar a este partner",
+    pendingBody:
+      "Abre los papeles y aprueba o pide cambios. Aprobar no basta para que la empresa pueda operar.",
+    verifiedTitle: "Partner verificado",
+    verifiedBody:
+      "Este perfil ya está verificado. Puedes suspenderlo. No se vuelve a aprobar.",
+  },
+  companyPage: {
+    details: "Datos de la empresa",
+    documents: "Documentos",
+    terms: "Condiciones",
+    draft: "Borrador",
+    submitted: "Enviado",
+    underReview: "En revisión",
+    verified: "Verificado",
+    rejected: "Rechazado",
+    suspended: "Suspendido",
+    standardApply: "Se aplican las Condiciones estándar de Rovaro",
+    standardTerms: "Condiciones estándar",
+    customAgreement: "Acuerdo personalizado",
+    termsReady: "Condiciones listas para aceptar",
+    acceptTerms: "Aceptar condiciones",
+    termsAccepted: "Condiciones aceptadas",
+    termsUpdated: "Hay condiciones nuevas que debes aceptar",
+    preparing:
+      "Rovaro está preparando las condiciones. De momento no tienes que hacer nada.",
+    signerName: "Tu nombre",
+    signerRole: "Tu cargo",
+    signerEmail: "Correo",
+    acceptFailed: "No se ha podido registrar la aceptación.",
+    saved: "Guardado.",
   },
 };
 
@@ -767,6 +851,23 @@ export const partnerLegalRu = {
     failed: "Не удалось обновить проверку.",
     done: "Проверка обновлена.",
     noProfile: "Этот партнёр ещё не отправил юридический профиль.",
+    draftTitle: "Статус: черновик",
+    draftBody:
+      "Партнёр загрузил документы, но не отправил профиль на проверку.",
+    moveToReview: "Отправить на проверку",
+    moveToReviewTitle: "Отправить на проверку",
+    moveToReviewBody:
+      "Профиль попадёт в очередь. Это не подтверждает партнёра.",
+    moveToReviewConfirm: "Отправить на проверку",
+    moveToReviewCancel: "Отмена",
+    approve: "Подтвердить",
+    requestChanges: "Отклонить / запросить правки",
+    pendingTitle: "Проверить этого партнёра",
+    pendingBody:
+      "Откройте документы и подтвердите или запросите правки. Подтверждение само по себе не даёт право работать.",
+    verifiedTitle: "Партнёр подтверждён",
+    verifiedBody:
+      "Профиль уже подтверждён. Его можно приостановить. Повторного подтверждения нет.",
   },
 };
 
@@ -784,6 +885,23 @@ export const partnerLegalUk = {
     failed: "Не вдалося оновити перевірку.",
     done: "Перевірку оновлено.",
     noProfile: "Цей партнер ще не надіслав юридичний профіль.",
+    draftTitle: "Статус: чернетка",
+    draftBody:
+      "Партнер завантажив документи, але не надіслав профіль на перевірку.",
+    moveToReview: "Передати на перевірку",
+    moveToReviewTitle: "Передати на перевірку",
+    moveToReviewBody:
+      "Профіль потрапить у чергу. Це не підтверджує партнера.",
+    moveToReviewConfirm: "Передати на перевірку",
+    moveToReviewCancel: "Скасувати",
+    approve: "Підтвердити",
+    requestChanges: "Відхилити / запитати зміни",
+    pendingTitle: "Перевірити цього партнера",
+    pendingBody:
+      "Відкрийте документи і підтвердьте або запитайте зміни. Підтвердження саме по собі не дає права працювати.",
+    verifiedTitle: "Партнера підтверджено",
+    verifiedBody:
+      "Профіль уже підтверджено. Його можна призупинити. Повторного підтвердження немає.",
   },
 };
 
@@ -801,6 +919,23 @@ export const partnerLegalEl = {
     failed: "Δεν ήταν δυνατή η ενημέρωση της επαλήθευσης.",
     done: "Η επαλήθευση ενημερώθηκε.",
     noProfile: "Αυτός ο συνεργάτης δεν έχει υποβάλει ακόμη νομικό προφίλ.",
+    draftTitle: "Κατάσταση: πρόχειρο",
+    draftBody:
+      "Ο συνεργάτης ανέβασε έγγραφα, αλλά δεν υπέβαλε το προφίλ για έλεγχο.",
+    moveToReview: "Μεταφορά σε έλεγχο",
+    moveToReviewTitle: "Μεταφορά σε έλεγχο",
+    moveToReviewBody:
+      "Το προφίλ μπαίνει στην ουρά. Αυτό δεν εγκρίνει τον συνεργάτη.",
+    moveToReviewConfirm: "Μεταφορά σε έλεγχο",
+    moveToReviewCancel: "Ακύρωση",
+    approve: "Έγκριση",
+    requestChanges: "Απόρριψη / αίτημα αλλαγών",
+    pendingTitle: "Έλεγχος αυτού του συνεργάτη",
+    pendingBody:
+      "Ανοίξτε τα έγγραφα και εγκρίνετε ή ζητήστε αλλαγές. Η έγκριση από μόνη της δεν επιτρέπει λειτουργία.",
+    verifiedTitle: "Επαληθευμένος συνεργάτης",
+    verifiedBody:
+      "Το προφίλ είναι ήδη επαληθευμένο. Μπορείτε να το αναστείλετε. Δεν εγκρίνεται ξανά.",
   },
 };
 
@@ -818,6 +953,23 @@ export const partnerLegalDe = {
     failed: "Prüfung konnte nicht aktualisiert werden.",
     done: "Prüfung aktualisiert.",
     noProfile: "Dieser Partner hat noch kein Rechtsprofil eingereicht.",
+    draftTitle: "Status: Entwurf",
+    draftBody:
+      "Der Partner hat Dokumente hochgeladen, das Profil aber nicht zur Prüfung eingereicht.",
+    moveToReview: "In die Prüfung nehmen",
+    moveToReviewTitle: "In die Prüfung nehmen",
+    moveToReviewBody:
+      "Das Profil kommt in die Warteschlange. Der Partner wird dadurch nicht freigegeben.",
+    moveToReviewConfirm: "In die Prüfung nehmen",
+    moveToReviewCancel: "Abbrechen",
+    approve: "Freigeben",
+    requestChanges: "Ablehnen / Änderungen verlangen",
+    pendingTitle: "Diesen Partner prüfen",
+    pendingBody:
+      "Öffnen Sie die Unterlagen und geben Sie frei oder verlangen Sie Änderungen. Die Freigabe allein erlaubt den Betrieb nicht.",
+    verifiedTitle: "Verifizierter Partner",
+    verifiedBody:
+      "Dieses Profil ist bereits verifiziert. Sie können es sperren. Eine erneute Freigabe gibt es nicht.",
   },
 };
 

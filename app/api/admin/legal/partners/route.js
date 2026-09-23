@@ -6,6 +6,8 @@ import Company from "@models/company";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
 import PartnerAgreementAcceptance from "@models/PartnerAgreementAcceptance";
 import { evaluateProfileCompleteness } from "@/domain/legal/partnerVerification";
+import { getCurrentPackageChecksum } from "@/domain/legal/agreementService";
+import { buildPartnerReviewCompliance } from "@/domain/legal/partnerReviewWorkspace";
 import {
   buildAdminCountryCompanyFilter,
   normalizeAdminCountryFilter,
@@ -49,6 +51,16 @@ export async function GET(request) {
     });
   }
 
+  let currentPackageChecksum = "";
+  try {
+    currentPackageChecksum = await getCurrentPackageChecksum("en");
+  } catch (err) {
+    console.error(
+      "[admin-legal-partners] current agreement checksum failed",
+      err?.message || err
+    );
+  }
+
   const [companies, profiles, agreements] = await Promise.all([
     Company.find(companyFilter)
       .select("name slug country email listedOnMarketplace bookingMode")
@@ -81,13 +93,23 @@ export async function GET(request) {
     const uploaded = (profile?.documents || []).filter((doc) => doc?.storageRef);
     const completeness = profile ? evaluateProfileCompleteness(profile) : null;
     const missingDocs = completeness?.missingRecommendedDocuments || [];
+    const listedOnMarketplace = company.listedOnMarketplace !== false;
 
     return {
       companyId: key,
       companyName: company.name || "",
       country: company.country || "",
       companyEmail: company.email || "",
-      listedOnMarketplace: company.listedOnMarketplace !== false,
+      listedOnMarketplace,
+      compliance: buildPartnerReviewCompliance({
+        verificationStatus: profile?.verificationStatus || null,
+        documentCount: uploaded.length,
+        listedOnMarketplace,
+        activeAgreement: active,
+        agreementHistory: list,
+        currentPackageChecksum,
+        completeness,
+      }),
       bookingMode: company.bookingMode || "",
       verification: profile
         ? {

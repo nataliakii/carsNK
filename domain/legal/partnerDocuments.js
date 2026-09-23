@@ -69,14 +69,30 @@ export function partnerDocumentResourceType(mime) {
 }
 
 /**
- * Cloudinary keeps the file extension in the public id of a `raw` asset and
- * strips it from an `image` one, so the stored reference alone is enough to
- * sign the URL back. Nothing extra has to be persisted alongside it.
+ * Cloudinary `upload_stream` stores a PDF as `raw` and does not put `.pdf`
+ * on the public id, so the stored reference alone cannot tell an image from
+ * a PDF. Prefer the resource type saved at upload. Fall back to a `.pdf`
+ * suffix on the public id or the original filename for files stored before
+ * that field existed.
  *
- * @param {string} storageRef Cloudinary public id
+ * @param {{ storageRef?: string, label?: string, resourceType?: string }} doc
+ * @returns {"raw"|"image"}
  */
-export function resourceTypeFromStorageRef(storageRef) {
-  return /\.pdf$/i.test(String(storageRef || "")) ? "raw" : "image";
+export function resolvePartnerDocumentResourceType(doc) {
+  const explicit = String(doc?.resourceType || "").toLowerCase();
+  if (explicit === "raw" || explicit === "image") return explicit;
+  const ref = String(doc?.storageRef || "");
+  const label = String(doc?.label || "");
+  if (/\.pdf$/i.test(ref) || /\.pdf$/i.test(label)) return "raw";
+  return "image";
+}
+
+/**
+ * @param {string} storageRef Cloudinary public id
+ * @param {string} [label] original filename, used when the public id has no extension
+ */
+export function resourceTypeFromStorageRef(storageRef, label = "") {
+  return resolvePartnerDocumentResourceType({ storageRef, label });
 }
 
 /**

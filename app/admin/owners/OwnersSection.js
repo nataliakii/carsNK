@@ -292,8 +292,21 @@ export default function OwnersSection() {
 
   const openCompanyLegal = async () => {
     if (!selectedCompanyId) return;
+    let filter = "all";
+    try {
+      const res = await fetch(
+        `/api/admin/legal/partners/${encodeURIComponent(selectedCompanyId)}`,
+        { cache: "no-store" }
+      );
+      const json = await res.json().catch(() => ({}));
+      if (json?.profile?.verificationStatus === "PENDING_VERIFICATION") {
+        filter = "pending";
+      }
+    } catch {
+      filter = "all";
+    }
     router.push(
-      `/admin/legal?tab=partners&companyId=${encodeURIComponent(selectedCompanyId)}`
+      `/admin/legal?tab=partners&filter=${filter}&companyId=${encodeURIComponent(selectedCompanyId)}`
     );
   };
 

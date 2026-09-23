@@ -16,8 +16,21 @@ import {
 import PartnerReviewActions from "@/app/admin/legal-profile/_components/PartnerReviewActions";
 import PartnerDocumentsCard from "@/app/admin/legal-profile/_components/PartnerDocumentsCard";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
+import {
+  PARTNER_REVIEW_FILTER,
+  buildPartnerReviewCompliance,
+  resolvePartnerReviewUrl,
+  shouldShowPendingEmpty,
+  visiblePartnerRows,
+} from "@/domain/legal/partnerReviewWorkspace";
 
 const S_PENDING = "PENDING_VERIFICATION";
+const AGREEMENT_LABEL = {
+  not_accepted: "Not accepted",
+  current: "Current",
+  outdated: "Outdated",
+  terminated: "Terminated",
+};
 
 function statusColor(status) {
   if (status === "VERIFIED") return "success";
@@ -58,13 +71,13 @@ export default function PartnerReviewQueue() {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selectedId = searchParams.get("companyId") || "";
+  const urlCompanyId = searchParams.get("companyId") || "";
+  const urlFilter = searchParams.get("filter");
   const { country: adminCountry } = useAdminCountryFilter();
 
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("pending");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,22 +109,65 @@ export default function PartnerReviewQueue() {
     (row) => row.verification?.status === S_PENDING
   ).length;
 
-  const visible = useMemo(() => {
-    if (!rows) return [];
-    if (filter === "pending") {
-      return rows.filter((row) => row.verification?.status === S_PENDING);
-    }
-    return rows;
-  }, [rows, filter]);
+  const resolved = useMemo(
+    () =>
+      resolvePartnerReviewUrl({
+        filter: urlFilter,
+        companyId: urlCompanyId,
+        rows: rows || [],
+      }),
+    [urlFilter, urlCompanyId, rows]
+  );
+  const filter = rows ? resolved.filter : urlFilter === "all" ? "all" : "pending";
+  const selectedId = rows ? resolved.companyId : urlCompanyId;
 
-  const selected = (rows || []).find((row) => row.companyId === selectedId) || null;
+  const visible = useMemo(
+    () => (rows ? visiblePartnerRows(rows, filter) : []),
+    [rows, filter]
+  );
+  const selected = visible.find((row) => row.companyId === selectedId) || null;
+  const showEmptyPending = Boolean(rows) && shouldShowPendingEmpty({
+    filter,
+    visibleCount: visible.length,
+    selectedVisible: Boolean(selected),
+  });
+
+  const writeUrl = useCallback(
+    (next, mode) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", "partners");
+      params.set("filter", next.filter);
+      if (next.companyId) params.set("companyId", next.companyId);
+      else params.delete("companyId");
+      const href = `/admin/legal?${params.toString()}`;
+      if (mode === "push") router.push(href, { scroll: false });
+      else router.replace(href, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  useEffect(() => {
+    if (!rows) return;
+    if (resolved.filter === (urlFilter || "") && resolved.companyId === urlCompanyId) {
+      return;
+    }
+    writeUrl(resolved, "replace");
+  }, [rows, resolved, urlFilter, urlCompanyId, writeUrl]);
 
   function selectCompany(companyId) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", "partners");
-    if (companyId) params.set("companyId", companyId);
-    else params.delete("companyId");
-    router.replace(`/admin/legal?${params.toString()}`, { scroll: false });
+    writeUrl({ filter, companyId }, "push");
+  }
+
+  function activateFilter(next) {
+    const row = (rows || []).find((item) => item.companyId === selectedId);
+    const pending = row?.verification?.status === S_PENDING;
+    writeUrl(
+      {
+        filter: next,
+        companyId: next === PARTNER_REVIEW_FILTER.PENDING && row && !pending ? "" : selectedId,
+      },
+      "push"
+    );
   }
 
   if (loading && !rows) {
@@ -174,7 +230,7 @@ export default function PartnerReviewQueue() {
             count: pendingCount,
             defaultValue: `Needs review (${pendingCount})`,
           })}
-          onClick={() => setFilter("pending")}
+          onClick={() => activateFilter(PARTNER_REVIEW_FILTER.PENDING)}
         />
         <Chip
           clickable
@@ -184,18 +240,17 @@ export default function PartnerReviewQueue() {
             defaultValue: `All companies (${rows?.length || 0})`,
             count: rows?.length || 0,
           })}
-          onClick={() => setFilter("all")}
+          onClick={() => activateFilter(PARTNER_REVIEW_FILTER.ALL)}
         />
       </Stack>
 
-      {filter === "pending" && visible.length === 0 ? (
+      {showEmptyPending ? (
         <Alert severity="success">
           {t("admin.legalHub.queueEmpty", {
-            defaultValue: "No companies are waiting for review.",
+            defaultValue: "No partners are waiting for review.",
           })}
         </Alert>
-      ) : null}
-
+      ) : (
       <Stack
         direction={{ xs: "column", md: "row" }}
         spacing={2}
@@ -310,6 +365,7 @@ export default function PartnerReviewQueue() {
           )}
         </Box>
       </Stack>
+      )}
     </Stack>
   );
 }
@@ -322,6 +378,21 @@ function ReviewDetail({ row, onChanged }) {
     ...(v?.completeness?.missingRecommendedDocuments || []),
   ];
   const agreement = row.agreement;
+  const compliance =
+    row.compliance ||
+    buildPartnerReviewCompliance({
+      verificationStatus: v?.status || null,
+      documentCount: (v?.documents || []).length,
+      listedOnMarketplace: row.listedOnMarketplace,
+      activeAgreement: agreement,
+      agreementHistory: row.agreementHistory || [],
+      completeness: v?.completeness || null,
+    });
+  const verificationLabel = compliance.verificationStatus
+    ? t(`partnerLegal.status.${compliance.verificationStatus}.label`, {
+        defaultValue: compliance.verificationStatus,
+      })
+    : t("admin.legalHub.queueNoProfile", { defaultValue: "No profile" });
 
   return (
     <Stack spacing={2}>
@@ -341,6 +412,58 @@ function ReviewDetail({ row, onChanged }) {
           />
         ) : null}
       </Stack>
+
+      <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
+        <Field
+          label={t("admin.legalHub.queueDocsStatus", { defaultValue: "Documents" })}
+          value={t("admin.legalHub.queueDocsUploaded", {
+            defaultValue: "{{count}} uploaded",
+            count: compliance.documentCount,
+          })}
+        />
+        <Field
+          label={t("admin.legalHub.queueVerification", { defaultValue: "Verification" })}
+          value={verificationLabel}
+        />
+        {v?.submittedAt ? (
+          <Field
+            label={t("admin.legalHub.queueSubmittedLabel", { defaultValue: "Submitted" })}
+            value={formatDate(v.submittedAt)}
+          />
+        ) : null}
+        <Field
+          label={t("admin.legalHub.queueAgreementStatus", {
+            defaultValue: "Partner agreement",
+          })}
+          value={t(`admin.legalHub.agreement.${compliance.agreementStatus}`, {
+            defaultValue: AGREEMENT_LABEL[compliance.agreementStatus] || compliance.agreementStatus,
+          })}
+        />
+        <Field
+          label={t("admin.legalHub.queueListing", { defaultValue: "Marketplace listing" })}
+          value={
+            compliance.listingOn
+              ? t("admin.legalHub.queueListingOn", { defaultValue: "On" })
+              : t("admin.legalHub.queueListingOff", { defaultValue: "Off" })
+          }
+        />
+        <Field
+          label={t("admin.legalHub.queueOperating", { defaultValue: "Operating status" })}
+          value={
+            compliance.operating === "ready"
+              ? t("admin.legalHub.queueOperatingReady", { defaultValue: "Ready" })
+              : t("admin.legalHub.queueOperatingBlocked", { defaultValue: "Blocked" })
+          }
+        />
+        {compliance.operating !== "ready" ? (
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+            {t("admin.legalHub.queueOperatingHint", {
+              defaultValue:
+                "Verification alone does not let this company operate. It also needs the current partner agreement and marketplace listing, and it must not be rejected or suspended.",
+            })}
+          </Typography>
+        ) : null}
+      </Box>
 
       <PartnerReviewActions
         profile={

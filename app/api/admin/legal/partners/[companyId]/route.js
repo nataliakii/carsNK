@@ -71,8 +71,9 @@ export async function GET(request, { params }) {
  * PATCH { status, reason }
  *
  * Moves the partner through DRAFT → PENDING_VERIFICATION → VERIFIED /
- * SUSPENDED / REJECTED. Invalid transitions and incomplete profiles are
- * refused. Thin profiles may still be verified — the operator decides.
+ * SUSPENDED / REJECTED. A draft can be moved into review; it cannot be
+ * approved in place. Invalid transitions are refused. Thin profiles may
+ * still be verified once they are pending. This route does not email.
  */
 export async function PATCH(request, { params }) {
   const { session, errorResponse } = await requireSuperAdmin(request);
@@ -131,10 +132,36 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ success: true, ...terminated });
   }
 
+  const nextStatus = String(body?.status || "");
+  const reason = String(body?.reason || "").trim();
+  if (
+    profile.verificationStatus === PARTNER_VERIFICATION_STATUS.DRAFT &&
+    nextStatus === PARTNER_VERIFICATION_STATUS.PENDING_VERIFICATION &&
+    !reason
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "A reason is required to move a draft into review",
+        code: "reason_required",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (
+    nextStatus === PARTNER_VERIFICATION_STATUS.PENDING_VERIFICATION &&
+    !String(profile.legalName || "").trim()
+  ) {
+    const company = await Company.findById(companyId).select("name").lean();
+    const name = String(company?.name || "").trim();
+    if (name) profile.legalName = name;
+  }
+
   const result = applyVerificationTransition(profile, {
-    to: String(body?.status || ""),
+    to: nextStatus,
     byEmail,
-    reason: String(body?.reason || ""),
+    reason,
   });
 
   if (!result.ok) {
@@ -149,6 +176,14 @@ export async function PATCH(request, { params }) {
     );
   }
 
+  if (
+    !result.unchanged &&
+    result.to === PARTNER_VERIFICATION_STATUS.PENDING_VERIFICATION &&
+    !profile.submittedAt
+  ) {
+    profile.submittedAt = profile.verificationStatusAt || new Date();
+  }
+
   await profile.save();
 
   await recordAuditEvent({
@@ -158,7 +193,7 @@ export async function PATCH(request, { params }) {
     severity: "high",
     ipAddress,
     userAgent,
-    reason: body?.reason || "",
+    reason,
     metadata: {
       companyId: String(companyId),
       from: result.from,

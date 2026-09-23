@@ -1,0 +1,146 @@
+/**
+ * Partner-review queue rules shared by the Legal hub and its tests.
+ *
+ * Needs review is only PENDING_VERIFICATION. Any other status belongs in
+ * All partners. A deep link follows the company's real status so a draft
+ * is never shown under the empty pending message.
+ */
+
+import { evaluatePartnerOperatingGate } from "./partnerGate";
+
+export const PARTNER_REVIEW_FILTER = Object.freeze({
+  PENDING: "pending",
+  ALL: "all",
+});
+
+const PENDING = "PENDING_VERIFICATION";
+
+export function isPendingReviewStatus(status) {
+  return status === PENDING;
+}
+
+export function filterForVerificationStatus(status) {
+  return isPendingReviewStatus(status)
+    ? PARTNER_REVIEW_FILTER.PENDING
+    : PARTNER_REVIEW_FILTER.ALL;
+}
+
+/**
+ * Which operator buttons belong on the review card.
+ * Draft is not a review decision: no approve and no reject.
+ */
+export function reviewControlsForStatus(status) {
+  const none = {
+    moveToReview: false,
+    approve: false,
+    reject: false,
+    suspend: false,
+    reopenDraft: false,
+  };
+  if (status === "DRAFT") return { ...none, moveToReview: true };
+  if (status === PENDING) return { ...none, approve: true, reject: true };
+  if (status === "VERIFIED") return { ...none, suspend: true };
+  if (status === "SUSPENDED") return { ...none, approve: true, reject: true };
+  if (status === "REJECTED") return { ...none, reopenDraft: true };
+  return none;
+}
+
+/**
+ * Make the URL match the selected company.
+ * A non-pending company on Needs review switches to All partners.
+ * An unknown company id is dropped.
+ *
+ * @param {{ filter?: string|null, companyId?: string|null, rows?: Array<{companyId: string, verification?: {status?: string}|null}> }} input
+ */
+export function resolvePartnerReviewUrl({ filter, companyId, rows }) {
+  const list = Array.isArray(rows) ? rows : [];
+  const id = String(companyId || "");
+  const requested =
+    filter === PARTNER_REVIEW_FILTER.ALL || filter === PARTNER_REVIEW_FILTER.PENDING
+      ? filter
+      : "";
+  const selected = id ? list.find((row) => row.companyId === id) || null : null;
+
+  if (!selected) {
+    return {
+      filter: requested || PARTNER_REVIEW_FILTER.PENDING,
+      companyId: "",
+    };
+  }
+
+  const natural = filterForVerificationStatus(selected.verification?.status);
+  let nextFilter = requested || natural;
+  if (nextFilter === PARTNER_REVIEW_FILTER.PENDING && natural !== PARTNER_REVIEW_FILTER.PENDING) {
+    nextFilter = PARTNER_REVIEW_FILTER.ALL;
+  }
+
+  return { filter: nextFilter, companyId: id };
+}
+
+export function visiblePartnerRows(rows, filter) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (filter === PARTNER_REVIEW_FILTER.ALL) return list;
+  return list.filter((row) => isPendingReviewStatus(row.verification?.status));
+}
+
+/** Empty pending copy is only for an empty Needs review list with nobody selected. */
+export function shouldShowPendingEmpty({ filter, visibleCount, selectedVisible }) {
+  return (
+    filter === PARTNER_REVIEW_FILTER.PENDING &&
+    visibleCount === 0 &&
+    !selectedVisible
+  );
+}
+
+export function agreementDisplayStatus({
+  active = null,
+  history = [],
+  currentPackageChecksum = "",
+} = {}) {
+  if (active && !active.terminatedAt && !active.supersededAt) {
+    const current = String(currentPackageChecksum || "").trim();
+    const signed = String(active.packageChecksum || "").trim();
+    if (current && signed && signed !== current) return "outdated";
+    return "current";
+  }
+  if ((history || []).some((item) => item?.terminatedAt)) return "terminated";
+  return "not_accepted";
+}
+
+/**
+ * Compact status for the review detail. Operating stays blocked until the
+ * existing gate passes and the marketplace listing is on. Verification
+ * alone is not enough.
+ */
+export function buildPartnerReviewCompliance({
+  verificationStatus = null,
+  documentCount = 0,
+  listedOnMarketplace = false,
+  activeAgreement = null,
+  agreementHistory = [],
+  currentPackageChecksum = "",
+  completeness = null,
+} = {}) {
+  const agreementStatus = agreementDisplayStatus({
+    active: activeAgreement,
+    history: agreementHistory,
+    currentPackageChecksum,
+  });
+  const gate = evaluatePartnerOperatingGate({
+    profile: verificationStatus ? { verificationStatus } : null,
+    completeness,
+    activeAgreement:
+      agreementStatus === "current" || agreementStatus === "outdated"
+        ? activeAgreement
+        : null,
+    currentPackageChecksum,
+  });
+  const listingOn = listedOnMarketplace !== false;
+  return {
+    documentCount,
+    verificationStatus: verificationStatus || null,
+    agreementStatus,
+    listingOn,
+    operating: gate.canOperate && listingOn ? "ready" : "blocked",
+  };
+}

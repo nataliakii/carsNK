@@ -375,19 +375,9 @@ export default function PartnerAgreementSection() {
               ? t("partnerLegal.agreement.draftTitle")
               : t("partnerLegal.agreement.emptyTitle")}
           </AlertTitle>
-          <Typography variant="body2" sx={{ mb: 1.5 }}>
-            {(data?.documents || []).length
-              ? t("partnerLegal.agreement.draftBody")
-              : t("partnerLegal.agreement.emptyBody")}
+          <Typography variant="body2">
+            {t("partnerLegal.companyPage.preparing")}
           </Typography>
-          <Button
-            size="small"
-            variant="contained"
-            component={Link}
-            href="/admin/legal"
-          >
-            {t("partnerLegal.agreement.openLegalDocuments")}
-          </Button>
         </Alert>
       ) : null}
 
@@ -677,22 +667,12 @@ export default function PartnerAgreementSection() {
                     <Typography variant="body2" sx={{ flex: 1 }}>
                       {t(`partnerLegal.agreement.signingBlocker.${blocker.code}`)}
                     </Typography>
-                    {blocker.href === "/admin/legal" ? (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        component={Link}
-                        href="/admin/legal"
-                      >
-                        {t("partnerLegal.agreement.openLegalDocuments")}
-                      </Button>
-                    ) : null}
-                    {blocker.href === "/admin/legal-profile" ? (
+                    {blocker.href === "/admin/company/legal" ? (
                       <Button
                         size="small"
                         variant="outlined"
                         component={Link}
-                        href="/admin/legal-profile"
+                        href="/admin/company/legal"
                       >
                         {t("partnerLegal.gate.goToProfile")}
                       </Button>
@@ -731,7 +711,7 @@ export default function PartnerAgreementSection() {
                 ? t("partnerLegal.agreement.acceptNewVersion")
                 : t("partnerLegal.agreement.accept")}
           </Button>
-          <Button component={Link} href="/admin/legal-profile" color="secondary">
+          <Button component={Link} href="/admin/company/legal" color="secondary">
             {t("partnerLegal.agreement.backToProfile")}
           </Button>
         </Stack>

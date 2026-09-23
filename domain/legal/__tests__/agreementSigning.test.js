@@ -25,7 +25,7 @@ describe("evaluateAgreementSigningBlockers", () => {
     ).toEqual([]);
   });
 
-  it("surfaces unpublished drafts with a link to the legal hub", () => {
+  it("surfaces unpublished drafts without a superadmin link", () => {
     const blockers = evaluateAgreementSigningBlockers({
       documents: [{ ...publishedDoc, source: "draft" }],
       containsDrafts: true,
@@ -34,9 +34,9 @@ describe("evaluateAgreementSigningBlockers", () => {
     expect(blockers).toEqual([
       {
         code: AGREEMENT_SIGNING_BLOCKER.UNPUBLISHED_DOCUMENTS,
-        href: "/admin/legal",
       },
     ]);
+    expect(JSON.stringify(blockers)).not.toContain("/admin/legal");
   });
 
   it("does not silently disable an empty package", () => {
@@ -46,7 +46,7 @@ describe("evaluateAgreementSigningBlockers", () => {
       packageChecksum: "hash-of-empty",
     });
     expect(blockers[0].code).toBe(AGREEMENT_SIGNING_BLOCKER.EMPTY_PACKAGE);
-    expect(blockers[0].href).toBe("/admin/legal");
+    expect(blockers[0].href).toBeUndefined();
   });
 
   it("lists verification blockers so the partner can see why", () => {

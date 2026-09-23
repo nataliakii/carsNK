@@ -6,6 +6,7 @@ import { connectToDB } from "@lib/database";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
 import cloudinary, { ensureCloudinaryConfigured } from "@utils/cloudinary";
 import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
+import { ownCompanyScope } from "@/domain/legal/companyLegalPage";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
 import { SIGNED_URL_TTL_SECONDS } from "@/domain/legal/drivingLicenceAccess";
 import {
@@ -13,7 +14,7 @@ import {
   isAllowedPartnerDocumentType,
   isKnownPartnerDocumentKind,
   partnerDocumentResourceType,
-  resourceTypeFromStorageRef,
+  resolvePartnerDocumentResourceType,
   PARTNER_DOCUMENT_ALLOWED_TYPES,
   PARTNER_DOCUMENT_MAX_BYTES,
 } from "@/domain/legal/partnerDocuments";
@@ -33,7 +34,9 @@ export const maxDuration = 60;
  * of any of these methods.
  */
 function resolveCompanyId(session, requested) {
-  return resolvePartnerCompanyId(session, requested);
+  const scope = ownCompanyScope(session, requested);
+  if (scope.forbidden) return "";
+  return scope.companyId || resolvePartnerCompanyId(session, requested);
 }
 
 function jsonError(status, error, message, extra) {
@@ -160,21 +163,25 @@ export async function GET(request) {
     }
 
     const expiresAt = Math.floor(Date.now() / 1000) + SIGNED_URL_TTL_SECONDS;
-    const documents = stored.map((doc) => ({
-      kind: doc.kind,
-      label: doc.label || "",
-      uploadedAt: doc.uploadedAt,
-      accepted: Boolean(doc.accepted),
-      note: doc.note || "",
-      url: cloudinary.url(doc.storageRef, {
-        secure: true,
-        sign_url: true,
-        type: "upload",
-        resource_type: resourceTypeFromStorageRef(doc.storageRef),
-        expires_at: expiresAt,
-      }),
-      expiresAt: new Date(expiresAt * 1000).toISOString(),
-    }));
+    const documents = stored.map((doc) => {
+      const resourceType = resolvePartnerDocumentResourceType(doc);
+      return {
+        kind: doc.kind,
+        label: doc.label || "",
+        uploadedAt: doc.uploadedAt,
+        accepted: Boolean(doc.accepted),
+        note: doc.note || "",
+        resourceType,
+        url: cloudinary.url(doc.storageRef, {
+          secure: true,
+          sign_url: true,
+          type: "upload",
+          resource_type: resourceType,
+          expires_at: expiresAt,
+        }),
+        expiresAt: new Date(expiresAt * 1000).toISOString(),
+      };
+    });
 
     const { ipAddress, userAgent } = extractAuditContext(request);
     await recordAuditEvent({
@@ -275,6 +282,7 @@ export async function POST(request) {
       kind,
       label: String(formData.get("label") || file.name || "").slice(0, 200),
       storageRef: uploaded.public_id,
+      resourceType: partnerDocumentResourceType(mime),
       uploadedAt: new Date(),
       uploadedByUserId: String(session.user?.id || ""),
       reviewedAt: null,
@@ -354,7 +362,7 @@ export async function DELETE(request) {
     if (existing.storageRef && ensureCloudinaryConfigured().ok) {
       await cloudinary.uploader
         .destroy(existing.storageRef, {
-          resource_type: resourceTypeFromStorageRef(existing.storageRef),
+          resource_type: resolvePartnerDocumentResourceType(existing),
         })
         .catch((err) => {
           console.error(

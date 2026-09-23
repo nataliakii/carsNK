@@ -10,8 +10,8 @@ export const ADMIN_PATHS = {
   cars: "/admin/cars",
   orders: "/admin/orders",
   company: "/admin/company",
-  /** Partner KYB + clickwrap (company context / view-as). */
-  legal: "/admin/legal-profile",
+  /** Partner company legal page: details, documents, terms. */
+  legal: "/admin/company/legal",
   /** Superadmin partner document review + platform legal docs hub. */
   legalHub: "/admin/legal",
   owners: "/admin/owners",
@@ -32,21 +32,24 @@ export function isAdminOrdersSection(pathname) {
 }
 
 export function isAdminCompanySection(pathname) {
+  if (!pathname || pathname.startsWith("/admin/company/legal")) return false;
   return (
-    pathname?.startsWith("/admin/company") ||
-    pathname?.startsWith("/admin/delivery-zones") ||
-    pathname?.startsWith("/admin/vouchers") ||
-    pathname?.startsWith("/admin/access-tokens") ||
-    pathname?.startsWith("/admin/platform")
+    pathname.startsWith("/admin/company") ||
+    pathname.startsWith("/admin/delivery-zones") ||
+    pathname.startsWith("/admin/vouchers") ||
+    pathname.startsWith("/admin/access-tokens") ||
+    pathname.startsWith("/admin/platform")
   );
 }
 
 export function isAdminLegalSection(pathname) {
   if (!pathname) return false;
+  const path = pathname.split("?")[0];
   return (
-    pathname === ADMIN_PATHS.legalHub ||
-    pathname.startsWith(`${ADMIN_PATHS.legalHub}/`) ||
-    pathname.startsWith(ADMIN_PATHS.legal)
+    path === ADMIN_PATHS.legalHub ||
+    path.startsWith(`${ADMIN_PATHS.legalHub}/`) ||
+    path.startsWith("/admin/legal-profile") ||
+    path.startsWith(ADMIN_PATHS.legal)
   );
 }
 

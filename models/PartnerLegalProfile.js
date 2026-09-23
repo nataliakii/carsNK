@@ -22,6 +22,8 @@ const uploadedDocumentSchema = new mongoose.Schema(
     label: { type: String, default: "" },
     /** Storage reference (Cloudinary public id). Never a public URL. */
     storageRef: { type: String, default: "" },
+    /** Cloudinary resource type: "image" or "raw". Empty on older uploads. */
+    resourceType: { type: String, default: "" },
     uploadedAt: { type: Date, default: Date.now },
     uploadedByUserId: { type: String, default: "" },
     reviewedAt: { type: Date, default: null },
@@ -89,6 +91,18 @@ const partnerLegalProfileSchema = new mongoose.Schema(
     vehicleAuthorityConfirmed: { type: Boolean, default: false },
 
     documents: { type: [uploadedDocumentSchema], default: [] },
+
+    /**
+     * Optional company-specific agreement. Empty means the published
+     * standard Rovaro terms apply. Never auto-created.
+     */
+    customAgreement: {
+      documentId: { type: String, default: "" },
+      version: { type: Number, default: 0 },
+      title: { type: String, default: "" },
+      checksum: { type: String, default: "" },
+      overrides: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    },
 
     // ── Verification ─────────────────────────────────────────────────────
     verificationStatus: {

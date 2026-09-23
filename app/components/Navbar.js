@@ -28,11 +28,11 @@ import {
   Tooltip,
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import RovaroLogo from "@app/components/brand/RovaroLogo";
 import { BRAND } from "@config/brand";
-import SendMyPasswordResetButton from "@/app/admin/shared/components/SendMyPasswordResetButton";
+import AccountMenu from "@app/components/account/AccountMenu";
 
 import LanguageIcon from "@mui/icons-material/Language";
 import SearchIcon from "@mui/icons-material/Search";
@@ -252,11 +252,6 @@ export default function NavBar({
     window.addEventListener("company-contacts-updated", handler);
     return () => window.removeEventListener("company-contacts-updated", handler);
   }, [refreshPartnerCompanyName]);
-
-  // Обработчик logout
-  const handleLogout = async () => {
-    await signOut({ callbackUrl: "/" });
-  };
 
   // Следим за выходом из полноэкранного режима
   useEffect(() => {
@@ -920,7 +915,7 @@ export default function NavBar({
         showSuperAdminChrome,
         showCompanyNav: isAdmin,
         showLegalNav: isAdmin,
-        legalHref: isSuperAdmin
+        legalHref: showSuperAdminChrome
           ? `${ADMIN_PATHS.legalHub}?tab=partners`
           : ADMIN_PATHS.legal,
         pendingCount: pendingRentalsCount,
@@ -1204,27 +1199,19 @@ export default function NavBar({
               </Typography>
             </LanguageSwitcher>
 
-            {isAdmin && adminRole !== null && (
-              <>
-                <SendMyPasswordResetButton
-                  sx={{
-                    ...adminActionLinkSx,
-                    display: { xs: "none", md: "inline-flex" },
-                    textTransform: "none",
-                  }}
+            {session?.user ? (
+              <Box
+                sx={{
+                  display: { xs: "none", md: "inline-flex" },
+                  alignItems: "center",
+                  height: 32,
+                }}
+              >
+                <AccountMenu
+                  companyName={viewAsCompany?.name || partnerCompanyName || ""}
                 />
-                <Button
-                  size="small"
-                  onClick={handleLogout}
-                  sx={{
-                    ...adminActionLinkSx,
-                    display: { xs: "none", md: "inline-flex" },
-                  }}
-                >
-                  {t("header.logout") || "Logout"}
-                </Button>
-              </>
-            )}
+              </Box>
+            ) : null}
 
             {isLandscapePhone && !isFullscreen && (
               <IconButton
@@ -1842,45 +1829,17 @@ export default function NavBar({
               </>
             )}
 
-            {/* Кнопка logout - только для админки в мобильном меню */}
-            {isAdmin && adminRole !== null && (
-              <>
-                <Box
-                  sx={{ px: 2, py: 1, borderTop: "1px solid rgba(0,0,0,0.1)" }}
-                >
-                  <SendMyPasswordResetButton
-                    variant="outlined"
-                    fullWidth
-                    sx={{
-                      textTransform: "none",
-                      fontSize: "0.75rem",
-                      mb: 1,
-                    }}
-                  />
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    onClick={() => {
-                      setDrawerOpen(false);
-                      handleLogout();
-                    }}
-                    sx={{
-                      textTransform: "uppercase",
-                      fontSize: "0.75rem",
-                    }}
-                  >
-                    {t("header.logout") || "Logout"}
-                  </Button>
-                </Box>
-              </>
-            )}
-
             {/* Языковой переключатель убран из мобильного меню, 
                 поскольку теперь он всегда видим в верхней панели */}
             {/* <ListItem button onClick={handleLanguageClick}>
               <ListItemText primary={lang} />
             </ListItem> */}
           </List>
+          <AccountMenu
+            placement="drawer"
+            companyName={viewAsCompany?.name || partnerCompanyName || ""}
+            onNavigate={() => setDrawerOpen(false)}
+          />
         </Box>
       </Drawer>
       ) : null}

@@ -20,7 +20,12 @@ export const ALL_PARTNER_VERIFICATION_STATUSES = Object.freeze(
 
 const S = PARTNER_VERIFICATION_STATUS;
 
-/** Allowed transitions. Anything not listed is rejected. */
+/**
+ * Allowed transitions. Anything not listed is rejected.
+ * A draft is not reviewed in place: the operator moves it to
+ * PENDING_VERIFICATION first. Approve is only from that queue
+ * (or when restoring a suspension).
+ */
 export const PARTNER_VERIFICATION_TRANSITIONS = Object.freeze({
   [S.DRAFT]: [S.PENDING_VERIFICATION, S.REJECTED],
   [S.PENDING_VERIFICATION]: [S.VERIFIED, S.REJECTED, S.DRAFT],

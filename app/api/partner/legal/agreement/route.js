@@ -12,6 +12,13 @@ import { resolveEsignProvider } from "@/domain/legal/esign";
 import { resolveClickwrapIp } from "@/domain/legal/agreementSigning";
 import { normalizeLegalLanguage } from "@/domain/legal/documentTypes";
 import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
+import {
+  ownCompanyScope,
+  superadminMayAcceptTerms,
+  withCustomAgreement,
+} from "@/domain/legal/companyLegalPage";
+import PartnerLegalProfile from "@models/PartnerLegalProfile";
+import { connectToDB } from "@lib/database";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
 import {
   consumePublicPostOrError,
@@ -22,7 +29,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function resolveCompanyId(session, requested) {
-  return resolvePartnerCompanyId(session, requested);
+  const scope = ownCompanyScope(session, requested);
+  if (scope.forbidden) return "";
+  return scope.companyId || resolvePartnerCompanyId(session, requested);
 }
 
 /**
@@ -48,11 +57,14 @@ export async function GET(request) {
     request.nextUrl.searchParams.get("lang")
   );
 
-  const [pkg, active, history] = await Promise.all([
+  await connectToDB();
+  const [built, active, history, profile] = await Promise.all([
     buildAgreementPackage({ language }),
     getActiveAgreement(companyId),
     listAgreements(companyId),
+    PartnerLegalProfile.findOne({ companyId }).select("customAgreement").lean(),
   ]);
+  const pkg = withCustomAgreement(built, profile?.customAgreement);
 
   const { ipAddress, userAgent } = extractAuditContext(request);
   await recordAuditEvent({
@@ -141,6 +153,17 @@ export async function POST(request) {
     );
   }
 
+  if (!superadminMayAcceptTerms(session.user?.role)) {
+    return NextResponse.json(
+      {
+        success: false,
+        code: "superadmin_cannot_accept",
+        message: "A superadmin cannot accept terms for a partner.",
+      },
+      { status: 403 }
+    );
+  }
+
   const companyId = resolveCompanyId(session, body?.companyId);
   if (!companyId) {
     return NextResponse.json(
@@ -149,6 +172,15 @@ export async function POST(request) {
     );
   }
 
+  const sessionEmail = String(session.user?.email || "").trim();
+  if (!sessionEmail) {
+    return NextResponse.json(
+      { success: false, message: "This account has no email address" },
+      { status: 400 }
+    );
+  }
+
+  const accepted = Boolean(body?.acceptedCheckbox);
   const { ipAddress, userAgent } = extractAuditContext(request);
 
   const result = await acceptMasterAgreement({
@@ -156,9 +188,12 @@ export async function POST(request) {
     language: body?.language,
     signerName: String(body?.signerName || "").trim(),
     signerRole: String(body?.signerRole || "").trim(),
-    signerEmail: String(body?.signerEmail || session.user?.email || "").trim(),
-    confirmationOfAuthority: Boolean(body?.confirmationOfAuthority),
-    acceptedCheckbox: Boolean(body?.acceptedCheckbox),
+    signerEmail: sessionEmail,
+    confirmationOfAuthority:
+      body?.confirmationOfAuthority == null
+        ? accepted
+        : Boolean(body.confirmationOfAuthority),
+    acceptedCheckbox: accepted,
     authenticatedUserId: String(session.user?.id || session.user?.email || ""),
     ipAddress: resolveClickwrapIp(ipAddress),
     userAgent,

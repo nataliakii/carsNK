@@ -191,7 +191,11 @@ describe("POST /api/partner/legal/documents", () => {
       label: "registry.pdf",
       accepted: false,
     });
-    expect(PartnerLegalProfile.findOneAndUpdate).toHaveBeenCalled();
+    const saved = PartnerLegalProfile.findOneAndUpdate.mock.calls[0][1].$set[
+      "documents.$"
+    ];
+    expect(saved.resourceType).toBe("raw");
+    expect(saved.storageRef).toBe("carsnk/partners/x/legal/registry");
   });
 
   test("duplicate companyId insert is recovered instead of empty 500", async () => {

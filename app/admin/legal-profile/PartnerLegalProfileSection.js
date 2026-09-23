@@ -19,6 +19,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { PARTNER_VERIFICATION_STATUS } from "@/domain/legal/partnerVerification";
+import { companyLegalStatusKey } from "@/domain/legal/companyLegalPage";
 
 import PartnerComplianceGate from "./_components/PartnerComplianceGate";
 import PartnerDocumentsCard from "./_components/PartnerDocumentsCard";
@@ -65,7 +66,10 @@ function draftFromProfile(profile) {
  * is complete, are both answered by the server; this screen only renders the
  * answer.
  */
-export default function PartnerLegalProfileSection() {
+export default function PartnerLegalProfileSection({
+  variant = "full",
+  panel = "all",
+} = {}) {
   const { t } = useTranslation();
 
   const [profile, setProfile] = useState(null);
@@ -113,6 +117,9 @@ export default function PartnerLegalProfileSection() {
   }, [load]);
 
   const status = profile?.verificationStatus || S.DRAFT;
+  const companyView = variant === "company";
+  const showDetails = panel === "all" || panel === "details";
+  const showDocuments = panel === "all" || panel === "documents";
   const locked = !FREELY_EDITABLE.has(status);
   const editable = !locked || (status === S.VERIFIED && unlocked);
   const uploadedDocCount = (profile?.documents || []).filter(
@@ -203,11 +210,25 @@ export default function PartnerLegalProfileSection() {
       }}
     >
       <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>
-        {t("partnerLegal.title")}
+        {companyView
+          ? t(
+              `partnerLegal.companyPage.${
+                panel === "documents" ? "documents" : "details"
+              }`
+            )
+          : t("partnerLegal.title")}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {t("partnerLegal.subtitle")}
-      </Typography>
+      {companyView ? (
+        <Typography variant="body2" sx={{ mb: 2, fontWeight: 700 }}>
+          {t(
+            `partnerLegal.companyPage.${companyLegalStatusKey(profile)}`
+          )}
+        </Typography>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {t("partnerLegal.subtitle")}
+        </Typography>
+      )}
 
       <PartnerComplianceGate
         gate={gate}
@@ -218,7 +239,7 @@ export default function PartnerLegalProfileSection() {
         companyId={companyId}
         onChanged={load}
       />
-      <PartnerVerificationBanner profile={profile} />
+      {companyView ? null : <PartnerVerificationBanner profile={profile} />}
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -270,7 +291,8 @@ export default function PartnerLegalProfileSection() {
         </Alert>
       ) : null}
 
-      {PARTNER_PROFILE_SECTIONS.map((section) => (
+      {showDetails
+        ? PARTNER_PROFILE_SECTIONS.map((section) => (
         <Paper
           key={section.id}
           variant="outlined"
@@ -353,23 +375,28 @@ export default function PartnerLegalProfileSection() {
             </Box>
           ))}
         </Paper>
-      ))}
+      ))
+        : null}
 
-      <PartnerDocumentsCard
-        documents={profile?.documents}
-        editable={FREELY_EDITABLE.has(status)}
-        onChanged={load}
-      />
+      {showDocuments ? (
+        <PartnerDocumentsCard
+          documents={profile?.documents}
+          editable={FREELY_EDITABLE.has(status)}
+          onChanged={load}
+        />
+      ) : null}
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 3 }}>
-        <Button
-          variant="contained"
-          disabled={!editable || saving}
-          onClick={() => save()}
-        >
-          {saving ? t("partnerLegal.form.saving") : t("partnerLegal.form.save")}
-        </Button>
-        {status === S.DRAFT || status === S.REJECTED ? (
+        {showDetails ? (
+          <Button
+            variant="contained"
+            disabled={!editable || saving}
+            onClick={() => save()}
+          >
+            {saving ? t("partnerLegal.form.saving") : t("partnerLegal.form.save")}
+          </Button>
+        ) : null}
+        {showDocuments && (status === S.DRAFT || status === S.REJECTED) ? (
           <Button
             variant="outlined"
             disabled={!canSubmit || saving}
@@ -392,13 +419,15 @@ export default function PartnerLegalProfileSection() {
             {t("partnerLegal.form.cancelEdit")}
           </Button>
         ) : null}
-        <Button
-          component={Link}
-          href="/admin/legal-profile?tab=agreement"
-          color="secondary"
-        >
-          {t("partnerLegal.form.goToAgreement")}
-        </Button>
+        {companyView ? null : (
+          <Button
+            component={Link}
+            href="/admin/company/legal?tab=terms"
+            color="secondary"
+          >
+            {t("partnerLegal.form.goToAgreement")}
+          </Button>
+        )}
       </Stack>
     </Box>
   );
