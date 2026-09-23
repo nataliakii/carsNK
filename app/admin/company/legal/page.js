@@ -6,10 +6,11 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@lib/authOptions";
 import Feed from "@app/components/Feed";
 import { getCars, getCompany, getAllOrders } from "@/domain/services";
-import { COMPANY_ID } from "@/config/company";
-import { ROLE } from "@models/user";
 import { applyAdminViewAsFromCookies } from "@/domain/owners/adminViewAs";
-import { getEffectiveOwnerId } from "@/domain/owners/ownerScope";
+import {
+  companyLegalPageAccess,
+  selectedCompanyForLegalPage,
+} from "@/domain/legal/companyLegalPage";
 
 import CompanyLegalSection from "./CompanyLegalSection";
 
@@ -24,15 +25,11 @@ export default async function CompanyLegalPage() {
   const session = await applyAdminViewAsFromCookies(rawSession);
   if (!session?.user?.isAdmin) redirect("/login");
 
-  const isSuperadmin = Number(session.user?.role) === ROLE.SUPERADMIN;
-  const viewAsOwnerId = getEffectiveOwnerId(session?.user);
-  if (isSuperadmin && !viewAsOwnerId) {
-    redirect("/admin/legal");
-  }
+  const access = companyLegalPageAccess(session.user);
+  if (!access.allow) redirect(access.redirectTo);
 
-  const companyId =
-    viewAsOwnerId ||
-    (session.user.ownerId ? String(session.user.ownerId) : COMPANY_ID);
+  const companyId = selectedCompanyForLegalPage(session.user);
+  if (!companyId) redirect("/admin");
 
   const [company, cars, orders] = await Promise.all([
     getCompany(companyId),

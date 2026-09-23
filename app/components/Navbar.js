@@ -70,6 +70,7 @@ import AdminNavLinks, {
   adminNavLinkSx,
 } from "@app/admin/shared/components/AdminNavLinks";
 import { ADMIN_PATHS, getAdminNavItems } from "@app/admin/shared/adminNav";
+import { legalNavHref } from "@/domain/legal/companyLegalPage";
 
 const AdminPendingInboxBell = dynamic(
   () => import("@app/admin/shared/components/AdminPendingInboxBell"),
@@ -915,11 +916,12 @@ export default function NavBar({
         showSuperAdminChrome,
         showCompanyNav: isAdmin,
         showLegalNav: isAdmin,
-        legalHref: showSuperAdminChrome
-          ? `${ADMIN_PATHS.legalHub}?tab=partners`
-          : ADMIN_PATHS.legal,
+        legalHref: legalNavHref({
+          role: adminRole,
+          companyContextActive: viewAsActive,
+        }),
         pendingCount: pendingRentalsCount,
-        legalPendingCount: isSuperAdmin ? legalPendingCount : 0,
+        legalPendingCount: showSuperAdminChrome ? legalPendingCount : 0,
       })
     : [];
   const adminActionLinkSx = {

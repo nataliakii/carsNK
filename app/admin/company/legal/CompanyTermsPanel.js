@@ -15,9 +15,11 @@ import {
 import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 
-import { presentPartnerTerms } from "@/domain/legal/companyLegalPage";
+import {
+  explicitSignerRole,
+  presentPartnerTerms,
+} from "@/domain/legal/companyLegalPage";
 import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
-import { ROLE } from "@/domain/orders/admin-rbac";
 
 const DOC_LABEL = {
   [LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT]: "Partner Agreement",
@@ -38,7 +40,6 @@ export default function CompanyTermsPanel() {
   const [done, setDone] = useState(false);
 
   const email = String(session?.user?.email || "");
-  const canSign = Number(session?.user?.role) !== ROLE.SUPERADMIN;
 
   const load = useCallback(async () => {
     const lang = String(i18n.language || "en").slice(0, 2);
@@ -55,10 +56,8 @@ export default function CompanyTermsPanel() {
     }
     setData(agreement);
     setProfile(profileBody.profile || null);
-    setSignerName(
-      profileBody.profile?.signatoryName || session?.user?.name || ""
-    );
-    setSignerRole(profileBody.profile?.signatoryRole || "");
+    setSignerName(String(session?.user?.name || ""));
+    setSignerRole(explicitSignerRole(profileBody.profile));
   }, [i18n.language, session?.user?.name, t]);
 
   useEffect(() => {
@@ -112,15 +111,32 @@ export default function CompanyTermsPanel() {
     }
   }
 
+  if (view.state === "preparing" || !data) {
+    return (
+      <Box sx={{ maxWidth: 720, pt: 2, px: { xs: 1, md: 2 } }}>
+        {error ? (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+            {error}
+          </Alert>
+        ) : null}
+        <Typography component="h2" variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+          {t("partnerLegal.companyPage.terms")}
+        </Typography>
+        <Typography variant="body1">
+          {t("partnerLegal.companyPage.preparing")}
+        </Typography>
+      </Box>
+    );
+  }
+
   const messageKey = {
-    preparing: "preparing",
     ready: "termsReady",
     accepted: "termsAccepted",
     updated: "termsUpdated",
   }[view.message];
 
   return (
-    <Box sx={{ maxWidth: 720, pt: 2 }}>
+    <Box sx={{ maxWidth: 720, pt: 2, px: { xs: 1, md: 2 } }}>
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
@@ -132,48 +148,43 @@ export default function CompanyTermsPanel() {
         </Alert>
       ) : null}
 
-      <Typography sx={{ fontWeight: 700, mb: 1 }}>
+      <Typography component="h2" variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
         {view.label === "custom"
           ? t("partnerLegal.companyPage.customAgreement")
           : t("partnerLegal.companyPage.standardApply")}
       </Typography>
-      {view.label === "custom" ? (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {t("partnerLegal.companyPage.standardTerms")}
+      {messageKey ? (
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          {t(`partnerLegal.companyPage.${messageKey}`)}
         </Typography>
       ) : null}
-      <Typography variant="body2" sx={{ mb: 2 }}>
-        {t(`partnerLegal.companyPage.${messageKey}`)}
-      </Typography>
 
-      {view.state !== "preparing" ? (
-        <Stack spacing={0.5} sx={{ mb: 2 }}>
-          {(data?.documents || [])
-            .filter((doc) => doc.documentType !== "custom-agreement")
-            .map((doc) => {
-              const link = view.links.find(
-                (item) => item.documentType === doc.documentType
-              );
-              const label = DOC_LABEL[doc.documentType] || doc.title || doc.documentType;
-              return link ? (
-                <Typography
-                  key={doc.documentType}
-                  component={Link}
-                  href={link.href}
-                  variant="body2"
-                >
-                  {label}
-                </Typography>
-              ) : (
-                <Typography key={doc.documentType} variant="body2">
-                  {label}
-                </Typography>
-              );
-            })}
-        </Stack>
-      ) : null}
+      <Stack spacing={0.5} sx={{ mb: 2 }}>
+        {(data.documents || [])
+          .filter((doc) => doc.documentType !== "custom-agreement")
+          .map((doc) => {
+            const link = view.links.find(
+              (item) => item.documentType === doc.documentType
+            );
+            const label = DOC_LABEL[doc.documentType] || doc.title || doc.documentType;
+            return link ? (
+              <Typography
+                key={doc.documentType}
+                component={Link}
+                href={link.href}
+                variant="body2"
+              >
+                {label}
+              </Typography>
+            ) : (
+              <Typography key={doc.documentType} variant="body2">
+                {label}
+              </Typography>
+            );
+          })}
+      </Stack>
 
-      {canSign && view.canAccept && view.state !== "preparing" ? (
+      {view.canAccept ? (
         <Stack spacing={1.5}>
           <TextField
             size="small"
@@ -185,6 +196,7 @@ export default function CompanyTermsPanel() {
             size="small"
             label={t("partnerLegal.companyPage.signerRole")}
             value={signerRole}
+            placeholder={t("partnerLegal.companyPage.rolePlaceholder")}
             onChange={(event) => setSignerRole(event.target.value)}
           />
           <TextField
@@ -200,7 +212,7 @@ export default function CompanyTermsPanel() {
                 onChange={(event) => setAccepted(event.target.checked)}
               />
             }
-            label={t("partnerLegal.companyPage.acceptTerms")}
+            label={t("partnerLegal.companyPage.authority")}
           />
           <Button
             variant="contained"

@@ -7,8 +7,8 @@ import { authOptions } from "@lib/authOptions";
 import Feed from "@app/components/Feed";
 import { getCars, getCompany, getAllOrders } from "@/domain/services";
 import { COMPANY_ID } from "@/config/company";
-import { ROLE } from "@models/user";
 import { applyAdminViewAsFromCookies } from "@/domain/owners/adminViewAs";
+import { legalAreaDecision } from "@/domain/legal/companyLegalPage";
 
 import LegalHubSection from "./LegalHubSection";
 
@@ -22,10 +22,8 @@ export default async function AdminLegalPage() {
   const session = await applyAdminViewAsFromCookies(rawSession);
   if (!session?.user?.isAdmin) redirect("/login");
 
-  const isSuperadmin = Number(session.user?.role) === ROLE.SUPERADMIN;
-  if (!isSuperadmin) {
-    redirect("/admin/company/legal");
-  }
+  const access = legalAreaDecision(session.user);
+  if (!access.allow) redirect(access.redirectTo);
 
   const [company, cars, orders] = await Promise.all([
     getCompany(COMPANY_ID),

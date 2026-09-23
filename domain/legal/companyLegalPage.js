@@ -8,11 +8,16 @@
  */
 
 import { ROLE } from "@models/user";
-import { getEffectiveOwnerId } from "@/domain/owners/ownerScope";
+import {
+  getEffectiveOwnerId,
+  isAdminViewAsActive,
+  isSuperAdminUser,
+} from "@/domain/owners/ownerScope";
 import { computeSnapshotChecksum } from "./checksum";
 import { MASTER_AGREEMENT_PACKAGE } from "./documentTypes";
 
 export const COMPANY_LEGAL_PATH = "/admin/company/legal";
+export const COMPANY_TERMS_PATH = `${COMPANY_LEGAL_PATH}?tab=terms`;
 export const SUPERADMIN_LEGAL_PATH = "/admin/legal";
 
 export const COMPANY_LEGAL_TABS = Object.freeze([
@@ -24,21 +29,61 @@ export const COMPANY_LEGAL_TABS = Object.freeze([
 const PUBLIC_TERM_HREFS = Object.freeze({
   "partner-agreement": "/partner-terms",
   "partner-operating-rules": "/partner-operating-rules",
+  "data-protection-schedule": "/data-protection-schedule",
 });
 
+function roleOf(userOrRole) {
+  if (userOrRole && typeof userOrRole === "object") return userOrRole.role;
+  return userOrRole;
+}
+
+function contextOf(userOrRole, companyContextActive = false) {
+  if (userOrRole && typeof userOrRole === "object") {
+    return isAdminViewAsActive(userOrRole);
+  }
+  return Boolean(companyContextActive);
+}
+
 /**
- * Server decision for opening /admin/legal.
- * Company admins are redirected; they do not get the hub.
+ * Legal destination. Company context wins over SUPERADMIN role.
+ * The navbar "Exit company" flag is the same view-as company id.
  */
-export function legalAreaDecision(role) {
-  if (Number(role) === ROLE.SUPERADMIN) {
+export function legalNavHref({ role, companyContextActive = false } = {}) {
+  const superadmin =
+    Number(role) === ROLE.SUPERADMIN || isSuperAdminUser({ role });
+  if (superadmin && !companyContextActive) return SUPERADMIN_LEGAL_PATH;
+  return COMPANY_TERMS_PATH;
+}
+
+/**
+ * Opening /admin/legal. SUPERADMIN in a selected company is sent to the
+ * company page. The two redirects are inverses, so they cannot loop.
+ */
+export function legalAreaDecision(userOrRole, companyContextActive = false) {
+  const href = legalNavHref({
+    role: roleOf(userOrRole),
+    companyContextActive: contextOf(userOrRole, companyContextActive),
+  });
+  if (href === SUPERADMIN_LEGAL_PATH) {
     return { allow: true, redirectTo: null, status: 200 };
   }
   return {
     allow: false,
-    redirectTo: COMPANY_LEGAL_PATH,
+    redirectTo: COMPANY_TERMS_PATH,
     status: 403,
   };
+}
+
+/** Opening /admin/company/legal. Bare SUPERADMIN returns to the hub. */
+export function companyLegalPageAccess(user) {
+  const href = legalNavHref({
+    role: user?.role,
+    companyContextActive: isAdminViewAsActive(user),
+  });
+  if (href === SUPERADMIN_LEGAL_PATH) {
+    return { allow: false, redirectTo: SUPERADMIN_LEGAL_PATH };
+  }
+  return { allow: true, redirectTo: null };
 }
 
 /**
@@ -51,10 +96,13 @@ export function ownCompanyScope(session, requestedCompanyId) {
   const requested = requestedCompanyId ? String(requestedCompanyId) : "";
 
   if (role === ROLE.SUPERADMIN) {
-    return {
-      companyId: requested || own,
-      forbidden: false,
-    };
+    if (own) {
+      if (requested && requested !== own) {
+        return { companyId: "", forbidden: true };
+      }
+      return { companyId: own, forbidden: false };
+    }
+    return { companyId: requested, forbidden: false };
   }
 
   if (requested && own && requested !== own) {
@@ -62,6 +110,17 @@ export function ownCompanyScope(session, requestedCompanyId) {
   }
 
   return { companyId: own, forbidden: !own };
+}
+
+/**
+ * Company the legal page may load. Query company ids are ignored unless they
+ * match the active company; a mismatch is refused.
+ */
+export function selectedCompanyForLegalPage(user, requestedCompanyId) {
+  if (isSuperAdminUser(user) && !isAdminViewAsActive(user)) return "";
+  const scope = ownCompanyScope({ user }, requestedCompanyId);
+  if (scope.forbidden) return "";
+  return scope.companyId;
 }
 
 /** A superadmin session must not record a partner acceptance. */
@@ -284,8 +343,30 @@ export function companyMayOperate({
   return true;
 }
 
-export function legacyLegalProfileRedirect(tab) {
-  if (tab === "agreement") return `${COMPANY_LEGAL_PATH}?tab=terms`;
-  if (tab === "documents") return `${COMPANY_LEGAL_PATH}?tab=documents`;
-  return `${COMPANY_LEGAL_PATH}?tab=details`;
+/** Older profile and agreement URLs all open the company Terms tab. */
+export function legacyLegalProfileRedirect() {
+  return COMPANY_TERMS_PATH;
+}
+
+const SIGNER_ROLE_FIELDS = ["signerRole", "legalRole", "signatoryRole"];
+
+/**
+ * Role used on the Terms form. Only an explicit signer role is accepted.
+ * Company description, marketing copy and call-to-action text are ignored.
+ */
+export function explicitSignerRole(source) {
+  const raw =
+    source && typeof source === "object"
+      ? SIGNER_ROLE_FIELDS.map((key) => source[key]).find((value) =>
+          String(value || "").trim()
+        )
+      : source;
+  const value = String(raw || "").trim();
+  if (!value || value.length > 60) return "";
+  if (/[.!?]/.test(value)) return "";
+  if (value.split(/\s+/).length > 5) return "";
+  if (/waiter|ask our|call our|notification|marketing|description/i.test(value)) {
+    return "";
+  }
+  return value;
 }

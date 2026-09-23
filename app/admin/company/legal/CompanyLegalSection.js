@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useMemo } from "react";
-import { Box, CircularProgress, Tab, Tabs } from "@mui/material";
+import { Box, CircularProgress, Tab, Tabs, Typography } from "@mui/material";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 
@@ -41,6 +41,9 @@ function CompanyLegalInner() {
 
   return (
     <Box>
+      <Typography component="h1" variant="h5" sx={{ fontWeight: 800, mb: 1, px: { xs: 1, md: 2 }, pt: 2 }}>
+        {t("partnerLegal.companyPage.title")}
+      </Typography>
       <Tabs
         value={value}
         onChange={(_, next) => setTab(COMPANY_LEGAL_TABS[next] || "details")}

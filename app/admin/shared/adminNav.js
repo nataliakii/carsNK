@@ -154,7 +154,7 @@ export function getAdminNavItems({
     });
     items.push({
       id: "legal",
-      href: ADMIN_PATHS.legalHub,
+      href: legalHref || ADMIN_PATHS.legalHub,
       label: t("header.partnerReviews", { defaultValue: "Partner reviews" }),
       match: isAdminLegalSection,
       badge: legalPendingCount,

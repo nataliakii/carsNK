@@ -25,6 +25,8 @@ import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { usePendingPartnerReviews } from "@app/hooks/usePendingPartnerReviews";
 import GavelIcon from "@mui/icons-material/Gavel";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
+import { legalNavHref } from "@/domain/legal/companyLegalPage";
 
 /**
  * Admin inbox bell: badge = unprocessed rentals + transfers.
@@ -36,6 +38,11 @@ export default function AdminPendingInboxBell() {
   const { data: session, status } = useSession();
   const isAdmin = Boolean(session?.user?.isAdmin);
   const isSuperAdmin = Number(session?.user?.role) === ROLE.SUPERADMIN;
+  const { active: viewAsActive } = useAdminViewAs();
+  const legalHref = legalNavHref({
+    role: session?.user?.role,
+    companyContextActive: viewAsActive,
+  });
   const { country } = useAdminCountryFilter();
   const {
     rentals,
@@ -49,12 +56,12 @@ export default function AdminPendingInboxBell() {
     country,
   });
   const legalPending = usePendingPartnerReviews({
-    enabled: isSuperAdmin && status === "authenticated",
+    enabled: isSuperAdmin && !viewAsActive && status === "authenticated",
     country,
   });
 
   /** Bell ≠ Orders badge: inbox (rentals+transfers) + legal reviews, once each. */
-  const total = inboxTotal + (isSuperAdmin ? legalPending : 0);
+  const total = inboxTotal + (isSuperAdmin && !viewAsActive ? legalPending : 0);
 
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
@@ -202,7 +209,7 @@ export default function AdminPendingInboxBell() {
           ) : null}
         </MenuItem>
         {isSuperAdmin ? (
-          <MenuItem onClick={() => go("/admin/legal?tab=partners")}>
+          <MenuItem onClick={() => go(legalHref)}>
             <ListItemIcon>
               <GavelIcon fontSize="small" />
             </ListItemIcon>
