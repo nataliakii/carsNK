@@ -8,6 +8,9 @@ jest.mock("@models/car", () => ({
   Car: { findById: jest.fn(), findOne: jest.fn() },
 }));
 jest.mock("@lib/database", () => ({ connectToDB: jest.fn().mockResolvedValue(undefined) }));
+jest.mock("@/domain/platform/platformSettingsService", () => ({
+  getPlatformMarketplaceFeeSettings: jest.fn(() => Promise.resolve(null)),
+}));
 jest.mock("@/services/publicPostRateLimit", () => ({
   consumePublicPostOrError: jest.fn().mockResolvedValue(null),
   rentalQuoteRateLimitOptions: jest.fn().mockReturnValue({}),

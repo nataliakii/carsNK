@@ -36,7 +36,8 @@ function resolveCompanyId(user, requestedOwnerId) {
   if (isSuperAdminUser(user)) {
     return normalizeOwnerId(requestedOwnerId) || String(COMPANY_ID);
   }
-  return getSessionOwnerId(user) || String(COMPANY_ID);
+  // Never fall back to platform COMPANY_ID for tenant admins — that was an IDOR.
+  return getSessionOwnerId(user) || null;
 }
 
 function buildZoneOwnerFilter(ownerId) {
@@ -70,6 +71,9 @@ export async function POST(request) {
 
   const coords = { lat: parsedLat.value, lon: parsedLon.value };
   const companyId = resolveCompanyId(session.user, body?.ownerId);
+  if (!companyId) {
+    return json({ success: false, message: "Company required" }, 403);
+  }
 
   try {
     await connectToDB();

@@ -7,8 +7,7 @@ import React, {
   useRef,
   useDeferredValue,
 } from "react";
-import { Grid, Container, Typography, Box, Chip, Button } from "@mui/material";
-import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
+import { Grid, Container, Typography, Box } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
@@ -21,7 +20,6 @@ import dayjs from "dayjs";
 import { getSiteCountryCode } from "@config/siteCountry";
 import { isSpainBookingSite } from "@/domain/orders/catalogPlaceOptions";
 import { resolveDefaultInsurance } from "@/domain/orders/defaultInsurance";
-import BookingContextDetailsDialog from "./BookingContextDetailsDialog";
 
 const Section = styled("section")(({ theme }) => ({
   backgroundColor: "transparent",
@@ -51,8 +49,6 @@ function CarGrid() {
   const hasSelectedCities = Boolean(
     bookingPlaceIn?.trim() || bookingPlaceOut?.trim()
   );
-  const showDeliveryAfterDatesHint =
-    spainSite && hasSelectedCities && !hasActiveDateSearch;
   const showDeliveryWithDatesNote =
     spainSite && hasSelectedCities && hasActiveDateSearch;
 
@@ -80,7 +76,6 @@ function CarGrid() {
   const [discountEnd, setDiscountEnd] = useState(null);
   const [pricesByCarId, setPricesByCarId] = useState({});
   const [pricesLoading, setPricesLoading] = useState(false);
-  const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
 
   const fetchDiscount = useCallback(async () => {
     try {
@@ -247,16 +242,6 @@ function CarGrid() {
 
   const showLocationSummary =
     hasActiveDateSearch && (bookingPlaceIn?.trim() || bookingPlaceOut?.trim());
-  const hasActiveFilters = Boolean(
-    (selectedClass && selectedClass !== "All") ||
-      (selectedTransmission && selectedTransmission !== "All") ||
-      (selectedSeats && selectedSeats !== "All") ||
-      deferredSearchQuery.trim()
-  );
-  const hasBookingContext =
-    hasSelectedCities || hasActiveDateSearch || hasActiveFilters;
-  const showMetaStrip =
-    showDeliveryAfterDatesHint || hasActiveDateSearch || hasBookingContext;
 
   return (
     <Container
@@ -267,7 +252,7 @@ function CarGrid() {
       }}
     >
       <Section>
-        {showMetaStrip ? (
+        {hasActiveDateSearch ? (
           <Box
             sx={{
               mb: { xs: 2.5, sm: 3 },
@@ -278,92 +263,30 @@ function CarGrid() {
               gap: 0.75,
             }}
           >
-            {showDeliveryAfterDatesHint ? (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                role="status"
-                aria-live="polite"
-                sx={{ textAlign: "center" }}
-              >
-                {t("catalog.deliverySelectDatesHint")}
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 700, color: "text.primary" }}
+            >
+              {t("catalog.searchResultsTitle", {
+                from: dayjs(searchDates.start).format("DD.MM.YYYY"),
+                to: dayjs(searchDates.end).format("DD.MM.YYYY"),
+                count: filteredCars.length,
+              })}
+            </Typography>
+            {showLocationSummary ? (
+              <Typography variant="body2" color="text.secondary">
+                {t("catalog.searchLocationsLabel", {
+                  pickup:
+                    bookingPlaceIn?.trim() ||
+                    t("catalog.locationNotSet"),
+                  return:
+                    bookingPlaceOut?.trim() ||
+                    t("catalog.locationNotSet"),
+                })}
               </Typography>
-            ) : null}
-            {hasActiveDateSearch ? (
-              <>
-                <Typography
-                  variant="subtitle1"
-                  sx={{ fontWeight: 700, color: "text.primary" }}
-                >
-                  {t("catalog.searchResultsTitle", {
-                    from: dayjs(searchDates.start).format("DD.MM.YYYY"),
-                    to: dayjs(searchDates.end).format("DD.MM.YYYY"),
-                    count: filteredCars.length,
-                  })}
-                </Typography>
-                {showLocationSummary ? (
-                  <Typography variant="body2" color="text.secondary">
-                    {t("catalog.searchLocationsLabel", {
-                      pickup:
-                        bookingPlaceIn?.trim() ||
-                        t("catalog.locationNotSet"),
-                      return:
-                        bookingPlaceOut?.trim() ||
-                        t("catalog.locationNotSet"),
-                    })}
-                  </Typography>
-                ) : null}
-                {showDeliveryWithDatesNote ? (
-                  <Typography variant="body2" color="text.secondary">
-                    {t("catalog.deliveryIncludedWhenAvailableNote")}
-                  </Typography>
-                ) : null}
-              </>
-            ) : null}
-            {hasBookingContext ? (
-              <Button
-                variant="contained"
-                size="medium"
-                startIcon={<EventNoteOutlinedIcon />}
-                onClick={() => setBookingDetailsOpen(true)}
-                aria-haspopup="dialog"
-                aria-expanded={bookingDetailsOpen}
-                sx={{
-                  mt: 0.75,
-                  textTransform: "none",
-                  fontWeight: 700,
-                  px: 2.25,
-                  py: 1,
-                  borderRadius: "10px",
-                  boxShadow: "none",
-                  backgroundColor: "text.primary",
-                  color: "background.paper",
-                  "&:hover": {
-                    backgroundColor: "text.primary",
-                    opacity: 0.88,
-                    boxShadow: "none",
-                  },
-                }}
-              >
-                {t("catalog.bookingDetailsButton")}
-              </Button>
             ) : null}
           </Box>
         ) : null}
-        <BookingContextDetailsDialog
-          open={bookingDetailsOpen}
-          onClose={() => setBookingDetailsOpen(false)}
-          deliveryHint={
-            showDeliveryAfterDatesHint
-              ? t("catalog.deliverySelectDatesHint")
-              : ""
-          }
-          deliveryNote={
-            showDeliveryWithDatesNote
-              ? t("catalog.deliveryIncludedWhenAvailableNote")
-              : ""
-          }
-        />
         <Grid
           container
           spacing={{ sm: 2, sx: 0.4 }}
@@ -407,108 +330,6 @@ function CarGrid() {
 
             return (
               <Grid item xs={12} sx={{ padding: 2, width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }} key={car._id}>
-                {showSearchPricePill ? (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "center",
-                      mb: 1,
-                    }}
-                  >
-                    <Chip
-                      color="primary"
-                      variant="outlined"
-                      aria-label={
-                        priceMatchesSearch
-                          ? t("catalog.searchPriceLabel", {
-                              price: priceInfo.totalPrice,
-                              days: priceInfo.days,
-                            })
-                          : t("basic.loading")
-                      }
-                      label={
-                        priceMatchesSearch ? (
-                          <Box
-                            sx={{
-                              display: "flex",
-                              flexDirection: "column",
-                              alignItems: "center",
-                              gap: 0.15,
-                              py: 0.15,
-                              lineHeight: 1.15,
-                            }}
-                          >
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "baseline",
-                                gap: 0.6,
-                              }}
-                            >
-                              {showApproxBadge ? (
-                                <Box
-                                  component="span"
-                                  sx={{
-                                    fontSize: "0.72rem",
-                                    fontWeight: 700,
-                                    letterSpacing: "0.02em",
-                                    textTransform: "uppercase",
-                                    opacity: 0.85,
-                                  }}
-                                >
-                                  {t("catalog.searchPriceApprox")}
-                                </Box>
-                              ) : null}
-                              <Box
-                                component="span"
-                                sx={{
-                                  fontSize: "1.2rem",
-                                  fontWeight: 800,
-                                  letterSpacing: "-0.02em",
-                                }}
-                              >
-                                {`${priceInfo.totalPrice}€`}
-                              </Box>
-                            </Box>
-                            <Box
-                              component="span"
-                              sx={{
-                                fontSize: "0.75rem",
-                                fontWeight: 600,
-                                opacity: 0.9,
-                              }}
-                            >
-                              {t("catalog.searchPriceForDays", {
-                                days: priceInfo.days,
-                              })}
-                            </Box>
-                            <Box
-                              component="span"
-                              sx={{
-                                fontSize: "0.65rem",
-                                fontWeight: 500,
-                                opacity: 0.75,
-                              }}
-                            >
-                              {t("catalog.searchPriceSource")}
-                            </Box>
-                          </Box>
-                        ) : (
-                          t("basic.loading")
-                        )
-                      }
-                      sx={{
-                        height: "auto",
-                        fontWeight: 700,
-                        "& .MuiChip-label": {
-                          display: "block",
-                          px: 1.75,
-                          py: 0.85,
-                        },
-                      }}
-                    />
-                  </Box>
-                ) : null}
                 <CarItemComponent
                   car={car}
                   discount={discount}
@@ -520,6 +341,18 @@ function CarGrid() {
                       ? {
                           start: searchDates.start,
                           end: searchDates.end,
+                        }
+                      : null
+                  }
+                  searchPrice={
+                    showSearchPricePill
+                      ? {
+                          loading: !priceMatchesSearch,
+                          totalPrice: priceMatchesSearch
+                            ? priceInfo.totalPrice
+                            : null,
+                          days: priceMatchesSearch ? priceInfo.days : null,
+                          showApprox: showApproxBadge,
                         }
                       : null
                   }

@@ -5,7 +5,8 @@ import { Modal, Box, Typography, Button, Divider } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { buildCarSpecGroups } from "@/domain/cars/carSpecs";
 import CarSpecSection from "./CarSpecList";
-import CarPhoto from "./CarPhoto";
+import CarPhotoCarousel from "./CarPhotoCarousel";
+import { listCarPhotos } from "@/domain/cars/carPhotos";
 
 /**
  * Enlarged detail sheet: photo + the same specification rows the card shows.
@@ -71,8 +72,8 @@ const CarDetailsModal = ({ open, onClose, car }) => {
               mb: 2.5,
             }}
           >
-            <CarPhoto
-              photoUrl={car?.photoUrl}
+            <CarPhotoCarousel
+              photos={listCarPhotos(car)}
               alt={car?.model || ""}
               sizes="(max-width: 600px) 92vw, 480px"
             />

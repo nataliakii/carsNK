@@ -6,7 +6,16 @@ import { ALL_UI_LOCALES, normalizeEnabledLocales } from "@/domain/platform/uiLoc
 import {
   getOrCreatePlatformSettings,
   toPublicPlatformPayload,
+  getMarketplaceFeePartnerStats,
+  parsePlatformMarketplaceFeePatch,
+  sanitizeBusinessProfile,
+  readBusinessProfile,
 } from "@/domain/platform/platformSettingsService";
+import {
+  DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
+  marketplaceBookingFeeAuditMetadata,
+} from "@/domain/orders/marketplaceBookingFee";
+import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
 
 function json(body, status = 200) {
   return NextResponse.json(body, { status });
@@ -18,16 +27,28 @@ export async function GET(request) {
 
   await connectToDB();
   const settings = await getOrCreatePlatformSettings();
-  return json({
+  const payload = toPublicPlatformPayload(settings);
+  const url = new URL(request.url);
+  const includeFee = url.searchParams.get("includeFee") === "1";
+
+  const body = {
     success: true,
     availableLocales: ALL_UI_LOCALES,
     country: getSiteCountryConfig(),
-    settings: toPublicPlatformPayload(settings),
-  });
+    settings: payload,
+    marketplaceBookingFeeBps:
+      payload.marketplaceBookingFeeBps ?? DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
+  };
+
+  if (includeFee) {
+    body.feeStats = await getMarketplaceFeePartnerStats();
+  }
+
+  return json(body);
 }
 
 export async function PATCH(request) {
-  const { errorResponse } = await requireSuperAdmin(request);
+  const { session, errorResponse } = await requireSuperAdmin(request);
   if (errorResponse) return errorResponse;
 
   let body;
@@ -39,14 +60,79 @@ export async function PATCH(request) {
 
   await connectToDB();
   const settings = await getOrCreatePlatformSettings();
+  const { ipAddress, userAgent } = extractAuditContext(request);
+  const actorEmail = session?.user?.email || "";
+  const actorUserId = session?.user?.id || session?.user?._id || "";
+
   if (body?.enabledLocales) {
     settings.enabledLocales = normalizeEnabledLocales(body.enabledLocales);
   }
+
+  if (Object.prototype.hasOwnProperty.call(body || {}, "marketplaceBookingFeeBps")) {
+    const parsed = parsePlatformMarketplaceFeePatch(body.marketplaceBookingFeeBps);
+    if (!parsed.ok) {
+      return json({ success: false, message: parsed.error }, 400);
+    }
+    const previousBps = settings.marketplaceBookingFeeBps ?? null;
+    settings.marketplaceBookingFeeBps = parsed.bps;
+    await recordAuditEvent({
+      action: "MARKETPLACE_BOOKING_FEE_CHANGED",
+      userRole: "superadmin",
+      userId: actorUserId || undefined,
+      userEmail: actorEmail,
+      severity: "high",
+      ipAddress,
+      userAgent,
+      reason: String(body?.marketplaceBookingFeeReason || "Platform default booking fee").slice(
+        0,
+        500
+      ),
+      metadata: marketplaceBookingFeeAuditMetadata({
+        companyId: "",
+        previousBps,
+        newBps: parsed.bps,
+        actorEmail,
+        actorUserId,
+        reason: "platform_default",
+      }),
+    });
+  }
+
+  if (body?.businessProfile && typeof body.businessProfile === "object") {
+    const legal =
+      settings.legal && typeof settings.legal === "object" ? { ...settings.legal } : {};
+    const previous = readBusinessProfile(settings);
+    const next = sanitizeBusinessProfile({
+      ...previous,
+      ...body.businessProfile,
+    });
+    legal.businessProfile = next;
+    settings.legal = legal;
+    settings.markModified("legal");
+    await recordAuditEvent({
+      action: "LEGAL_SETTINGS_UPDATED",
+      userRole: "superadmin",
+      userId: actorUserId || undefined,
+      userEmail: actorEmail,
+      severity: "high",
+      ipAddress,
+      userAgent,
+      reason: "business_profile",
+      metadata: {
+        patchKeys: Object.keys(body.businessProfile),
+        scope: "businessProfile",
+      },
+    });
+  }
+
   await settings.save();
+  const payload = toPublicPlatformPayload(settings);
   return json({
     success: true,
     availableLocales: ALL_UI_LOCALES,
     country: getSiteCountryConfig(),
-    settings: toPublicPlatformPayload(settings),
+    settings: payload,
+    marketplaceBookingFeeBps:
+      payload.marketplaceBookingFeeBps ?? DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
   });
 }

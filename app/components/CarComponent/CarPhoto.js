@@ -18,6 +18,7 @@ export default function CarPhoto({
   priority = false,
   sizes,
   iconSize = 40,
+  contentPaddingBottom = 0,
 }) {
   const { t } = useTranslation();
   const [failed, setFailed] = useState(false);
@@ -28,7 +29,12 @@ export default function CarPhoto({
         alignItems="center"
         justifyContent="center"
         spacing={0.5}
-        sx={{ position: "absolute", inset: 0, color: "text.disabled" }}
+        sx={{
+          position: "absolute",
+          inset: 0,
+          pb: contentPaddingBottom,
+          color: "text.disabled",
+        }}
       >
         <DirectionsCarIcon sx={{ fontSize: iconSize }} />
         <Typography variant="caption" sx={{ fontSize: "0.72rem" }}>

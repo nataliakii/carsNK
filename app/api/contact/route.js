@@ -8,6 +8,7 @@ import {
 import { COMPANY_ID } from "@config/company";
 import Company from "@models/company";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
+import { MAIL_TYPE } from "@/domain/mail/mailTypes";
 import { consumePublicPostOrError, contactRateLimitOptions } from "@/services/publicPostRateLimit";
 import { sanitizeSmtpError } from "@/lib/email/smtpConfig";
 
@@ -126,6 +127,7 @@ export async function POST(request) {
       message: text,
       to: recipients,
       replyTo: customerReplyTo || undefined,
+      meta: { type: MAIL_TYPE.CONTACT },
     });
   } catch (err) {
     console.error("[contact] send failed", sanitizeSmtpError(err));

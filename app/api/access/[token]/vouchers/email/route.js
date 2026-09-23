@@ -4,6 +4,7 @@ import { connectToDB } from "@lib/database";
 import { ACCESS_SCOPE } from "@/domain/auth/accessScopes";
 import { resolveScopedAccessToken } from "@/domain/auth/scopedAccessToken";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
+import { MAIL_TYPE } from "@/domain/mail/mailTypes";
 import {
   normalizeTransferVoucherData,
   resolveVoucherLocaleForMarket,
@@ -86,6 +87,7 @@ export async function POST(request, { params }) {
           contentType: "application/pdf",
         },
       ],
+      meta: { type: MAIL_TYPE.VOUCHER, companyId: company?._id },
     });
     return json({ success: true, message: `Sent to ${email}` });
   } catch (err) {

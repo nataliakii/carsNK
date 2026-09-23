@@ -63,8 +63,6 @@ describe("rendered output is clean", () => {
   const unconfigured = buildLegalSettingsTokens(resolveLegalSettings(null));
   const configured = buildLegalSettingsTokens(
     resolveLegalSettings({
-      commissionPercent: 15,
-      minimumCommissionAmount: 10,
       supplierCancellationServiceCharge: 50,
       replacementCostDifferenceCap: 200,
     })

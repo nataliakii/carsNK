@@ -31,11 +31,14 @@ export default function AccessTokensSection() {
   const [busy, setBusy] = useState(false);
 
   const [ownerId, setOwnerId] = useState("");
-  const [scope, setScope] = useState("vouchers.transfer");
+  const [scope, setScope] = useState("admin.console");
+  const [userId, setUserId] = useState("");
+  const [companyAdmins, setCompanyAdmins] = useState([]);
   const [label, setLabel] = useState("");
   const [expiresInDays, setExpiresInDays] = useState("90");
   const [lastCreatedLink, setLastCreatedLink] = useState("");
   const [showRevoked, setShowRevoked] = useState(false);
+  const [adminTtlDays, setAdminTtlDays] = useState(7);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,6 +54,9 @@ export default function AccessTokensSection() {
       }
       setTokens(tokensBody.tokens || []);
       setScopes(tokensBody.scopes || []);
+      if (tokensBody.adminAccessTtlDays) {
+        setAdminTtlDays(tokensBody.adminAccessTtlDays);
+      }
 
       const ownersBody = await ownersRes.json();
       if (ownersRes.ok && ownersBody.success) {
@@ -79,6 +85,39 @@ export default function AccessTokensSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!ownerId) {
+      setCompanyAdmins([]);
+      setUserId("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/admin/owners/users?ownerId=${encodeURIComponent(ownerId)}`,
+          { cache: "no-store" }
+        );
+        const body = await res.json();
+        if (cancelled) return;
+        const list = Array.isArray(body.users) ? body.users : [];
+        setCompanyAdmins(list);
+        setUserId((prev) => {
+          if (prev && list.some((u) => String(u._id) === prev)) return prev;
+          return list[0] ? String(list[0]._id) : "";
+        });
+      } catch {
+        if (!cancelled) {
+          setCompanyAdmins([]);
+          setUserId("");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ownerId]);
+
   const handleCreate = async () => {
     setBusy(true);
     setError("");
@@ -91,8 +130,14 @@ export default function AccessTokensSection() {
         body: JSON.stringify({
           ownerId,
           scopes: [scope],
+          userId: scope === "admin.console" ? userId : undefined,
           label,
-          expiresInDays: expiresInDays === "" ? null : Number(expiresInDays),
+          expiresInDays:
+            scope === "admin.console"
+              ? adminTtlDays
+              : expiresInDays === ""
+                ? null
+                : Number(expiresInDays),
         }),
       });
       const body = await res.json();
@@ -160,10 +205,9 @@ export default function AccessTokensSection() {
         Access links
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Generate passwordless links for a company page only (e.g. Natali Cars
-        vouchers). After Generate, copy the full URL immediately — it is shown
-        only once and cannot be recovered later (only revoke / create a new
-        one).
+        Company admin login links last 7 days and open the admin without a
+        password. Voucher links stay limited to that page. After Generate, copy
+        the full URL immediately — it is shown only once.
       </Typography>
 
       {error ? (
@@ -261,17 +305,41 @@ export default function AccessTokensSection() {
             label="Scope (page)"
             value={scope}
             onChange={(e) => setScope(e.target.value)}
-            sx={{ minWidth: 220 }}
+            sx={{ minWidth: 240 }}
           >
             {(scopes.length
               ? scopes
-              : [{ id: "vouchers.transfer", label: "Transfer vouchers only" }]
+              : [
+                  { id: "admin.console", label: "Company admin login (7 days)" },
+                  { id: "vouchers.transfer", label: "Transfer vouchers only" },
+                ]
             ).map((s) => (
               <MenuItem key={s.id} value={s.id}>
                 {s.label}
               </MenuItem>
             ))}
           </TextField>
+          {scope === "admin.console" ? (
+            <TextField
+              select
+              size="small"
+              label="Company admin"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              sx={{ minWidth: 220, flex: 1 }}
+              helperText={
+                companyAdmins.length
+                  ? "Signs in as this login"
+                  : "Add a company admin first (Company → People)"
+              }
+            >
+              {companyAdmins.map((u) => (
+                <MenuItem key={String(u._id)} value={String(u._id)}>
+                  {u.email}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : null}
           <TextField
             size="small"
             label="Label"
@@ -280,17 +348,31 @@ export default function AccessTokensSection() {
             placeholder="Natali summer staff"
             sx={{ minWidth: 180, flex: 1 }}
           />
-          <TextField
-            size="small"
-            label="Expires (days)"
-            value={expiresInDays}
-            onChange={(e) => setExpiresInDays(e.target.value)}
-            placeholder="empty = never"
-            sx={{ width: 140 }}
-          />
+          {scope === "admin.console" ? (
+            <TextField
+              size="small"
+              label="Expires"
+              value={`${adminTtlDays} days`}
+              disabled
+              sx={{ width: 140 }}
+            />
+          ) : (
+            <TextField
+              size="small"
+              label="Expires (days)"
+              value={expiresInDays}
+              onChange={(e) => setExpiresInDays(e.target.value)}
+              placeholder="empty = never"
+              sx={{ width: 140 }}
+            />
+          )}
           <Button
             variant="contained"
-            disabled={busy || !ownerId}
+            disabled={
+              busy ||
+              !ownerId ||
+              (scope === "admin.console" && !userId)
+            }
             onClick={handleCreate}
           >
             Generate
@@ -333,6 +415,7 @@ export default function AccessTokensSection() {
             <TableCell>Company</TableCell>
             <TableCell>Label</TableCell>
             <TableCell>Scope</TableCell>
+            <TableCell>Admin</TableCell>
             <TableCell>Prefix</TableCell>
             <TableCell>Status</TableCell>
             <TableCell>Expires</TableCell>
@@ -349,6 +432,7 @@ export default function AccessTokensSection() {
                   <Chip key={s} size="small" label={s} sx={{ mr: 0.5 }} />
                 ))}
               </TableCell>
+              <TableCell>{t.userEmail || "—"}</TableCell>
               <TableCell>
                 <code>{t.tokenPrefix}…</code>
               </TableCell>
@@ -383,7 +467,7 @@ export default function AccessTokensSection() {
           ))}
           {visibleTokens.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7}>
+              <TableCell colSpan={8}>
                 <Typography color="text.secondary">
                   {tokens.length === 0
                     ? "No links yet — click Generate above."

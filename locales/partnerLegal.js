@@ -17,7 +17,7 @@ export const PARTNER_LEGAL_NAV = {
 export const partnerLegalEn = {
   title: "Legal profile",
   subtitle:
-    "Rovaro uses this information to verify your company before you can sign the Master Partner Agreement and take bookings.",
+    "Add your company name to start. Everything else is optional — fill it in when you have it. Bookings stay closed until Rovaro verifies you and you sign the Partner Agreement.",
   card: {
     title: "Trading status",
     subtitle: "Verification and the signed Partner Agreement required to take bookings.",
@@ -36,6 +36,13 @@ export const partnerLegalEn = {
     goToProfile: "Open legal profile",
     goToAgreement: "Open agreement",
     operatorAction: "Rovaro has to complete this step.",
+    actionBlocked:
+      "You cannot publish cars or take bookings until your company is verified and the current Partner Agreement is signed.",
+    actionBlockedSuspended:
+      "Trading is suspended. Rovaro has to restore the account before you can publish cars or take bookings.",
+    listingPending:
+      "Your company is verified, but marketplace listing is not enabled yet. Rovaro turns listing on after the agreement is in force.",
+    openProfileCta: "Open the legal profile to continue.",
     blocker: {
       no_profile: "The legal profile has not been created yet.",
       profile_incomplete: "The legal profile is incomplete.",
@@ -50,7 +57,7 @@ export const partnerLegalEn = {
   status: {
     none: {
       title: "No legal profile yet",
-      body: "Fill in the fields below and upload the required documents to start verification.",
+      body: "Fill in the company name below. You can add papers and extra details later.",
     },
     reason: "Reason given: {{reason}}",
     changedAt: "Last status change: {{at}} UTC",
@@ -102,33 +109,33 @@ export const partnerLegalEn = {
     unlockWarningTitle: "Editing a verified profile",
     unlockWarningBody:
       "Saving a change will suspend trading until Rovaro reviews the updated details.",
-    missingTitle: "Still needed for verification",
+    missingTitle: "Still needed to submit",
     required: "Required",
-    optional: "If it applies",
+    optional: "Optional",
     sections: {
       identity: {
         title: "Company identity",
-        hint: "The legal entity that will sign the Partner Agreement.",
+        hint: "Legal name is enough to send for review. The rest helps Rovaro check you faster.",
       },
       addresses: {
         title: "Addresses",
-        hint: "Registered address is required. Business address only if it is different.",
+        hint: "Optional. Registered address if you have it; business address only if it is different.",
       },
       signatory: {
         title: "Authorised signatory",
-        hint: "The person who will accept the Partner Agreement on behalf of the company.",
+        hint: "Optional. The person who will accept the Partner Agreement.",
       },
       contact: {
         title: "Business contact",
-        hint: "Used for verification and operational contact. Not shown on the public site.",
+        hint: "Optional. Used for verification contact. Not shown on the public site.",
       },
       payout: {
-        title: "Payout reference",
-        hint: "A reference Rovaro can use to identify the account. Do not paste a full IBAN if you have not been asked to.",
+        title: "Bank details (optional)",
+        hint: "Rovaro does not pay the supplier and does not run a settlement cycle. The supplier collects the remaining balance from the customer. This optional field is identity information only, not a Rovaro payout account.",
       },
       insurance: {
         title: "Insurance and licences",
-        hint: "Fleet insurance and any rental licences or permits that apply where you operate.",
+        hint: "Optional. Fleet insurance details if you already have them.",
       },
       vehicles: {
         title: "Authority to rent the vehicles",
@@ -158,8 +165,8 @@ export const partnerLegalEn = {
       businessPhone: { label: "Business phone", hint: "" },
       emergencyPhone: { label: "Emergency phone", hint: "Reachable during handovers. Optional." },
       payoutAccountReference: {
-        label: "Payout account reference",
-        hint: "A label or masked reference, not a public account number.",
+        label: "Bank account reference (optional)",
+        hint: "A label or masked reference. Rovaro does not transfer rental money to the supplier.",
       },
       insuranceProvider: { label: "Insurance provider", hint: "" },
       insurancePolicyReference: { label: "Policy reference", hint: "" },
@@ -190,7 +197,7 @@ export const partnerLegalEn = {
   documents: {
     title: "Supporting documents",
     subtitle:
-      "Files are stored privately and opened with a short-lived signed link. They are not published.",
+      "Optional. Attach what you have. Files stay private. Rovaro can ask for more during review.",
     uploadFailed: "Could not upload the file.",
     removeFailed: "Could not remove the file.",
     viewFailed: "Could not open the file.",
@@ -211,7 +218,7 @@ export const partnerLegalEn = {
       tax_identification: "Tax identification",
       vat_certificate: "VAT certificate",
       licence_permit: "Rental licence or permit",
-      payout_bank_proof: "Payout account proof",
+      payout_bank_proof: "Bank account proof (optional — not a Rovaro payout)",
       signatory_authority: "Proof of signatory authority",
     },
   },
@@ -233,7 +240,56 @@ export const partnerLegalEn = {
     operator: "Operator",
     draftTitle: "These documents are still drafts",
     draftBody:
-      "They have not been published yet, so they cannot be accepted. Rovaro has to publish them first.",
+      "They have not been published yet, so they cannot be accepted. Open Legal documents, load the built-in drafts and publish them. If you are testing as a partner, leave that view first.",
+    emptyTitle: "No agreement documents to accept",
+    emptyBody:
+      "Nothing has been published yet, so this agreement cannot be signed. Open Legal documents, load the built-in drafts and publish them. If you are testing as a partner, leave that view first.",
+    openLegalDocuments: "Open Legal documents",
+    signingBlockedTitle: "This agreement cannot be signed yet",
+    signingBlocker: {
+      empty_package:
+        "No agreement documents are available. Load the built-in drafts in Legal documents and publish them.",
+      unpublished_documents:
+        "The documents are still drafts. They have to be published in Legal documents before they can be accepted.",
+      missing_checksum:
+        "The document package has no checksum, so acceptance cannot be recorded.",
+      already_signed: "This version has already been accepted.",
+      clickwrap_unavailable:
+        "Clickwrap signing is not the configured method, so this screen cannot record an acceptance.",
+      no_profile: "Create the legal profile before signing the agreement.",
+      profile_incomplete:
+        "Complete and submit the legal profile. Signing is only possible after Rovaro verifies it.",
+      awaiting_verification:
+        "The company must be verified before the Partner Agreement can be signed. Rovaro has to complete that review.",
+      rejected:
+        "The legal profile was rejected. Correct it and submit again before signing.",
+      suspended: "Trading is suspended. Rovaro has to restore the account before signing.",
+    },
+    formBlockedTitle: "Still needed to accept",
+    formBlocker: {
+      need_read: "Scroll to the end of the documents.",
+      need_name: "Enter the signer's full name.",
+      need_role: "Enter the signer's role.",
+      need_authority: "Confirm that you are authorised to bind the company.",
+      need_acceptance: "Tick the acceptance checkbox.",
+    },
+    submitError: {
+      no_profile: "The legal profile has not been created.",
+      not_verified:
+        "The company must be verified before the Partner Agreement can be signed.",
+      no_documents: "No agreement documents are available.",
+      unpublished_documents:
+        "The documents are still drafts and cannot be accepted until they are published.",
+      missing_checksum: "The document package has no checksum.",
+      missing_signer_details: "Full name, role and the signed-in email are required.",
+      authority_not_confirmed:
+        "Confirm that you are authorised to bind the company.",
+      acceptance_not_ticked: "Tick the acceptance checkbox.",
+      missing_audit_context:
+        "The acceptance could not be recorded because the client address is missing.",
+      provider_not_configured:
+        "The configured e-signature provider cannot record an acceptance.",
+    },
     signedCurrent: "Current version signed",
     signedOutdated: "Superseded version",
     signedTitle: "Your signed copy",
@@ -273,12 +329,50 @@ export const partnerLegalEn = {
     accept: "Accept the Partner Agreement",
     backToProfile: "Back to legal profile",
   },
+  customerRules: {
+    title: "Customer rental rules",
+    subtitle:
+      "Write the rental rules {{company}} customers must accept when they book. English is the source. Save translates them into every site language so the booking form can open both the Rovaro contract and yours.",
+    englishLabel: "Rental rules (English)",
+    englishHint:
+      "Deposit, fuel, mileage, extra driver, cross-border, smoking, pets, late return. Plain text, up to {{max}} characters.",
+    save: "Save and translate",
+    saving: "Translating…",
+    unsaved: "Unsaved changes",
+    saved: "Saved and translated into the site languages.",
+    savedPartial:
+      "Saved. Some languages could not be translated — check the warning below and save again.",
+    savedWithoutTranslate:
+      "English saved. Add GOOGLE_TRANSLATE_API_KEY (or enable Cloud Translation on the Maps key) to fill the other languages.",
+    cleared: "Customer rental rules removed.",
+    loadFailed: "Could not load rental rules.",
+    saveFailed: "Could not save rental rules.",
+    translateMissingTitle: "Translation API is not configured",
+    translateMissingBody:
+      "Customers will see the English text until Cloud Translation is enabled. The booking form still works.",
+    translationsTitle: "Translations",
+    translationsBody: "Generated for: {{languages}}",
+    failedTitle: "Languages that did not translate",
+  },
+  review: {
+    title: "Verify this partner",
+    body: "Open the papers, then set VERIFIED or REJECTED. This is the document-review queue — platform contract publish is the other Legal tab.",
+    verify: "Set VERIFIED",
+    reject: "Set REJECTED",
+    suspend: "Suspend",
+    reopenDraft: "Return to draft",
+    reason: "Reason",
+    reasonRequired: "Give a reason when rejecting or suspending.",
+    failed: "Could not update verification.",
+    done: "Verification updated.",
+    noProfile: "This partner has not submitted a legal profile yet.",
+  },
 };
 
 export const partnerLegalEs = {
   title: "Perfil legal",
   subtitle:
-    "Rovaro usa estos datos para verificar tu empresa antes de que puedas firmar el Acuerdo Marco de Partner y recibir reservas.",
+    "Con el nombre de la empresa basta para empezar. El resto es opcional. Las reservas siguen cerradas hasta que Rovaro te verifique y firmes el Acuerdo de Partner.",
   card: {
     title: "Estado comercial",
     subtitle:
@@ -298,6 +392,13 @@ export const partnerLegalEs = {
     goToProfile: "Abrir perfil legal",
     goToAgreement: "Abrir acuerdo",
     operatorAction: "Este paso lo tiene que completar Rovaro.",
+    actionBlocked:
+      "No puedes publicar coches ni recibir reservas hasta que tu empresa esté verificada y hayas firmado el Acuerdo de Partner vigente.",
+    actionBlockedSuspended:
+      "La actividad está suspendida. Rovaro tiene que reactivar la cuenta antes de que puedas publicar coches o recibir reservas.",
+    listingPending:
+      "Tu empresa está verificada, pero el listado en el marketplace aún no está activo. Rovaro lo activa cuando el acuerdo está en vigor.",
+    openProfileCta: "Abre el perfil legal para continuar.",
     blocker: {
       no_profile: "Todavía no se ha creado el perfil legal.",
       profile_incomplete: "El perfil legal está incompleto.",
@@ -312,7 +413,7 @@ export const partnerLegalEs = {
   status: {
     none: {
       title: "Aún no hay perfil legal",
-      body: "Completa los campos e incorpora los documentos exigidos para iniciar la verificación.",
+      body: "Indica el nombre de la empresa. Puedes añadir papeles y el resto de datos más tarde.",
     },
     reason: "Motivo indicado: {{reason}}",
     changedAt: "Último cambio de estado: {{at}} UTC",
@@ -364,33 +465,33 @@ export const partnerLegalEs = {
     unlockWarningTitle: "Edición de un perfil verificado",
     unlockWarningBody:
       "Guardar un cambio suspenderá la actividad hasta que Rovaro revise los datos actualizados.",
-    missingTitle: "Aún falta para la verificación",
+    missingTitle: "Aún falta para enviar",
     required: "Obligatorio",
-    optional: "Si aplica",
+    optional: "Opcional",
     sections: {
       identity: {
         title: "Identidad de la empresa",
-        hint: "La entidad jurídica que firmará el Acuerdo de Partner.",
+        hint: "Con la razón social basta para enviar a revisión. El resto ayuda a Rovaro a comprobarte antes.",
       },
       addresses: {
         title: "Domicilios",
-        hint: "El domicilio social es obligatorio. El domicilio de actividad solo si es distinto.",
+        hint: "Opcional. Domicilio social si lo tienes; el de actividad solo si es distinto.",
       },
       signatory: {
         title: "Firmante autorizado",
-        hint: "La persona que aceptará el Acuerdo de Partner en nombre de la empresa.",
+        hint: "Opcional. La persona que aceptará el Acuerdo de Partner.",
       },
       contact: {
         title: "Contacto comercial",
-        hint: "Para verificación y contacto operativo. No se muestra en el sitio público.",
+        hint: "Opcional. Para el contacto de verificación. No se muestra en el sitio público.",
       },
       payout: {
-        title: "Referencia de cobro",
-        hint: "Una referencia con la que Rovaro pueda identificar la cuenta. No pegues un IBAN completo si no te lo han pedido.",
+        title: "Datos bancarios (opcional)",
+        hint: "Rovaro no paga al proveedor ni opera un ciclo de liquidación. El proveedor cobra el saldo restante al cliente. Este campo opcional es solo información de identidad, no una cuenta de cobro de Rovaro.",
       },
       insurance: {
         title: "Seguro y licencias",
-        hint: "Seguro de la flota y las licencias o permisos de alquiler que correspondan donde operas.",
+        hint: "Opcional. Datos del seguro de la flota si ya los tienes.",
       },
       vehicles: {
         title: "Autorización para alquilar los vehículos",
@@ -420,8 +521,8 @@ export const partnerLegalEs = {
       businessPhone: { label: "Teléfono comercial", hint: "" },
       emergencyPhone: { label: "Teléfono de emergencia", hint: "Localizable en las entregas. Opcional." },
       payoutAccountReference: {
-        label: "Referencia de la cuenta de cobro",
-        hint: "Una etiqueta o referencia enmascarada, no un número de cuenta público.",
+        label: "Referencia de cuenta bancaria (opcional)",
+        hint: "Una etiqueta o referencia enmascarada. Rovaro no transfiere el importe del alquiler al proveedor.",
       },
       insuranceProvider: { label: "Aseguradora", hint: "" },
       insurancePolicyReference: { label: "Referencia de póliza", hint: "" },
@@ -452,7 +553,7 @@ export const partnerLegalEs = {
   documents: {
     title: "Documentos de respaldo",
     subtitle:
-      "Los archivos se guardan en privado y se abren con un enlace firmado de corta duración. No se publican.",
+      "Opcional. Adjunta lo que tengas. Los archivos se quedan en privado. Rovaro puede pedir más durante la revisión.",
     uploadFailed: "No se ha podido subir el archivo.",
     removeFailed: "No se ha podido eliminar el archivo.",
     viewFailed: "No se ha podido abrir el archivo.",
@@ -474,7 +575,7 @@ export const partnerLegalEs = {
       tax_identification: "Identificación fiscal",
       vat_certificate: "Certificado de IVA",
       licence_permit: "Licencia o permiso de alquiler",
-      payout_bank_proof: "Justificante de la cuenta de cobro",
+      payout_bank_proof: "Justificante bancario (opcional — no es un pago de Rovaro)",
       signatory_authority: "Prueba de la autorización del firmante",
     },
   },
@@ -496,7 +597,58 @@ export const partnerLegalEs = {
     operator: "Operador",
     draftTitle: "Estos documentos siguen en borrador",
     draftBody:
-      "Aún no se han publicado, así que no se pueden aceptar. Rovaro tiene que publicarlos primero.",
+      "Aún no se han publicado, así que no se pueden aceptar. Abre Documentos legales, carga los borradores incorporados y publícalos. Si estás probando como partner, sal primero de esa vista.",
+    emptyTitle: "No hay documentos de acuerdo para aceptar",
+    emptyBody:
+      "Todavía no se ha publicado nada, así que este acuerdo no se puede firmar. Abre Documentos legales, carga los borradores incorporados y publícalos. Si estás probando como partner, sal primero de esa vista.",
+    openLegalDocuments: "Abrir documentos legales",
+    signingBlockedTitle: "Este acuerdo aún no se puede firmar",
+    signingBlocker: {
+      empty_package:
+        "No hay documentos de acuerdo. Carga los borradores incorporados en Documentos legales y publícalos.",
+      unpublished_documents:
+        "Los documentos siguen en borrador. Hay que publicarlos en Documentos legales antes de poder aceptarlos.",
+      missing_checksum:
+        "El paquete de documentos no tiene suma de comprobación, así que no se puede registrar la aceptación.",
+      already_signed: "Esta versión ya se ha aceptado.",
+      clickwrap_unavailable:
+        "La firma clickwrap no es el método configurado, así que esta pantalla no puede registrar una aceptación.",
+      no_profile: "Crea el perfil legal antes de firmar el acuerdo.",
+      profile_incomplete:
+        "Completa y envía el perfil legal. Solo se puede firmar cuando Rovaro lo haya verificado.",
+      awaiting_verification:
+        "La empresa tiene que estar verificada antes de firmar el Acuerdo de Partner. Rovaro tiene que terminar esa revisión.",
+      rejected:
+        "El perfil legal fue rechazado. Corrígelo y vuelve a enviarlo antes de firmar.",
+      suspended:
+        "La actividad está suspendida. Rovaro tiene que reactivar la cuenta antes de firmar.",
+    },
+    formBlockedTitle: "Falta para aceptar",
+    formBlocker: {
+      need_read: "Desplázate hasta el final de los documentos.",
+      need_name: "Indica el nombre completo del firmante.",
+      need_role: "Indica el cargo del firmante.",
+      need_authority: "Confirma que estás autorizado para vincular a la empresa.",
+      need_acceptance: "Marca la casilla de aceptación.",
+    },
+    submitError: {
+      no_profile: "Todavía no se ha creado el perfil legal.",
+      not_verified:
+        "La empresa tiene que estar verificada antes de firmar el Acuerdo de Partner.",
+      no_documents: "No hay documentos de acuerdo disponibles.",
+      unpublished_documents:
+        "Los documentos siguen en borrador y no se pueden aceptar hasta que se publiquen.",
+      missing_checksum: "El paquete de documentos no tiene suma de comprobación.",
+      missing_signer_details:
+        "Hacen falta el nombre completo, el cargo y el email de la sesión.",
+      authority_not_confirmed:
+        "Confirma que estás autorizado para vincular a la empresa.",
+      acceptance_not_ticked: "Marca la casilla de aceptación.",
+      missing_audit_context:
+        "No se ha podido registrar la aceptación porque falta la dirección del cliente.",
+      provider_not_configured:
+        "El proveedor de firma configurado no puede registrar una aceptación.",
+    },
     signedCurrent: "Versión vigente firmada",
     signedOutdated: "Versión sustituida",
     signedTitle: "Tu copia firmada",
@@ -536,12 +688,138 @@ export const partnerLegalEs = {
     accept: "Aceptar el Acuerdo de Partner",
     backToProfile: "Volver al perfil legal",
   },
+  customerRules: {
+    title: "Normas de alquiler para el cliente",
+    subtitle:
+      "Escribe las normas de alquiler que los clientes de {{company}} deben aceptar al reservar. El inglés es el original. Al guardar se traducen a todos los idiomas del sitio para que el formulario abra el contrato de Rovaro y el vuestro.",
+    englishLabel: "Normas de alquiler (inglés)",
+    englishHint:
+      "Depósito, combustible, kilometraje, conductor adicional, cruces de frontera, tabaco, mascotas, retraso en la devolución. Texto plano, hasta {{max}} caracteres.",
+    save: "Guardar y traducir",
+    saving: "Traduciendo…",
+    unsaved: "Cambios sin guardar",
+    saved: "Guardado y traducido a los idiomas del sitio.",
+    savedPartial:
+      "Guardado. Algunos idiomas no se han podido traducir: mira el aviso y vuelve a guardar.",
+    savedWithoutTranslate:
+      "Inglés guardado. Añade GOOGLE_TRANSLATE_API_KEY (o activa Cloud Translation en la clave de Maps) para el resto de idiomas.",
+    cleared: "Se han eliminado las normas de alquiler.",
+    loadFailed: "No se han podido cargar las normas de alquiler.",
+    saveFailed: "No se han podido guardar las normas de alquiler.",
+    translateMissingTitle: "La API de traducción no está configurada",
+    translateMissingBody:
+      "Los clientes verán el texto en inglés hasta que Cloud Translation esté activo. El formulario de reserva sigue funcionando.",
+    translationsTitle: "Traducciones",
+    translationsBody: "Generadas para: {{languages}}",
+    failedTitle: "Idiomas que no se han traducido",
+  },
+  review: {
+    title: "Verificar a este partner",
+    body: "Abre los papeles y marca VERIFIED o REJECTED. Esta es la cola de revisión de documentos — publicar contratos de la plataforma es la otra pestaña de Legal.",
+    verify: "Marcar VERIFIED",
+    reject: "Marcar REJECTED",
+    suspend: "Suspender",
+    reopenDraft: "Volver a borrador",
+    reason: "Motivo",
+    reasonRequired: "Indica un motivo al rechazar o suspender.",
+    failed: "No se pudo actualizar la verificación.",
+    done: "Verificación actualizada.",
+    noProfile: "Este partner aún no ha enviado un perfil legal.",
+  },
 };
 
-export const partnerLegalRu = partnerLegalEn;
-export const partnerLegalUk = partnerLegalEn;
-export const partnerLegalEl = partnerLegalEn;
-export const partnerLegalDe = partnerLegalEn;
+export const partnerLegalRu = {
+  ...partnerLegalEn,
+  customerRules: {
+    title: "Правила аренды для клиента",
+    subtitle:
+      "Напишите правила аренды, которые клиенты {{company}} должны принять при бронировании. Источник — английский. При сохранении текст переводится на все языки сайта, чтобы в заказе открывались и договор Rovaro, и ваш.",
+    englishLabel: "Правила аренды (английский)",
+    englishHint:
+      "Депозит, топливо, пробег, дополнительный водитель, выезд за границу, курение, животные, поздний возврат. Простой текст, до {{max}} символов.",
+    save: "Сохранить и перевести",
+    saving: "Перевод…",
+    unsaved: "Есть несохранённые изменения",
+    saved: "Сохранено и переведено на языки сайта.",
+    savedPartial:
+      "Сохранено. Часть языков не перевелась — смотрите предупреждение и сохраните ещё раз.",
+    savedWithoutTranslate:
+      "Английский сохранён. Добавьте GOOGLE_TRANSLATE_API_KEY (или включите Cloud Translation на ключе Maps), чтобы заполнить остальные языки.",
+    cleared: "Правила аренды удалены.",
+    loadFailed: "Не удалось загрузить правила аренды.",
+    saveFailed: "Не удалось сохранить правила аренды.",
+    translateMissingTitle: "API перевода не настроен",
+    translateMissingBody:
+      "Клиенты увидят английский текст, пока Cloud Translation не включён. Форма бронирования работает.",
+    translationsTitle: "Переводы",
+    translationsBody: "Сделано для: {{languages}}",
+    failedTitle: "Языки, которые не перевелись",
+  },
+  review: {
+    title: "Проверить этого партнёра",
+    body: "Проверьте анкету и загруженные документы, затем поставьте VERIFIED или REJECTED. Это очередь проверки документов — публикация договоров платформы на соседней вкладке Юридическое.",
+    verify: "Поставить VERIFIED",
+    reject: "Поставить REJECTED",
+    suspend: "Приостановить",
+    reopenDraft: "Вернуть в черновик",
+    reason: "Причина",
+    reasonRequired: "Укажите причину при отклонении или приостановке.",
+    failed: "Не удалось обновить проверку.",
+    done: "Проверка обновлена.",
+    noProfile: "Этот партнёр ещё не отправил юридический профиль.",
+  },
+};
+
+export const partnerLegalUk = {
+  ...partnerLegalEn,
+  review: {
+    title: "Перевірити цього партнера",
+    body: "Перевірте анкету і завантажені документи, потім поставте VERIFIED або REJECTED. Публікація договорів платформи — інша сторінка: Юридичне у верхньому меню.",
+    verify: "Поставити VERIFIED",
+    reject: "Поставити REJECTED",
+    suspend: "Призупинити",
+    reopenDraft: "Повернути в чернетку",
+    reason: "Причина",
+    reasonRequired: "Вкажіть причину при відхиленні або призупиненні.",
+    failed: "Не вдалося оновити перевірку.",
+    done: "Перевірку оновлено.",
+    noProfile: "Цей партнер ще не надіслав юридичний профіль.",
+  },
+};
+
+export const partnerLegalEl = {
+  ...partnerLegalEn,
+  review: {
+    title: "Επαλήθευση αυτού του συνεργάτη",
+    body: "Ελέγξτε τη φόρμα και τα ανεβασμένα έγγραφα και ορίστε VERIFIED ή REJECTED. Η δημοσίευση των συμβολαίων της πλατφόρμας είναι άλλη σελίδα: Νομικά στην επάνω γραμμή.",
+    verify: "Ορισμός VERIFIED",
+    reject: "Ορισμός REJECTED",
+    suspend: "Αναστολή",
+    reopenDraft: "Επιστροφή σε πρόχειρο",
+    reason: "Αιτία",
+    reasonRequired: "Δώστε αιτία όταν απορρίπτετε ή αναστέλλετε.",
+    failed: "Δεν ήταν δυνατή η ενημέρωση της επαλήθευσης.",
+    done: "Η επαλήθευση ενημερώθηκε.",
+    noProfile: "Αυτός ο συνεργάτης δεν έχει υποβάλει ακόμη νομικό προφίλ.",
+  },
+};
+
+export const partnerLegalDe = {
+  ...partnerLegalEn,
+  review: {
+    title: "Diesen Partner prüfen",
+    body: "Prüfen Sie Formular und hochgeladene Unterlagen und setzen Sie VERIFIED oder REJECTED. Das Veröffentlichen der Plattformverträge ist eine andere Seite: Rechtliches in der oberen Leiste.",
+    verify: "VERIFIED setzen",
+    reject: "REJECTED setzen",
+    suspend: "Sperren",
+    reopenDraft: "Zurück auf Entwurf",
+    reason: "Grund",
+    reasonRequired: "Bitte einen Grund angeben beim Ablehnen oder Sperren.",
+    failed: "Prüfung konnte nicht aktualisiert werden.",
+    done: "Prüfung aktualisiert.",
+    noProfile: "Dieser Partner hat noch kein Rechtsprofil eingereicht.",
+  },
+};
 
 export function withPartnerLegal(base, copy, navLabel) {
   return {

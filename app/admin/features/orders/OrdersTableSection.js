@@ -151,7 +151,6 @@ export default function OrdersTableSection() {
   const [priceHistoryUi, setPriceHistoryUi] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
-  const [commissionPercent, setCommissionPercent] = useState(10);
   
   // ─────────────────────────────────────────────────────────────
   // CONFLICT STATE (persistent, per-order)
@@ -311,6 +310,11 @@ export default function OrdersTableSection() {
       confirmed: order.confirmed === true,
       isPast,
       timeBucket,
+      bookingMode: order.bookingMode || "",
+      partnerConfirmed: Boolean(
+        order.partnerConfirmedAt || order.companyEmailDecision === "accepted"
+      ),
+      paymentStatus: order.payment?.status || "",
     });
   }, [currentUser]);
   
@@ -587,8 +591,8 @@ export default function OrdersTableSection() {
   ]);
 
   const filteredSummary = useMemo(
-    () => summarizeFilteredOrders(filteredOrders, commissionPercent),
-    [filteredOrders, commissionPercent]
+    () => summarizeFilteredOrders(filteredOrders),
+    [filteredOrders]
   );
   const filteredSum = filteredSummary.sum;
 
@@ -1370,22 +1374,19 @@ export default function OrdersTableSection() {
           <Typography variant="body2" fontWeight={600} color="text.primary">
             {t("table.filteredSum")}: €{filteredSum.toFixed(2)}
           </Typography>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <TextField
-              type="number"
-              size="small"
-              label="Commission %"
-              value={commissionPercent}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setCommissionPercent(Number.isFinite(n) ? n : 0);
-              }}
-              inputProps={{ min: 0, max: 100, step: 0.5 }}
-              sx={{ width: 120 }}
-            />
-            <Typography variant="body2" fontWeight={600} color="primary.main">
-              = €{filteredSummary.commission.toFixed(2)}
-            </Typography>
+          <Stack spacing={0.25}>
+            {filteredSummary.marketplaceCount > 0 ? (
+              <>
+                <Typography variant="body2" fontWeight={600} color="primary.main">
+                  Rovaro Booking Fee paid online = €
+                  {filteredSummary.commission.toFixed(2)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Remaining balance paid directly to the rental supplier = €
+                  {filteredSummary.remaining.toFixed(2)}
+                </Typography>
+              </>
+            ) : null}
           </Stack>
         </Box>
       </Paper>

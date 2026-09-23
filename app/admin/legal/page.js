@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { unstable_noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
@@ -8,16 +9,11 @@ import { getCars, getCompany, getAllOrders } from "@/domain/services";
 import { COMPANY_ID } from "@/config/company";
 import { ROLE } from "@models/user";
 import { applyAdminViewAsFromCookies } from "@/domain/owners/adminViewAs";
-import { isAdminViewAsActive } from "@/domain/owners/ownerScope";
 
 import LegalHubSection from "./LegalHubSection";
 
 /**
- * /admin/legal — superadmin legal and compliance hub.
- *
- * Superadmin only, and unavailable while impersonating a company: the panel
- * exposes the operator's own configuration status, which a partner view must
- * never see.
+ * /admin/legal — superadmin hub: partner document review + platform publish.
  */
 export default async function AdminLegalPage() {
   unstable_noStore();
@@ -27,7 +23,7 @@ export default async function AdminLegalPage() {
   if (!session?.user?.isAdmin) redirect("/login");
 
   const isSuperadmin = Number(session.user?.role) === ROLE.SUPERADMIN;
-  if (!isSuperadmin || isAdminViewAsActive(session.user)) {
+  if (!isSuperadmin) {
     redirect("/admin");
   }
 
@@ -45,7 +41,9 @@ export default async function AdminLegalPage() {
       isAdmin
       isMain={false}
     >
-      <LegalHubSection />
+      <Suspense fallback={null}>
+        <LegalHubSection />
+      </Suspense>
     </Feed>
   );
 }

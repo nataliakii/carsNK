@@ -12,8 +12,8 @@ import {
   VAT_TREATMENT,
 } from "@/domain/legal/legalSettings";
 
-describe("fixed product rules", () => {
-  it("fixes the booking prepayment at 10% and the balance at 90%", () => {
+describe("documented default marketplace fee tokens", () => {
+  it("keeps the documented default booking prepayment at 10% and the balance at 90%", () => {
     expect(BOOKING_PREPAYMENT_PERCENT).toBe(10);
     expect(SUPPLIER_BALANCE_PERCENT).toBe(90);
   });
@@ -36,38 +36,59 @@ describe("commercial amounts are never invented", () => {
 
   it("renders a pointer to the fee schedule instead of a number", () => {
     const tokens = buildLegalSettingsTokens(resolveLegalSettings(null));
-    expect(tokens.minimumCommissionAmount).toBe(UNCONFIGURED_AMOUNT_TEXT);
     expect(tokens.supplierCancellationServiceCharge).toBe(UNCONFIGURED_AMOUNT_TEXT);
-    expect(tokens.commissionPercent).toBe(UNCONFIGURED_AMOUNT_TEXT);
-    expect(String(tokens.minimumCommissionAmount)).not.toMatch(/\d/);
+    expect(tokens.replacementCostDifferenceCap).toBe(UNCONFIGURED_AMOUNT_TEXT);
+    expect(tokens.commissionPercent).toBeUndefined();
+    expect(tokens.minimumCommissionAmount).toBeUndefined();
+    expect(tokens.bookingPrepaymentPercent).toBe("10%");
+    expect(tokens.supplierBalancePercent).toBe("90%");
+    expect(tokens.bookingFeeDisplayNote).toMatch(
+      /displayed to the Customer before payment/
+    );
   });
 
   it("uses Spanish wording for the Spanish documents", () => {
     const tokens = buildLegalSettingsTokens(resolveLegalSettings(null), {
       language: "es",
     });
-    expect(tokens.minimumCommissionAmount).toMatch(/cuadro de tarifas/);
+    expect(tokens.supplierCancellationServiceCharge).toMatch(/cuadro de tarifas/);
+    expect(tokens.bookingFeeDisplayNote).toMatch(
+      /muestra al Cliente antes del pago/
+    );
   });
 
   it("formats a configured amount with its currency", () => {
     const settings = resolveLegalSettings({
-      minimumCommissionAmount: 12,
-      commissionPercent: 15,
+      supplierCancellationServiceCharge: 50,
+      replacementCostDifferenceCap: 200,
       commissionCurrency: "eur",
     });
     const tokens = buildLegalSettingsTokens(settings);
 
-    expect(tokens.minimumCommissionAmount).toBe("EUR 12.00");
-    expect(tokens.commissionPercent).toBe("15%");
+    expect(tokens.supplierCancellationServiceCharge).toBe("EUR 50.00");
+    expect(tokens.replacementCostDifferenceCap).toBe("EUR 200.00");
+    expect(tokens.bookingPrepaymentPercent).toBe("10%");
   });
 
   it("treats a negative or unparsable amount as unconfigured", () => {
     const settings = resolveLegalSettings({
-      minimumCommissionAmount: -5,
       supplierCancellationServiceCharge: "abc",
+      replacementCostDifferenceCap: -5,
     });
-    expect(settings.minimumCommissionAmount).toBeNull();
     expect(settings.supplierCancellationServiceCharge).toBeNull();
+    expect(settings.replacementCostDifferenceCap).toBeNull();
+  });
+
+  it("ignores stored separate commission settings", () => {
+    const settings = resolveLegalSettings({
+      commissionPercent: 15,
+      minimumCommissionAmount: 12,
+    });
+    expect(settings.commissionPercent).toBeUndefined();
+    expect(settings.minimumCommissionAmount).toBeUndefined();
+    const tokens = buildLegalSettingsTokens(settings);
+    expect(tokens.commissionPercent).toBeUndefined();
+    expect(tokens.bookingPrepaymentPercent).toBe("10%");
   });
 });
 
@@ -124,23 +145,19 @@ describe("driving licence retention job parameters", () => {
   });
 });
 
-describe("commission base and fee handling", () => {
-  it("excludes every optional charge unless explicitly configured", () => {
+describe("marketplace split and fee handling", () => {
+  it("does not expose a configurable commission base", () => {
     const settings = resolveLegalSettings(null);
-    expect(settings.commissionBase).toEqual({
-      includeDelivery: false,
-      includeExtras: false,
-      includeInsuranceUpgrades: false,
-      includeAfterHours: false,
-    });
+    expect(settings.commissionBase).toBeUndefined();
+    expect(settings.commissionPercent).toBeUndefined();
+    expect(settings.minimumCommissionAmount).toBeUndefined();
   });
 
-  it("honours an explicit inclusion", () => {
+  it("ignores a stored commission-base override", () => {
     const settings = resolveLegalSettings({
-      commissionBase: { includeDelivery: true },
+      commissionBase: { includeDelivery: false, includeExtras: false },
     });
-    expect(settings.commissionBase.includeDelivery).toBe(true);
-    expect(settings.commissionBase.includeExtras).toBe(false);
+    expect(settings.commissionBase).toBeUndefined();
   });
 
   it("leaves VAT treatment unconfigured until decided", () => {

@@ -27,6 +27,8 @@ const platformSettingsSchema = new mongoose.Schema(
     },
     defaultTimezone: { type: String, default: "", trim: true },
     prepaymentPercent: { type: Number, default: null, min: 0, max: 100 },
+    /** Spain marketplace default Booking Fee in bps. Null = 1000 (10%). */
+    marketplaceBookingFeeBps: { type: Number, default: null, min: 100, max: 3000 },
     /**
      * Commercial + operational parameters referenced by the legal documents
      * and the booking workflow. Mixed so the shape can evolve without a
@@ -47,6 +49,11 @@ const PlatformSettings =
 if (PlatformSettings?.schema && !PlatformSettings.schema.path("legal")) {
   PlatformSettings.schema.add({
     legal: { type: mongoose.Schema.Types.Mixed, default: null },
+  });
+}
+if (PlatformSettings?.schema && !PlatformSettings.schema.path("marketplaceBookingFeeBps")) {
+  PlatformSettings.schema.add({
+    marketplaceBookingFeeBps: { type: Number, default: null, min: 100, max: 3000 },
   });
 }
 

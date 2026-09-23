@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { Car } from "@models/car";
+import Company from "@models/company";
 import { connectToDB } from "@lib/database";
 import {
   AGGREGATOR_CAR_SELECT,
   isAggregatorRequestAuthorized,
   mapCarToAggregatorDto,
 } from "@/domain/aggregator/mapCarToAggregatorDto";
+import { ownerIdsHiddenFromPublicMarketplace } from "@/domain/legal/partnerOperatingPolicy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,7 +105,28 @@ export async function GET(request) {
       .limit(limit)
       .lean();
 
-    const data = (cars || []).map((doc) =>
+    const ownerIds = [
+      ...new Set(
+        (cars || [])
+          .map((doc) => (doc.ownerId ? String(doc.ownerId) : ""))
+          .filter(Boolean)
+      ),
+    ];
+    const companies = ownerIds.length
+      ? await Company.find({ _id: { $in: ownerIds } })
+          .select("_id listedOnMarketplace country bookingMode")
+          .lean()
+      : [];
+    const hidden = new Set(
+      (await ownerIdsHiddenFromPublicMarketplace(companies)).map((id) =>
+        String(id)
+      )
+    );
+    const visible = (cars || []).filter(
+      (doc) => !doc.ownerId || !hidden.has(String(doc.ownerId))
+    );
+
+    const data = visible.map((doc) =>
       mapCarToAggregatorDto(doc, { includePricing })
     );
 

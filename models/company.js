@@ -52,20 +52,44 @@ const CompanySchema = new Schema({
   locations: [locationsSchema],
 
   /**
-   * Pickup / return offices. Street address is the customer-facing base;
-   * coords are geocoded from the address (or typed as a fallback).
-   * Shape: { name, address, lat, lon } — lng accepted on write.
+   * Pickup / return offices. Street address is the customer-facing base.
+   * `_id` is the stable office reference used by cars and order snapshots.
    */
   offices: {
     type: [
       new Schema(
         {
           name: { type: String, default: "", trim: true },
+          publicName: { type: String, default: "", trim: true },
           address: { type: String, default: "", trim: true },
+          city: { type: String, default: "", trim: true },
+          country: { type: String, default: "", trim: true, uppercase: true },
+          placeId: { type: String, default: "", trim: true },
           lat: { type: String, default: "", trim: true },
           lon: { type: String, default: "", trim: true },
+          locationType: {
+            type: String,
+            enum: ["office", "airport", "train_station", "port", "hotel", "other"],
+            default: "office",
+          },
+          collectionInstructions: { type: String, default: "", trim: true },
+          returnInstructions: { type: String, default: "", trim: true },
+          openingHours: {
+            start: { type: String, default: "", trim: true },
+            end: { type: String, default: "", trim: true },
+          },
+          showPhone: { type: Boolean, default: false },
+          status: {
+            type: String,
+            enum: ["active", "archived"],
+            default: "active",
+          },
+          freePickup: { type: Boolean, default: true },
+          freeReturn: { type: Boolean, default: true },
+          carIds: { type: [Schema.Types.ObjectId], default: [] },
+          archivedAt: { type: Date, default: null },
         },
-        { _id: false }
+        { _id: true, timestamps: true }
       ),
     ],
     default: [],
@@ -122,6 +146,8 @@ const CompanySchema = new Schema({
           amount: { type: Number, default: 0, min: 0 },
         },
         afterHoursSurcharge: { type: Number, default: 0, min: 0 },
+        /** Monotonic tariff version — live edits bump; order snapshots keep the old value. */
+        version: { type: Number, default: 1, min: 1 },
       },
       { _id: false }
     ),
@@ -184,8 +210,14 @@ const CompanySchema = new Schema({
   timezone: { type: String, default: "", trim: true },
   /** Snapshot currency ISO code. Launch value is EUR. */
   currency: { type: String, default: "", uppercase: true, trim: true },
-  /** Future prepayment percent (0–100). Null = resolver default. */
+  /** Future Greece / ops prepayment percent (0–100). Null = resolver default. */
   prepaymentPercent: { type: Number, default: null, min: 0, max: 100 },
+  /**
+   * Spain marketplace Rovaro Booking Fee override in basis points (10% = 1000).
+   * Null = inherit PlatformSettings.marketplaceBookingFeeBps, else 1000 (10%).
+   * SUPERADMIN only. Existing order snapshots never re-read this field.
+   */
+  marketplaceBookingFeeBps: { type: Number, default: null, min: 100, max: 3000 },
 
   /**
    * Per-company rental payment preferences (Stripe prepayment vs on-site).
@@ -397,6 +429,11 @@ if (Company?.schema && !Company.schema.path("deliveryPricing")) {
       maxDistanceKm: { type: Number, default: null, min: 0 },
     });
   }
+  if (dp?.schema && !dp.schema.path("version")) {
+    dp.schema.add({
+      version: { type: Number, default: 1, min: 1 },
+    });
+  }
 }
 
 if (Company?.schema && !Company.schema.path("bookingMode")) {
@@ -464,6 +501,36 @@ if (Company?.schema && !Company.schema.path("transferServices")) {
         { _id: false }
       ),
       default: undefined,
+    },
+
+    /**
+     * Customer-facing rental rules. English is authored by the company;
+     * other languages are Google Translate copies filled on save.
+     */
+    customerRentalTerms: {
+      type: new Schema(
+        {
+          sourceEn: { type: String, default: "" },
+          translations: { type: Schema.Types.Mixed, default: {} },
+          sourceHash: { type: String, default: "", trim: true },
+          translatedAt: { type: Date, default: null },
+          updatedAt: { type: Date, default: null },
+          updatedByEmail: { type: String, default: "", trim: true },
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
+  });
+}
+
+if (Company?.schema && !Company.schema.path("marketplaceBookingFeeBps")) {
+  Company.schema.add({
+    marketplaceBookingFeeBps: {
+      type: Number,
+      default: null,
+      min: 100,
+      max: 3000,
     },
   });
 }

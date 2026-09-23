@@ -1,6 +1,8 @@
 /**
- * Admin top-nav IA: Calendar | Cars | Orders | Company | Legal
- * (+ superadmin Companies / Visits). Discounts stays a nav action, not a section.
+ * Admin top-nav IA
+ *
+ * Partner: Calendar | Cars | Orders | Company | Legal
+ * Superadmin: Calendar | Cars | Orders | Partners | Partner reviews | Platform settings | Emails | Visits
  */
 
 export const ADMIN_PATHS = {
@@ -8,9 +10,13 @@ export const ADMIN_PATHS = {
   cars: "/admin/cars",
   orders: "/admin/orders",
   company: "/admin/company",
+  /** Partner KYB + clickwrap (company context / view-as). */
   legal: "/admin/legal-profile",
+  /** Superadmin partner document review + platform legal docs hub. */
+  legalHub: "/admin/legal",
   owners: "/admin/owners",
   visits: "/admin/website-visits",
+  emails: "/admin/emails",
 };
 
 export function isAdminCalendarSection(pathname) {
@@ -36,7 +42,12 @@ export function isAdminCompanySection(pathname) {
 }
 
 export function isAdminLegalSection(pathname) {
-  return pathname?.startsWith("/admin/legal-profile");
+  if (!pathname) return false;
+  return (
+    pathname === ADMIN_PATHS.legalHub ||
+    pathname.startsWith(`${ADMIN_PATHS.legalHub}/`) ||
+    pathname.startsWith(ADMIN_PATHS.legal)
+  );
 }
 
 export function isAdminOwnersSection(pathname) {
@@ -47,9 +58,12 @@ export function isAdminVisitsSection(pathname) {
   return pathname?.startsWith("/admin/website-visits");
 }
 
+export function isAdminEmailsSection(pathname) {
+  return pathname?.startsWith("/admin/emails");
+}
+
 /**
- * In-page Company hub tabs.
- * Vouchers stay last — they are optional; storefront/ops come first.
+ * In-page Company / Platform hub tabs.
  *
  * Superadmin (no view-as): Access links | Platform | Delivery | Pricing | Vouchers
  * Company / view-as: Storefront | People | Delivery | Pricing | Transfer | Vouchers
@@ -93,14 +107,18 @@ export function getCompanyHubTabIds({
  * @param {boolean} opts.showSuperAdminChrome
  * @param {boolean} opts.showCompanyNav
  * @param {boolean} opts.showLegalNav
+ * @param {string} [opts.legalHref]
  * @param {number} [opts.pendingCount]
+ * @param {number} [opts.legalPendingCount]
  */
 export function getAdminNavItems({
   t,
   showSuperAdminChrome,
   showCompanyNav,
   showLegalNav,
+  legalHref = ADMIN_PATHS.legal,
   pendingCount = 0,
+  legalPendingCount = 0,
 }) {
   const items = [
     {
@@ -124,6 +142,41 @@ export function getAdminNavItems({
     },
   ];
 
+  if (showSuperAdminChrome) {
+    items.push({
+      id: "owners",
+      href: ADMIN_PATHS.owners,
+      label: t("header.partners", { defaultValue: "Partners" }),
+      match: isAdminOwnersSection,
+    });
+    items.push({
+      id: "legal",
+      href: ADMIN_PATHS.legalHub,
+      label: t("header.partnerReviews", { defaultValue: "Partner reviews" }),
+      match: isAdminLegalSection,
+      badge: legalPendingCount,
+    });
+    items.push({
+      id: "company",
+      href: ADMIN_PATHS.company,
+      label: t("header.platformSettings", { defaultValue: "Platform settings" }),
+      match: isAdminCompanySection,
+    });
+    items.push({
+      id: "emails",
+      href: ADMIN_PATHS.emails,
+      label: t("header.emails", { defaultValue: "Emails" }),
+      match: isAdminEmailsSection,
+    });
+    items.push({
+      id: "visits",
+      href: ADMIN_PATHS.visits,
+      label: t("header.websiteVisits"),
+      match: isAdminVisitsSection,
+    });
+    return items;
+  }
+
   if (showCompanyNav) {
     items.push({
       id: "company",
@@ -136,24 +189,10 @@ export function getAdminNavItems({
   if (showLegalNav) {
     items.push({
       id: "legal",
-      href: ADMIN_PATHS.legal,
+      href: legalHref || ADMIN_PATHS.legal,
       label: t("header.legal", { defaultValue: t("header.legalProfile") }),
       match: isAdminLegalSection,
-    });
-  }
-
-  if (showSuperAdminChrome) {
-    items.push({
-      id: "owners",
-      href: ADMIN_PATHS.owners,
-      label: t("header.owners"),
-      match: isAdminOwnersSection,
-    });
-    items.push({
-      id: "visits",
-      href: ADMIN_PATHS.visits,
-      label: t("header.websiteVisits"),
-      match: isAdminVisitsSection,
+      badge: legalPendingCount,
     });
   }
 

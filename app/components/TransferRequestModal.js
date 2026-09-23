@@ -21,6 +21,7 @@ import {
 import SwapVertIcon from "@mui/icons-material/SwapVert";
 import { useTranslation } from "react-i18next";
 import { formatMinor } from "@/domain/money/minorUnits";
+import { parseRequiredCustomerEmail } from "@/domain/validation/customerEmail";
 
 export default function TransferRequestModal({
   open,
@@ -271,6 +272,11 @@ export default function TransferRequestModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    const emailCheck = parseRequiredCustomerEmail(email);
+    if (!emailCheck.ok) {
+      setError(t(emailCheck.messageKey, { defaultValue: emailCheck.message }));
+      return;
+    }
     setLoading(true);
     try {
       const response = await fetch("/api/transfers", {
@@ -316,7 +322,7 @@ export default function TransferRequestModal({
             .join(" "),
           phone,
           phoneCountryCode,
-          email,
+          email: emailCheck.email,
           preferredLanguage: i18n.language || "",
           locale: i18n.language || "",
         }),

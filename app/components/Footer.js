@@ -131,6 +131,7 @@ function Footer() {
   const { t } = useTranslation();
 
   const name = BRAND.name;
+  const slogan = BRAND.tagline;
   const tel = company?.tel || "+380 68 100 3771";
   const tel2 = company?.tel2 || "+353 85 270 96 05";
   const email = company?.email || "admin@bbqr.site";
@@ -152,9 +153,12 @@ function Footer() {
     { href: localeLink("/privacy-policy"), label: t("footer.privacyPolicy") },
     { href: localeLink("/cookie-policy"), label: t("footer.cookiePolicy") },
     { href: localeLink("/partner-terms"), label: t("footer.partnerTerms") },
-    { href: localeLink("/contacts"), label: t("footer.contact") },
     { href: localeLink("/terms-of-service"), label: t("footer.termsOfService") },
     { href: localeLink("/rental-terms"), label: t("footer.rentalTerms") },
+  ];
+
+  const siteLinks = [
+    { href: localeLink("/contacts"), label: t("footer.contact") },
     { href: "/login", label: t("footer.adminLogin") },
   ];
 
@@ -169,7 +173,9 @@ function Footer() {
             gridTemplateColumns: {
               xs: "1fr",
               sm: "1fr 1fr",
-              md: "1.35fr 0.95fr 0.95fr 1.15fr",
+              md: greece
+                ? "1.15fr 0.85fr 1fr 0.8fr 1.15fr"
+                : "1.3fr 0.9fr 1.05fr 0.85fr",
             },
             alignItems: "start",
           }}
@@ -181,8 +187,20 @@ function Footer() {
                 justifyContent: { xs: "center", md: "flex-start" },
               }}
             >
-              <RovaroLogo variant="footer" height={32} />
+              <RovaroLogo variant="footer" height={52} />
             </Box>
+            <Typography
+              sx={{
+                fontSize: "0.92rem",
+                lineHeight: 1.45,
+                fontWeight: 400,
+                color: "rgba(255,255,255,0.72)",
+                maxWidth: 340,
+                mx: { xs: "auto", md: 0 },
+              }}
+            >
+              {slogan}
+            </Typography>
           </Stack>
 
           <Box sx={{ textAlign: { xs: "center", sm: "left" } }}>
@@ -206,14 +224,30 @@ function Footer() {
           </Box>
 
           <Box sx={{ textAlign: { xs: "center", sm: "left" } }}>
-            <SectionTitle>{t("footer.explore")}</SectionTitle>
+            <SectionTitle>{t("footer.legal")}</SectionTitle>
             <Stack
               component="nav"
-              aria-label={t("footer.explore")}
+              aria-label={t("footer.legal")}
               spacing={0.85}
               alignItems={{ xs: "center", sm: "flex-start" }}
             >
               {legalLinks.map((item) => (
+                <FooterLink key={item.href} href={item.href}>
+                  {item.label}
+                </FooterLink>
+              ))}
+            </Stack>
+          </Box>
+
+          <Box sx={{ textAlign: { xs: "center", sm: "left" } }}>
+            <SectionTitle>{t("footer.links")}</SectionTitle>
+            <Stack
+              component="nav"
+              aria-label={t("footer.links")}
+              spacing={0.85}
+              alignItems={{ xs: "center", sm: "flex-start" }}
+            >
+              {siteLinks.map((item) => (
                 <FooterLink key={item.href} href={item.href}>
                   {item.label}
                 </FooterLink>

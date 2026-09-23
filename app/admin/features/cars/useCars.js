@@ -32,14 +32,22 @@ export function useCars() {
   // DERIVED VALUES
   // ─────────────────────────────────────────────────────────────
   
-  // Sorted cars list (alphabetically by model)
-  const sortedCars = useMemo(
-    () => [...cars].sort((a, b) => a.model.localeCompare(b.model)),
+  const safeCars = useMemo(
+    () => (Array.isArray(cars) ? cars : []),
     [cars]
   );
 
-  const hasCars = useMemo(() => cars.length > 0, [cars]);
-  const firstCar = useMemo(() => cars[0] || null, [cars]);
+  // Sorted cars list (alphabetically by model)
+  const sortedCars = useMemo(
+    () =>
+      [...safeCars].sort((a, b) =>
+        String(a?.model || "").localeCompare(String(b?.model || ""))
+      ),
+    [safeCars]
+  );
+
+  const hasCars = useMemo(() => safeCars.length > 0, [safeCars]);
+  const firstCar = useMemo(() => safeCars[0] || null, [safeCars]);
 
   // ─────────────────────────────────────────────────────────────
   // MODAL HANDLERS
@@ -119,7 +127,7 @@ export function useCars() {
   
   return {
     // Data
-    cars,
+    cars: safeCars,
     sortedCars,
     hasCars,
     firstCar,

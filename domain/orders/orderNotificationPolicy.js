@@ -52,6 +52,7 @@ import { ORDER_FIELD_KEYS } from "./orderPermissions";
  * @property {Object} order - Order object (минимально нужные поля)
  * @property {boolean} order.my_order - Is client order
  * @property {boolean} order.confirmed - Is confirmed
+ * @property {boolean} [actorIsSuperadmin] - Superadmin does not notify themselves
  */
 
 // ════════════════════════════════════════════════════════════════
@@ -103,7 +104,7 @@ const SAFE_ACTIONS = ["UPDATE_RETURN", "UPDATE_INSURANCE"];
  * @returns {Notification[]}
  */
 export function getOrderNotifications(params) {
-  const { action, access, order } = params;
+  const { action, access, order, actorIsSuperadmin = false } = params;
   
   // Валидация
   if (!access || !order) {
@@ -142,6 +143,27 @@ export function getOrderNotifications(params) {
         priority: "INFO",
       });
     }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 📧 ORDER CONFIRM / UNCONFIRM by company admin
+  // ════════════════════════════════════════════════════════════════
+  // Calendar confirm is SUPERADMIN-only for client orders. Company admin
+  // can still confirm internal bookings; superadmin must hear about it.
+  if (
+    (action === "CONFIRM" || action === "UNCONFIRM") &&
+    !actorIsSuperadmin
+  ) {
+    notifications.push({
+      target: "SUPERADMIN",
+      channels: ["TELEGRAM", "EMAIL"],
+      reason:
+        action === "CONFIRM"
+          ? "Company admin confirmed an order"
+          : "Company admin unconfirmed an order",
+      includePII: true,
+      priority: "INFO",
+    });
   }
 
   // ════════════════════════════════════════════════════════════════

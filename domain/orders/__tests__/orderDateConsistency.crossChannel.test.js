@@ -12,6 +12,12 @@ import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
 
 jest.mock("@/lib/email/sendDirect", () => ({ sendEmailDirect: jest.fn() }));
 jest.mock("@/lib/telegram/sendDirect", () => ({ sendTelegramDirect: jest.fn() }));
+jest.mock("@/domain/booking/partnerBookingConfirmation", () => ({
+  issueConfirmationToken: jest.fn().mockResolvedValue({
+    ok: true,
+    token: "test-partner-confirm-token",
+  }),
+}));
 jest.mock("@models/auditLog", () => ({
   __esModule: true,
   default: { create: jest.fn().mockResolvedValue({}) },

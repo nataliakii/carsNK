@@ -22,6 +22,7 @@ import { PARTNER_VERIFICATION_STATUS } from "@/domain/legal/partnerVerification"
 
 import PartnerComplianceGate from "./_components/PartnerComplianceGate";
 import PartnerDocumentsCard from "./_components/PartnerDocumentsCard";
+import PartnerReviewActions from "./_components/PartnerReviewActions";
 import PartnerVerificationBanner from "./_components/PartnerVerificationBanner";
 import {
   PARTNER_PROFILE_CONFIRMATIONS,
@@ -70,6 +71,8 @@ export default function PartnerLegalProfileSection() {
   const [profile, setProfile] = useState(null);
   const [completeness, setCompleteness] = useState(null);
   const [gate, setGate] = useState(null);
+  const [listedOnMarketplace, setListedOnMarketplace] = useState(true);
+  const [companyId, setCompanyId] = useState("");
   const [draft, setDraft] = useState(() => draftFromProfile(null));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -90,10 +93,14 @@ export default function PartnerLegalProfileSection() {
       }
       setProfile(profileJson.profile);
       setCompleteness(profileJson.completeness);
+      setCompanyId(profileJson.companyId || profileJson.profile?.companyId || "");
       setDraft(draftFromProfile(profileJson.profile));
 
       const statusJson = await statusRes.json();
       setGate(statusJson.success ? statusJson.gate : null);
+      setListedOnMarketplace(
+        statusJson.success ? statusJson.listedOnMarketplace !== false : true
+      );
     } catch (err) {
       setError(err.message || t("partnerLegal.form.loadFailed"));
     } finally {
@@ -108,8 +115,14 @@ export default function PartnerLegalProfileSection() {
   const status = profile?.verificationStatus || S.DRAFT;
   const locked = !FREELY_EDITABLE.has(status);
   const editable = !locked || (status === S.VERIFIED && unlocked);
+  const uploadedDocCount = (profile?.documents || []).filter(
+    (doc) => doc?.storageRef
+  ).length;
+  // Allow explicit submit when KYB fields are ready OR evidence was uploaded.
+  // Draft autosave never sets submitForVerification.
   const canSubmit =
-    (status === S.DRAFT || status === S.REJECTED) && Boolean(completeness?.ready);
+    (status === S.DRAFT || status === S.REJECTED) &&
+    (Boolean(completeness?.ready) || uploadedDocCount > 0);
 
   const missing = useMemo(() => {
     if (!completeness || completeness.ready) return [];
@@ -196,7 +209,15 @@ export default function PartnerLegalProfileSection() {
         {t("partnerLegal.subtitle")}
       </Typography>
 
-      <PartnerComplianceGate gate={gate} />
+      <PartnerComplianceGate
+        gate={gate}
+        listedOnMarketplace={listedOnMarketplace}
+      />
+      <PartnerReviewActions
+        profile={profile}
+        companyId={companyId}
+        onChanged={load}
+      />
       <PartnerVerificationBanner profile={profile} />
 
       {error ? (

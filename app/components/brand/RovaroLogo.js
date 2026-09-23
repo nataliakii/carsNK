@@ -7,7 +7,8 @@ import { getActiveBrand, isGreeceSite } from "@config/brand";
 /**
  * Country-aware site logo.
  * GR → CarsNK PNGs from /brand/carsnk/
- * ES (etc.) → rovaro PNGs from /brand/rovaro/ (ova magenta ligature)
+ * ES → approved Rovaro PNG wordmarks only
+ *     (rovaro-white-background / wordmark-compact / rovaro-transparent)
  *
  * variant: light | dark | footer
  */
@@ -20,43 +21,31 @@ export function SiteLogo({
 }) {
   const brand = getActiveBrand();
   const greece = isGreeceSite();
-  const withTagline = Boolean(showTagline || variant === "footer");
 
   let src;
-  if (greece) {
-    if (variant === "footer") {
-      src = brand.logos.wordmarkFooter || brand.logos.wordmarkOnDark;
-    } else if (variant === "dark") {
-      src =
-        brand.logos.wordmarkOnDarkCompact ||
-        brand.logos.wordmarkOnDark ||
-        brand.logos.wordmarkDark;
-    } else {
-      src = brand.logos.wordmarkLight;
-    }
-  } else if (variant === "footer" || withTagline) {
+  if (variant === "footer") {
     src =
-      variant === "light"
-        ? brand.logos.wordmarkLightFull || brand.logos.wordmarkLight
-        : brand.logos.wordmarkFooter || brand.logos.wordmarkOnDark;
+      brand.logos.wordmarkFooter ||
+      brand.logos.wordmarkTransparent ||
+      brand.logos.wordmarkOnDark;
   } else if (variant === "dark") {
     src =
-      brand.logos.wordmarkOnDarkCompact || brand.logos.wordmarkOnDark;
+      brand.logos.wordmarkOnDarkCompact ||
+      brand.logos.wordmarkOnDark ||
+      brand.logos.wordmarkDark;
   } else {
-    src =
-      brand.logos.wordmarkLightCompact || brand.logos.wordmarkLight;
+    src = brand.logos.wordmarkLight;
   }
 
   const aspect = greece
     ? variant === "footer"
       ? { w: 320, h: 214 }
       : { w: 1127, h: 286 }
-    : withTagline
-      ? { w: 1100, h: 355 }
-      : { w: 1100, h: 250 };
+    : variant === "dark" || variant === "footer"
+      ? { w: 788, h: 207 }
+      : { w: 2048, h: 682 };
 
-  const displayHeight =
-    withTagline && !greece ? Math.round(height * 1.55) : height;
+  const displayHeight = height;
   const displayWidth = Math.round((displayHeight * aspect.w) / aspect.h);
 
   return (
@@ -87,7 +76,7 @@ export function SiteLogo({
   );
 }
 
-/** App / preloader mark */
+/** App / preloader mark — restored mark PNG via brand config */
 export function SiteMark({ size = 36, sx }) {
   const brand = getActiveBrand();
 

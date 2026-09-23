@@ -339,31 +339,33 @@ function functionPendingOrConfirmedDatesInRange(pending, start, end) {
 }
 // пушает фремя в существующий datejs обьект
 function setTimeToDatejs(date, time, isStart = false) {
-  // console.log("DATE", date);
-  // console.log("time", time);
+  if (date == null || date === "") {
+    return null;
+  }
+  const base = dayjs(date);
+  if (!base.isValid()) {
+    return null;
+  }
   if (time) {
     const hour = Number(time?.slice(0, 2));
     const minute = Number(time?.slice(-2));
-    const newDateWithTime = dayjs(date)
-      .hour(hour)
-      .minute(minute)
-      .second(0)
-      .millisecond(0);
-
-    return newDateWithTime;
-  } else if (isStart) {
-    // console.log("???? day to retunr for START", dayjs(date).hour(15).minute(0));
-    return dayjs(date)
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+      return null;
+    }
+    return base.hour(hour).minute(minute).second(0).millisecond(0);
+  }
+  if (isStart) {
+    return base
       .hour(defaultStartHour)
       .minute(defaultStartMinute)
       .second(0)
       .millisecond(0);
-  } else
-    return dayjs(date)
-      .hour(defaultEndHour)
-      .minute(defaultEndMinute)
-      .second(0)
-      .millisecond(0);
+  }
+  return base
+    .hour(defaultEndHour)
+    .minute(defaultEndMinute)
+    .second(0)
+    .millisecond(0);
 }
 
 module.exports = {

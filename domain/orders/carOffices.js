@@ -7,6 +7,12 @@ import {
   DEFAULT_SPAIN_BOOKING_LOCATION,
   isSpainCityOption,
 } from "@/domain/orders/spainCityOptions";
+import { resolveEligibleOffices } from "@/domain/company/officeRecord";
+import { normalizeOfficeKey as sharedOfficeKey } from "@/domain/company/officeConstants";
+
+export function normalizeOfficeKey(value) {
+  return sharedOfficeKey(value);
+}
 
 /**
  * Per-car office locations: booking place names (optionally with street address)
@@ -24,12 +30,6 @@ const SPAIN_PLACE_MARKERS =
   /spain|espa(?:ñ|n)a|catalunya|catalonia|barcelona|madrid|girona/i;
 
 const SPAIN_NEAR_CITY_KM = 40;
-
-export function normalizeOfficeKey(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
 
 const GREECE_CATALOG_KEYS = new Set(
   ORDERED_LOCATION_OPTIONS.filter((name) => name !== "Airport").map((name) =>
@@ -166,6 +166,30 @@ export function resolveBookingDisplayOffices(
       addressUnset: !street || looksLikeGreecePlace({ address: street }),
     };
   };
+
+  const eligible = resolveEligibleOffices({ car, company });
+  if (eligible.length) {
+    return eligible
+      .map((row) => ({
+        id: String(row._id || row.id || ""),
+        name: row.publicName || row.name,
+        address: row.address || "",
+        lat: row.lat || "",
+        lon: row.lon || "",
+        city: row.city || "",
+        country: row.country || "",
+        locationType: row.locationType || "office",
+        collectionInstructions: row.collectionInstructions || "",
+        returnInstructions: row.returnInstructions || "",
+        freePickup: row.freePickup !== false,
+        freeReturn: row.freeReturn !== false,
+      }))
+      .map((office) =>
+        spainMarket ? sanitizeOfficeForSpainMarket(office) : office
+      )
+      .filter(Boolean)
+      .map(decorate);
+  }
 
   const fromCar = normalizeCarOffices(car?.offices)
     .map((office) =>

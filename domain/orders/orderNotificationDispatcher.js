@@ -34,8 +34,10 @@ import {
 import { getOrderAccess } from "./orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { ROLE } from "./admin-rbac";
-import { getInternalNotificationEmail } from "@config/email";
+import { getSuperadminNotificationEmails } from "@config/email";
 import { COMPANY_ID } from "@config/company";
+import { getBaseUrl } from "@config/domain";
+import { getBrandName } from "@config/brand";
 import Company from "@models/company";
 import { connectToDB } from "@lib/database";
 import { renderCustomerOrderConfirmationEmail, renderAdminOrderNotificationEmail } from "@/app/ui/email/renderEmail";
@@ -53,10 +55,12 @@ import {
   formatCompanyEmailClientLocaleFooter,
 } from "./adminNotifyLocales";
 import { buildCompanyEmailOrderActions } from "./buildCompanyEmailOrderActions";
+import { issueConfirmationToken } from "@/domain/booking/partnerBookingConfirmation";
 import {
   withTestOrderEmailSubject,
   withTestOrderTelegramMessage,
 } from "./testOrderMarkers";
+import { MAIL_RENDER_KEY, MAIL_TYPE } from "@/domain/mail/mailTypes";
 
 // ════════════════════════════════════════════════════════════════
 // TYPES
@@ -303,7 +307,7 @@ async function sendTelegramNotification(target, payload, reason, priority, messa
   if (target === "SUPERADMIN") {
     body += formatSuperadminClientContextFooter(payload, messageLocale);
   }
-  let text = `${emoji} ${translatedReason}\n\n${body}\n\nCarsNK · https://carsnk.gr`;
+  let text = `${emoji} ${translatedReason}\n\n${body}\n\n${getBrandName()} · ${getBaseUrl()}`;
   text = withTestOrderTelegramMessage(text, Boolean(payload.fromLocalhost));
   const sent = await sendTelegramDirect(text);
   if (!sent) {
@@ -337,6 +341,7 @@ async function sendEmailNotification(
   customerEmailLocale
 ) {
   // Режим тестирования решается в orderNotificationPolicy (COMPANY_EMAIL не добавляется при EMAIL_TESTING).
+  const opsInbox = getSuperadminNotificationEmails();
   const customerEmail = payload.email && String(payload.email).trim();
   const sendToCustomer = target === "CUSTOMER" && customerEmail;
   const sendToCompany = target === "COMPANY_EMAIL" && companyEmail;
@@ -344,24 +349,26 @@ async function sendEmailNotification(
   let cc;
   if (sendToCustomer) {
     to = [customerEmail];
-    cc = [getInternalNotificationEmail()];
+    cc = opsInbox;
   } else if (sendToCompany) {
     to = [companyEmail];
-    cc = [getInternalNotificationEmail()];
+    cc = opsInbox;
   } else {
-    to = [getInternalNotificationEmail()];
+    to = opsInbox;
     cc = [];
   }
 
   let title;
   let body;
   let html;
+  let actions;
+  let customerMailPayload = payload;
   if (sendToCustomer) {
-    const mailPayload =
+    customerMailPayload =
       typeof customerEmailLocale === "string" && customerEmailLocale.trim()
         ? { ...payload, locale: normalizeEmailLocale(customerEmailLocale) }
         : payload;
-    const customerContent = formatCustomerEmailContent(mailPayload);
+    const customerContent = formatCustomerEmailContent(customerMailPayload);
     title = customerContent.title;
     body = customerContent.body;
     html = customerContent.bodyHtml;
@@ -378,23 +385,31 @@ async function sendEmailNotification(
       body += formatCompanyEmailClientLocaleFooter(payload, messageLocale);
     }
     title = withTestOrderEmailSubject(title, Boolean(payload.fromLocalhost));
-    let actions;
     if (
       target === "COMPANY_EMAIL" &&
       sendToCompany &&
       payload.intent === "ORDER_CREATED" &&
       payload.orderId
     ) {
-      try {
-        actions = buildCompanyEmailOrderActions(
-          payload.orderId,
-          messageLocale
+      if (payload.confirmToken) {
+        try {
+          actions = buildCompanyEmailOrderActions(
+            payload.orderId,
+            messageLocale,
+            { confirmToken: payload.confirmToken }
+          );
+        } catch (err) {
+          console.error(
+            "[notifyOrderAction] company email actions skipped:",
+            err?.message || err
+          );
+        }
+      } else {
+        console.error(
+          "[notifyOrderAction] confirmation link missing for company email"
         );
-      } catch (err) {
-        console.warn(
-          "[notifyOrderAction] company email actions skipped:",
-          err?.message || err
-        );
+        body +=
+          "\n\nAvailability confirmation link could not be issued. Set BOOKING_CONFIRM_SECRET (or EMAIL_ACTION_SECRET / NEXTAUTH_SECRET).";
       }
     }
     html = renderAdminOrderNotificationEmail(title, body, actions);
@@ -405,16 +420,35 @@ async function sendEmailNotification(
   const toList = Array.isArray(to) ? to.filter(Boolean) : [];
   const ccList = Array.isArray(cc) ? cc.filter(Boolean) : [];
   if (toList.length === 0 && !sendToCustomer) {
-    toList.push(getInternalNotificationEmail());
+    toList.push(...getSuperadminNotificationEmails());
   }
 
   try {
+    const mailType =
+      target === "CUSTOMER"
+        ? MAIL_TYPE.ORDER_CUSTOMER
+        : target === "COMPANY_EMAIL"
+          ? MAIL_TYPE.ORDER_COMPANY
+          : MAIL_TYPE.ORDER_SUPERADMIN;
+    const renderKey = sendToCustomer
+      ? MAIL_RENDER_KEY.CUSTOMER_ORDER_CONFIRMATION
+      : MAIL_RENDER_KEY.ADMIN_ORDER_NOTIFICATION;
+    const logPayload = sendToCustomer
+      ? customerMailPayload
+      : { title, body, actions, locale: messageLocale, intent: payload.intent };
     await sendEmailDirect({
       title,
       message: body,
       html: html || undefined,
       to: toList,
       cc: ccList,
+      meta: {
+        type: mailType,
+        orderId: payload.orderId,
+        companyId: payload.companyId,
+        renderKey,
+        payload: logPayload,
+      },
     });
   } catch (err) {
     if (process.env.NODE_ENV !== "production") {
@@ -605,10 +639,38 @@ export async function notifyOrderAction({
     action,
     access,
     order,
+    actorIsSuperadmin: isSuperAdmin,
   });
   
   if (notifications.length === 0) {
     return;
+  }
+
+  let confirmToken = "";
+  const needsPartnerConfirmLink = notifications.some(
+    (n) => n.target === "COMPANY_EMAIL" && action === "CREATE"
+  );
+  const orderIdForLink = order._id?.toString?.() || order._id;
+  if (needsPartnerConfirmLink && orderIdForLink) {
+    try {
+      const issued = await issueConfirmationToken({
+        orderId: orderIdForLink,
+        issuedByEmail: "system:order-created",
+      });
+      if (issued.ok && issued.token) {
+        confirmToken = issued.token;
+      } else {
+        console.error(
+          "[notifyOrderAction] confirmation link not issued:",
+          issued.code || issued.message || "unknown"
+        );
+      }
+    } catch (err) {
+      console.error(
+        "[notifyOrderAction] confirmation link failed:",
+        err?.message || err
+      );
+    }
   }
 
   let langAdmin = "en";
@@ -667,9 +729,13 @@ export async function notifyOrderAction({
     placeOut: order.placeOut,
     placeInDetail: order.placeInDetail ?? "",
     placeOutDetail: order.placeOutDetail ?? "",
+    pickupMethod: order.pickupMethod ?? "",
+    returnMethod: order.returnMethod ?? "",
+    locationSnapshot: order.locationSnapshot || null,
     numberOfDays: order.numberOfDays,
     ChildSeats: order.ChildSeats ?? order.childSeats ?? 0,
     insurance: order.insurance,
+    franchiseOrder: order.franchiseOrder,
     flightNumber: order.flightNumber,
     totalPrice: order.totalPrice,
     customerName: order.customerName,
@@ -695,6 +761,12 @@ export async function notifyOrderAction({
     fromLocalhost: order.fromLocalhost === true,
     drivingLicenceUrls,
     hasDrivingLicenceUpload: drivingLicenceUrls.length > 0,
+    paymentUrl: order.paymentUrl || order.payment?.checkoutUrl || "",
+    paymentLinkStatus: order.paymentLinkStatus || "",
+    paymentLinkMessage: order.paymentLinkMessage || "",
+    bookingMode: order.bookingMode || "",
+    companyId: order.ownerId?.toString?.() || order.ownerId || "",
+    confirmToken,
   };
   
   await dispatchOrderNotifications(

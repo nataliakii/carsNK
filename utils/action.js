@@ -267,12 +267,23 @@ export const addOrderNew = async (orderData) => {
       };
     } else if (response.status === 202) {
       // Non-confirmed dates conflict
+      const pendingData = {
+        ...(result.data && typeof result.data === "object" ? result.data : {}),
+        paymentUrl: result.paymentUrl || result.data?.paymentUrl || null,
+        paymentLinkStatus:
+          result.paymentLinkStatus || result.data?.paymentLinkStatus || "",
+        paymentLinkMessage:
+          result.paymentLinkMessage || result.data?.paymentLinkMessage || "",
+      };
       return {
         status: "pending",
         message: result.message,
-        data: result.data,
+        data: pendingData,
         messageCode: result.messageCode,
         dates: result.dates,
+        paymentUrl: pendingData.paymentUrl,
+        paymentLinkStatus: pendingData.paymentLinkStatus,
+        paymentLinkMessage: pendingData.paymentLinkMessage,
       };
     } else if (response.status === 409) {
       // Confirmed dates conflict
@@ -866,7 +877,17 @@ export const updateCar = async (updatedCar) => {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to update car");
+      let payload = {};
+      try {
+        payload = await response.json();
+      } catch {
+        payload = {};
+      }
+      const err = new Error(
+        payload.message || "Failed to update car"
+      );
+      err.payload = payload;
+      throw err;
     }
 
     return await response.json();

@@ -14,23 +14,21 @@
  * from public output and reported as `missing` in the superadmin
  * Legal Configuration Status panel.
  *
- * Public vs server split
- * ----------------------
+ * Env (server; see .env.example)
+ * -----------------------------
+ *   LEGAL_TRADING_NAME / LEGAL_BRAND_NAME / LEGAL_BUSINESS_TYPE
+ *   LEGAL_BUSINESS_ADDRESS / LEGAL_COUNTRY / LEGAL_COUNTRY_CODE
+ *   LEGAL_EMAIL / LEGAL_SUPPORT_EMAIL / LEGAL_DOMAINS
+ *   LEGAL_GOVERNING_LAW / LEGAL_CURRENCY / LEGAL_VAT_REGISTERED
+ *   LEGAL_VAT_NUMBER / LEGAL_TAX_REFERENCE_NUMBER
+ *
  * Public (may reach the browser bundle):
- *   NEXT_PUBLIC_LEGAL_BUSINESS_ADDRESS        registered/business address
- *   NEXT_PUBLIC_LEGAL_BUSINESS_NAME_NUMBER    CRO business name number
- *   NEXT_PUBLIC_LEGAL_JUR                     EU | IE | UA (default IE)
+ *   NEXT_PUBLIC_LEGAL_BUSINESS_ADDRESS
+ *   NEXT_PUBLIC_LEGAL_BUSINESS_NAME_NUMBER
+ *   NEXT_PUBLIC_LEGAL_JUR
  *
- * Server only (must NOT be prefixed with NEXT_PUBLIC_):
- *   LEGAL_VAT_NUMBER                          VAT registration number
- *   LEGAL_TAX_REFERENCE_NUMBER                Irish Tax Reference Number
- *   LEGAL_VAT_REGISTERED                      "true" when VAT-registered
- *   LEGAL_ESIGN_PROVIDER                      manual | clickwrap | external_esign
- *
- * Legacy (still honoured, used by the external legal-doc API templates):
- *   NEXT_PUBLIC_LEGAL_COMPANY_LEGAL_NAME / _TRADING_NAME / _COUNTRY / _ADDRESS
- *   NEXT_PUBLIC_LEGAL_PRIVACY_EMAIL / NEXT_PUBLIC_LEGAL_WEBSITE
- *   NEXT_PUBLIC_LEGAL_SERVICE_NAME
+ * Legacy (still honoured):
+ *   NEXT_PUBLIC_LEGAL_COMPANY_* / NEXT_PUBLIC_LEGAL_PRIVACY_EMAIL / …
  */
 
 import { getBrandName } from "@config/brand";
@@ -48,13 +46,31 @@ function firstEnv(...names) {
   return "";
 }
 
+/**
+ * Reject placeholder / instruction text so it never appears in contracts.
+ * e.g. "your full Irish business address"
+ */
+export function isUnsetLegalValue(value) {
+  const v = String(value || "").trim();
+  if (!v) return true;
+  const lower = v.toLowerCase();
+  if (lower.startsWith("your ")) return true;
+  if (/^(tbd|todo|xxx|n\/?a|placeholder)\b/i.test(lower)) return true;
+  if (/\[insert|<.*>/i.test(v)) return true;
+  return false;
+}
+
+function envOrEmpty(name) {
+  const value = trimEnv(name);
+  return isUnsetLegalValue(value) ? "" : value;
+}
+
 /** Platform / tenant scope used for every Rovaro-owned legal document. */
 export const LEGAL_PLATFORM_SCOPE = "rovaro";
 
 /**
- * Immutable identity facts. These are confirmed by the owner and are safe to
- * hardcode. Anything that would require an official register lookup lives in
- * configuration instead.
+ * Confirmed identity defaults. Env LEGAL_* overlays can refine trading name,
+ * brand, country, email and domains without inventing a different legal person.
  */
 export const LEGAL_ENTITY_IDENTITY = Object.freeze({
   ownerLegalName: "Nataliia Kirejeva",
@@ -134,6 +150,96 @@ function structureLabelFor(language, structure) {
   );
 }
 
+function normalizeBusinessType(raw) {
+  const v = String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (!v) return "";
+  if (v === "sole_trader" || v === "soletrader" || v === "autonomo") {
+    return "sole_trader";
+  }
+  return v;
+}
+
+function parseLegalDomains(raw) {
+  const parts = String(raw || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (!parts.length) return { primaryDomain: "", spanishDomain: "" };
+  const spanishDomain = parts.find((d) => d.endsWith(".es")) || "";
+  const primaryDomain =
+    parts.find((d) => d.endsWith(".autos") || !d.endsWith(".es")) || parts[0];
+  return { primaryDomain, spanishDomain: spanishDomain || primaryDomain };
+}
+
+/**
+ * Overlay from LEGAL_* env used by platform legal data and My business defaults.
+ * Empty / placeholder values are omitted.
+ */
+export function readLegalEnvOverlay() {
+  const tradingName = envOrEmpty("LEGAL_TRADING_NAME");
+  const platformBrand = envOrEmpty("LEGAL_BRAND_NAME");
+  const legalStructure = normalizeBusinessType(envOrEmpty("LEGAL_BUSINESS_TYPE"));
+  const countryOfEstablishment = envOrEmpty("LEGAL_COUNTRY");
+  const countryCode = envOrEmpty("LEGAL_COUNTRY_CODE").toUpperCase();
+  const legalEmail = envOrEmpty("LEGAL_EMAIL");
+  const supportEmail = envOrEmpty("LEGAL_SUPPORT_EMAIL");
+  const governingLaw = envOrEmpty("LEGAL_GOVERNING_LAW");
+  const currency = envOrEmpty("LEGAL_CURRENCY").toUpperCase();
+  const businessAddress = envOrEmpty("LEGAL_BUSINESS_ADDRESS");
+  const domains = parseLegalDomains(envOrEmpty("LEGAL_DOMAINS"));
+  const vatRegisteredRaw = trimEnv("LEGAL_VAT_REGISTERED");
+
+  return {
+    ...(tradingName ? { tradingName } : {}),
+    ...(platformBrand ? { platformBrand } : {}),
+    ...(legalStructure ? { legalStructure } : {}),
+    ...(countryOfEstablishment ? { countryOfEstablishment } : {}),
+    ...(countryCode ? { countryCode } : {}),
+    ...(legalEmail ? { legalEmail } : {}),
+    ...(supportEmail ? { supportEmail } : {}),
+    ...(governingLaw ? { governingLaw } : {}),
+    ...(currency ? { currency } : {}),
+    ...(businessAddress ? { businessAddress } : {}),
+    ...(domains.primaryDomain ? { primaryDomain: domains.primaryDomain } : {}),
+    ...(domains.spanishDomain ? { spanishDomain: domains.spanishDomain } : {}),
+    ...(vatRegisteredRaw
+      ? { vatRegistered: vatRegisteredRaw.toLowerCase() === "true" }
+      : {}),
+  };
+}
+
+/**
+ * Defaults for PlatformSettings.legal.businessProfile from LEGAL_* env.
+ * Used when SUPERADMIN has not saved a DB override yet.
+ */
+export function getEnvBusinessProfileDefaults() {
+  const overlay = readLegalEnvOverlay();
+  return {
+    businessAddress: overlay.businessAddress || "",
+    country: overlay.countryOfEstablishment || "",
+    businessNameNumber: firstEnv("NEXT_PUBLIC_LEGAL_BUSINESS_NAME_NUMBER"),
+    taxRegistrationNumber: envOrEmpty("LEGAL_TAX_REFERENCE_NUMBER"),
+    vatNumber: envOrEmpty("LEGAL_VAT_NUMBER"),
+    vatRegistered: Boolean(overlay.vatRegistered),
+    businessEmail: overlay.legalEmail || "",
+    supportEmail: overlay.supportEmail || "",
+    telephone: "",
+    website: firstEnv(
+      "NEXT_PUBLIC_LEGAL_WEBSITE",
+      "NEXT_PUBLIC_SITE_URL"
+    ),
+    governingJurisdiction:
+      overlay.countryCode ||
+      (overlay.governingLaw === "Ireland" ? "IE" : "") ||
+      "",
+    stripeStatementName: overlay.platformBrand || "",
+    proprietorName: LEGAL_ENTITY_IDENTITY.ownerLegalName,
+  };
+}
+
 /**
  * Configurable legal values. Empty string means "not confirmed yet" — callers
  * must omit the value rather than substitute anything.
@@ -141,12 +247,34 @@ function structureLabelFor(language, structure) {
  * @returns {{ businessAddress: string, businessNameNumber: string }}
  */
 function readPublicConfigurable() {
+  const fromNextPublic = firstEnv(
+    "NEXT_PUBLIC_LEGAL_BUSINESS_ADDRESS",
+    "NEXT_PUBLIC_LEGAL_COMPANY_ADDRESS"
+  );
+  const fromLegal = envOrEmpty("LEGAL_BUSINESS_ADDRESS");
   return {
-    businessAddress: firstEnv(
-      "NEXT_PUBLIC_LEGAL_BUSINESS_ADDRESS",
-      "NEXT_PUBLIC_LEGAL_COMPANY_ADDRESS"
-    ),
+    businessAddress: isUnsetLegalValue(fromNextPublic)
+      ? fromLegal
+      : fromNextPublic,
     businessNameNumber: firstEnv("NEXT_PUBLIC_LEGAL_BUSINESS_NAME_NUMBER"),
+  };
+}
+
+function resolvedIdentity() {
+  const overlay = readLegalEnvOverlay();
+  return {
+    ...LEGAL_ENTITY_IDENTITY,
+    ...(overlay.tradingName ? { tradingName: overlay.tradingName } : {}),
+    ...(overlay.platformBrand ? { platformBrand: overlay.platformBrand } : {}),
+    ...(overlay.legalStructure
+      ? { legalStructure: overlay.legalStructure }
+      : {}),
+    ...(overlay.countryOfEstablishment
+      ? { countryOfEstablishment: overlay.countryOfEstablishment }
+      : {}),
+    ...(overlay.legalEmail ? { legalEmail: overlay.legalEmail } : {}),
+    ...(overlay.primaryDomain ? { primaryDomain: overlay.primaryDomain } : {}),
+    ...(overlay.spanishDomain ? { spanishDomain: overlay.spanishDomain } : {}),
   };
 }
 
@@ -156,14 +284,17 @@ function readPublicConfigurable() {
  * published by a trading sole trader.
  */
 export function getPublicLegalEntity(language = "en") {
+  const identity = resolvedIdentity();
   const configurable = readPublicConfigurable();
+  const overlay = readLegalEnvOverlay();
   return Object.freeze({
-    ...LEGAL_ENTITY_IDENTITY,
+    ...identity,
     ...configurable,
-    legalStructureLabel: structureLabelFor(
-      language,
-      LEGAL_ENTITY_IDENTITY.legalStructure
-    ),
+    supportEmail: overlay.supportEmail || "",
+    governingLaw: overlay.governingLaw || identity.countryOfEstablishment,
+    currency: overlay.currency || "EUR",
+    countryCode: overlay.countryCode || getLegalJurisdiction(),
+    legalStructureLabel: structureLabelFor(language, identity.legalStructure),
   });
 }
 
@@ -174,11 +305,16 @@ export function getPublicLegalEntity(language = "en") {
  * Only call from route handlers / server components.
  */
 export function getServerLegalEntity(language = "en") {
+  const overlay = readLegalEnvOverlay();
   return Object.freeze({
     ...getPublicLegalEntity(language),
-    vatNumber: trimEnv("LEGAL_VAT_NUMBER"),
-    taxReferenceNumber: trimEnv("LEGAL_TAX_REFERENCE_NUMBER"),
-    vatRegistered: trimEnv("LEGAL_VAT_REGISTERED").toLowerCase() === "true",
+    vatNumber: envOrEmpty("LEGAL_VAT_NUMBER"),
+    taxReferenceNumber: envOrEmpty("LEGAL_TAX_REFERENCE_NUMBER"),
+    vatRegistered:
+      overlay.vatRegistered != null
+        ? Boolean(overlay.vatRegistered)
+        : trimEnv("LEGAL_VAT_REGISTERED").toLowerCase() === "true",
+    supportEmail: overlay.supportEmail || "",
   });
 }
 
@@ -252,7 +388,7 @@ export const LEGAL_CONFIG_FIELDS = Object.freeze([
   {
     key: "businessAddress",
     label: "Business address",
-    env: "NEXT_PUBLIC_LEGAL_BUSINESS_ADDRESS",
+    env: "LEGAL_BUSINESS_ADDRESS / NEXT_PUBLIC_LEGAL_BUSINESS_ADDRESS",
     severity: "required",
     public: true,
     note: "Required on invoices and consumer-facing legal pages in the EU.",
@@ -353,7 +489,10 @@ export function getLegalConfigWarning() {
 export function getLegalTemplateContext() {
   const entity = getPublicLegalEntity();
   const tradingName =
-    trimEnv("NEXT_PUBLIC_LEGAL_COMPANY_TRADING_NAME") || getBrandName();
+    firstEnv(
+      "LEGAL_TRADING_NAME",
+      "NEXT_PUBLIC_LEGAL_COMPANY_TRADING_NAME"
+    ) || getBrandName();
   const website =
     trimEnv("NEXT_PUBLIC_LEGAL_WEBSITE") ||
     trimEnv("NEXT_PUBLIC_SITE_URL") ||
@@ -362,24 +501,34 @@ export function getLegalTemplateContext() {
   return {
     company: {
       legalName:
-        trimEnv("NEXT_PUBLIC_LEGAL_COMPANY_LEGAL_NAME") || tradingName,
+        firstEnv("NEXT_PUBLIC_LEGAL_COMPANY_LEGAL_NAME") ||
+        entity.ownerLegalName ||
+        tradingName,
       tradingName,
-      country: trimEnv("NEXT_PUBLIC_LEGAL_COMPANY_COUNTRY") || "Ireland",
+      country:
+        firstEnv("LEGAL_COUNTRY", "NEXT_PUBLIC_LEGAL_COMPANY_COUNTRY") ||
+        "Ireland",
       address: entity.businessAddress,
       privacyEmail:
-        trimEnv("NEXT_PUBLIC_LEGAL_PRIVACY_EMAIL") ||
-        trimEnv("NEXT_PUBLIC_LEGAL_COMPANY_EMAIL") ||
-        "",
+        firstEnv(
+          "LEGAL_EMAIL",
+          "NEXT_PUBLIC_LEGAL_PRIVACY_EMAIL",
+          "NEXT_PUBLIC_LEGAL_COMPANY_EMAIL"
+        ) || "",
       website,
     },
     service: {
-      name: trimEnv("NEXT_PUBLIC_LEGAL_SERVICE_NAME") || tradingName,
+      name:
+        firstEnv("LEGAL_BRAND_NAME", "NEXT_PUBLIC_LEGAL_SERVICE_NAME") ||
+        tradingName,
     },
   };
 }
 
 /** Default jurisdiction for legal docs (Ireland operator). */
 export function getLegalJurisdiction() {
+  const fromCode = envOrEmpty("LEGAL_COUNTRY_CODE").toUpperCase();
+  if (fromCode === "EU" || fromCode === "IE" || fromCode === "UA") return fromCode;
   const raw = trimEnv("NEXT_PUBLIC_LEGAL_JUR").toUpperCase();
   if (raw === "EU" || raw === "IE" || raw === "UA") return raw;
   return "IE";

@@ -155,7 +155,12 @@ describe("buildAlternativeOfferUrl", () => {
 describe("buildAlternativeOfferView", () => {
   it("returns null for an unknown offer", async () => {
     AlternativeVehicleOffer.findOne.mockReturnValue(offerQuery(null));
-    expect(await buildAlternativeOfferView("ALT-NOPE", NOW)).toBeNull();
+    expect(await buildAlternativeOfferView("ALT-ABCDEF0123456789", NOW)).toBeNull();
+  });
+
+  it("returns null for a malformed id without querying", async () => {
+    expect(await buildAlternativeOfferView("ALT-1", NOW)).toBeNull();
+    expect(AlternativeVehicleOffer.findOne).not.toHaveBeenCalled();
   });
 
   it("returns null for an empty id without querying", async () => {

@@ -25,6 +25,23 @@ function formatUtc(value) {
   return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
 }
 
+/** Empty or non-JSON bodies (Next compile 500, timeouts) must not throw. */
+async function readJsonBody(res) {
+  const text = await res.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
+function failureMessage(json, fallback) {
+  if (typeof json?.message === "string" && json.message.trim()) return json.message;
+  if (typeof json?.error === "string" && json.error.trim()) return json.error;
+  return fallback;
+}
+
 /**
  * Supporting evidence.
  *
@@ -37,6 +54,7 @@ export default function PartnerDocumentsCard({
   documents,
   editable,
   onChanged,
+  companyId,
 }) {
   const { t } = useTranslation();
   const inputRefs = useRef({});
@@ -44,7 +62,9 @@ export default function PartnerDocumentsCard({
   const [error, setError] = useState("");
 
   const byKind = new Map(
-    (documents || []).filter((doc) => doc?.storageRef).map((doc) => [doc.kind, doc])
+    (documents || [])
+      .filter((doc) => doc?.kind && (doc.storageRef || doc.uploadedAt || doc.label))
+      .map((doc) => [doc.kind, doc])
   );
 
   async function upload(kind, file) {
@@ -60,8 +80,12 @@ export default function PartnerDocumentsCard({
         method: "POST",
         body,
       });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message || t("partnerLegal.documents.uploadFailed"));
+      const json = await readJsonBody(res);
+      if (!res.ok || !json.success) {
+        throw new Error(
+          failureMessage(json, t("partnerLegal.documents.uploadFailed"))
+        );
+      }
       await onChanged?.();
     } catch (err) {
       setError(err.message);
@@ -78,8 +102,12 @@ export default function PartnerDocumentsCard({
         `/api/partner/legal/documents?kind=${encodeURIComponent(kind)}`,
         { method: "DELETE" }
       );
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message || t("partnerLegal.documents.removeFailed"));
+      const json = await readJsonBody(res);
+      if (!res.ok || !json.success) {
+        throw new Error(
+          failureMessage(json, t("partnerLegal.documents.removeFailed"))
+        );
+      }
       await onChanged?.();
     } catch (err) {
       setError(err.message);
@@ -92,11 +120,18 @@ export default function PartnerDocumentsCard({
     setBusyKind(kind);
     setError("");
     try {
-      const res = await fetch("/api/partner/legal/documents", {
+      const qs = companyId
+        ? `?companyId=${encodeURIComponent(companyId)}`
+        : "";
+      const res = await fetch(`/api/partner/legal/documents${qs}`, {
         cache: "no-store",
       });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message || t("partnerLegal.documents.viewFailed"));
+      const json = await readJsonBody(res);
+      if (!res.ok || !json.success) {
+        throw new Error(
+          failureMessage(json, t("partnerLegal.documents.viewFailed"))
+        );
+      }
       const match = (json.documents || []).find((doc) => doc.kind === kind);
       if (!match?.url) throw new Error(t("partnerLegal.documents.viewFailed"));
       window.open(match.url, "_blank", "noopener,noreferrer");

@@ -1,4 +1,5 @@
 import {
+  ADMIN_PATHS,
   getAdminNavItems,
   getCompanyHubTabIds,
   isAdminCalendarSection,
@@ -26,6 +27,9 @@ describe("adminNav IA", () => {
     expect(isAdminCompanySection("/admin/delivery-zones")).toBe(true);
     expect(isAdminCompanySection("/admin/vouchers")).toBe(true);
     expect(isAdminLegalSection("/admin/legal-profile?tab=agreement")).toBe(true);
+    expect(isAdminLegalSection("/admin/legal")).toBe(true);
+    expect(isAdminLegalSection("/admin/legal/")).toBe(true);
+    expect(isAdminLegalSection("/admin/owners")).toBe(false);
   });
 
   it("puts Vouchers last in Company hub tabs", () => {
@@ -99,5 +103,44 @@ describe("adminNav IA", () => {
       "company",
       "legal",
     ]);
+    expect(items.find((item) => item.id === "legal").href).toBe(
+      ADMIN_PATHS.legal
+    );
+  });
+
+  it("superadmin nav: Partners, Partner reviews, Platform settings, Emails", () => {
+    const t = (key, opts) => opts?.defaultValue || key;
+    const items = getAdminNavItems({
+      t,
+      showSuperAdminChrome: true,
+      showCompanyNav: true,
+      showLegalNav: true,
+      legalHref: ADMIN_PATHS.legalHub,
+      legalPendingCount: 3,
+    });
+    expect(items.map((item) => item.id)).toEqual([
+      "calendar",
+      "cars",
+      "orders",
+      "owners",
+      "legal",
+      "company",
+      "emails",
+      "visits",
+    ]);
+    expect(items.find((item) => item.id === "owners").label).toBe("Partners");
+    expect(items.find((item) => item.id === "legal").label).toBe(
+      "Partner reviews"
+    );
+    expect(items.find((item) => item.id === "legal").href).toBe(
+      ADMIN_PATHS.legalHub
+    );
+    expect(items.find((item) => item.id === "legal").badge).toBe(3);
+    expect(items.find((item) => item.id === "company").label).toBe(
+      "Platform settings"
+    );
+    expect(items.find((item) => item.id === "company").href).toBe(
+      ADMIN_PATHS.company
+    );
   });
 });

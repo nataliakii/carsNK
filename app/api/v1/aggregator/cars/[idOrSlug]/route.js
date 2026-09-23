@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { Car } from "@models/car";
+import Company from "@models/company";
 import { connectToDB } from "@lib/database";
 import {
   AGGREGATOR_CAR_SELECT,
   isAggregatorRequestAuthorized,
   mapCarToAggregatorDto,
 } from "@/domain/aggregator/mapCarToAggregatorDto";
+import { isPublicMarketplaceCarAllowed } from "@/domain/legal/partnerOperatingPolicy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,6 +107,20 @@ export async function GET(request, { params }) {
         404,
         request
       );
+    }
+
+    if (doc.ownerId) {
+      const company = await Company.findById(doc.ownerId)
+        .select("_id listedOnMarketplace country bookingMode")
+        .lean();
+      const allowed = await isPublicMarketplaceCarAllowed({ car: doc, company });
+      if (!allowed) {
+        return json(
+          { success: false, error: "Not found", message: "Car not found" },
+          404,
+          request
+        );
+      }
     }
 
     return json(

@@ -30,6 +30,9 @@ import { getBrandName } from "@config/brand";
  *   flightNumber?: string,
  *   showExcludeCityDelivery?: boolean,
  *   headingTitle?: string,
+ *   paymentUrl?: string,
+ *   showPaymentCta?: boolean,
+ *   showPaymentMissing?: boolean,
  * }} data
  * @returns {string} Full HTML document
  */
@@ -55,6 +58,9 @@ export function renderCustomerOrderConfirmation(data) {
     flightNumber = "",
     showExcludeCityDelivery = false,
     headingTitle,
+    paymentUrl = "",
+    showPaymentCta = false,
+    showPaymentMissing = false,
   } = data;
   const s = EMAIL_STYLE;
   const p = (style, content) =>
@@ -137,11 +143,27 @@ export function renderCustomerOrderConfirmation(data) {
                 <div style="font-size:12px;color:${s.muted};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-family:${s.fontSans};">${escapeHtml(t.totalAmountLabel || "Total amount")}</div>
                 <div style="font-size:28px;font-weight:700;color:${s.accent};font-family:${s.fontSans};">€${escapeHtml(total)}</div>
                 ${
+                  t.totalIncludesInsuranceNote
+                    ? `<div style="margin:14px 0 0 0;font-size:13px;line-height:1.45;color:${s.muted};font-family:${s.fontSans};">${escapeHtml(t.totalIncludesInsuranceNote)}</div>`
+                    : ""
+                }
+                ${
                   showExcludeCityDelivery && t.excludeCityDeliveryNote
                     ? `<div style="margin:14px 0 0 0;font-size:13px;line-height:1.45;color:${s.muted};font-family:${s.fontSans};">${escapeHtml(t.excludeCityDeliveryNote)}</div>`
                     : ""
                 }
               </div>
+              ${
+                showPaymentCta && paymentUrl
+                  ? `<div style="margin:24px 0 0 0;text-align:center;">
+                <a href="${escapeHtml(paymentUrl)}" style="display:inline-block;padding:14px 28px;background-color:${s.headerTeal};color:#ffffff;text-decoration:none;font-weight:700;border-radius:8px;font-size:16px;font-family:${s.fontSans};">${escapeHtml(t.paymentCta || "Pay now")}</a>
+              </div>`
+                  : showPaymentMissing
+                    ? `<div style="margin:24px 0 0 0;padding:16px 18px;background-color:#FFF8E7;border:1px solid #F0D9A8;border-left:4px solid #D4A017;">
+                <p style="margin:0;color:${s.text};line-height:1.55;font-size:14px;font-family:${s.fontSans};">${escapeHtml(t.paymentLinkNotConfigured || "Payment link is not configured.")}</p>
+              </div>`
+                    : ""
+              }
               <div style="margin:32px 0 0 0;">
                 <div style="font-size:16px;font-weight:600;color:${s.accent};margin-bottom:16px;font-family:${s.fontSans};">${escapeHtml(whatHappensNextHeading)}</div>
                 ${p("margin-bottom:8px;", escapeHtml(t.step1 || ""))}

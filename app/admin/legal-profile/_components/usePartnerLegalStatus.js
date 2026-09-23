@@ -44,6 +44,8 @@ export default function usePartnerLegalStatus() {
     loading,
     payload,
     gate: payload?.gate || null,
+    listedOnMarketplace: payload?.listedOnMarketplace !== false,
+    canListPublicly: Boolean(payload?.canListPublicly),
     reload,
   };
 }

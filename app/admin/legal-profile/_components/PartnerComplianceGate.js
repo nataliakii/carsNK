@@ -19,12 +19,25 @@ const STEP_HREF = {
  * it and links to the screen that clears each blocker — it never decides on
  * its own whether the gate is open.
  */
-export default function PartnerComplianceGate({ gate, hideWhenOpen = false }) {
+export default function PartnerComplianceGate({
+  gate,
+  hideWhenOpen = false,
+  omitSteps = [],
+  listedOnMarketplace = true,
+}) {
   const { t } = useTranslation();
 
   if (!gate) return null;
 
   if (gate.canOperate) {
+    if (listedOnMarketplace === false) {
+      return (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <AlertTitle>{t("partnerLegal.gate.blockedTitle")}</AlertTitle>
+          {t("partnerLegal.gate.listingPending")}
+        </Alert>
+      );
+    }
     if (hideWhenOpen) return null;
     return (
       <Alert severity="success" sx={{ mb: 2 }}>
@@ -34,6 +47,11 @@ export default function PartnerComplianceGate({ gate, hideWhenOpen = false }) {
     );
   }
 
+  const blockers = (gate.blockers || []).filter(
+    (blocker) => !omitSteps.includes(blocker.step)
+  );
+  if (!blockers.length) return null;
+
   return (
     <Alert severity="warning" sx={{ mb: 2 }}>
       <AlertTitle>{t("partnerLegal.gate.blockedTitle")}</AlertTitle>
@@ -41,7 +59,7 @@ export default function PartnerComplianceGate({ gate, hideWhenOpen = false }) {
         {t("partnerLegal.gate.blockedBody")}
       </Typography>
       <Stack spacing={1}>
-        {gate.blockers.map((blocker) => {
+        {blockers.map((blocker) => {
           const href = STEP_HREF[blocker.step];
           return (
             <Stack

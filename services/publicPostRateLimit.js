@@ -111,11 +111,29 @@ export function retentionJobRateLimitOptions() {
   };
 }
 
+export function supportMessageRateLimitOptions() {
+  return {
+    tableName: publicRateLimit.SUPPORT_MESSAGE_RATE_LIMIT_COLLECTION,
+    keyPrefix: "support_message",
+    points: publicRateLimit.SUPPORT_MESSAGE_RATE_LIMIT_MAX,
+    duration: publicRateLimit.SUPPORT_MESSAGE_RATE_LIMIT_WINDOW_SEC,
+  };
+}
+
 export function sendEmailRateLimitOptions() {
   return {
     tableName: publicRateLimit.SEND_EMAIL_RATE_LIMIT_COLLECTION,
     keyPrefix: "send_email",
     points: publicRateLimit.SEND_EMAIL_RATE_LIMIT_MAX,
     duration: publicRateLimit.SEND_EMAIL_RATE_LIMIT_WINDOW_SEC,
+  };
+}
+
+export function placesAutocompleteRateLimitOptions() {
+  return {
+    tableName: publicRateLimit.PLACES_AUTOCOMPLETE_RATE_LIMIT_COLLECTION,
+    keyPrefix: "places_autocomplete",
+    points: publicRateLimit.PLACES_AUTOCOMPLETE_RATE_LIMIT_MAX,
+    duration: publicRateLimit.PLACES_AUTOCOMPLETE_RATE_LIMIT_WINDOW_SEC,
   };
 }

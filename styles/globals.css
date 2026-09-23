@@ -100,24 +100,24 @@ html[data-brand="carsnk"] {
 }
 
 html[data-brand="rovaro"] {
-  --color-primary: #E30052;
+  --color-primary: #E9004F;
   --color-primary-light: #FF4D7A;
   --color-primary-dark: #B80042;
   --color-secondary: #0A0A0A;
   --color-secondary-light: #2A2A2A;
   --color-secondary-dark: #000000;
-  --color-rose: #E30052;
+  --color-rose: #E9004F;
   --color-rose-light: #FF4D7A;
   --color-amber: #FFC857;
   --color-amber-light: #FFD98A;
   --font-brand: 'Nunito', system-ui, sans-serif;
-  --color-info: #E30052;
-  --color-order-confirmed: #E30052;
-  --color-calendar-selected: #E30052;
-  --color-btn-book: #E30052;
+  --color-info: #E9004F;
+  --color-order-confirmed: #E9004F;
+  --color-calendar-selected: #E9004F;
+  --color-btn-book: #E9004F;
   --color-btn-book-light: #FF4D7A;
   --color-btn-book-dark: #B80042;
-  --color-btn-submit: #E30052;
+  --color-btn-submit: #E9004F;
   --color-btn-submit-light: #FF4D7A;
   --color-btn-submit-dark: #B80042;
   --color-gray-900: #0A0A0A;

@@ -19,7 +19,7 @@ dayjs.extend(timezone);
 const ATHENS_TZ = "Europe/Athens";
 // Align with admin table + calendar: same fields as getAllOrders → applyVisibilityToOrders
 const ORDER_SELECT =
-  "rentalStartDate rentalEndDate timeIn timeOut car carNumber regNumber confirmed status customerName phone email secondDriver Viber Whatsapp Telegram numberOfDays totalPrice OverridePrice pricingDrift carModel date my_order offline placeIn placeOut placeInDetail placeOutDetail flightNumber ChildSeats insurance franchiseOrder orderNumber clientLang clientIP clientCountry clientRegion clientCity IsConfirmedEmailSent hasConflictDates createdByRole createdByAdminId ownerId";
+  "rentalStartDate rentalEndDate timeIn timeOut car carNumber regNumber confirmed status customerName phone email secondDriver Viber Whatsapp Telegram numberOfDays totalPrice OverridePrice pricingDrift carModel date my_order offline placeIn placeOut placeInDetail placeOutDetail flightNumber ChildSeats insurance franchiseOrder orderNumber clientLang clientIP clientCountry clientRegion clientCity IsConfirmedEmailSent hasConflictDates createdByRole createdByAdminId ownerId bookingMode authoritativePrice locationSnapshot";
 
 function getTodayAthensStartUTC() {
   const nowAthens = dayjs().tz(ATHENS_TZ);

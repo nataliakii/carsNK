@@ -23,7 +23,8 @@ import usePartnerLegalStatus from "@/app/admin/legal-profile/_components/usePart
  */
 export default function PartnerComplianceCard() {
   const { t } = useTranslation();
-  const { loading, payload, gate } = usePartnerLegalStatus();
+  const { loading, payload, gate, listedOnMarketplace, canListPublicly } =
+    usePartnerLegalStatus();
 
   if (loading) {
     return (
@@ -53,16 +54,20 @@ export default function PartnerComplianceCard() {
         </Box>
         <Chip
           size="small"
-          color={gate.canOperate ? "success" : "warning"}
+          color={canListPublicly ? "success" : "warning"}
           label={
-            gate.canOperate
+            canListPublicly
               ? t("partnerLegal.card.open")
               : t("partnerLegal.card.blocked")
           }
         />
       </Stack>
 
-      <PartnerComplianceGate gate={gate} hideWhenOpen />
+      <PartnerComplianceGate
+        gate={gate}
+        hideWhenOpen
+        listedOnMarketplace={listedOnMarketplace}
+      />
 
       <Stack direction="row" spacing={1} flexWrap="wrap">
         <Button

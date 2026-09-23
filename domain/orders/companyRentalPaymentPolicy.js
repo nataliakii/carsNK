@@ -4,7 +4,15 @@
  * - stripeEnabled=false → company collects on site / by fact
  * - stripeEnabled=true → charge prepayment online via Stripe
  * - timing: before_confirm | after_confirm
+ *
+ * Spain MARKETPLACE_REQUEST bookings do NOT collect the Rovaro Booking Fee at
+ * create. Stripe Checkout is created only after the car owner confirms
+ * availability. Greece / ops-calendar company flags (stripeEnabled,
+ * before_confirm / after_confirm) stay in force for non-marketplace orders.
  */
+
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { marketplaceFinancialSplit } from "@/domain/orders/marketplaceFinancialSplit";
 
 export const RENTAL_PAYMENT_TIMING = Object.freeze({
   BEFORE_CONFIRM: "before_confirm",
@@ -14,6 +22,14 @@ export const RENTAL_PAYMENT_TIMING = Object.freeze({
 export const RENTAL_COLLECTION_MODES = Object.freeze({
   STRIPE_PREPAYMENT: "stripe_prepayment",
   ON_SITE: "on_site",
+});
+
+export const PAYMENT_LINK_STATUS = Object.freeze({
+  READY: "ready",
+  NOT_REQUIRED: "not_required",
+  NOT_CONFIGURED: "not_configured",
+  AMOUNT_TOO_LOW: "amount_too_low",
+  FAILED: "failed",
 });
 
 /**
@@ -37,15 +53,38 @@ export function getCompanyRentalPaymentFlags(company) {
 
 /**
  * @param {object|null|undefined} company
- * @param {{ stripeConfigured?: boolean }} [opts]
+ * @param {{ stripeConfigured?: boolean, bookingMode?: string }} [opts]
  */
 export function resolveCompanyRentalPaymentPolicy(
   company,
-  { stripeConfigured = true } = {}
+  { stripeConfigured = true, bookingMode } = {}
 ) {
   const flags = getCompanyRentalPaymentFlags(company);
+  const marketplace = isMarketplaceRequestMode(bookingMode);
 
-  if (!stripeConfigured || !flags.stripeEnabled) {
+  if (!stripeConfigured) {
+    return {
+      mode: RENTAL_COLLECTION_MODES.ON_SITE,
+      stripeEnabled: false,
+      useStripe: false,
+      timing: marketplace
+        ? RENTAL_PAYMENT_TIMING.BEFORE_CONFIRM
+        : flags.timing,
+      collectOnSite: true,
+    };
+  }
+
+  if (marketplace) {
+    return {
+      mode: RENTAL_COLLECTION_MODES.STRIPE_PREPAYMENT,
+      stripeEnabled: true,
+      useStripe: true,
+      timing: RENTAL_PAYMENT_TIMING.AFTER_CONFIRM,
+      collectOnSite: false,
+    };
+  }
+
+  if (!flags.stripeEnabled) {
     return {
       mode: RENTAL_COLLECTION_MODES.ON_SITE,
       stripeEnabled: false,
@@ -71,6 +110,25 @@ export function resolveCompanyRentalPaymentPolicy(
  */
 export function resolveRentalCheckoutAmount(order) {
   const auth = order?.authoritativePrice || {};
+  if (isMarketplaceRequestMode(order?.bookingMode)) {
+    const split = marketplaceFinancialSplit({
+      ...auth,
+      currency: auth.currency || order?.currency || "EUR",
+    });
+    return {
+      amountMinor: split.stripeAmountMinor,
+      currency: split.currency,
+      balanceMinor: split.supplierBalanceMinor,
+      grossMinor: split.grossMinor,
+      platformAmountMinor: split.platformAmountMinor,
+      stripeAmountMinor: split.stripeAmountMinor,
+      supplierBalanceMinor: split.supplierBalanceMinor,
+      payoutMinor: split.payoutMinor,
+      marketplaceBookingFeeBps: split.marketplaceBookingFeeBps,
+      feePercent: split.feePercent,
+    };
+  }
+
   const currency = String(
     auth.currency || order?.currency || "EUR"
   )
@@ -82,7 +140,7 @@ export function resolveRentalCheckoutAmount(order) {
   let balanceMinor = Math.round(Number(auth.balanceMinor) || 0);
 
   if (prepaymentMinor <= 0 && grossMinor > 0) {
-    // No configured prepayment % → nothing to charge online
+    // Greece / ops: no configured prepayment % → nothing to charge online
     balanceMinor = grossMinor;
   }
 
@@ -96,19 +154,31 @@ export function resolveRentalCheckoutAmount(order) {
 
 /**
  * Should we create a Checkout link right after order create?
+ * Public client bookings (including a superadmin testing the storefront)
+ * still get a pay link. Internal/offline admin orders do not.
  */
-export function shouldChargeRentalOnCreate(policy, { isAdminSession = false, offline = false } = {}) {
-  if (!policy?.useStripe) return false;
+export function shouldChargeRentalOnCreate(
+  policy,
+  {
+    isAdminSession = false,
+    offline = false,
+    isClientOrder = false,
+    bookingMode,
+  } = {}
+) {
   if (offline) return false;
-  if (isAdminSession) return false;
+  if (isAdminSession && !isClientOrder) return false;
+  if (!policy?.useStripe) return false;
+  if (isMarketplaceRequestMode(bookingMode)) return false;
   return policy.timing === RENTAL_PAYMENT_TIMING.BEFORE_CONFIRM;
 }
 
 /**
  * Should we create a Checkout link right after admin confirm?
  */
-export function shouldChargeRentalOnConfirm(policy) {
+export function shouldChargeRentalOnConfirm(policy, { bookingMode } = {}) {
   if (!policy?.useStripe) return false;
+  if (isMarketplaceRequestMode(bookingMode)) return false;
   return policy.timing === RENTAL_PAYMENT_TIMING.AFTER_CONFIRM;
 }
 

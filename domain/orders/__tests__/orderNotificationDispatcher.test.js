@@ -5,6 +5,12 @@ import AuditLog from "@models/auditLog";
 
 jest.mock("@/lib/email/sendDirect", () => ({ sendEmailDirect: jest.fn() }));
 jest.mock("@/lib/telegram/sendDirect", () => ({ sendTelegramDirect: jest.fn() }));
+jest.mock("@/domain/booking/partnerBookingConfirmation", () => ({
+  issueConfirmationToken: jest.fn().mockResolvedValue({
+    ok: true,
+    token: "test-partner-confirm-token",
+  }),
+}));
 jest.mock("@models/auditLog", () => ({
   __esModule: true,
   default: { create: jest.fn().mockResolvedValue({}) },
@@ -83,6 +89,11 @@ describe("orderNotificationDispatcher", () => {
     expect(firstEmailCall.message).toContain("AA-1234");
     expect(firstEmailCall.message).toContain("📍 Pickup: Thessaloniki Airport (SKG)");
     expect(firstEmailCall.message).toContain("↩️ Return: Nea Kallikratia");
+    expect(firstEmailCall.html).toContain("/api/booking/partner-confirm?token=");
+    expect(firstEmailCall.html).toContain("test-partner-confirm-token");
+    expect(firstEmailCall.html).toContain("Contact Rovaro support");
+    expect(firstEmailCall.html).not.toContain("View calendar");
+    expect(firstEmailCall.html).not.toMatch(/superadmin/i);
     expect(sendTelegramDirect.mock.calls[0][0]).toContain("AA-1234");
     expect(sendTelegramDirect.mock.calls[0][0]).toContain(
       "📍 Pickup: Thessaloniki Airport (SKG)"
@@ -317,5 +328,30 @@ describe("orderNotificationDispatcher", () => {
       })
     ).resolves.toBeUndefined();
     expect(sendEmailDirect).toHaveBeenCalled();
+  });
+
+  test("CONFIRM by company admin emails superadmin", async () => {
+    await notifyOrderAction({
+      order: {
+        ...baseOrder,
+        my_order: false,
+        confirmed: true,
+        rentalStartDate: "2099-01-14T22:00:00.000Z",
+        rentalEndDate: "2099-01-16T22:00:00.000Z",
+        timeIn: "2099-01-15T12:00:00.000Z",
+        timeOut: "2099-01-17T08:00:00.000Z",
+      },
+      user: baseUser,
+      action: "CONFIRM",
+      actorName: "Company Admin",
+      source: "BACKEND",
+      notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
+    });
+
+    const titles = sendEmailDirect.mock.calls.map((call) => call[0].title);
+    expect(titles.some((title) => /company admin confirmed/i.test(title))).toBe(
+      true
+    );
+    expect(sendTelegramDirect).toHaveBeenCalled();
   });
 });

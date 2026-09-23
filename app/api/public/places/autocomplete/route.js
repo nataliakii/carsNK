@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { fetchPlaceAutocomplete, normalizePlaceAutocompleteTypes } from "@/domain/geo/googlePlaces";
+import {
+  consumePublicPostOrError,
+  placesAutocompleteRateLimitOptions,
+} from "@/services/publicPostRateLimit";
 
 export const dynamic = "force-dynamic";
 
+const MIN_INPUT_LENGTH = 3;
+
 /**
- * Intentionally not rate-limited via RateLimiterMongo.
- * That limiter requires a live mongoose connection and can hang with no
- * timeout when the client is stale — which left the booking address field
- * spinning on "Loading..." forever. Places deny/errors are fail-fast here;
- * the field falls back to a normal text input.
+ * Public Places autocomplete proxy. Never exposes the Maps key to the browser.
+ * Short queries skip the provider and do not consume rate-limit points.
+ * Rate limiting reuses the same publicPostRateLimit helper as other public POSTs.
  */
 export async function POST(request) {
   let body = {};
@@ -18,9 +22,36 @@ export async function POST(request) {
     body = {};
   }
 
+  const input = String(body.input || "").trim();
+  if (input.length < MIN_INPUT_LENGTH) {
+    return NextResponse.json({
+      success: true,
+      configured: true,
+      unavailable: false,
+      predictions: [],
+      shortQuery: true,
+    });
+  }
+
+  const limited = await consumePublicPostOrError(
+    request,
+    placesAutocompleteRateLimitOptions()
+  );
+  if (limited) {
+    return NextResponse.json(
+      {
+        ...limited.body,
+        configured: true,
+        unavailable: limited.body?.code === "SERVICE_UNAVAILABLE",
+        predictions: [],
+      },
+      { status: limited.status }
+    );
+  }
+
   const typesRaw = body.types;
   const result = await fetchPlaceAutocomplete({
-    input: body.input,
+    input,
     country: body.country,
     language: body.language,
     sessionToken: body.sessionToken,
@@ -30,14 +61,29 @@ export async function POST(request) {
         : normalizePlaceAutocompleteTypes(typesRaw),
   });
 
-  if (!result.configured || result.unavailable) {
+  if (!result.configured) {
     return NextResponse.json(
       {
         success: false,
         configured: false,
         unavailable: true,
+        reason: result.reason || "not_configured",
         predictions: [],
         message: result.message || "Places API not configured",
+      },
+      { status: 200 }
+    );
+  }
+
+  if (result.unavailable || result.ok === false) {
+    return NextResponse.json(
+      {
+        success: false,
+        configured: true,
+        unavailable: true,
+        reason: result.reason || undefined,
+        predictions: [],
+        message: result.message || "Places autocomplete failed",
       },
       { status: 200 }
     );

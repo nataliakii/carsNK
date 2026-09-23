@@ -25,7 +25,7 @@ import {
 import { WEBSITE_VISIT_SESSION_COOKIE } from "@domain/visitors/websiteVisitNotification";
 
 const PUBLIC_FILE_REGEX = /\.[^/]+$/;
-const EXCLUDED_PREFIXES = ["/api", "/admin", "/access", "/_next", "/transfer", "/login"];
+const EXCLUDED_PREFIXES = ["/api", "/admin", "/access", "/_next", "/transfer", "/login", "/dev"];
 const EXCLUDED_PATHS = new Set([
   "/favicon.ico",
   "/favicon.png",

@@ -7,6 +7,8 @@
 
 import { fromServerUTC } from "@/domain/time/athensTime";
 import { getBusinessDaySpanFromStoredDates } from "./numberOfDays";
+import { formatBookingLocationLine } from "./bookingLocationDisplay";
+import { formatLocationLegLine } from "./locationSnapshot";
 
 const SUPPORTED = ["en", "es", "ru", "uk", "el", "de", "bg", "ro", "sr", "pl"];
 
@@ -19,6 +21,7 @@ const DICT = {
     to: "📅 To:",
     pickup: "📍 Pickup:",
     ret: "↩️ Return:",
+    payment: "💳 Payment:",
     insuranceCdwLine: "🛡️ Insurance: CDW",
     days: "🗓 Days:",
     total: "💰 Total:",
@@ -52,6 +55,8 @@ const DICT = {
     intentUnknown: "update",
     reasonNewClient: "New client order created",
     reasonNewClientTesting: "New client order created (EMAIL_TESTING)",
+    reasonAdminConfirmed: "Company admin confirmed an order",
+    reasonAdminUnconfirmed: "Company admin unconfirmed an order",
     reasonCritical: "CRITICAL: {{intent}} on confirmed client order",
     reasonInfo: "INFO: {{intent}} on confirmed client order",
     reasonAuditClient: "AUDIT: Client order deleted",
@@ -104,6 +109,8 @@ const DICT = {
     intentUnknown: "изменение",
     reasonNewClient: "Создан новый клиентский заказ",
     reasonNewClientTesting: "Создан новый клиентский заказ (EMAIL_TESTING)",
+    reasonAdminConfirmed: "Админ компании подтвердил заказ",
+    reasonAdminUnconfirmed: "Админ компании снял подтверждение заказа",
     reasonCritical: "КРИТИЧНО: {{intent}} по подтверждённому клиентскому заказу",
     reasonInfo: "ИНФО: {{intent}} по подтверждённому клиентскому заказу",
     reasonAuditClient: "АУДИТ: удалён клиентский заказ",
@@ -156,6 +163,8 @@ const DICT = {
     intentUnknown: "зміна",
     reasonNewClient: "Створено нове клієнтське замовлення",
     reasonNewClientTesting: "Створено нове клієнтське замовлення (EMAIL_TESTING)",
+    reasonAdminConfirmed: "Адмін компанії підтвердив замовлення",
+    reasonAdminUnconfirmed: "Адмін компанії скасував підтвердження замовлення",
     reasonCritical: "КРИТИЧНО: {{intent}} за підтвердженим клієнтським замовленням",
     reasonInfo: "ІНФО: {{intent}} за підтвердженим клієнтським замовленням",
     reasonAuditClient: "АУДИТ: видалено клієнтське замовлення",
@@ -208,6 +217,8 @@ const DICT = {
     intentUnknown: "Änderung",
     reasonNewClient: "Neue Kundenbestellung erstellt",
     reasonNewClientTesting: "Neue Kundenbestellung erstellt (EMAIL_TESTING)",
+    reasonAdminConfirmed: "Firmen-Admin hat eine Bestellung bestätigt",
+    reasonAdminUnconfirmed: "Firmen-Admin hat die Bestätigung aufgehoben",
     reasonCritical: "KRITISCH: {{intent}} bei bestätigter Kundenbestellung",
     reasonInfo: "INFO: {{intent}} bei bestätigter Kundenbestellung",
     reasonAuditClient: "AUDIT: Kundenbestellung gelöscht",
@@ -260,6 +271,8 @@ const DICT = {
     intentUnknown: "αλλαγή",
     reasonNewClient: "Δημιουργήθηκε νέα παραγγελία πελάτη",
     reasonNewClientTesting: "Δημιουργήθηκε νέα παραγγελία πελάτη (EMAIL_TESTING)",
+    reasonAdminConfirmed: "Ο διαχειριστής της εταιρείας επιβεβαίωσε μια παραγγελία",
+    reasonAdminUnconfirmed: "Ο διαχειριστής της εταιρείας αναίρεσε την επιβεβαίωση",
     reasonCritical: "ΚΡΙΣΙΜΟ: {{intent}} σε επιβεβαιωμένη παραγγελία πελάτη",
     reasonInfo: "ΠΛΗΡΟΦΟΡΙΑ: {{intent}} σε επιβεβαιωμένη παραγγελία πελάτη",
     reasonAuditClient: "ΕΛΕΓΧΟΣ: Διαγράφηκε παραγγελία πελάτη",
@@ -312,6 +325,8 @@ const DICT = {
     intentUnknown: "промяна",
     reasonNewClient: "Създадена е нова клиентска поръчка",
     reasonNewClientTesting: "Създадена е нова клиентска поръчка (EMAIL_TESTING)",
+    reasonAdminConfirmed: "Админът на компанията потвърди поръчка",
+    reasonAdminUnconfirmed: "Админът на компанията отмени потвърждението",
     reasonCritical: "КРИТИЧНО: {{intent}} при потвърдена клиентска поръчка",
     reasonInfo: "ИНФО: {{intent}} при потвърдена клиентска поръчка",
     reasonAuditClient: "ОДИТ: Изтрита клиентска поръчка",
@@ -364,6 +379,8 @@ const DICT = {
     intentUnknown: "modificare",
     reasonNewClient: "Comandă nouă de client creată",
     reasonNewClientTesting: "Comandă nouă de client creată (EMAIL_TESTING)",
+    reasonAdminConfirmed: "Adminul companiei a confirmat o comandă",
+    reasonAdminUnconfirmed: "Adminul companiei a anulat confirmarea",
     reasonCritical: "CRITIC: {{intent}} la comandă client confirmată",
     reasonInfo: "INFO: {{intent}} la comandă client confirmată",
     reasonAuditClient: "AUDIT: Comandă client ștearsă",
@@ -417,6 +434,8 @@ const DICT = {
     intentUnknown: "izmena",
     reasonNewClient: "Kreirana je nova klijentska narudžbina",
     reasonNewClientTesting: "Kreirana je nova klijentska narudžbina (EMAIL_TESTING)",
+    reasonAdminConfirmed: "Admin kompanije je potvrdio porudžbinu",
+    reasonAdminUnconfirmed: "Admin kompanije je ukinuo potvrdu",
     reasonCritical: "KRITIČNO: {{intent}} na potvrđenoj klijentskoj narudžbini",
     reasonInfo: "INFO: {{intent}} na potvrđenoj klijentskoj narudžbini",
     reasonAuditClient: "AUDIT: Obrisana klijentska narudžbina",
@@ -428,6 +447,49 @@ const DICT = {
     drivingLicenceStatusUploaded: "🪪 Vozačka dozvola: otpremljeno",
     drivingLicenceStatusNotUploaded: "🪪 Vozačka dozvola: nije otpremljeno",
     sep: "--------------------------------",
+  },
+  es: {
+    reasonNewClient: "Nuevo pedido de cliente creado",
+    reasonNewClientTesting: "Nuevo pedido de cliente creado (EMAIL_TESTING)",
+    reasonAdminConfirmed: "El administrador de la empresa confirmó un pedido",
+    reasonAdminUnconfirmed: "El administrador de la empresa anuló la confirmación",
+    reasonCritical: "CRÍTICO: {{intent}} en un pedido de cliente confirmado",
+    reasonInfo: "INFO: {{intent}} en un pedido de cliente confirmado",
+    reasonAuditClient: "AUDITORÍA: Pedido de cliente eliminado",
+    reasonAuditInternal: "AUDITORÍA: Pedido interno eliminado",
+    intentOrderConfirmed: "pedido confirmado",
+    intentOrderUnconfirmed: "confirmación anulada",
+    newOrder: "🆕 NUEVO PEDIDO #{{n}}",
+    car: "🚗 Coche:",
+    from: "📅 Desde:",
+    to: "📅 Hasta:",
+    pickup: "📍 Recogida:",
+    ret: "↩️ Devolución:",
+    payment: "💳 Pago:",
+    insuranceCdwLine: "🛡️ Seguro: CDW",
+    days: "🗓 Días:",
+    total: "💰 Total:",
+    customer: "👤 Cliente:",
+    name: "Nombre",
+    phone: "Teléfono",
+    email: "Email",
+    order: "Pedido:",
+    carLabel: "Coche:",
+    action: "Acción:",
+    oldPrice: "Precio anterior:",
+    newPrice: "Precio nuevo:",
+    who: "Quién:",
+    source: "Origen:",
+    time: "Hora:",
+    footerLang: "Idioma:",
+    footerIp: "IP del cliente:",
+    footerCountry: "País:",
+    footerRegion: "Región:",
+    footerCity: "Ciudad:",
+    drivingLicence: "🪪 Permiso de conducir:",
+    drivingLicencePhoto: "Foto {{n}}",
+    drivingLicenceStatusUploaded: "🪪 Permiso de conducir: subido",
+    drivingLicenceStatusNotUploaded: "🪪 Permiso de conducir: no subido",
   },
 };
 
@@ -541,7 +603,8 @@ export function resolveNotifyLanguagesFromCompanyDoc(doc) {
  */
 function tBundle(locale) {
   const l = normalizeNotifyLocale(locale);
-  return DICT[l] || DICT.en;
+  if (l === "en" || !DICT[l]) return DICT.en;
+  return { ...DICT.en, ...DICT[l] };
 }
 
 function tpl(str, vars) {
@@ -626,6 +689,8 @@ export function translateAdminReason(reason, locale, payloadIntent = "") {
   const t = tBundle(locale);
   if (reason === "New client order created") return t.reasonNewClient;
   if (reason === "New client order created (EMAIL_TESTING)") return t.reasonNewClientTesting;
+  if (reason === "Company admin confirmed an order") return t.reasonAdminConfirmed;
+  if (reason === "Company admin unconfirmed an order") return t.reasonAdminUnconfirmed;
 
   const crit = /^CRITICAL: (\w+) on confirmed client order$/;
   const info = /^INFO: (\w+) on confirmed client order$/;
@@ -705,8 +770,19 @@ export function formatAdminNotificationBody(payload, reason, locale, options = {
       `${t.car} ${carDisplay}`,
       `${t.from} ${formatDateShortWithPickupReturnTime(payload.rentalStartDate, payload.timeIn)}`,
       `${t.to} ${formatDateShortWithPickupReturnTime(payload.rentalEndDate, payload.timeOut)}`,
-      `${t.pickup} ${payload.placeIn || t.dash}`,
-      `${t.ret} ${payload.placeOut || t.dash}`,
+      `${t.pickup} ${
+        payload.locationSnapshot?.pickup
+          ? formatLocationLegLine(payload.locationSnapshot.pickup)
+          : formatBookingLocationLine(payload.placeIn, payload.placeInDetail) || t.dash
+      }`,
+      `${t.ret} ${
+        payload.locationSnapshot?.return
+          ? formatLocationLegLine(payload.locationSnapshot.return)
+          : formatBookingLocationLine(payload.placeOut, payload.placeOutDetail) || t.dash
+      }`,
+      ...(payload.paymentUrl
+        ? [`${t.payment || "💳 Payment:"} ${payload.paymentUrl}`]
+        : []),
       ...(insuranceLine ? [insuranceLine] : []),
       `${t.days} ${days}`,
       `${t.total} €${payload.totalPrice ?? ""}`,

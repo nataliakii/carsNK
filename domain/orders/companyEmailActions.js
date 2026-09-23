@@ -5,13 +5,15 @@
 
 import { Order } from "@models/order";
 import { connectToDB } from "@lib/database";
-import { getInternalNotificationEmail } from "@config/email";
-import { getBaseUrl, absoluteUrl } from "@config/domain";
-import { sendEmailDirect } from "@/lib/email/sendDirect";
-import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
-import { renderAdminOrderNotificationEmail } from "@/app/ui/email/renderEmail";
+import { notifySuperadmin, adminCalendarUrl, superadminNotifyFooter } from "@/domain/notifications/notifySuperadmin";
 import { verifyCompanyEmailActionToken } from "./companyEmailActionToken";
 import AuditLog from "@models/auditLog";
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import {
+  assertPartnerCanOperate,
+  auditPartnerComplianceBlock,
+  PARTNER_OPERATION_PURPOSE,
+} from "@/domain/legal/partnerOperatingPolicy";
 
 /**
  * @param {string} token
@@ -51,28 +53,24 @@ function orderSummaryLines(order) {
     `Return: ${order.placeOut || "—"}`,
     `Total: €${order.totalPrice ?? "—"}`,
     `Confirmed: ${order.confirmed ? "yes" : "no"}`,
-    `Admin link: ${absoluteUrl(`/admin`)}`,
+    `Admin link: ${adminCalendarUrl()}`,
   ];
 }
 
+function partnerFacingDecisionMessage(decision) {
+  return decision === "accepted"
+    ? "Accepted. Rovaro support has been notified."
+    : "Rejected. Rovaro support has been notified.";
+}
+
 async function notifySuperadmins({ title, bodyLines, telegramText }) {
-  const body = bodyLines.join("\n");
-  const html = renderAdminOrderNotificationEmail(title, body);
-  await sendEmailDirect({
+  await notifySuperadmin({
     title,
-    message: body,
-    html,
-    to: [getInternalNotificationEmail()],
-    cc: [],
+    bodyLines,
+    telegramText:
+      telegramText ||
+      `${title}\n\n${bodyLines.join("\n")}\n\n${superadminNotifyFooter()}`,
   });
-  try {
-    await sendTelegramDirect(telegramText || `${title}\n\n${body}`);
-  } catch (err) {
-    console.warn(
-      "[companyEmailAction] telegram failed:",
-      err?.message || err
-    );
-  }
 }
 
 /**
@@ -91,6 +89,27 @@ export async function applyCompanyEmailDecision({ token, decision }) {
   const order = await loadOrder(parsed.orderId);
   if (!order) return { ok: false, message: "Order not found", status: 404 };
 
+  if (decision === "accepted" && isMarketplaceRequestMode(order.bookingMode)) {
+    const emailGate = await assertPartnerCanOperate(order.ownerId, {
+      purpose: PARTNER_OPERATION_PURPOSE.EMAIL_ACCEPT,
+    });
+    if (!emailGate.allowed) {
+      await auditPartnerComplianceBlock({
+        purpose: PARTNER_OPERATION_PURPOSE.EMAIL_ACCEPT,
+        result: emailGate,
+        actorRole: "system",
+        orderId: order._id,
+      });
+      return {
+        ok: false,
+        status: 403,
+        error: emailGate.error,
+        code: emailGate.code,
+        message: emailGate.partnerMessage,
+      };
+    }
+  }
+
   const prev = order.companyEmailDecision
     ? String(order.companyEmailDecision)
     : null;
@@ -108,7 +127,7 @@ export async function applyCompanyEmailDecision({ token, decision }) {
   if (prev && prev !== decision) {
     return {
       ok: false,
-      message: `Order was already ${prev}. Contact superadmin to change.`,
+      message: `Order was already ${prev}. Contact Rovaro support to change.`,
       status: 409,
       decision: prev,
     };
@@ -159,7 +178,7 @@ export async function applyCompanyEmailDecision({ token, decision }) {
   await notifySuperadmins({
     title,
     bodyLines: lines,
-    telegramText: `${title}\n\n${lines.join("\n")}\n\nCarsNK · ${getBaseUrl()}`,
+    telegramText: `${title}\n\n${lines.join("\n")}\n\n${superadminNotifyFooter()}`,
   });
 
   return {
@@ -167,54 +186,42 @@ export async function applyCompanyEmailDecision({ token, decision }) {
     already: false,
     decision,
     orderId: String(order._id),
-    message:
-      decision === "accepted"
-        ? "Accepted. Superadmins have been notified."
-        : "Rejected. Superadmins have been notified.",
+    message: partnerFacingDecisionMessage(decision),
   };
 }
 
 /**
- * Free-text message from company → superadmins.
- * @param {{ token: string, message: string }} params
+ * Free-text message from company → Rovaro support (token flow).
+ * @param {{ token: string, message: string, reason?: string, idempotencyKey?: string, ipAddress?: string, userAgent?: string, locale?: string }} params
  */
-export async function sendCompanyEmailMessageToSuperadmin({ token, message }) {
-  const parsed = await parseCompanyEmailActionToken(token);
-  if (!parsed.ok) return parsed;
-  if (parsed.action !== "message") {
-    return { ok: false, message: "Token action mismatch", status: 400 };
-  }
+export async function sendCompanyEmailMessageToSuperadmin({
+  token,
+  message,
+  reason,
+  idempotencyKey,
+  ipAddress,
+  userAgent,
+  locale,
+}) {
+  const { sendPartnerSupportMessage, resolvePartnerSupportAccess } =
+    await import("./partnerSupportMessage");
 
-  const text = String(message || "").trim();
-  if (!text || text.length < 2) {
-    return { ok: false, message: "Message is required", status: 400 };
-  }
-  if (text.length > 4000) {
-    return { ok: false, message: "Message too long", status: 400 };
-  }
+  const access = await resolvePartnerSupportAccess({ token });
+  if (!access.ok) return access;
 
-  const order = await loadOrder(parsed.orderId);
+  const order = await loadOrder(access.orderId);
   if (!order) return { ok: false, message: "Order not found", status: 404 };
 
-  const title = `💬 Company message about order #${order.orderNumber || order._id}`;
-  const lines = [
-    "Message from partner company (via order notification email):",
-    "",
-    text,
-    "",
-    "---",
-    ...orderSummaryLines(order),
-  ];
-
-  await notifySuperadmins({
-    title,
-    bodyLines: lines,
-    telegramText: `${title}\n\n${text}\n\n${orderSummaryLines(order).join("\n")}`,
+  return sendPartnerSupportMessage({
+    order,
+    message,
+    reason,
+    locale,
+    actor: {
+      source: "email_token",
+      idempotencyKey,
+      ipAddress,
+      userAgent,
+    },
   });
-
-  return {
-    ok: true,
-    orderId: String(order._id),
-    message: "Message sent to superadmins.",
-  };
 }

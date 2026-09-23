@@ -10,6 +10,7 @@ import { calculateTransferQuote } from "@/domain/transfers/pricingEngine";
 import { getTransferBaseDistances } from "@/domain/transfers/getTransferDistance";
 import { getSiteCountryCode } from "@config/siteCountry";
 import { getSiteCountryConfig } from "@config/siteCountry";
+import { parseRequiredCustomerEmail } from "@/domain/validation/customerEmail";
 
 /**
  * Drop client-supplied distance, duration, and price fields.
@@ -69,9 +70,11 @@ export async function createTransferOrder(rawPayload = {}) {
   if (!from || !to) {
     return { ok: false, message: "from and to are required", status: 400 };
   }
-  if (!email || !email.includes("@")) {
-    return { ok: false, message: "email is required", status: 400 };
+  const emailCheck = parseRequiredCustomerEmail(email);
+  if (!emailCheck.ok) {
+    return { ok: false, message: emailCheck.message, status: 400 };
   }
+  const normalizedEmail = emailCheck.email;
   if (!Number.isFinite(passengers) || passengers < 1) {
     return { ok: false, message: "passengers must be >= 1", status: 400 };
   }
@@ -248,7 +251,7 @@ export async function createTransferOrder(rawPayload = {}) {
     customerName,
     phone,
     phoneCountryCode,
-    email,
+    email: normalizedEmail,
     preferredLanguage,
     locale,
     status,
@@ -269,7 +272,7 @@ export async function createTransferOrder(rawPayload = {}) {
         to: status,
         at: new Date(),
         actor: payload.createdByAdmin ? "admin" : "customer",
-        actorEmail: email,
+        actorEmail: normalizedEmail,
       },
     ],
   });

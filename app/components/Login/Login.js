@@ -55,9 +55,9 @@ export default function LoginForm() {
 
       <div className={styles.shell}>
         <header className={styles.brandBlock}>
-          <div className={styles.markWrap}>
-            <SiteMark size={56} />
-          </div>
+        
+
+
           <SiteLogo variant="dark" height={42} priority />
           <p className={styles.tagline}>{brand.tagline}</p>
         </header>

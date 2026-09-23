@@ -21,6 +21,11 @@ import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 
 import { PARTNER_GATE_STEP } from "@/domain/legal/partnerGate";
+import {
+  AGREEMENT_SIGNING_BLOCKER,
+  evaluateAgreementFormBlockers,
+  evaluateAgreementSigningBlockers,
+} from "@/domain/legal/agreementSigning";
 
 import PartnerComplianceGate from "../_components/PartnerComplianceGate";
 
@@ -133,6 +138,7 @@ export default function PartnerAgreementSection() {
 
   const [data, setData] = useState(null);
   const [gate, setGate] = useState(null);
+  const [listedOnMarketplace, setListedOnMarketplace] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -175,6 +181,9 @@ export default function PartnerAgreementSection() {
 
       const statusJson = await statusRes.json();
       setGate(statusJson.success ? statusJson.gate : null);
+      setListedOnMarketplace(
+        statusJson.success ? statusJson.listedOnMarketplace !== false : true
+      );
     } catch (err) {
       setError(err.message || t("partnerLegal.agreement.loadFailed"));
     } finally {
@@ -208,20 +217,26 @@ export default function PartnerAgreementSection() {
   const verificationBlockers = (gate?.blockers || []).filter(
     (blocker) => blocker.step !== PARTNER_GATE_STEP.AGREEMENT
   );
-  const signingBlocked =
-    !data ||
-    data.containsDrafts ||
-    signedCurrentVersion ||
-    verificationBlockers.length > 0;
-
-  const canSubmit =
-    !signingBlocked &&
-    hasRead &&
-    authorityConfirmed &&
-    accepted &&
-    signerName.trim() &&
-    signerRole.trim() &&
-    !submitting;
+  const signingBlockers = evaluateAgreementSigningBlockers({
+    documents: data?.documents || [],
+    containsDrafts: Boolean(data?.containsDrafts),
+    packageChecksum: data?.packageChecksum || "",
+    signedCurrentVersion,
+    verificationBlockers,
+    esignMode: data?.esignMode,
+  });
+  const formBlockers = signedCurrentVersion
+    ? []
+    : evaluateAgreementFormBlockers({
+        hasRead,
+        signerName,
+        signerRole,
+        authorityConfirmed,
+        accepted,
+      });
+  const signingBlocked = !data || signingBlockers.length > 0;
+  const formLocked = signedCurrentVersion;
+  const canSubmit = !signingBlocked && formBlockers.length === 0 && !submitting;
 
   async function submit() {
     setSubmitting(true);
@@ -242,7 +257,14 @@ export default function PartnerAgreementSection() {
       });
       const json = await res.json();
       if (!json.success) {
-        throw new Error(json.message || t("partnerLegal.agreement.submitFailed"));
+        const translated = json.code
+          ? t(`partnerLegal.agreement.submitError.${json.code}`, {
+              defaultValue: json.message || "",
+            })
+          : "";
+        throw new Error(
+          translated || json.message || t("partnerLegal.agreement.submitFailed")
+        );
       }
       setNotice(t("partnerLegal.agreement.submitted", { id: json.agreementId }));
       setAccepted(false);
@@ -329,7 +351,11 @@ export default function PartnerAgreementSection() {
         {t("partnerLegal.agreement.subtitle")}
       </Typography>
 
-      <PartnerComplianceGate gate={gate} />
+      <PartnerComplianceGate
+        gate={gate}
+        omitSteps={[PARTNER_GATE_STEP.AGREEMENT]}
+        listedOnMarketplace={listedOnMarketplace}
+      />
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -342,10 +368,26 @@ export default function PartnerAgreementSection() {
         </Alert>
       ) : null}
 
-      {data?.containsDrafts ? (
+      {data?.containsDrafts || !(data?.documents || []).length ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          <AlertTitle>{t("partnerLegal.agreement.draftTitle")}</AlertTitle>
-          {t("partnerLegal.agreement.draftBody")}
+          <AlertTitle>
+            {(data?.documents || []).length
+              ? t("partnerLegal.agreement.draftTitle")
+              : t("partnerLegal.agreement.emptyTitle")}
+          </AlertTitle>
+          <Typography variant="body2" sx={{ mb: 1.5 }}>
+            {(data?.documents || []).length
+              ? t("partnerLegal.agreement.draftBody")
+              : t("partnerLegal.agreement.emptyBody")}
+          </Typography>
+          <Button
+            size="small"
+            variant="contained"
+            component={Link}
+            href="/admin/legal"
+          >
+            {t("partnerLegal.agreement.openLegalDocuments")}
+          </Button>
         </Alert>
       ) : null}
 
@@ -485,9 +527,15 @@ export default function PartnerAgreementSection() {
             />
           ))}
         </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ wordBreak: "break-all" }}>
-          {t("partnerLegal.agreement.checksum")}: <code>{data?.packageChecksum}</code>
-        </Typography>
+        {!(data?.documents || []).length ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {t("partnerLegal.agreement.emptyBody")}
+          </Typography>
+        ) : (
+          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: "break-all" }}>
+            {t("partnerLegal.agreement.checksum")}: <code>{data?.packageChecksum}</code>
+          </Typography>
+        )}
 
         <Box
           ref={scrollRef}
@@ -559,7 +607,7 @@ export default function PartnerAgreementSection() {
             required
             label={t("partnerLegal.agreement.signerName")}
             value={signerName}
-            disabled={signingBlocked}
+            disabled={formLocked}
             onChange={(event) => setSignerName(event.target.value)}
             sx={{ width: 280 }}
           />
@@ -568,7 +616,7 @@ export default function PartnerAgreementSection() {
             required
             label={t("partnerLegal.agreement.signerRole")}
             value={signerRole}
-            disabled={signingBlocked}
+            disabled={formLocked}
             onChange={(event) => setSignerRole(event.target.value)}
             sx={{ width: 280 }}
           />
@@ -586,7 +634,7 @@ export default function PartnerAgreementSection() {
           control={
             <Checkbox
               checked={authorityConfirmed}
-              disabled={signingBlocked || !hasRead}
+              disabled={formLocked}
               onChange={(event) => setAuthorityConfirmed(event.target.checked)}
             />
           }
@@ -597,7 +645,7 @@ export default function PartnerAgreementSection() {
           control={
             <Checkbox
               checked={accepted}
-              disabled={signingBlocked || !hasRead}
+              disabled={formLocked}
               onChange={(event) => setAccepted(event.target.checked)}
             />
           }
@@ -607,6 +655,66 @@ export default function PartnerAgreementSection() {
             </Typography>
           }
         />
+
+        {signingBlockers.some(
+          (blocker) => blocker.code !== AGREEMENT_SIGNING_BLOCKER.ALREADY_SIGNED
+        ) ? (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            <AlertTitle>{t("partnerLegal.agreement.signingBlockedTitle")}</AlertTitle>
+            <Stack spacing={1.25} sx={{ mt: 0.5 }}>
+              {signingBlockers
+                .filter(
+                  (blocker) =>
+                    blocker.code !== AGREEMENT_SIGNING_BLOCKER.ALREADY_SIGNED
+                )
+                .map((blocker) => (
+                  <Stack
+                    key={blocker.code}
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1}
+                    alignItems={{ sm: "center" }}
+                  >
+                    <Typography variant="body2" sx={{ flex: 1 }}>
+                      {t(`partnerLegal.agreement.signingBlocker.${blocker.code}`)}
+                    </Typography>
+                    {blocker.href === "/admin/legal" ? (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        component={Link}
+                        href="/admin/legal"
+                      >
+                        {t("partnerLegal.agreement.openLegalDocuments")}
+                      </Button>
+                    ) : null}
+                    {blocker.href === "/admin/legal-profile" ? (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        component={Link}
+                        href="/admin/legal-profile"
+                      >
+                        {t("partnerLegal.gate.goToProfile")}
+                      </Button>
+                    ) : null}
+                  </Stack>
+                ))}
+            </Stack>
+          </Alert>
+        ) : null}
+
+        {formBlockers.length ? (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            <AlertTitle>{t("partnerLegal.agreement.formBlockedTitle")}</AlertTitle>
+            <Stack component="ul" spacing={0.5} sx={{ m: 0, pl: 2.5 }}>
+              {formBlockers.map((code) => (
+                <Typography key={code} component="li" variant="body2">
+                  {t(`partnerLegal.agreement.formBlocker.${code}`)}
+                </Typography>
+              ))}
+            </Stack>
+          </Alert>
+        ) : null}
 
         <Alert severity="info" sx={{ mt: 2 }}>
           <AlertTitle>{t("partnerLegal.agreement.recordedTitle")}</AlertTitle>

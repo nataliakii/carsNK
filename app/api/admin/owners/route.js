@@ -6,6 +6,7 @@ import { User } from "@models/user";
 import { Car } from "@models/car";
 import { getSiteCountryConfig, getCountryPreset } from "@config/siteCountry";
 import { ensureUniqueCompanySlug } from "@/domain/platform/companySlug";
+import { defaultListedOnMarketplaceForCountry } from "@/domain/legal/partnerOperatingPolicy";
 import {
   buildAdminCountryCompanyFilter,
   normalizeAdminCountryFilter,
@@ -125,7 +126,7 @@ export async function POST(request) {
     slug,
     country: country.country,
     storefrontEnabled: true,
-    listedOnMarketplace: true,
+    listedOnMarketplace: defaultListedOnMarketplaceForCountry(country.country),
   });
 
   return json({ success: true, company }, 201);

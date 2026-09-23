@@ -26,7 +26,7 @@ import {
   AVAILABILITY_PURPOSE,
   evaluateRentalAvailability,
 } from "@/domain/booking/availabilityEngine";
-import { resolveBookingMode } from "@/domain/booking/bookingMode";
+import { isMarketplaceRequestMode, resolveBookingMode } from "@/domain/booking/bookingMode";
 import { LEGACY_FALLBACK_TZ } from "@/domain/time/resolveBusinessTimezone";
 import AuditLog from "@models/auditLog";
 import Company from "@models/company";
@@ -37,6 +37,12 @@ import {
   shouldChargeRentalOnConfirm,
 } from "@/domain/orders/companyRentalPaymentPolicy";
 import { createRentalCheckoutSession } from "@/domain/orders/rentalStripeCheckout";
+import {
+  assertPartnerCanOperate,
+  auditPartnerComplianceBlock,
+  partnerComplianceJson,
+  PARTNER_OPERATION_PURPOSE,
+} from "@/domain/legal/partnerOperatingPolicy";
 
 /**
  * @param {Object} params
@@ -118,6 +124,36 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
 
     const timezone = reloaded.timezone || LEGACY_FALLBACK_TZ;
     const bookingMode = resolveBookingMode({ order: reloaded });
+    if (isMarketplaceRequestMode(bookingMode)) {
+      const confirmGate = await assertPartnerCanOperate(reloaded.ownerId, {
+        purpose: PARTNER_OPERATION_PURPOSE.CONFIRM,
+      });
+      if (!confirmGate.allowed) {
+        await auditPartnerComplianceBlock({
+          purpose: PARTNER_OPERATION_PURPOSE.CONFIRM,
+          result: confirmGate,
+          actorEmail: sessionUser?.email || "",
+          actorRole:
+            sessionUser?.role === ROLE.SUPERADMIN ? "superadmin" : "admin",
+          orderId: reloaded._id,
+        });
+        const denial = partnerComplianceJson(confirmGate);
+        return {
+          status: 403,
+          body: {
+            success: false,
+            data: null,
+            message: denial.message,
+            error: denial.error,
+            code: denial.code,
+            level: "block",
+            conflicts: [],
+            affectedOrders: [],
+            bufferHours,
+          },
+        };
+      }
+    }
     const pickupAtUtc = reloaded.pickupAtUtc || reloaded.timeIn;
     const returnAtUtc = reloaded.returnAtUtc || reloaded.timeOut;
 
@@ -203,6 +239,7 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
         : null;
       const payPolicy = resolveCompanyRentalPaymentPolicy(ownerCompany, {
         stripeConfigured: isStripeConfigured(),
+        bookingMode: reloaded.bookingMode,
       });
       if (isRentalConfirmBlockedByPayment(reloaded, payPolicy)) {
         return {
@@ -237,8 +274,13 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
         : null;
       const payPolicy = resolveCompanyRentalPaymentPolicy(ownerCompany, {
         stripeConfigured: isStripeConfigured(),
+        bookingMode: updatedOrder.bookingMode,
       });
-      if (shouldChargeRentalOnConfirm(payPolicy)) {
+      if (
+        shouldChargeRentalOnConfirm(payPolicy, {
+          bookingMode: updatedOrder.bookingMode,
+        })
+      ) {
         const pay = await createRentalCheckoutSession(String(updatedOrder._id), {
           company: ownerCompany,
           emailCustomer: true,

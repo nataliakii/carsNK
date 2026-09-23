@@ -46,24 +46,31 @@ describe("verification state machine", () => {
 });
 
 describe("profile completeness", () => {
-  it("accepts a fully supplied profile", () => {
-    expect(evaluateProfileCompleteness(completeProfile()).ready).toBe(true);
+  it("accepts a profile that only has the legal name", () => {
+    expect(
+      evaluateProfileCompleteness({ legalName: "Test SL", documents: [] }).ready
+    ).toBe(true);
   });
 
-  it("lists every missing identity field", () => {
+  it("blocks submit until the legal name is present", () => {
     const result = evaluateProfileCompleteness({ documents: [] });
     expect(result.ready).toBe(false);
-    expect(result.missingFields).toEqual(
-      expect.arrayContaining(["legalName", "nifCif", "registrationNumber"])
+    expect(result.missingFields).toEqual(["legalName"]);
+    expect(result.missingConfirmations).toEqual([]);
+    expect(result.missingDocuments).toEqual([]);
+  });
+
+  it("lists recommended identity papers without blocking", () => {
+    const result = evaluateProfileCompleteness({
+      legalName: "Test SL",
+      documents: [],
+    });
+    expect(result.ready).toBe(true);
+    expect(result.missingRecommendedFields).toEqual(
+      expect.arrayContaining(["nifCif", "signatoryName", "businessEmail"])
     );
-    expect(result.missingConfirmations).toEqual(
-      expect.arrayContaining([
-        "signatoryAuthorityConfirmed",
-        "vehicleAuthorityConfirmed",
-      ])
-    );
-    expect(result.missingDocuments).toEqual(
-      expect.arrayContaining(REQUIRED_PROFILE_DOCUMENTS)
+    expect(result.missingRecommendedDocuments).toEqual(
+      expect.arrayContaining(["company_registration", "insurance_certificate"])
     );
   });
 
@@ -71,20 +78,23 @@ describe("profile completeness", () => {
     const profile = completeProfile({
       documents: [{ kind: "company_registration", storageRef: "" }],
     });
-    expect(evaluateProfileCompleteness(profile).missingDocuments).toContain(
+    expect(evaluateProfileCompleteness(profile).missingRecommendedDocuments).toContain(
       "company_registration"
     );
   });
 });
 
 describe("applying a transition", () => {
-  it("refuses to verify an incomplete partner", () => {
+  it("lets the operator verify a thin profile", () => {
     const profile = { verificationStatus: S.PENDING_VERIFICATION, statusHistory: [] };
-    const result = applyVerificationTransition(profile, { to: S.VERIFIED });
+    const result = applyVerificationTransition(profile, {
+      to: S.VERIFIED,
+      byEmail: "super@rovaro.autos",
+    });
 
-    expect(result.ok).toBe(false);
-    expect(result.code).toBe("incomplete_profile");
-    expect(profile.verificationStatus).toBe(S.PENDING_VERIFICATION);
+    expect(result.ok).toBe(true);
+    expect(profile.verificationStatus).toBe(S.VERIFIED);
+    expect(profile.verifiedByEmail).toBe("super@rovaro.autos");
   });
 
   it("verifies a complete partner and records who did it", () => {

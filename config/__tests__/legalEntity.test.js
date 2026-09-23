@@ -15,6 +15,17 @@ const SERVER_ENV_KEYS = [
   "LEGAL_VAT_NUMBER",
   "LEGAL_TAX_REFERENCE_NUMBER",
   "LEGAL_VAT_REGISTERED",
+  "LEGAL_TRADING_NAME",
+  "LEGAL_BRAND_NAME",
+  "LEGAL_BUSINESS_TYPE",
+  "LEGAL_BUSINESS_ADDRESS",
+  "LEGAL_COUNTRY",
+  "LEGAL_COUNTRY_CODE",
+  "LEGAL_EMAIL",
+  "LEGAL_SUPPORT_EMAIL",
+  "LEGAL_DOMAINS",
+  "LEGAL_GOVERNING_LAW",
+  "LEGAL_CURRENCY",
 ];
 
 function clearLegalEnv() {
@@ -199,5 +210,60 @@ describe("legal configuration status", () => {
 
     expect(warning).toContain("Legal configuration incomplete");
     expect(warning).toContain("businessAddress");
+  });
+});
+
+describe("LEGAL_* env platform data", () => {
+  beforeEach(() => {
+    clearLegalEnv();
+  });
+
+  it("reads trading name, brand, domains and emails from LEGAL_*", () => {
+    process.env.LEGAL_TRADING_NAME = "NK Platform Studio";
+    process.env.LEGAL_BRAND_NAME = "Rovaro";
+    process.env.LEGAL_BUSINESS_TYPE = "SOLE_TRADER";
+    process.env.LEGAL_COUNTRY = "Ireland";
+    process.env.LEGAL_COUNTRY_CODE = "IE";
+    process.env.LEGAL_EMAIL = "admin@rovaro.autos";
+    process.env.LEGAL_SUPPORT_EMAIL = "support@rovaro.autos";
+    process.env.LEGAL_DOMAINS = "rovaro.es,rovaro.autos";
+    process.env.LEGAL_GOVERNING_LAW = "Ireland";
+    process.env.LEGAL_CURRENCY = "EUR";
+    process.env.LEGAL_VAT_REGISTERED = "false";
+    process.env.LEGAL_BUSINESS_ADDRESS = "1 Example Quay, Dublin";
+
+    const {
+      getPublicLegalEntity,
+      getServerLegalEntity,
+      getEnvBusinessProfileDefaults,
+      getLegalJurisdiction,
+    } = loadModule();
+
+    const pub = getPublicLegalEntity();
+    expect(pub.tradingName).toBe("NK Platform Studio");
+    expect(pub.platformBrand).toBe("Rovaro");
+    expect(pub.legalStructure).toBe("sole_trader");
+    expect(pub.legalEmail).toBe("admin@rovaro.autos");
+    expect(pub.supportEmail).toBe("support@rovaro.autos");
+    expect(pub.primaryDomain).toBe("rovaro.autos");
+    expect(pub.spanishDomain).toBe("rovaro.es");
+    expect(pub.businessAddress).toBe("1 Example Quay, Dublin");
+    expect(pub.currency).toBe("EUR");
+    expect(getLegalJurisdiction()).toBe("IE");
+    expect(getServerLegalEntity().vatRegistered).toBe(false);
+
+    const defaults = getEnvBusinessProfileDefaults();
+    expect(defaults.businessEmail).toBe("admin@rovaro.autos");
+    expect(defaults.supportEmail).toBe("support@rovaro.autos");
+    expect(defaults.governingJurisdiction).toBe("IE");
+    expect(defaults.vatRegistered).toBe(false);
+    expect(defaults.businessAddress).toBe("1 Example Quay, Dublin");
+  });
+
+  it("ignores placeholder business address text", () => {
+    process.env.LEGAL_BUSINESS_ADDRESS = "your full Irish business address";
+    const { getPublicLegalEntity, isUnsetLegalValue } = loadModule();
+    expect(isUnsetLegalValue("your full Irish business address")).toBe(true);
+    expect(getPublicLegalEntity().businessAddress).toBe("");
   });
 });

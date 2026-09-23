@@ -5,9 +5,7 @@ import {
   Paper,
   Box,
   Typography,
-  Stack,
   Divider,
-  Chip,
   IconButton,
   Collapse,
   Button,
@@ -45,6 +43,7 @@ import { fetchCar } from "@utils/action";
 import { fetchOrdersByCar } from "@utils/action";
 import TimeToLeaveIcon from "@mui/icons-material/TimeToLeave";
 import { useMainContext } from "@app/Context";
+import { normalizeBookingDateSelection } from "@/domain/calendar";
 
 // Lazy load тяжелых компонентов для улучшения производительности
 const BookingModal = lazy(() => import("./BookingModal"));
@@ -55,12 +54,12 @@ const CarDetailsModal = lazy(() => import("./CarDetailsModal"));
 const CarDeliveryInfo = lazy(() => import("./CarDeliveryInfo"));
 
 import { useTranslation } from "react-i18next";
-import CarPhoto from "./CarPhoto";
+import CarPhotoCarousel from "./CarPhotoCarousel";
+import SearchPriceBadge from "./SearchPriceBadge";
 import CarCitiesSummary from "./CarCitiesSummary";
 import { resolveCarOperatingZones } from "@/domain/cars/carOperatingZones";
+import { listCarPhotos } from "@/domain/cars/carPhotos";
 import { useSnackbar } from "notistack";
-
-// ДОБАВИТЬ ЭТУ СТРОКУ:
 import dayjs from "dayjs";
 
 /**
@@ -226,6 +225,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
   discountEnd,
   isFirstCar = false, // Only first car above-the-fold gets priority loading
   presetSearchDates = null,
+  searchPrice = null,
 }) {
   const { t, i18n } = useTranslation();
   const pathname = usePathname();
@@ -277,7 +277,23 @@ const CarItemComponent = React.memo(function CarItemComponent({
     return ordersByCarId(car._id);
   }, [ordersByCarId, car._id]);
 
-  const handleBookingComplete = () => {
+  const handleBookingComplete = (selectionFromCalendar) => {
+    const normalized = normalizeBookingDateSelection(
+      selectionFromCalendar || bookDates
+    );
+    if (!normalized) {
+      if (lastSnackRef.current) closeSnackbar(lastSnackRef.current);
+      lastSnackRef.current = enqueueSnackbar(
+        t("order.requiredDates", {
+          defaultValue: "Pick-up and return dates",
+        }),
+        { variant: "error" }
+      );
+      return;
+    }
+    // Commit the calendar's latest range before mounting the modal so
+    // BookingModal never receives null/stale dates on first paint.
+    setBookedDates({ start: normalized.start, end: normalized.end });
     setBookingModalMounted(true);
     setModalOpen(true);
   };
@@ -345,8 +361,8 @@ const CarItemComponent = React.memo(function CarItemComponent({
               {/* КРИТИЧНО для CLS: используем fill prop от next/image
                   - Родитель (CarImage) имеет position: relative + фиксированные размеры
                   - fill заставляет изображение заполнить родителя БЕЗ layout shift */}
-              <CarPhoto
-                photoUrl={car?.photoUrl}
+              <CarPhotoCarousel
+                photos={listCarPhotos(car)}
                 alt={car?.model || ""}
                 priority={isFirstCar}
                 sizes="(max-width: 600px) 100vw, (max-width: 900px) 50vw, 450px"
@@ -454,6 +470,14 @@ const CarItemComponent = React.memo(function CarItemComponent({
             </Collapse>
           </Box>
           <Box className="calendar-wrapper">
+            {searchPrice ? (
+              <SearchPriceBadge
+                loading={searchPrice.loading}
+                totalPrice={searchPrice.totalPrice}
+                days={searchPrice.days}
+                showApprox={searchPrice.showApprox}
+              />
+            ) : null}
             <Suspense fallback={null}>
               <CalendarPicker
               carId={car._id}
@@ -590,6 +614,11 @@ const CarItemComponent = React.memo(function CarItemComponent({
   const carChanged = prevProps.car?._id !== nextProps.car?._id;
   const discountChanged = prevProps.discount !== nextProps.discount;
   const isFirstCarChanged = prevProps.isFirstCar !== nextProps.isFirstCar;
+  const searchPriceChanged =
+    prevProps.searchPrice?.loading !== nextProps.searchPrice?.loading ||
+    prevProps.searchPrice?.totalPrice !== nextProps.searchPrice?.totalPrice ||
+    prevProps.searchPrice?.days !== nextProps.searchPrice?.days ||
+    prevProps.searchPrice?.showApprox !== nextProps.searchPrice?.showApprox;
   
   // Для dayjs объектов сравниваем через valueOf (timestamp)
   const discountStartChanged = 
@@ -598,7 +627,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
     prevProps.discountEnd?.valueOf() !== nextProps.discountEnd?.valueOf();
   
   // Возвращаем true если ничего не изменилось (не нужно ре-рендерить)
-  return !carChanged && !discountChanged && !discountStartChanged && !discountEndChanged && !isFirstCarChanged;
+  return !carChanged && !discountChanged && !discountStartChanged && !discountEndChanged && !isFirstCarChanged && !searchPriceChanged;
 });
 
 CarItemComponent.displayName = "CarItemComponent";

@@ -2,55 +2,121 @@
  * Alternative vehicle workflow.
  *
  * Rules enforced here, not left to the caller:
- *   - the alternative may never cost the customer more than the original
- *   - key characteristics may not be downgraded (category, transmission,
- *     seats, luggage)
- *   - the offer must carry photographs and a reason
- *   - the booking is never silently changed: the customer must accept
- *   - after payment, a declined offer starts the refund/replacement workflow
- *     instead of cancelling unilaterally
+ *   - Spain MARKETPLACE_REQUEST unpaid P0 only (paid → SUPERADMIN/manual)
+ *   - alternative is always a stored same-company car (no ad-hoc vehicles)
+ *   - price is server-calculated and never higher than the original
+ *   - key characteristics may not be downgraded
+ *   - one active OFFERED row per order (DB partial unique index + CAS)
+ *   - creating an offer does not hold the car or create Stripe
+ *   - the customer must accept before hold + Checkout
+ *   - original request is snapshotted immutably before the operational car changes
+ *
+ * Consistency (Mongo transactions are optional and not used in standalone
+ * tests). See docs/alternative-offer-indexes.md.
  */
 
-import crypto from "crypto";
-
 import { Order } from "@models/order";
+import { Car } from "@models/car";
+import Company from "@models/company";
 import AlternativeVehicleOffer from "@models/AlternativeVehicleOffer";
 import { connectToDB } from "@lib/database";
 
 import {
   RENTAL_STATE,
   RENTAL_STATE_TO_BOOKING_STATUS,
-  canTransitionRentalState,
+  applyRentalStateTransition,
   resolveRentalState,
 } from "./rentalBookingState";
-import { resolveConfirmationFinancials, createConfirmedBookingSnapshot } from "./partnerBookingConfirmation";
+import { BOOKING_STATUS } from "./bookingStatus";
+import { resolveConfirmationFinancials } from "./partnerBookingConfirmation";
 import { recordAuditEvent } from "@/domain/legal/auditTrail";
 import { loadLegalSettings } from "@/domain/legal/legalSettingsService";
+import {
+  assertPartnerCanOperate,
+  auditPartnerComplianceBlock,
+  PARTNER_OPERATION_PURPOSE,
+} from "@/domain/legal/partnerOperatingPolicy";
+import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
+import {
+  AVAILABILITY_PURPOSE,
+  evaluateRentalAvailability,
+} from "@/domain/booking/availabilityEngine";
+import {
+  acquireMarketplaceHold,
+  findOverlappingActiveHold,
+  markHoldForRetry,
+  releaseMarketplaceHold,
+  restoreMarketplaceHoldAfterFailedAcquire,
+} from "@/domain/booking/bookingHold";
+import { calculateAuthoritativeRentalPrice } from "@/domain/orders/rentalPricingService";
+import { snapshotMarketplaceBookingFeeBps } from "@/domain/orders/marketplaceBookingFee";
+import {
+  isMarketplaceFeePaid,
+  paidPlatformAmountMinor,
+} from "@/domain/orders/marketplacePriceCorrection";
+import { calculateDeliveryPrice } from "@/domain/delivery/calculateDeliveryPrice";
+import { computePriceSnapshotChecksum } from "@/domain/orders/priceSnapshotChecksum";
+import { fromMinorUnits } from "@/domain/money/minorUnits";
+import { LOCATION_KIND } from "@/domain/orders/locationSnapshot";
+import {
+  archiveStripeSession,
+  STRIPE_SESSION_ARCHIVE,
+} from "@/domain/orders/stripePaymentRefs";
+import {
+  clampStripeExpiresMinutes,
+  createRentalCheckoutSession,
+  expireRentalCheckoutSession,
+} from "@/domain/orders/rentalStripeCheckout";
+import { ROLE } from "@models/user";
+import {
+  ALTERNATIVE_OFFER_CODE,
+  CURRENT_OFFER_ID_HEX_LENGTH,
+  LEGACY_OFFER_ID_HEX_LENGTH,
+  OFFER_ID_BYTES,
+  OFFER_ID_PREFIX,
+  VEHICLE_CLASS_RANK,
+  applyReplacementPriceCap,
+  assertDeliveryQuoteSafe,
+  assertProposedCarCompany,
+  buildCappedAuthoritativePrice,
+  buildCustomerVehicleSnapshot,
+  buildOfferChecksum,
+  buildOfferChecksumPayload,
+  buildOriginalRequestSnapshot,
+  buildProposedLocationSnapshot,
+  classRank,
+  compareMaterialRentalTerms,
+  evaluateAutomaticAlternativeEligibility,
+  evaluateOfficeCompatibility,
+  extractTermsSlice,
+  generateOfferId,
+  isOrderPaid,
+  isValidOfferCapabilityId,
+  normalizeOfferCapabilityId,
+  publicExclusionReason,
+  sanitizeReason,
+  verifyOfferChecksum,
+} from "./alternativeOfferCore";
+import {
+  sendAlternativeAcceptedNotice,
+  sendAlternativeDeclinedNotice,
+  sendAlternativeExpiredNotice,
+  sendAlternativeOfferedEmail,
+  sendAlternativePaymentLinkEmail,
+  sendAlternativeWithdrawnEmail,
+} from "@/domain/orders/marketplaceAlternativeEmails";
 
-/** Ordered from lowest to highest so a downgrade is detectable. */
-export const VEHICLE_CLASS_ORDER = Object.freeze([
-  "mini",
-  "economy",
-  "compact",
-  "intermediate",
-  "standard",
-  "fullsize",
-  "suv",
-  "van",
-  "premium",
-  "luxury",
-]);
+export const VEHICLE_CLASS_ORDER = VEHICLE_CLASS_RANK;
 
-function classRank(value) {
-  const idx = VEHICLE_CLASS_ORDER.indexOf(
-    String(value || "").trim().toLowerCase()
-  );
-  return idx === -1 ? null : idx;
-}
-
-export function generateOfferId() {
-  return `ALT-${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
-}
+export {
+  CURRENT_OFFER_ID_HEX_LENGTH,
+  LEGACY_OFFER_ID_HEX_LENGTH,
+  OFFER_ID_BYTES,
+  OFFER_ID_PREFIX,
+  generateOfferId,
+  isValidOfferCapabilityId,
+  normalizeOfferCapabilityId,
+};
 
 /**
  * Reject an offer that would put the customer in a worse position.
@@ -128,115 +194,736 @@ export function validateAlternativeNotWorse({ original, alternative }) {
   return { ok: true };
 }
 
-/**
- * Create an offer. Does not modify the booking beyond marking it as having a
- * pending alternative.
- *
- * @param {{ orderId: string, alternative: object, offeredByEmail?: string,
- *           expiresInHours?: number }} params
- */
-export async function offerAlternativeVehicle({
-  orderId,
-  alternative,
-  offeredByEmail = "",
-  expiresInHours,
-}) {
-  await connectToDB();
-  const order = await Order.findById(orderId);
-  if (!order) {
-    return { ok: false, status: 404, code: "not_found", message: "Booking not found" };
-  }
+function actorFromSession(session) {
+  const user = session?.user || session || {};
+  return {
+    role: Number(user.role),
+    ownerId: user.ownerId || user.companyId || null,
+    email: user.email || "",
+    userId: user.id || user._id || null,
+    isSuperadmin: Number(user.role) === ROLE.SUPERADMIN,
+  };
+}
 
-  const state = resolveRentalState(order);
-  if (!canTransitionRentalState(state, RENTAL_STATE.ALTERNATIVE_OFFERED)) {
+function originalVehicleFromOrder(order, car) {
+  return {
+    priceMinor: resolveConfirmationFinancials(order).grossMinor,
+    category: car?.class || "",
+    transmission: car?.transmission || "",
+    seats: car?.seats ?? car?.numberOfSeats,
+    luggage: car?.luggage ?? car?.luggageCapacity,
+    photos: [],
+  };
+}
+
+async function loadCompany(order) {
+  if (!order?.ownerId) return null;
+  return Company.findById(order.ownerId).lean();
+}
+
+async function loadOriginalCar(order) {
+  if (!order?.car) return null;
+  return Car.findById(order.car);
+}
+
+function quotedFeesFromSnapshot(snapshot) {
+  const pickup = snapshot?.pickup || {};
+  const ret = snapshot?.return || snapshot?.dropoff || {};
+  return {
+    quotedPickupFeeMinor: Math.round((Number(pickup.feeMajor) || 0) * 100),
+    quotedReturnFeeMinor: Math.round((Number(ret.feeMajor) || 0) * 100),
+  };
+}
+
+async function quoteProposedDelivery({ order, car, company, eligible }) {
+  const snap = order.locationSnapshot;
+  const pickup = snap?.pickup || {};
+  const ret = snap?.return || snap?.dropoff || {};
+  const pickupOffice = pickup.kind === LOCATION_KIND.OFFICE;
+  const returnOffice = ret.kind === LOCATION_KIND.OFFICE;
+  if (pickupOffice && returnOffice) {
     return {
-      ok: false,
-      status: 409,
-      code: "invalid_state",
-      message: `Cannot offer an alternative while the booking is ${state}`,
+      ok: true,
+      delivery: {
+        deliveryIn: 0,
+        deliveryOut: 0,
+        deliveryBlockedIn: false,
+        deliveryBlockedOut: false,
+        officeFreeIn: true,
+        officeFreeOut: true,
+      },
     };
   }
 
+  try {
+    const delivery = await calculateDeliveryPrice({
+      placeIn: pickup.name || order.placeIn,
+      placeOut: ret.name || order.placeOut,
+      companyId: company?._id || order.ownerId,
+      timeIn: order.pickupAtUtc || order.timeIn,
+      timeOut: order.returnAtUtc || order.timeOut,
+      carOffices: eligible && eligible.length ? eligible : car.offices,
+      placeInDetail: pickup.address || order.placeInDetail,
+      placeOutDetail: ret.address || order.placeOutDetail,
+      placeInLat: pickup.lat,
+      placeInLon: pickup.lon,
+      placeOutLat: ret.lat,
+      placeOutLon: ret.lon,
+      placeInLocality: pickup.city || pickup.name,
+      placeOutLocality: ret.city || ret.name,
+    });
+    const safe = assertDeliveryQuoteSafe({ originalSnapshot: snap, delivery });
+    if (!safe.ok) return safe;
+    return { ok: true, delivery };
+  } catch (err) {
+    return {
+      ok: false,
+      code: ALTERNATIVE_OFFER_CODE.DELIVERY_UNPRICED,
+      message: err?.message || "Delivery could not be priced for this car",
+    };
+  }
+}
+
+async function evaluateProposedAvailability({ car, order, purpose }) {
+  const pickup = order.pickupAtUtc || order.timeIn;
+  const ret = order.returnAtUtc || order.timeOut;
+  const existingOrders = await Order.find({ car: car._id }).lean();
+  const availability = evaluateRentalAvailability({
+    carId: car._id,
+    pickupAtUtc: pickup,
+    returnAtUtc: ret,
+    timezone: order.timezone,
+    existingOrders,
+    excludeOrderId: order._id,
+    purpose: purpose || AVAILABILITY_PURPOSE.CONFIRM,
+    bookingMode: order.bookingMode,
+  });
+  if (availability.hardConflict) {
+    return {
+      ok: false,
+      code: ALTERNATIVE_OFFER_CODE.AVAILABILITY_CONFLICT,
+      message: availability.userSafeReason || "Those dates are not available for this car",
+    };
+  }
+  const overlappingHold = await findOverlappingActiveHold({
+    carId: car._id,
+    pickupAtUtc: pickup,
+    returnAtUtc: ret,
+    excludeOrderId: order._id,
+  });
+  if (overlappingHold) {
+    return {
+      ok: false,
+      code: ALTERNATIVE_OFFER_CODE.HOLD_CONFLICT,
+      message: "Those dates are already held for another booking",
+    };
+  }
+  return { ok: true, availability };
+}
+
+async function buildProposedQuote({ order, car, company }) {
+  const office = evaluateOfficeCompatibility({ order, car, company });
+  if (!office.ok) return office;
+
+  const deliveryQuote = await quoteProposedDelivery({
+    order,
+    car,
+    company,
+    eligible: office.eligible,
+  });
+  if (!deliveryQuote.ok) return deliveryQuote;
+
+  const proposedLocation = buildProposedLocationSnapshot({
+    originalSnapshot: order.locationSnapshot,
+    delivery: deliveryQuote.delivery,
+    eligible: office.eligible,
+    company,
+  });
+  const fees = quotedFeesFromSnapshot(proposedLocation);
+  const snapshotFee = snapshotMarketplaceBookingFeeBps(order);
+  const quote = await calculateAuthoritativeRentalPrice({
+    car,
+    pickupAtUtc: order.pickupAtUtc || order.timeIn,
+    returnAtUtc: order.returnAtUtc || order.timeOut,
+    timezone: order.timezone,
+    insurance: order.insurance,
+    childSeats: order.ChildSeats ?? order.childSeats ?? 0,
+    secondDriver: Boolean(order.secondDriver),
+    placeIn: proposedLocation.pickup?.name || order.placeIn,
+    placeOut: proposedLocation.return?.name || order.placeOut,
+    placeInDetail: proposedLocation.pickup?.address || order.placeInDetail,
+    placeOutDetail: proposedLocation.return?.address || order.placeOutDetail,
+    carOffices: office.eligible,
+    company,
+    bookingMode: order.bookingMode,
+    marketplaceBookingFeeBps: snapshotFee.bps,
+    ignoreClientGeo: true,
+    quotedPickupFeeMinor: fees.quotedPickupFeeMinor,
+    quotedReturnFeeMinor: fees.quotedReturnFeeMinor,
+  });
   const financials = resolveConfirmationFinancials(order);
-  const original = {
-    priceMinor: financials.grossMinor,
-    category: alternative.originalCategory || "",
-    transmission: alternative.originalTransmission || "",
-    seats: alternative.originalSeats,
-    luggage: alternative.originalLuggage,
+  const cap = applyReplacementPriceCap({
+    calculatedGrossMinor: quote.grossMinor,
+    originalGrossMinor: financials.grossMinor,
+    feeBps: snapshotFee.bps,
+    fixedPaidPlatformAmountMinor: isMarketplaceFeePaid(order)
+      ? paidPlatformAmountMinor(order)
+      : undefined,
+  });
+  const originalCar = await loadOriginalCar(order);
+  const originalTerms = extractTermsSlice({
+    order,
+    car: originalCar,
+    company,
+  });
+  const proposedVehicle = buildCustomerVehicleSnapshot(car, { company });
+  const proposedTerms = extractTermsSlice({
+    order,
+    car,
+    company,
+    vehicle: proposedVehicle,
+  });
+  const terms = compareMaterialRentalTerms(originalTerms, proposedTerms);
+  const original = originalVehicleFromOrder(order, originalCar);
+  const check = validateAlternativeNotWorse({
+    original,
+    alternative: {
+      priceMinor: cap.offeredGrossMinor,
+      category: proposedVehicle.category,
+      transmission: proposedVehicle.transmission,
+      seats: proposedVehicle.seats,
+      luggage: proposedVehicle.luggage,
+      photos: proposedVehicle.photos,
+      reasonForReplacement: "preview",
+    },
+  });
+  if (!check.ok && check.code !== "reason_required") {
+    return { ok: false, status: 400, ...check };
+  }
+
+  const availability = await evaluateProposedAvailability({
+    car,
+    order,
+    purpose: AVAILABILITY_PURPOSE.CONFIRM,
+  });
+
+  return {
+    ok: true,
+    proposedVehicle,
+    proposedLocation,
+    proposedTerms,
+    originalTerms,
+    terms,
+    quote,
+    cap,
+    authoritativePrice: buildCappedAuthoritativePrice(quote, cap),
+    availability,
+    office,
+  };
+}
+
+async function audit(action, extra = {}) {
+  await recordAuditEvent({
+    action,
+    severity: extra.severity || "high",
+    result: extra.result || "success",
+    userRole: extra.userRole || "admin",
+    userEmail: extra.userEmail || "",
+    userId: extra.userId || undefined,
+    ipAddress: extra.ipAddress || "",
+    userAgent: extra.userAgent || "",
+    reason: extra.reason || "",
+    orderData: extra.orderData,
+    metadata: extra.metadata,
+    errorMessage: extra.errorMessage,
+  });
+}
+
+async function releaseOwnUnpaidHold(order, reason) {
+  if (isOrderPaid(order)) return;
+  const released = await releaseMarketplaceHold(order._id, { reason }).catch(() => null);
+  if (released?.hold) {
+    await audit("ALTERNATIVE_HOLD_RELEASED", {
+      userRole: "system",
+      orderData: { orderId: order._id, orderNumber: order.orderNumber },
+      metadata: { reason, carId: released.hold.carId },
+    });
+  }
+}
+
+async function staleOriginalCheckout(order) {
+  const pay = order.payment && typeof order.payment === "object" ? order.payment : {};
+  if (pay.status === "paid") return;
+  if (!pay.providerPaymentId && !pay.checkoutUrl) return;
+  await expireRentalCheckoutSession(order._id).catch(() => {});
+  const archived = archiveStripeSession(pay, {
+    status: STRIPE_SESSION_ARCHIVE.REPLACED,
+  });
+  if (typeof order.set === "function") {
+    order.set(
+      "payment",
+      {
+        ...archived,
+        providerPaymentId: "",
+        checkoutUrl: "",
+        status: pay.status === "paid" ? pay.status : "expired",
+        staleBecause: "alternative_offered",
+        lastCheckoutError: "",
+      },
+      { strict: false }
+    );
+  } else {
+    order.payment = {
+      ...archived,
+      providerPaymentId: "",
+      checkoutUrl: "",
+      status: "expired",
+      staleBecause: "alternative_offered",
+    };
+  }
+}
+
+/**
+ * Preview or persist an alternative built from a stored car.
+ * Caller-supplied totals, snapshots, currency and fees are ignored.
+ */
+export async function previewAlternativeOffer({
+  orderId,
+  proposedCarId,
+  order: orderHint,
+  actor,
+}) {
+  await connectToDB();
+  const order = orderHint || (await Order.findById(orderId));
+  const eligibility = evaluateAutomaticAlternativeEligibility(order, { actor });
+  if (!eligibility.ok) return eligibility;
+
+  const carId = String(proposedCarId || "").trim();
+  if (!carId) {
+    return {
+      ok: false,
+      status: 400,
+      code: ALTERNATIVE_OFFER_CODE.CAR_REQUIRED,
+      message: "An alternative must be a stored vehicle from this company's fleet",
+    };
+  }
+
+  const car = await Car.findById(carId);
+  const carCheck = assertProposedCarCompany({ car, order, proposedCarId: carId });
+  if (!carCheck.ok) return carCheck;
+
+  const company = await loadCompany(order);
+  try {
+    const built = await buildProposedQuote({ order, car, company });
+    if (!built.ok) {
+      return { ok: false, status: 400, ...built };
+    }
+    return {
+      ok: true,
+      orderId: String(order._id),
+      proposedCarId: String(car._id),
+      unpublished: car.isActive === false,
+      ...built,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 400,
+      code: err?.code || "pricing_failed",
+      message: err?.message || "Could not price this alternative",
+    };
+  }
+}
+
+export async function listEligibleAlternativeCars({ orderId, actor }) {
+  await connectToDB();
+  const order = await Order.findById(orderId);
+  const eligibility = evaluateAutomaticAlternativeEligibility(order, { actor });
+  if (!eligibility.ok) return { ...eligibility, cars: [], excluded: [] };
+
+  const company = await loadCompany(order);
+  const originalCar = await loadOriginalCar(order);
+  const fleet = await Car.find({ ownerId: order.ownerId });
+  const eligible = [];
+  const excluded = [];
+
+  for (const car of fleet) {
+    const carCheck = assertProposedCarCompany({ car, order, proposedCarId: car._id });
+    if (!carCheck.ok) {
+      excluded.push({
+        carId: String(car._id),
+        name: car.model,
+        unpublished: car.isActive === false,
+        ...publicExclusionReason(carCheck.code, carCheck.message),
+      });
+      continue;
+    }
+    try {
+      const built = await buildProposedQuote({ order, car, company });
+      if (!built.ok) {
+        excluded.push({
+          carId: String(car._id),
+          name: car.model,
+          category: car.class,
+          unpublished: car.isActive === false,
+          ...publicExclusionReason(built.code, built.message),
+        });
+        continue;
+      }
+      if (!built.availability?.ok) {
+        excluded.push({
+          carId: String(car._id),
+          name: car.model,
+          category: car.class,
+          unpublished: car.isActive === false,
+          ...publicExclusionReason(
+            built.availability?.code,
+            built.availability?.message || "This car is not available for the requested dates"
+          ),
+        });
+        continue;
+      }
+      eligible.push({
+        carId: String(car._id),
+        name: [car.make, car.model].filter(Boolean).join(" ") || car.model,
+        category: car.class,
+        transmission: car.transmission,
+        seats: car.seats,
+        unpublished: car.isActive === false,
+        photos: built.proposedVehicle.photos,
+        cap: built.cap,
+        termsChanged: built.terms.termsChanged,
+        changedTerms: built.terms.changedTerms,
+        availabilityRecheckedOnAccept: true,
+        availabilityNote:
+          "Final availability is rechecked when the customer accepts. No hold is created yet.",
+      });
+    } catch (err) {
+      excluded.push({
+        carId: String(car._id),
+        name: car.model,
+        unpublished: car.isActive === false,
+        ...publicExclusionReason(err?.code, err?.message),
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    originalCarId: originalCar ? String(originalCar._id) : String(order.car || ""),
+    originalName: order.carModel || originalCar?.model || "",
+    cars: eligible,
+    excluded,
+  };
+}
+
+/**
+ * Create an offer. Does not modify operational `order.car`, hold, or Stripe.
+ */
+export async function offerAlternativeVehicle({
+  orderId,
+  alternative = {},
+  proposedCarId,
+  offeredByEmail = "",
+  offeredByRole,
+  offeredByUserId,
+  actor,
+  expiresInHours,
+  session,
+}) {
+  await connectToDB();
+  const order = await Order.findById(orderId);
+  const resolvedActor = actor || actorFromSession(session) || {
+    email: offeredByEmail,
+    role: offeredByRole,
+    userId: offeredByUserId,
   };
 
-  const check = validateAlternativeNotWorse({ original, alternative });
-  if (!check.ok) return { ok: false, status: 400, ...check };
+  if (order) {
+    const offerGate = await assertPartnerCanOperate(order.ownerId, {
+      purpose: PARTNER_OPERATION_PURPOSE.ALTERNATIVE,
+      overrideReason: resolvedActor.isSuperadmin
+        ? String(alternative.complianceOverrideReason || "")
+        : "",
+      overrideByRole: resolvedActor.isSuperadmin ? "superadmin" : "admin",
+      overrideByEmail: resolvedActor.email || "",
+      audit: { orderId: order._id },
+    });
+    if (!offerGate.allowed) {
+      await auditPartnerComplianceBlock({
+        purpose: PARTNER_OPERATION_PURPOSE.ALTERNATIVE,
+        result: offerGate,
+        actorEmail: resolvedActor.email || "",
+        actorRole: resolvedActor.isSuperadmin ? "superadmin" : "admin",
+        orderId: order._id,
+      });
+      return {
+        ok: false,
+        status: 403,
+        error: offerGate.error,
+        code: offerGate.code,
+        message: offerGate.partnerMessage,
+      };
+    }
+  }
+
+  const eligibility = evaluateAutomaticAlternativeEligibility(order, {
+    actor: resolvedActor,
+  });
+  if (!eligibility.ok) {
+    await audit("ALTERNATIVE_OFFER_REJECTED", {
+      result: "failure",
+      userEmail: resolvedActor.email,
+      userRole: resolvedActor.isSuperadmin ? "superadmin" : "admin",
+      orderData: order
+        ? { orderId: order._id, orderNumber: order.orderNumber }
+        : undefined,
+      metadata: { code: eligibility.code },
+      errorMessage: eligibility.message,
+    });
+    return eligibility;
+  }
+
+  const carId = String(proposedCarId || alternative.carId || "").trim();
+  if (!carId) {
+    return {
+      ok: false,
+      status: 400,
+      code: ALTERNATIVE_OFFER_CODE.CAR_REQUIRED,
+      message: "An alternative must be a stored vehicle from this company's fleet",
+    };
+  }
+
+  const reasonCheck = sanitizeReason(
+    alternative.reasonForReplacement || alternative.reason,
+    { required: true }
+  );
+  if (!reasonCheck.ok) return { ok: false, status: 400, ...reasonCheck };
+
+  const existing = await AlternativeVehicleOffer.findOne({
+    orderId: order._id,
+    status: "OFFERED",
+    expiresAt: { $gt: new Date() },
+  }).lean();
+  if (existing) {
+    return {
+      ok: false,
+      status: 409,
+      code: ALTERNATIVE_OFFER_CODE.ACTIVE_OFFER_EXISTS,
+      message: "This booking already has an active alternative offer",
+      offerId: existing.offerId,
+    };
+  }
+
+  const preview = await previewAlternativeOffer({
+    orderId,
+    proposedCarId: carId,
+    order,
+    actor: resolvedActor,
+  });
+  if (!preview.ok) {
+    await audit("ALTERNATIVE_OFFER_REJECTED", {
+      result: "failure",
+      userEmail: resolvedActor.email,
+      userRole: resolvedActor.isSuperadmin ? "superadmin" : "admin",
+      orderData: { orderId: order._id, orderNumber: order.orderNumber },
+      metadata: { code: preview.code, proposedCarId: carId },
+      errorMessage: preview.message,
+    });
+    return preview;
+  }
 
   const settings = await loadLegalSettings();
   const hours =
     Number(expiresInHours) > 0
       ? Number(expiresInHours)
       : settings.alternativeOfferExpirationHours;
-
   const offerId = generateOfferId();
-  const afterPayment = order.payment?.status === "paid";
-
-  const offer = await AlternativeVehicleOffer.create({
-    offerId,
-    orderId,
-    companyId: order.ownerId || null,
-    vehicle: {
-      carId: alternative.carId || "",
-      make: alternative.make || "",
-      model: alternative.model,
-      category: alternative.category || "",
-      transmission: alternative.transmission || "",
-      seats: alternative.seats ?? null,
-      luggage: alternative.luggage ?? null,
-      year: alternative.year ?? null,
-      modelGroup: alternative.modelGroup || "",
-      photos: alternative.photos,
-      mileagePolicy: alternative.mileagePolicy || "",
-    },
-    priceMinor: Number(alternative.priceMinor),
-    currency: financials.currency,
-    originalPriceMinor: financials.grossMinor,
-    depositMinor: alternative.depositMinor ?? null,
-    insurance: alternative.insurance || order.insurance || "",
-    pickup: {
-      atUtc: alternative.pickupAtUtc || order.pickupAtUtc || order.timeIn || null,
-      place: alternative.pickupPlace || order.placeIn || "",
-      detail: alternative.pickupDetail || order.placeInDetail || "",
-    },
-    reasonForReplacement: alternative.reasonForReplacement,
-    expiresAt: new Date(Date.now() + hours * 3600 * 1000),
-    offeredByEmail,
-    afterPayment,
+  const expiresAt = new Date(Date.now() + hours * 3600 * 1000);
+  const originalRequest = buildOriginalRequestSnapshot({
+    order,
+    car: await loadOriginalCar(order),
+    company: await loadCompany(order),
   });
+  const checksum = buildOfferChecksum(
+    buildOfferChecksumPayload({
+      orderId: order._id,
+      offerId,
+      proposedCarId: carId,
+      originalCarId: originalRequest.carId,
+      offeredGrossMinor: preview.cap.offeredGrossMinor,
+      calculatedGrossMinor: preview.cap.calculatedGrossMinor,
+      replacementDiscountMinor: preview.cap.replacementDiscountMinor,
+      prepaymentMinor: preview.cap.prepaymentMinor,
+      currency: "EUR",
+      locationSnapshot: preview.proposedLocation,
+      termsHash: preview.proposedTerms.hash,
+      expiresAt,
+    })
+  );
 
-  order.bookingStatus = RENTAL_STATE_TO_BOOKING_STATUS[RENTAL_STATE.ALTERNATIVE_OFFERED];
+  let offer;
+  try {
+    offer = await AlternativeVehicleOffer.create({
+      offerId,
+      orderId: order._id,
+      companyId: order.ownerId || null,
+      proposedCarId: carId,
+      originalCarId: originalRequest.carId,
+      vehicle: {
+        carId,
+        make: preview.proposedVehicle.make,
+        model: preview.proposedVehicle.model || "Alternative",
+        category: preview.proposedVehicle.category,
+        transmission: preview.proposedVehicle.transmission,
+        seats: preview.proposedVehicle.seats,
+        luggage: preview.proposedVehicle.luggage,
+        doors: preview.proposedVehicle.doors,
+        fuel: preview.proposedVehicle.fuel,
+        year: preview.proposedVehicle.year,
+        modelGroup: preview.proposedVehicle.modelGroup,
+        photos: preview.proposedVehicle.photos,
+        mileagePolicy: preview.proposedVehicle.mileagePolicy,
+        fuelPolicy: preview.proposedVehicle.fuelPolicy,
+        insuranceExcessMajor: preview.proposedVehicle.insuranceExcessMajor,
+        securityDepositMajor: preview.proposedVehicle.securityDepositMajor,
+      },
+      priceMinor: preview.cap.offeredGrossMinor,
+      currency: "EUR",
+      originalPriceMinor: preview.cap.originalGrossMinor,
+      depositMinor:
+        preview.proposedVehicle.securityDepositMajor == null
+          ? null
+          : Math.round(Number(preview.proposedVehicle.securityDepositMajor) * 100),
+      insurance: order.insurance || "",
+      pickup: {
+        atUtc: order.pickupAtUtc || order.timeIn || null,
+        place: preview.proposedLocation.pickup?.name || order.placeIn || "",
+        detail: preview.proposedLocation.pickup?.address || order.placeInDetail || "",
+      },
+      reasonForReplacement: reasonCheck.reason,
+      expiresAt,
+      offeredByEmail: offeredByEmail || resolvedActor.email || "",
+      afterPayment: false,
+      originalRequest,
+      proposedLocationSnapshot: preview.proposedLocation,
+      proposedAuthoritativePrice: preview.authoritativePrice,
+      calculatedAlternativeGrossMinor: preview.cap.calculatedGrossMinor,
+      replacementDiscountMinor: preview.cap.replacementDiscountMinor,
+      offeredGrossMinor: preview.cap.offeredGrossMinor,
+      marketplaceBookingFeeBps: preview.cap.marketplaceBookingFeeBps,
+      prepaymentMinor: preview.cap.prepaymentMinor,
+      balanceMinor: preview.cap.balanceMinor,
+      snapshotChecksum: checksum,
+      termsChanged: preview.terms.termsChanged,
+      changedTerms: preview.terms.changedTerms,
+      originalTermsHash: preview.terms.originalTermsHash,
+      proposedTermsHash: preview.terms.proposedTermsHash,
+      availabilityNote:
+        "Final availability is rechecked when the customer accepts. No hold is created yet.",
+    });
+  } catch (err) {
+    if (err?.code === 11000) {
+      return {
+        ok: false,
+        status: 409,
+        code: ALTERNATIVE_OFFER_CODE.ACTIVE_OFFER_EXISTS,
+        message: "This booking already has an active alternative offer",
+      };
+    }
+    throw err;
+  }
+
+  await releaseOwnUnpaidHold(order, "alternative_offered");
+  await staleOriginalCheckout(order);
+
+  const state = resolveRentalState(order);
+  if (state !== RENTAL_STATE.ALTERNATIVE_OFFERED) {
+    const moved = applyRentalStateTransition(order, RENTAL_STATE.ALTERNATIVE_OFFERED);
+    if (!moved.ok) {
+      await AlternativeVehicleOffer.updateOne(
+        { offerId, status: "OFFERED" },
+        {
+          $set: {
+            status: "WITHDRAWN",
+            decidedAt: new Date(),
+            declineReason: "illegal_transition",
+          },
+        }
+      ).catch(() => {});
+      return {
+        ok: false,
+        status: 409,
+        code: ALTERNATIVE_OFFER_CODE.INVALID_STATE,
+        message: `Cannot offer an alternative while the booking is ${moved.from || state}`,
+      };
+    }
+  }
+  if (!order.originalRequestSnapshot) {
+    if (typeof order.set === "function") {
+      order.set("originalRequestSnapshot", originalRequest, { strict: false });
+    } else {
+      order.originalRequestSnapshot = originalRequest;
+    }
+  }
   await order.save();
 
-  await recordAuditEvent({
-    action: "ALTERNATIVE_OFFER_CREATED",
-    userRole: "admin",
-    userEmail: offeredByEmail,
-    severity: "high",
+  await audit("ALTERNATIVE_OFFER_CREATED", {
+    userEmail: offeredByEmail || resolvedActor.email,
+    userRole: resolvedActor.isSuperadmin ? "superadmin" : "admin",
+    userId: resolvedActor.userId,
     orderData: { orderId: order._id, orderNumber: order.orderNumber },
     metadata: {
       offerId,
-      afterPayment,
-      reason: alternative.reasonForReplacement,
-      priceMinor: offer.priceMinor,
-      originalPriceMinor: offer.originalPriceMinor,
+      proposedCarId: carId,
+      originalCarId: originalRequest.carId,
+      offeredGrossMinor: preview.cap.offeredGrossMinor,
+      replacementDiscountMinor: preview.cap.replacementDiscountMinor,
+      termsChanged: preview.terms.termsChanged,
+      reason: reasonCheck.reason,
     },
   });
 
-  return { ok: true, offerId, offer: offer.toObject() };
+  const mailed = await sendAlternativeOfferedEmail({
+    order: order.toObject ? order.toObject() : order,
+    offer: offer.toObject ? offer.toObject() : offer,
+  }).catch((err) => ({ ok: false, message: err?.message || String(err) }));
+
+  return {
+    ok: true,
+    offerId,
+    offer: offer.toObject(),
+    email: mailed,
+    holdCreated: false,
+    stripeCreated: false,
+  };
+}
+
+function decisionIdempotent(existing) {
+  return {
+    ok: true,
+    idempotent: true,
+    status: existing.status,
+    afterPayment: Boolean(existing.afterPayment),
+    message: `This offer was already ${String(existing.status).toLowerCase()}`,
+    offerId: existing.offerId,
+    paymentUrl: existing.checkoutUrl || "",
+    paymentLinkGenerationFailed: Boolean(existing.paymentLinkGenerationFailed),
+  };
+}
+
+async function reopenOrderForAnotherOffer(order) {
+  const state = resolveRentalState(order);
+  if (state === RENTAL_STATE.ALTERNATIVE_OFFERED) {
+    applyRentalStateTransition(order, RENTAL_STATE.ALTERNATIVE_DECLINED);
+  } else if (state !== RENTAL_STATE.ALTERNATIVE_DECLINED) {
+    order.bookingStatus = BOOKING_STATUS.NO_AVAILABILITY;
+  }
+  await order.save();
 }
 
 /**
  * Customer decision on an offer.
- *
- * @param {{ offerId: string, accept: boolean, ipAddress?: string,
- *           userAgent?: string, declineReason?: string }} params
  */
 export async function decideAlternativeVehicle({
   offerId,
@@ -244,100 +931,712 @@ export async function decideAlternativeVehicle({
   ipAddress = "",
   userAgent = "",
   declineReason = "",
+  termsAccepted = false,
 }) {
   await connectToDB();
   const now = new Date();
+  const capabilityId = normalizeOfferCapabilityId(offerId);
+  if (!capabilityId) {
+    return {
+      ok: false,
+      status: 404,
+      code: ALTERNATIVE_OFFER_CODE.NOT_FOUND,
+      message: "Offer not found",
+    };
+  }
+  const existing = await AlternativeVehicleOffer.findOne({ offerId: capabilityId });
+  if (!existing) {
+    return {
+      ok: false,
+      status: 404,
+      code: ALTERNATIVE_OFFER_CODE.NOT_FOUND,
+      message: "Offer not found",
+    };
+  }
 
-  // Atomic decision — a double submit resolves to the first outcome.
-  const offer = await AlternativeVehicleOffer.findOneAndUpdate(
-    { offerId, status: "OFFERED", expiresAt: { $gt: now } },
+  if (existing.status !== "OFFERED") {
+    if (accept && existing.status === "ACCEPTED") {
+      return replayAcceptedOffer(existing, { ipAddress, userAgent });
+    }
+    if (!accept && existing.status === "DECLINED") {
+      return decisionIdempotent(existing.toObject ? existing.toObject() : existing);
+    }
+    if (existing.status === "EXPIRED" || (existing.expiresAt && existing.expiresAt <= now && existing.status === "OFFERED")) {
+      return {
+        ok: false,
+        status: 410,
+        code: ALTERNATIVE_OFFER_CODE.EXPIRED,
+        message: "This offer has expired",
+      };
+    }
+    if (existing.status === "WITHDRAWN") {
+      return {
+        ok: false,
+        status: 409,
+        code: ALTERNATIVE_OFFER_CODE.WITHDRAWN,
+        message: "This offer was withdrawn",
+      };
+    }
+    return decisionIdempotent(existing.toObject ? existing.toObject() : existing);
+  }
+
+  if (existing.expiresAt && existing.expiresAt <= now) {
+    await AlternativeVehicleOffer.updateOne(
+      { offerId: capabilityId, status: "OFFERED" },
+      { $set: { status: "EXPIRED" } }
+    ).catch(() => {});
+    const order = await Order.findById(existing.orderId);
+    if (order) await reopenOrderForAnotherOffer(order);
+    return {
+      ok: false,
+      status: 410,
+      code: ALTERNATIVE_OFFER_CODE.EXPIRED,
+      message: "This offer has expired",
+    };
+  }
+
+  if (!accept) {
+    return declineAlternativeOffer({
+      offer: existing,
+      ipAddress,
+      userAgent,
+      declineReason,
+    });
+  }
+
+  const orderForGate = await Order.findById(existing.orderId);
+  const acceptGate = await assertPartnerCanOperate(orderForGate?.ownerId, {
+    purpose: PARTNER_OPERATION_PURPOSE.ALTERNATIVE,
+  });
+  if (!acceptGate.allowed) {
+    await auditPartnerComplianceBlock({
+      purpose: PARTNER_OPERATION_PURPOSE.ALTERNATIVE,
+      result: acceptGate,
+      actorRole: "system",
+      ipAddress,
+      userAgent,
+      orderId: existing.orderId,
+    });
+    return {
+      ok: false,
+      status: 404,
+      code: ALTERNATIVE_OFFER_CODE.NOT_FOUND,
+      message: "Offer not found",
+    };
+  }
+
+  return acceptAlternativeOffer({
+    offer: existing,
+    ipAddress,
+    userAgent,
+    termsAccepted,
+  });
+}
+
+async function declineAlternativeOffer({
+  offer,
+  ipAddress,
+  userAgent,
+  declineReason,
+}) {
+  const now = new Date();
+  const updated = await AlternativeVehicleOffer.findOneAndUpdate(
+    { offerId: offer.offerId, status: "OFFERED", expiresAt: { $gt: now } },
     {
       $set: {
-        status: accept ? "ACCEPTED" : "DECLINED",
+        status: "DECLINED",
         decidedAt: now,
         decisionIp: ipAddress,
         decisionUserAgent: userAgent,
-        declineReason: accept ? "" : declineReason,
+        declineReason: String(declineReason || "").slice(0, 500),
+      },
+    },
+    { new: true }
+  );
+  if (!updated) {
+    const latest = await AlternativeVehicleOffer.findOne({ offerId: offer.offerId }).lean();
+    if (latest?.status === "DECLINED") return decisionIdempotent(latest);
+    return {
+      ok: false,
+      status: 409,
+      code: ALTERNATIVE_OFFER_CODE.NOT_DECIDABLE,
+      message: "This offer can no longer be declined",
+    };
+  }
+
+  const order = await Order.findById(updated.orderId);
+  if (order) await reopenOrderForAnotherOffer(order);
+
+  await audit("ALTERNATIVE_OFFER_DECLINED", {
+    ipAddress,
+    userAgent,
+    reason: declineReason,
+    orderData: order
+      ? { orderId: order._id, orderNumber: order.orderNumber }
+      : { orderId: updated.orderId },
+    metadata: { offerId: updated.offerId, afterPayment: false },
+  });
+
+  if (order) {
+    await sendAlternativeDeclinedNotice({
+      order: order.toObject ? order.toObject() : order,
+      offer: updated.toObject ? updated.toObject() : updated,
+    }).catch(() => {});
+  }
+
+  return {
+    ok: true,
+    idempotent: false,
+    status: "DECLINED",
+    refundRequired: false,
+    holdCreated: false,
+    stripeCreated: false,
+    orderId: order ? String(order._id) : String(updated.orderId),
+  };
+}
+
+async function acceptAlternativeOffer({
+  offer,
+  ipAddress,
+  userAgent,
+  termsAccepted,
+}) {
+  const now = new Date();
+  if (offer.termsChanged && termsAccepted !== true) {
+    return {
+      ok: false,
+      status: 400,
+      code: ALTERNATIVE_OFFER_CODE.TERMS_CONSENT_REQUIRED,
+      message: "You must accept the changed rental conditions to continue with this car",
+    };
+  }
+
+  const checksum = verifyOfferChecksum(offer.toObject ? offer.toObject() : offer);
+  if (!checksum.ok) return { ok: false, status: 409, ...checksum };
+
+  const order = await Order.findById(offer.orderId);
+  if (!order) {
+    return {
+      ok: false,
+      status: 404,
+      code: ALTERNATIVE_OFFER_CODE.NOT_FOUND,
+      message: "Booking not found",
+    };
+  }
+  const eligibility = evaluateAutomaticAlternativeEligibility(order, {
+    actor: { role: ROLE.SUPERADMIN, isSuperadmin: true, ownerId: order.ownerId },
+  });
+  if (!eligibility.ok) return eligibility;
+
+  const orderCompany = order.ownerId ? String(order.ownerId) : "";
+  const offerCompany = offer.companyId ? String(offer.companyId) : "";
+  if (offerCompany && orderCompany && offerCompany !== orderCompany) {
+    return {
+      ok: false,
+      status: 403,
+      code: ALTERNATIVE_OFFER_CODE.WRONG_COMPANY_ORDER,
+      message: "This offer does not belong to the booking's rental company",
+    };
+  }
+
+  const car = await Car.findById(offer.proposedCarId || offer.vehicle?.carId);
+  const carCheck = assertProposedCarCompany({
+    car,
+    order,
+    proposedCarId: offer.proposedCarId || offer.vehicle?.carId,
+  });
+  if (!carCheck.ok) return carCheck;
+
+  const availability = await evaluateProposedAvailability({ car, order });
+  if (!availability.ok) {
+    await audit("ALTERNATIVE_OFFER_AVAILABILITY_FAILED", {
+      result: "failure",
+      ipAddress,
+      userAgent,
+      orderData: { orderId: order._id, orderNumber: order.orderNumber },
+      metadata: { offerId: offer.offerId, code: availability.code },
+      errorMessage: availability.message,
+    });
+    return { ok: false, status: 409, ...availability };
+  }
+
+  const settings = await loadLegalSettings().catch(() => ({
+    paymentLinkExpirationMinutes: 60,
+  }));
+  const expireMinutes = clampStripeExpiresMinutes(
+    settings.paymentLinkExpirationMinutes
+  );
+  const holdExpiresAt = new Date(now.getTime() + expireMinutes * 60 * 1000);
+
+  const hold = await acquireMarketplaceHold({
+    carId: car._id,
+    orderId: order._id,
+    companyId: order.ownerId,
+    pickupAtUtc: order.pickupAtUtc || order.timeIn,
+    returnAtUtc: order.returnAtUtc || order.timeOut,
+    holdExpiresAt,
+    timezone: order.timezone,
+    bookingMode: order.bookingMode,
+    offerId: offer.offerId,
+  });
+  if (!hold.ok) {
+    await audit("BOOKING_HOLD_CONFLICT", {
+      result: "failure",
+      ipAddress,
+      userAgent,
+      orderData: { orderId: order._id, orderNumber: order.orderNumber },
+      metadata: { offerId: offer.offerId, code: hold.code, proposedCarId: String(car._id) },
+      errorMessage: hold.message,
+    });
+    return {
+      ok: false,
+      status: 409,
+      code: hold.code || ALTERNATIVE_OFFER_CODE.HOLD_CONFLICT,
+      message: hold.message || "Those dates are not available for this car",
+    };
+  }
+
+  const casOffer = await AlternativeVehicleOffer.findOneAndUpdate(
+    {
+      offerId: offer.offerId,
+      status: "OFFERED",
+      expiresAt: { $gt: now },
+    },
+    {
+      $set: {
+        status: "ACCEPTED",
+        decidedAt: now,
+        decisionIp: ipAddress,
+        decisionUserAgent: userAgent,
+        termsConsent: offer.termsChanged
+          ? {
+              accepted: true,
+              acceptedAt: now,
+              termsHash: offer.proposedTermsHash,
+              originalTermsHash: offer.originalTermsHash,
+              ipAddress,
+              userAgent,
+            }
+          : {
+              accepted: false,
+              required: false,
+              recordedAt: now,
+              termsHash: offer.proposedTermsHash,
+              ipAddress,
+              userAgent,
+            },
+        acceptedHoldId: hold.hold?._id ? String(hold.hold._id) : "",
       },
     },
     { new: true }
   );
 
-  if (!offer) {
-    const existing = await AlternativeVehicleOffer.findOne({ offerId }).lean();
-    if (!existing) {
-      return { ok: false, status: 404, code: "not_found", message: "Offer not found" };
+  if (!casOffer) {
+    const latest = await AlternativeVehicleOffer.findOne({ offerId: offer.offerId });
+    if (latest?.status === "ACCEPTED") {
+      return replayAcceptedOffer(latest, { ipAddress, userAgent });
     }
-    if (existing.status === "OFFERED" && existing.expiresAt <= now) {
-      await AlternativeVehicleOffer.updateOne(
-        { offerId },
-        { $set: { status: "EXPIRED" } }
-      ).catch(() => {});
-      return {
-        ok: false,
-        status: 410,
-        code: "expired",
-        message: "This offer has expired",
-      };
-    }
+    await restoreMarketplaceHoldAfterFailedAcquire({
+      orderId: order._id,
+      previousHold: hold.previousHold,
+      reason: "alternative_cas_lost",
+    });
     return {
-      ok: true,
-      idempotent: true,
-      status: existing.status,
-      message: `This offer was already ${existing.status.toLowerCase()}`,
+      ok: false,
+      status: 409,
+      code: ALTERNATIVE_OFFER_CODE.NOT_DECIDABLE,
+      message: "This offer can no longer be accepted",
     };
   }
 
-  const order = await Order.findById(offer.orderId);
-  if (!order) {
-    return { ok: false, status: 404, code: "not_found", message: "Booking not found" };
+  await AlternativeVehicleOffer.updateMany(
+    {
+      orderId: order._id,
+      offerId: { $ne: offer.offerId },
+      status: "OFFERED",
+    },
+    { $set: { status: "WITHDRAWN", decidedAt: now, declineReason: "superseded_by_acceptance" } }
+  ).catch(() => {});
+
+  const originalRequest =
+    order.originalRequestSnapshot ||
+    casOffer.originalRequest ||
+    buildOriginalRequestSnapshot({
+      order,
+      car: await loadOriginalCar(order),
+      company: await loadCompany(order),
+    });
+
+  const casOrder = await Order.findOneAndUpdate(
+    {
+      _id: order._id,
+      bookingStatus: {
+        $in: [
+          BOOKING_STATUS.ALTERNATIVE_PROPOSED,
+          BOOKING_STATUS.PENDING_SUPPLIER_CONFIRMATION,
+          BOOKING_STATUS.NO_AVAILABILITY,
+        ],
+      },
+      $or: [
+        { payment: null },
+        { payment: { $exists: false } },
+        { "payment.status": { $nin: ["paid", "succeeded"] } },
+      ],
+    },
+    {
+      $set: {
+        car: car._id,
+        carNumber: car.carNumber,
+        carModel: car.model,
+        regNumber: car.regNumber || "",
+        locationSnapshot: casOffer.proposedLocationSnapshot,
+        authoritativePrice: casOffer.proposedAuthoritativePrice,
+        totalPrice: fromMinorUnits(casOffer.offeredGrossMinor ?? casOffer.priceMinor, "EUR"),
+        bookingStatus:
+          RENTAL_STATE_TO_BOOKING_STATUS[RENTAL_STATE.ALTERNATIVE_ACCEPTED],
+        originalRequestSnapshot: originalRequest,
+        acceptedAlternativeOfferId: casOffer.offerId,
+        franchiseOrder:
+          car.franchise != null ? car.franchise : order.franchiseOrder,
+        deposit: car.deposit != null ? car.deposit : order.deposit,
+      },
+    },
+    { new: true }
+  );
+
+  if (!casOrder) {
+    await AlternativeVehicleOffer.updateOne(
+      { offerId: casOffer.offerId, status: "ACCEPTED" },
+      { $set: { status: "OFFERED", decidedAt: null, acceptedHoldId: "" } }
+    ).catch(() => {});
+    await restoreMarketplaceHoldAfterFailedAcquire({
+      orderId: order._id,
+      previousHold: hold.previousHold,
+      reason: "alternative_order_update_failed",
+    });
+    return {
+      ok: false,
+      status: 409,
+      code: ALTERNATIVE_OFFER_CODE.INVALID_STATE,
+      message: "This booking can no longer accept an alternative",
+    };
   }
 
-  if (accept) {
-    order.bookingStatus =
-      RENTAL_STATE_TO_BOOKING_STATUS[RENTAL_STATE.ALTERNATIVE_ACCEPTED];
-    order.carModel = offer.vehicle.model || order.carModel;
-    await order.save();
-
-    // A new immutable snapshot rather than an edit to the original one.
-    if (offer.afterPayment) {
-      await createConfirmedBookingSnapshot({
-        orderId: String(order._id),
-        reason: `alternative_accepted:${offerId}`,
-      }).catch((err) => {
-        console.error("[alternative] snapshot failed", err?.message || err);
-      });
-    }
-  } else {
-    order.bookingStatus =
-      RENTAL_STATE_TO_BOOKING_STATUS[RENTAL_STATE.ALTERNATIVE_DECLINED];
-    await order.save();
-  }
-
-  await recordAuditEvent({
-    action: accept ? "ALTERNATIVE_OFFER_ACCEPTED" : "ALTERNATIVE_OFFER_DECLINED",
-    severity: "high",
+  await audit("ALTERNATIVE_HOLD_ACQUIRED", {
+    userRole: "system",
     ipAddress,
     userAgent,
-    reason: accept ? "" : declineReason,
-    orderData: { orderId: order._id, orderNumber: order.orderNumber },
-    metadata: { offerId, afterPayment: offer.afterPayment },
+    orderData: { orderId: casOrder._id, orderNumber: casOrder.orderNumber },
+    metadata: {
+      offerId: casOffer.offerId,
+      carId: String(car._id),
+      originalCarId: originalRequest.carId,
+    },
+  });
+
+  if (casOffer.termsChanged) {
+    await audit("ALTERNATIVE_TERMS_REACCEPTED", {
+      ipAddress,
+      userAgent,
+      orderData: { orderId: casOrder._id, orderNumber: casOrder.orderNumber },
+      metadata: {
+        offerId: casOffer.offerId,
+        proposedTermsHash: casOffer.proposedTermsHash,
+        originalTermsHash: casOffer.originalTermsHash,
+      },
+    });
+  }
+
+  await staleOriginalCheckout(casOrder);
+  await casOrder.save().catch(() => {});
+
+  const checkout = await createRentalCheckoutSession(String(casOrder._id), {
+    forceNew: true,
+    emailCustomer: false,
+  });
+
+  if (!checkout.ok || !checkout.url) {
+    await markHoldForRetry(casOrder._id, {
+      reason: checkout.code || "alternative_checkout_failed",
+    });
+    await AlternativeVehicleOffer.updateOne(
+      { offerId: casOffer.offerId },
+      {
+        $set: {
+          paymentLinkGenerationFailed: true,
+          stripeSessionId: "",
+        },
+      }
+    );
+    await casOrder.save().catch(() => {});
+    await audit("ALTERNATIVE_CHECKOUT_FAILED", {
+      severity: "critical",
+      result: "failure",
+      ipAddress,
+      userAgent,
+      orderData: { orderId: casOrder._id, orderNumber: casOrder.orderNumber },
+      metadata: { offerId: casOffer.offerId, code: checkout.code },
+      errorMessage: checkout.message,
+    });
+    await notifySuperadmin({
+      title: `⚠️ Alternative accepted but payment link failed — #${casOrder.orderNumber || casOrder._id}`,
+      bodyLines: [
+        checkout.message || checkout.code || "Checkout failed",
+        `Offer ${casOffer.offerId}`,
+        "Hold is preserved for retry. No customer payment email was sent.",
+      ],
+      meta: { orderId: casOrder._id, offerId: casOffer.offerId },
+    }).catch(() => {});
+
+    await sendAlternativeAcceptedNotice({
+      order: casOrder.toObject ? casOrder.toObject() : casOrder,
+      offer: casOffer.toObject ? casOffer.toObject() : casOffer,
+    }).catch(() => {});
+
+    return {
+      ok: true,
+      status: "ACCEPTED",
+      paymentLinkGenerationFailed: true,
+      paymentUrl: "",
+      holdCreated: true,
+      proposedCarId: String(car._id),
+      originalCarId: originalRequest.carId,
+      orderId: String(casOrder._id),
+      message:
+        "The replacement was accepted but the payment link could not be created. Rovaro has been notified.",
+    };
+  }
+
+  await AlternativeVehicleOffer.updateOne(
+    { offerId: casOffer.offerId },
+    {
+      $set: {
+        stripeSessionId: checkout.sessionId || "",
+        checkoutUrl: checkout.url || "",
+        paymentLinkGenerationFailed: false,
+      },
+    }
+  );
+
+  const mailed = await sendAlternativePaymentLinkEmail({
+    order: casOrder.toObject ? casOrder.toObject() : casOrder,
+    offer: { ...casOffer.toObject(), checkoutUrl: checkout.url },
+    paymentUrl: checkout.url,
+    expiresAt: checkout.expiresAt,
+    stripeSessionId: checkout.sessionId,
+  }).catch((err) => ({ ok: false, message: err?.message || String(err) }));
+
+  await sendAlternativeAcceptedNotice({
+    order: casOrder.toObject ? casOrder.toObject() : casOrder,
+    offer: casOffer.toObject ? casOffer.toObject() : casOffer,
+  }).catch(() => {});
+
+  await audit("ALTERNATIVE_OFFER_ACCEPTED", {
+    ipAddress,
+    userAgent,
+    orderData: { orderId: casOrder._id, orderNumber: casOrder.orderNumber },
+    metadata: {
+      offerId: casOffer.offerId,
+      proposedCarId: String(car._id),
+      originalCarId: originalRequest.carId,
+      stripeSessionId: checkout.sessionId,
+      prepaymentMinor: casOffer.prepaymentMinor,
+      emailFailed: mailed?.ok === false,
+    },
   });
 
   return {
     ok: true,
     idempotent: false,
-    status: offer.status,
-    /** Declining a paid booking must trigger a refund, never a silent change. */
-    refundRequired: !accept && offer.afterPayment,
-    orderId: String(order._id),
+    status: "ACCEPTED",
+    refundRequired: false,
+    holdCreated: true,
+    stripeCreated: true,
+    paymentUrl: checkout.url,
+    paymentExpiresAt: checkout.expiresAt || null,
+    proposedCarId: String(car._id),
+    originalCarId: originalRequest.carId,
+    orderId: String(casOrder._id),
+    email: mailed,
   };
 }
 
-/**
- * Offers a customer still has to answer.
- * @param {string} orderId
- */
+async function replayAcceptedOffer(offer, { ipAddress, userAgent } = {}) {
+  const order = await Order.findById(offer.orderId);
+  if (offer.paymentLinkGenerationFailed || !offer.checkoutUrl) {
+    const checkout = await createRentalCheckoutSession(String(offer.orderId), {
+      forceNew: false,
+      emailCustomer: false,
+    });
+    if (checkout.ok && checkout.url) {
+      await AlternativeVehicleOffer.updateOne(
+        { offerId: offer.offerId },
+        {
+          $set: {
+            stripeSessionId: checkout.sessionId || "",
+            checkoutUrl: checkout.url,
+            paymentLinkGenerationFailed: false,
+          },
+        }
+      );
+      return {
+        ok: true,
+        idempotent: true,
+        status: "ACCEPTED",
+        paymentUrl: checkout.url,
+        holdCreated: true,
+        stripeCreated: !checkout.reused,
+        orderId: String(offer.orderId),
+      };
+    }
+  }
+  return {
+    ok: true,
+    idempotent: true,
+    status: "ACCEPTED",
+    paymentUrl: offer.checkoutUrl || order?.payment?.checkoutUrl || "",
+    paymentLinkGenerationFailed: Boolean(offer.paymentLinkGenerationFailed),
+    holdCreated: true,
+    orderId: String(offer.orderId),
+    ipAddress,
+    userAgent,
+  };
+}
+
+export async function withdrawAlternativeOffer({
+  offerId,
+  orderId,
+  reason,
+  actor,
+  ipAddress = "",
+  userAgent = "",
+}) {
+  await connectToDB();
+  const reasonCheck = sanitizeReason(reason, { required: true, max: 500 });
+  if (!reasonCheck.ok) return { ok: false, status: 400, ...reasonCheck };
+
+  const offer = await AlternativeVehicleOffer.findOne({
+    offerId,
+    ...(orderId ? { orderId } : {}),
+  });
+  if (!offer) {
+    return {
+      ok: false,
+      status: 404,
+      code: ALTERNATIVE_OFFER_CODE.NOT_FOUND,
+      message: "Offer not found",
+    };
+  }
+  const order = await Order.findById(offer.orderId);
+  const eligibility = evaluateAutomaticAlternativeEligibility(order, { actor });
+  if (!eligibility.ok && eligibility.code !== ALTERNATIVE_OFFER_CODE.INVALID_STATE) {
+    return eligibility;
+  }
+  if (offer.status !== "OFFERED") {
+    if (offer.status === "WITHDRAWN") {
+      return decisionIdempotent(offer.toObject ? offer.toObject() : offer);
+    }
+    return {
+      ok: false,
+      status: 409,
+      code: ALTERNATIVE_OFFER_CODE.NOT_DECIDABLE,
+      message: "Only an open offer can be withdrawn",
+    };
+  }
+
+  const now = new Date();
+  const updated = await AlternativeVehicleOffer.findOneAndUpdate(
+    { offerId: offer.offerId, status: "OFFERED" },
+    {
+      $set: {
+        status: "WITHDRAWN",
+        decidedAt: now,
+        declineReason: reasonCheck.reason,
+        withdrawnByEmail: actor?.email || "",
+      },
+    },
+    { new: true }
+  );
+  if (!updated) {
+    return {
+      ok: false,
+      status: 409,
+      code: ALTERNATIVE_OFFER_CODE.NOT_DECIDABLE,
+      message: "This offer can no longer be withdrawn",
+    };
+  }
+  if (order) await reopenOrderForAnotherOffer(order);
+
+  await audit("ALTERNATIVE_OFFER_WITHDRAWN", {
+    userEmail: actor?.email,
+    userRole: actor?.isSuperadmin ? "superadmin" : "admin",
+    ipAddress,
+    userAgent,
+    reason: reasonCheck.reason,
+    orderData: order
+      ? { orderId: order._id, orderNumber: order.orderNumber }
+      : { orderId: offer.orderId },
+    metadata: { offerId: offer.offerId },
+  });
+
+  if (order) {
+    await sendAlternativeWithdrawnEmail({
+      order: order.toObject ? order.toObject() : order,
+      offer: updated.toObject ? updated.toObject() : updated,
+    }).catch(() => {});
+  }
+
+  return { ok: true, status: "WITHDRAWN", offerId: offer.offerId };
+}
+
+export async function expireOpenAlternativeOffers({
+  now = new Date(),
+  limit = 50,
+  trigger = "cron",
+} = {}) {
+  await connectToDB();
+  const due = await AlternativeVehicleOffer.find({
+    status: "OFFERED",
+    expiresAt: { $lte: now },
+  })
+    .limit(Math.min(200, Math.max(1, Number(limit) || 50)))
+    .lean();
+
+  let expired = 0;
+  let emailed = 0;
+  const failed = [];
+  for (const row of due) {
+    try {
+      const updated = await AlternativeVehicleOffer.findOneAndUpdate(
+        { offerId: row.offerId, status: "OFFERED" },
+        { $set: { status: "EXPIRED", decidedAt: now } },
+        { new: true }
+      );
+      if (!updated) continue;
+      expired += 1;
+      const order = await Order.findById(updated.orderId);
+      if (order) await reopenOrderForAnotherOffer(order);
+      await audit("ALTERNATIVE_OFFER_EXPIRED", {
+        userRole: "system",
+        orderData: order
+          ? { orderId: order._id, orderNumber: order.orderNumber }
+          : { orderId: updated.orderId },
+        metadata: { offerId: updated.offerId, trigger },
+      });
+      if (order) {
+        const mailed = await sendAlternativeExpiredNotice({
+          order: order.toObject ? order.toObject() : order,
+          offer: updated.toObject ? updated.toObject() : updated,
+        }).catch(() => ({ ok: false }));
+        if (mailed?.ok) emailed += 1;
+      }
+    } catch (err) {
+      failed.push({ offerId: row.offerId, message: err?.message || String(err) });
+    }
+  }
+  return { scanned: due.length, expired, emailed, failed, trigger };
+}
+
 export async function listOpenOffers(orderId) {
   await connectToDB();
   return AlternativeVehicleOffer.find({
@@ -354,3 +1653,5 @@ export async function listOffersForOrder(orderId) {
   await connectToDB();
   return AlternativeVehicleOffer.find({ orderId }).sort({ offeredAt: -1 }).lean();
 }
+
+export { ALTERNATIVE_OFFER_CODE, evaluateAutomaticAlternativeEligibility };

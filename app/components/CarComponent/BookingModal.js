@@ -1,20 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import Link from "next/link";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   Typography,
   Box,
-  Checkbox,
   FormControl,
-  FormControlLabel,
   InputLabel,
   Select,
   MenuItem,
   CircularProgress,
   IconButton,
   Grow,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import {
@@ -31,7 +30,7 @@ import BookingContactSection from "@/app/components/orders/BookingContactSection
 import { useTranslation } from "react-i18next";
 import { addOrderNew } from "@utils/action";
 import SuccessMessage from "@/app/components/ui/feedback/SuccessMessage";
-import { setTimeToDatejs } from "@/domain/calendar";
+import { setTimeToDatejs, formatValidBookingDate, isValidBookingDateValue } from "@/domain/calendar";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -83,8 +82,17 @@ import {
   resolveOfficeFormAddress,
 } from "@/domain/orders/carOffices";
 import BookingOfficeDeliveryChoice from "./BookingOfficeDeliveryChoice";
+import BookingContractsBlock from "./BookingContractsBlock";
 import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
+import { parseRequiredCustomerEmail } from "@/domain/validation/customerEmail";
 import { reportGoogleAdsPurchaseFromOrder } from "@/domain/analytics/googleAdsConversion";
+import {
+  formatMarketplaceEuro,
+  marketplaceFeeNotice,
+  marketplaceFinancialSplitFromMajor,
+  marketplaceSplitLabels,
+} from "@/domain/orders/marketplaceFinancialSplit";
+import { resolveMarketplaceBookingFeeBps } from "@/domain/orders/marketplaceBookingFee";
 import "@/styles/animations.css";
 
 // Extend dayjs with plugins
@@ -133,7 +141,7 @@ const BookingModal = ({
     createEmptyBookingPriceSummary()
   );
   const [calcLoading, setCalcLoading] = useState(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const secondDriverPriceLabelValue = getSecondDriverPriceLabelValue();
   const {
     company,
@@ -158,6 +166,23 @@ const BookingModal = ({
   } = useCompanyBookingLocations(car?.ownerId || company?._id);
   const siteCountry = getSiteCountryCode();
   const spainSite = isSpainBookingSite(siteCountry);
+  const marketplaceFee = useMemo(
+    () =>
+      resolveMarketplaceBookingFeeBps({
+        marketplaceBookingFeeBps:
+          car?.marketplaceBookingFeeBps ?? company?.marketplaceBookingFeeBps,
+      }),
+    [car?.marketplaceBookingFeeBps, company?.marketplaceBookingFeeBps]
+  );
+  const marketplaceSplit = useMemo(() => {
+    if (!spainSite) return null;
+    return marketplaceFinancialSplitFromMajor(
+      daysAndTotal.totalPrice,
+      "EUR",
+      { feeBps: marketplaceFee.bps }
+    );
+  }, [spainSite, daysAndTotal.totalPrice, marketplaceFee.bps]);
+  const marketplaceLabels = marketplaceSplitLabels(i18n?.language);
   const catalogPlaceNames = useMemo(
     () => resolveCatalogPlaceOptions(companyPlaceOptions, siteCountry),
     [companyPlaceOptions, siteCountry]
@@ -245,10 +270,14 @@ const BookingModal = ({
   const [submittedOrder, setSubmittedOrder] = useState(null);
 
   const [startTime, setStartTime] = useState(() =>
-    setTimeToDatejs(presetDates?.startDate, null, true)
+    isValidBookingDateValue(presetDates?.startDate)
+      ? setTimeToDatejs(presetDates.startDate, null, true)
+      : null
   );
   const [endTime, setEndTime] = useState(() =>
-    setTimeToDatejs(presetDates?.endDate, null)
+    isValidBookingDateValue(presetDates?.endDate)
+      ? setTimeToDatejs(presetDates.endDate, null)
+      : null
   );
   const [timeLimits, setTimeLimits] = useState({
     minStart: null,
@@ -265,8 +294,20 @@ const BookingModal = ({
   const [placeOutGeo, setPlaceOutGeo] = useState(null);
   const [pickupMethod, setPickupMethod] = useState("delivery");
   const [returnMethod, setReturnMethod] = useState("delivery");
+  const [pickupOfficeId, setPickupOfficeId] = useState("");
+  const [returnOfficeId, setReturnOfficeId] = useState("");
+  const [pickupPlaceId, setPickupPlaceId] = useState("");
+  const [returnPlaceId, setReturnPlaceId] = useState("");
+  const [sameReturnLocation, setSameReturnLocation] = useState(true);
+  const [locationQuote, setLocationQuote] = useState(null);
   const [flightNumber, setFlightNumber] = useState("");
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsState, setTermsState] = useState({
+    ready: false,
+    payload: null,
+    platformAccepted: false,
+    companyAccepted: true,
+    companyRequired: false,
+  });
 
   const placeInIsOffice =
     pickupMethod === "office" ||
@@ -316,8 +357,18 @@ const BookingModal = ({
             { value: target.name, kind: "office", address: target.address },
             which
           );
+          const id = String(target.id || target._id || "");
+          if (which === "in") setPickupOfficeId(id);
+          else setReturnOfficeId(id);
         }
         return;
+      }
+      if (which === "in") {
+        setPickupOfficeId("");
+        setPickupPlaceId("");
+      } else {
+        setReturnOfficeId("");
+        setReturnPlaceId("");
       }
       const fallback =
         defaultBookingLocation ||
@@ -404,6 +455,9 @@ const BookingModal = ({
         ? toServerUTC(timeOutAthens)
         : undefined;
       setCalcLoading(true);
+      // Clear stale location quotes before refetch so a failed/partial response
+      // cannot leave previous delivery fees on screen.
+      setLocationQuote(null);
       try {
         const result = await calculateTotalPrice(
           carApiIdentifier,
@@ -429,7 +483,48 @@ const BookingModal = ({
           }
         );
         if (signal?.aborted) return;
-        setDaysAndTotal(buildBookingPriceSummary(result));
+        let summary = buildBookingPriceSummary(result);
+        try {
+          const quoteRes = await fetch("/api/public/delivery/quote", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal,
+            body: JSON.stringify({
+              carId: car?._id,
+              language: lang,
+              pickup: {
+                kind: pickupMethod,
+                officeId: pickupOfficeId,
+                placeId: pickupPlaceId,
+              },
+              return: {
+                kind: sameReturnLocation ? pickupMethod : returnMethod,
+                officeId: sameReturnLocation ? pickupOfficeId : returnOfficeId,
+                placeId: sameReturnLocation ? pickupPlaceId : returnPlaceId,
+                sameAsPickup: sameReturnLocation,
+              },
+            }),
+          });
+          const quoteBody = await quoteRes.json().catch(() => ({}));
+          if (quoteBody?.success && quoteBody.snapshot) {
+            setLocationQuote(quoteBody);
+            summary = {
+              ...summary,
+              pickupDeliveryCost: Number(quoteBody.deliveryIn) || 0,
+              returnDeliveryCost: Number(quoteBody.deliveryOut) || 0,
+              deliveryCost: Number(quoteBody.deliveryTotal) || 0,
+              totalPrice:
+                Number(summary.rentalPrice || 0) +
+                (Number(quoteBody.deliveryTotal) || 0),
+              deliveryStatus: "ready",
+            };
+          } else {
+            setLocationQuote(quoteBody?.success === false ? quoteBody : null);
+          }
+        } catch (quoteErr) {
+          if (quoteErr?.name === "AbortError" || signal?.aborted) return;
+        }
+        setDaysAndTotal(summary);
       } catch (error) {
         if (error?.name === "AbortError" || signal?.aborted) return;
         setDaysAndTotal(createEmptyBookingPriceSummary());
@@ -455,6 +550,15 @@ const BookingModal = ({
       placeOutDetail,
       placeInGeo,
       placeOutGeo,
+      pickupMethod,
+      returnMethod,
+      pickupOfficeId,
+      returnOfficeId,
+      pickupPlaceId,
+      returnPlaceId,
+      sameReturnLocation,
+      car?._id,
+      lang,
       TIME_ZONE,
     ]
   );
@@ -599,7 +703,16 @@ const BookingModal = ({
 
   // Определение граничных заказов и установка дефолтных/смещённых времен
   useEffect(() => {
-    if (!presetDates?.startDate || !presetDates?.endDate || !company) return;
+    if (
+      !isValidBookingDateValue(presetDates?.startDate) ||
+      !isValidBookingDateValue(presetDates?.endDate) ||
+      !company
+    ) {
+      setStartTime(null);
+      setEndTime(null);
+      setLocationQuote(null);
+      return;
+    }
 
     const diffStart = Number(company.hoursDiffForStart) || 0; // обычно >0
     const diffEnd = Number(company.hoursDiffForEnd) || 0; // может быть отрицательным
@@ -657,6 +770,7 @@ const BookingModal = ({
 
   // Клампинг ручного ввода времени старта
   const handleStartTimeChange = (value) => {
+    if (!isValidBookingDateValue(presetDates?.startDate)) return;
     const chosen = dayjs(value, "HH:mm");
     if (timeLimits.minStart) {
       const min = dayjs(timeLimits.minStart, "HH:mm");
@@ -672,6 +786,7 @@ const BookingModal = ({
 
   // Клампинг ручного ввода времени окончания
   const handleEndTimeChange = (value) => {
+    if (!isValidBookingDateValue(presetDates?.endDate)) return;
     const chosen = dayjs(value, "HH:mm");
     if (timeLimits.maxEnd) {
       const max = dayjs(timeLimits.maxEnd, "HH:mm");
@@ -683,12 +798,7 @@ const BookingModal = ({
     setEndTime(setTimeToDatejs(presetDates.endDate, value));
   };
 
-  // Проверка формата email происходит только на фронте, в функции validateEmail:
-  const validateEmail = (email) => {
-    if (!email) return true; // Email необязателен
-    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    return re.test(String(email).toLowerCase());
-  };
+  // Email is required on submit (parseRequiredCustomerEmail).
 
   const bookButtonRef = useRef(null);
 
@@ -769,8 +879,12 @@ const BookingModal = ({
     );
     if (displayOffices.length) {
       const office = displayOffices[0];
+      const officeId = String(office.id || office._id || "");
       setPickupMethod("office");
       setReturnMethod("office");
+      setPickupOfficeId(officeId);
+      setReturnOfficeId(officeId);
+      setSameReturnLocation(true);
       applyPlaceSelection(
         { value: office.name, kind: "office", address: office.address },
         "in"
@@ -812,14 +926,29 @@ const BookingModal = ({
     const newErrors = {};
     const requiredMsg = t("order.required") || "Required";
     if (!name?.trim()) newErrors.name = requiredMsg;
-    if (email && !validateEmail(email))
-      newErrors.email = "Invalid email address";
+    const emailCheck = parseRequiredCustomerEmail(email);
+    if (!emailCheck.ok) {
+      newErrors.email = t(emailCheck.messageKey);
+    }
     if (!phone?.trim()) newErrors.phone = requiredMsg;
     if (phone?.trim() && !isValidInternationalPhone(phone))
       newErrors.phone = t("order.phoneInvalid");
-    // if (!termsAccepted) newErrors.terms = requiredMsg; // поле политики/условий пока закомментировано
-    if (!presetDates?.startDate || !presetDates?.endDate)
+    if (!termsState.ready) {
+      newErrors.terms = t("order.platformTermsUnavailable");
+    } else if (!termsState.platformAccepted) {
+      newErrors.terms = t("order.platformTermsRequired");
+    } else if (termsState.companyRequired && !termsState.companyAccepted) {
+      newErrors.terms = t("order.companyTermsRequired");
+    }
+    if (
+      !isValidBookingDateValue(presetDates?.startDate) ||
+      !isValidBookingDateValue(presetDates?.endDate)
+    ) {
       newErrors.dates = t("order.requiredDates") || "Pick-up and return dates";
+    }
+    if (!startTime || !dayjs(startTime).isValid() || !endTime || !dayjs(endTime).isValid()) {
+      newErrors.time = t("order.requiredValidTimes") || "Valid pickup/return times";
+    }
     if (timeErrors) newErrors.time = timeErrors;
     const pin = String(placeIn || "").trim();
     const pout = String(placeOut || "").trim();
@@ -848,6 +977,16 @@ const BookingModal = ({
       String(placeOutDetail || "").trim().length < 3
     ) {
       newErrors.placeOutDetail = addressDetailRequiredMsg;
+    }
+    if (pickupMethod === "delivery" && !String(pickupPlaceId || "").trim()) {
+      newErrors.placeInDetail = t("order.unverifiedAddress") || addressDetailRequiredMsg;
+    }
+    if (
+      !sameReturnLocation &&
+      returnMethod === "delivery" &&
+      !String(returnPlaceId || "").trim()
+    ) {
+      newErrors.placeOutDetail = t("order.unverifiedAddress") || addressDetailRequiredMsg;
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -883,7 +1022,7 @@ const BookingModal = ({
         carNumber: car?.carNumber || "",
         customerName: name || "",
         phone: phone || "",
-        email: email ? email : "",
+        email: emailCheck.email,
         secondDriver: Boolean(secondDriver),
         Viber: viber,
         Whatsapp: whatsapp,
@@ -903,8 +1042,24 @@ const BookingModal = ({
         placeOut: canonOut || placeOut,
         placeInDetail: String(placeInDetail || "").trim(),
         placeOutDetail: String(placeOutDetail || "").trim(),
+        pickupMethod,
+        returnMethod,
+        location: {
+          pickup: {
+            kind: pickupMethod,
+            officeId: pickupOfficeId,
+            placeId: pickupPlaceId,
+          },
+          return: {
+            kind: sameReturnLocation ? pickupMethod : returnMethod,
+            officeId: sameReturnLocation ? pickupOfficeId : returnOfficeId,
+            placeId: sameReturnLocation ? pickupPlaceId : returnPlaceId,
+            sameAsPickup: sameReturnLocation,
+          },
+        },
         flightNumber: flightNumber,
         locale: lang || "en",
+        termsAcceptance: termsState.payload,
       };
 
       const response = await addOrderNew(orderData);
@@ -968,7 +1123,13 @@ const BookingModal = ({
     setViber(false);
     setWhatsapp(false);
     setTelegram(false);
-    setTermsAccepted(false);
+    setTermsState({
+      ready: false,
+      payload: null,
+      platformAccepted: false,
+      companyAccepted: true,
+      companyRequired: false,
+    });
     setErrors({});
     setIsSubmitted(false);
     setIsSubmitting(false);
@@ -1290,15 +1451,21 @@ const BookingModal = ({
                     >
                       <BookingDateField
                         label={t("order.pickupDate") || "Дата получения"}
-                        value={
-                          presetDates?.startDate
-                            ? dayjs(presetDates.startDate).format("DD.MM.YYYY")
-                            : ""
-                        }
+                        value={formatValidBookingDate(
+                          presetDates?.startDate,
+                          "DD.MM.YYYY",
+                          ""
+                        )}
+                        error={Boolean(errors.dates)}
+                        helperText={errors.dates || ""}
                       />
                       <BookingTimeField
                         label={t("order.pickupTime")}
-                        value={startTime.format("HH:mm")}
+                        value={
+                          startTime && dayjs(startTime).isValid()
+                            ? startTime.format("HH:mm")
+                            : ""
+                        }
                         inputProps={
                           timeLimits.minStart
                             ? { min: timeLimits.minStart }
@@ -1331,15 +1498,20 @@ const BookingModal = ({
                     >
                       <BookingDateField
                         label={t("order.returnDate") || "Дата возврата"}
-                        value={
-                          presetDates?.endDate
-                            ? dayjs(presetDates.endDate).format("DD.MM.YYYY")
-                            : ""
-                        }
+                        value={formatValidBookingDate(
+                          presetDates?.endDate,
+                          "DD.MM.YYYY",
+                          ""
+                        )}
+                        error={Boolean(errors.dates)}
                       />
                       <BookingTimeField
                         label={t("order.returnTime")}
-                        value={endTime.format("HH:mm")}
+                        value={
+                          endTime && dayjs(endTime).isValid()
+                            ? endTime.format("HH:mm")
+                            : ""
+                        }
                         inputProps={
                           timeLimits.maxEnd ? { max: timeLimits.maxEnd } : {}
                         }
@@ -1388,6 +1560,7 @@ const BookingModal = ({
                         onMethodChange={(next) => switchLegMethod("in", next)}
                         offices={displayOffices}
                         selectedOfficeName={placeIn}
+                        selectedOfficeId={pickupOfficeId}
                         onSelectOffice={(office) =>
                           switchLegMethod("in", "office", office)
                         }
@@ -1468,6 +1641,7 @@ const BookingModal = ({
                           cityBias={placeIn}
                           companyId={car?.ownerId || company?._id}
                           carId={car?._id}
+                          requireVerifiedPlace={spainSite}
                           onChange={(next) => {
                             setPlaceInDetail(next);
                             setPlaceInGeo(null);
@@ -1478,7 +1652,10 @@ const BookingModal = ({
                               });
                             }
                           }}
-                          onResolved={(geo) => setPlaceInGeo(geo)}
+                          onResolved={(geo) => {
+                            setPlaceInGeo(geo);
+                            setPickupPlaceId(geo?.placeId || "");
+                          }}
                           error={Boolean(errors.placeInDetail)}
                           helperText={
                             errors.placeInDetail ||
@@ -1516,18 +1693,46 @@ const BookingModal = ({
                         alignItems: "stretch",
                       }}
                     >
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={sameReturnLocation}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setSameReturnLocation(checked);
+                              if (checked) {
+                                setReturnMethod(pickupMethod);
+                                setReturnOfficeId(pickupOfficeId);
+                                setReturnPlaceId(pickupPlaceId);
+                                setPlaceOut(placeIn);
+                                setPlaceOutDetail(placeInDetail);
+                              }
+                            }}
+                          />
+                        }
+                        label={
+                          <Typography sx={{ fontSize: "0.8rem", fontWeight: 600 }}>
+                            {t("order.sameReturnLocation")}
+                          </Typography>
+                        }
+                        sx={{ m: 0 }}
+                      />
+                      {sameReturnLocation ? null : (
                       <BookingOfficeDeliveryChoice
                         method={returnMethod}
                         onMethodChange={(next) => switchLegMethod("out", next)}
                         offices={displayOffices}
                         selectedOfficeName={placeOut}
+                        selectedOfficeId={returnOfficeId}
                         onSelectOffice={(office) =>
                           switchLegMethod("out", "office", office)
                         }
                         officeLabel={t("order.returnAtOffice")}
                         deliveryLabel={t("order.returnDeliveryToAddress")}
                       />
-                      {returnMethod === "delivery" || !displayOffices.length ? (
+                      )}
+                      {sameReturnLocation ? null : (returnMethod === "delivery" || !displayOffices.length) ? (
                         <BookingLocationAutocomplete
                           label={t("order.returnLocation") || "Место возврата"}
                           options={placeOptions}
@@ -1574,7 +1779,8 @@ const BookingModal = ({
                           sx={{ width: "100%", minWidth: 0 }}
                         />
                       ) : null}
-                      {returnMethod === "delivery" &&
+                      {!sameReturnLocation &&
+                      returnMethod === "delivery" &&
                       placeOut &&
                       requiresDetail(placeOut) &&
                       !placeOutIsOffice ? (
@@ -1586,6 +1792,7 @@ const BookingModal = ({
                           cityBias={placeOut}
                           companyId={car?.ownerId || company?._id}
                           carId={car?._id}
+                          requireVerifiedPlace={spainSite}
                           onChange={(next) => {
                             setPlaceOutDetail(next);
                             setPlaceOutGeo(null);
@@ -1596,7 +1803,10 @@ const BookingModal = ({
                               });
                             }
                           }}
-                          onResolved={(geo) => setPlaceOutGeo(geo)}
+                          onResolved={(geo) => {
+                            setPlaceOutGeo(geo);
+                            setReturnPlaceId(geo?.placeId || "");
+                          }}
                           error={Boolean(errors.placeOutDetail)}
                           helperText={
                             errors.placeOutDetail ||
@@ -1621,7 +1831,67 @@ const BookingModal = ({
                           }}
                         />
                       ) : null}
+                      {locationQuote?.success === false && locationQuote.message ? (
+                        <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                          {locationQuote.message}
+                        </Typography>
+                      ) : null}
                     </Box>
+                  </Box>
+                  <Box
+                    sx={{
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderRadius: 1.5,
+                      px: 1.5,
+                      py: 1.25,
+                      mb: 1,
+                    }}
+                  >
+                    <Typography sx={{ fontSize: "0.8rem", fontWeight: 700, mb: 0.5 }}>
+                      {t("order.locationPriceSummary")}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: "block" }}>
+                      {t("order.baseRental")}: €{Number(daysAndTotal.rentalPrice || 0).toFixed(2)}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: "block" }}>
+                      {t("order.pickupDeliveryFee")}:{" "}
+                      {pickupMethod === "office" ||
+                      Number(daysAndTotal.pickupDeliveryCost || 0) === 0
+                        ? `${t("order.officeFreeBadge") || "Free"} / EUR 0`
+                        : `€${Number(daysAndTotal.pickupDeliveryCost || 0).toFixed(2)}`}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: "block" }}>
+                      {t("order.returnDeliveryFee")}:{" "}
+                      {(sameReturnLocation ? pickupMethod : returnMethod) ===
+                        "office" ||
+                      Number(daysAndTotal.returnDeliveryCost || 0) === 0
+                        ? `${t("order.officeFreeBadge") || "Free"} / EUR 0`
+                        : `€${Number(daysAndTotal.returnDeliveryCost || 0).toFixed(2)}`}
+                    </Typography>
+                    {spainSite && marketplaceSplit ? (
+                      <>
+                        <Typography variant="caption" sx={{ display: "block", fontWeight: 700 }}>
+                          {marketplaceLabels.total}: {formatMarketplaceEuro(marketplaceSplit.grossMinor)}
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "block" }}>
+                          {marketplaceLabels.payNow}: {formatMarketplaceEuro(marketplaceSplit.platformAmountMinor)}
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "block" }}>
+                          {marketplaceLabels.payAtPickup}: {formatMarketplaceEuro(marketplaceSplit.supplierBalanceMinor)}
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mt: 0.5 }}>
+                          {marketplaceFeeNotice(
+                            i18n?.language,
+                            marketplaceSplit.platformAmountMinor
+                          )}
+                        </Typography>
+                      </>
+                    ) : (
+                      <Typography variant="caption" sx={{ display: "block", fontWeight: 700 }}>
+                        {t("order.totalRental")}: €{Number(daysAndTotal.totalPrice || 0).toFixed(2)}
+                      </Typography>
+                    )}
                   </Box>
                   {/* <TextField
                     label={t("order.name")}
@@ -1794,56 +2064,19 @@ const BookingModal = ({
                     showDrivingLicenceUpload={false}
                   />
                 </Box>
-                {/* Поле «Согласие с условиями аренды» — пока закомментировано
-                <Box
-                  className={errors.terms ? "booking-field-shake" : ""}
-                  sx={{
-                    mt: 1.5,
-                    p: 1.25,
-                    border: "1px solid",
-                    borderColor: errors.terms ? "error.main" : "divider",
-                    borderRadius: 1,
-                    bgcolor: errors.terms ? "error.lighter" : "action.hover",
+                <BookingContractsBlock
+                  companyId={car?.ownerId || company?._id}
+                  lang={lang}
+                  companyName={company?.name}
+                  error={errors.terms}
+                  compactMarketplace={Boolean(spainSite && marketplaceSplit)}
+                  feeAmountMinor={marketplaceSplit?.platformAmountMinor}
+                  onChange={(next) => {
+                    setTermsState(next);
+                    if (errors.terms)
+                      setErrors((prev) => ({ ...prev, terms: undefined }));
                   }}
-                >
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={termsAccepted}
-                        onChange={(e) => {
-                          setTermsAccepted(e.target.checked);
-                          if (errors.terms) setErrors((prev) => ({ ...prev, terms: undefined }));
-                        }}
-                      />
-                    }
-                    sx={{
-                      alignItems: "flex-start",
-                      m: 0,
-                      "& .MuiFormControlLabel-label": { fontSize: "0.85rem", lineHeight: 1.4 },
-                      maxWidth: "100%",
-                    }}
-                    label={
-                      <Typography component="span" variant="body2" sx={{ fontSize: "0.85rem", lineHeight: 1.4 }}>
-                        {t("order.agreeToTerms")}{" "}
-                        <Link
-                          href="/rental-terms"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: "inherit", textDecoration: "underline" }}
-                        >
-                          {t("order.rentalTerms")}
-                        </Link>
-                      </Typography>
-                    }
-                  />
-                  {errors.terms && (
-                    <Typography color="error" variant="caption" sx={{ display: "block", mt: 0.5 }}>
-                      {errors.terms}
-                    </Typography>
-                  )}
-                </Box>
-                */}
+                />
                 {errors.submit && (
                   <Typography color="error" sx={{ mt: 2 }}>
                     {errors.submit}

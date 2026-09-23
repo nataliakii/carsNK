@@ -33,11 +33,14 @@ import { computeSnapshotChecksum } from "./checksum";
 import { buildDocumentRef } from "./documentKeys";
 import { loadLegalSettingsWithTokens } from "./legalSettingsService";
 import { resolveEsignProvider } from "./esign";
+import { assertAgreementPackageAcceptable } from "./agreementSigning";
 import {
   PARTNER_VERIFICATION_STATUS,
   canPartnerOperate,
 } from "./partnerVerification";
 import { recordAuditEvent } from "./auditTrail";
+import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
+import { absoluteUrl } from "@config/domain";
 
 /** Stable, non-guessable public identifier for one agreement instance. */
 export function generateAgreementId() {
@@ -153,14 +156,8 @@ export async function acceptMasterAgreement(input) {
   }
 
   const pkg = await buildAgreementPackage({ language: input.language });
-  if (!pkg.documents.length) {
-    return {
-      ok: false,
-      status: 500,
-      code: "no_documents",
-      message: "No agreement documents are available",
-    };
-  }
+  const packageOk = assertAgreementPackageAcceptable(pkg);
+  if (!packageOk.ok) return packageOk;
 
   const { mode, provider } = resolveEsignProvider(pkg.settings.esignProvider);
   const context = {
@@ -264,7 +261,30 @@ export async function acceptMasterAgreement(input) {
     },
   });
 
+  try {
+    await notifySuperadmin({
+      title: `✅ Partner agreement accepted — ${profile.legalName || input.companyId}`,
+      bodyLines: [
+        `Company: ${profile.legalName || "—"}`,
+        profile.tradingName ? `Trading name: ${profile.tradingName}` : null,
+        `Agreement ID: ${agreementId}`,
+        `Signer: ${input.signerName} (${input.signerRole})`,
+        `Signer email: ${input.signerEmail}`,
+        `Checksum: ${pkg.packageChecksum}`,
+        `Review: ${absoluteUrl(`/admin/legal?tab=partners&companyId=${encodeURIComponent(input.companyId)}`)}`,
+      ].filter(Boolean),
+    });
+  } catch (err) {
+    console.error("[agreement] superadmin notify failed:", err?.message || err);
+  }
+
   return { ok: true, agreementId, acceptance: acceptance.toObject() };
+}
+
+/** Checksum of the currently published (or draft fallback) master package. */
+export async function getCurrentPackageChecksum(language = "en") {
+  const pkg = await buildAgreementPackage({ language });
+  return pkg.packageChecksum || "";
 }
 
 /**
@@ -289,6 +309,51 @@ export async function listAgreements(companyId) {
   return PartnerAgreementAcceptance.find(filter)
     .sort({ acceptedAt: -1 })
     .lean();
+}
+
+/**
+ * Superadmin lifecycle marker. Does not edit the signed snapshot.
+ */
+export async function terminateActiveAgreement({
+  companyId,
+  reason = "",
+  byEmail = "",
+  ipAddress = "",
+  userAgent = "",
+} = {}) {
+  await connectToDB();
+  const active = await PartnerAgreementAcceptance.findOne({
+    companyId,
+    supersededAt: null,
+    terminatedAt: null,
+  }).sort({ acceptedAt: -1 });
+  if (!active) {
+    return { ok: true, unchanged: true };
+  }
+  const now = new Date();
+  active.terminatedAt = now;
+  active.terminationReason = String(reason || "").slice(0, 1000);
+  await active.save();
+  await recordAuditEvent({
+    action: "PARTNER_AGREEMENT_TERMINATED",
+    userRole: "superadmin",
+    userEmail: byEmail,
+    severity: "critical",
+    ipAddress,
+    userAgent,
+    reason: String(reason || "").slice(0, 1000),
+    metadata: {
+      companyId: String(companyId),
+      agreementId: active.agreementId,
+      packageChecksum: active.packageChecksum,
+    },
+  });
+  return {
+    ok: true,
+    unchanged: false,
+    agreementId: active.agreementId,
+    companyId: String(companyId),
+  };
 }
 
 /**

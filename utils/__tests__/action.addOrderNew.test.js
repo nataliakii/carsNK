@@ -21,9 +21,17 @@ describe("addOrderNew", () => {
     expect(result).toEqual({
       status: "pending",
       message: "Pending confirmation",
-      data: { _id: "order-1" },
+      data: {
+        _id: "order-1",
+        paymentUrl: null,
+        paymentLinkStatus: "",
+        paymentLinkMessage: "",
+      },
       messageCode: "bookMesssages.bookPendingDates",
       dates: ["Apr 14", "Apr 15"],
+      paymentUrl: null,
+      paymentLinkStatus: "",
+      paymentLinkMessage: "",
     });
 
     expect(global.fetch).toHaveBeenCalledWith(

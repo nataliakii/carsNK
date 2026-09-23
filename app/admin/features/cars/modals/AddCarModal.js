@@ -42,7 +42,8 @@ import { getCarModelSuggestions } from "@config/carCatalog";
 import { useSession } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
-import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
+import CarCompanyOfficesPicker from "./CarCompanyOfficesPicker";
+import { CAR_OFFICE_SCOPE } from "@/domain/company/officeConstants";
 import { normalizeCarOffices } from "@/domain/orders/carOffices";
 
 const AddCarModal = ({
@@ -61,6 +62,8 @@ const AddCarModal = ({
 
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState(DEFAULT_IMAGE);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [ownerId, setOwnerId] = useState("");
   const [carData, setCarData] = useState({
@@ -85,9 +88,9 @@ const AddCarModal = ({
     franchise: 300,
     PriceKacko: 5,
     offices: [],
+    officeIds: [],
+    officeScope: CAR_OFFICE_SCOPE.ALL,
   });
-
-  const [selectedImage, setSelectedImage] = useState(null);
 
   const officeCompanyId =
     (showOwnerPicker && ownerId) ||
@@ -95,8 +98,6 @@ const AddCarModal = ({
       ? String(viewAsCompany._id)
       : "") ||
     (company?._id ? String(company._id) : "");
-  const { names: officeLocationOptions } =
-    useCompanyBookingLocations(officeCompanyId);
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;
     const newValue = type === "checkbox" ? checked : value;
@@ -137,6 +138,14 @@ const AddCarModal = ({
         "offices",
         JSON.stringify(normalizeCarOffices(carData.offices))
       );
+      formData.append(
+        "officeIds",
+        JSON.stringify(Array.isArray(carData.officeIds) ? carData.officeIds : [])
+      );
+      formData.append(
+        "officeScope",
+        String(carData.officeScope || CAR_OFFICE_SCOPE.ALL)
+      );
 
       // Admin / view-as: server forces owner. Superadmin: optional company pick.
       if (showOwnerPicker && ownerId) {
@@ -145,8 +154,8 @@ const AddCarModal = ({
         formData.append("ownerId", String(viewAsCompany._id));
       }
 
-      if (selectedImage) {
-        formData.append("image", selectedImage);
+      if (selectedImages.length) {
+        selectedImages.forEach((file) => formData.append("images", file));
       }
 
       console.log("?? FORMDATA", formData);
@@ -169,9 +178,18 @@ const AddCarModal = ({
 
       if (!response.ok || result?.success === false) {
         const details = result?.details ? ` — ${result.details}` : "";
+        const blocked =
+          result?.error === "PARTNER_SUSPENDED"
+            ? t("partnerLegal.gate.actionBlockedSuspended")
+            : result?.error === "PARTNER_COMPLIANCE_REQUIRED"
+              ? `${t("partnerLegal.gate.actionBlocked")} ${t("partnerLegal.gate.openProfileCta")}`
+              : null;
         const base =
-          result?.message || response.statusText || "Failed to add car";
-        throw new Error(`${base}${details}`);
+          blocked ||
+          result?.message ||
+          response.statusText ||
+          "Failed to add car";
+        throw new Error(`${base}${blocked ? "" : details}`);
       }
 
       setUpdateStatus({ message: result.message || "OK", type: 200 });
@@ -180,7 +198,9 @@ const AddCarModal = ({
         await resubmitCars(); // Refresh car data
         onClose(); // Close the modal
         setCarData({});
-        setSelectedImage(null); // Clear image
+        setSelectedImages([]);
+        setImagePreviews([]);
+        setImagePreview(DEFAULT_IMAGE);
       }
     } catch (error) {
       setUpdateStatus({
@@ -193,17 +213,19 @@ const AddCarModal = ({
   };
 
   const handleImageChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      // Set preview image and file name
-      setImagePreview(URL.createObjectURL(file));
-      setSelectedImage(file);
-      setCarData({ ...carData, photoUrl: file.name });
-    } else {
-      // Reset to default if no file is chosen
-      setImagePreview(DEFAULT_IMAGE);
-      setCarData({ ...carData, photoUrl: CLOUDINARY_PLACEHOLDER_PUBLIC_ID });
-    }
+    const files = Array.from(event.target.files || []).filter(Boolean);
+    event.target.value = "";
+    if (!files.length) return;
+    setSelectedImages((prev) => [...prev, ...files].slice(0, 8));
+    setImagePreviews((prev) => {
+      const next = [
+        ...prev,
+        ...files.map((file) => URL.createObjectURL(file)),
+      ].slice(0, 8);
+      setImagePreview(next[0] || DEFAULT_IMAGE);
+      return next;
+    });
+    setCarData((prev) => ({ ...prev, photoUrl: files[0]?.name || prev.photoUrl }));
   };
   const { t } = useTranslation();
   // Модели машин из базы
@@ -617,7 +639,7 @@ const AddCarModal = ({
                       handleChange={handleChange}
                       handleImageChange={handleImageChange}
                       imagePreview={imagePreview}
-                      required
+                      imagePreviews={imagePreviews}
                     />
                     {/* <FormControlLabel
                       control={
@@ -635,52 +657,28 @@ const AddCarModal = ({
 
                 {/* Pricing Tiers Table */}
                 <Grid item xs={12}>
-                  <Autocomplete
-                    multiple
-                    freeSolo
-                    options={officeLocationOptions}
-                    value={normalizeCarOffices(carData.offices).map((o) => o.name)}
-                    getOptionLabel={(opt) =>
-                      typeof opt === "string" ? opt : String(opt?.name || "")
+                  <CarCompanyOfficesPicker
+                    companyId={officeCompanyId}
+                    companyOffices={
+                      (showOwnerPicker
+                        ? companies.find(
+                            (c) => String(c._id) === String(officeCompanyId)
+                          )?.offices
+                        : viewAsActive
+                          ? viewAsCompany?.offices
+                          : company?.offices) || []
                     }
-                    onChange={(_, newValue) => {
-                      const prev = normalizeCarOffices(carData.offices);
-                      const next = (newValue || []).map((raw) => {
-                        const name =
-                          typeof raw === "string"
-                            ? raw.trim()
-                            : String(raw?.name || "").trim();
-                        const existing = prev.find(
-                          (p) =>
-                            String(p.name).toLowerCase() === name.toLowerCase()
-                        );
-                        return (
-                          existing || {
-                            name,
-                            address: String(company?.address || "").trim(),
-                            lat: "",
-                            lon: "",
-                          }
-                        );
-                      });
-                      handleChange({
-                        target: {
-                          name: "offices",
-                          value: normalizeCarOffices(next),
-                        },
-                      });
-                    }}
+                    officeIds={carData.officeIds || []}
+                    officeScope={carData.officeScope || CAR_OFFICE_SCOPE.ALL}
                     disabled={loading}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label={t("car.offices") || "Offices (pickup / return)"}
-                        helperText={
-                          t("car.officesHelp") ||
-                          "Pickup or return at these places is free for this car."
-                        }
-                      />
-                    )}
+                    onChange={({ officeIds, officeScope, offices }) => {
+                      setCarData((prev) => ({
+                        ...prev,
+                        officeIds,
+                        officeScope,
+                        offices,
+                      }));
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12}>

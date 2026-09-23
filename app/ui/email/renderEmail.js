@@ -17,6 +17,13 @@ import { renderCustomerOfficialConfirmation } from "@/app/ui/email/templates/cus
 import { renderAdminOrderNotificationHtml } from "@/app/ui/email/templates/adminOrderNotification";
 import { getSecondDriverPriceLabelValue } from "@utils/secondDriverPricing";
 import { withTestOrderEmailSubject } from "@/domain/orders/testOrderMarkers";
+import {
+  formatHandoverLocationLine,
+} from "@/domain/orders/bookingLocationDisplay";
+import { formatLocationLegLine } from "@/domain/orders/locationSnapshot";
+import { PAYMENT_LINK_STATUS } from "@/domain/orders/companyRentalPaymentPolicy";
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { getBrandName } from "@config/brand";
 
 /** Дата в формате "17 Jan 2026" и т.п. по локали письма клиенту */
 function formatDateLong(d, locale, timezone) {
@@ -66,14 +73,6 @@ function toSafeFilePart(value) {
 function normalizeText(value) {
   if (value === null || value === undefined) return "";
   return String(value).trim();
-}
-
-function appendThessalonikiDetail(place, detail) {
-  const p = normalizeText(place);
-  const d = normalizeText(detail);
-  if (!p) return "";
-  if (p.toLowerCase() === "thessaloniki" && d) return `${p} — ${d}`;
-  return p;
 }
 
 function formatAmount(value) {
@@ -138,14 +137,30 @@ function buildCustomerEmailViewModel(payload) {
     t.secondDriverLabel || "Second driver ({{price}} €/day)",
     secondDriverPriceLabelValue
   );
-  const placeIn = appendThessalonikiDetail(
-    payload.placeIn,
-    payload.placeInDetail
-  );
-  const placeOut = appendThessalonikiDetail(
-    payload.placeOut,
-    payload.placeOutDetail
-  );
+  const placeIn = payload.locationSnapshot?.pickup
+    ? formatLocationLegLine(payload.locationSnapshot.pickup, {
+        officeLabel: t.pickupModeOffice || "Office",
+        deliveryLabel: t.pickupModeDelivery || "Delivery",
+      })
+    : formatHandoverLocationLine({
+        place: payload.placeIn,
+        detail: payload.placeInDetail,
+        method: payload.pickupMethod,
+        officeLabel: t.pickupModeOffice,
+        deliveryLabel: t.pickupModeDelivery,
+      });
+  const placeOut = payload.locationSnapshot?.return
+    ? formatLocationLegLine(payload.locationSnapshot.return, {
+        officeLabel: t.returnModeOffice || "Office",
+        deliveryLabel: t.returnModeDelivery || "Delivery",
+      })
+    : formatHandoverLocationLine({
+        place: payload.placeOut,
+        detail: payload.placeOutDetail,
+        method: payload.returnMethod,
+        officeLabel: t.returnModeOffice,
+        deliveryLabel: t.returnModeDelivery,
+      });
   const timeInStr = payload.timeIn ? formatTime(payload.timeIn, payload.timezone) : "";
   const timeOutStr = payload.timeOut ? formatTime(payload.timeOut, payload.timezone) : "";
   const flightNumber = normalizeText(payload.flightNumber);
@@ -239,6 +254,8 @@ function buildCustomerEmailViewModel(payload) {
     officialGreeting,
     meetingContactValue,
     rentalPeriodWithTime,
+    paymentUrl: normalizeText(payload.paymentUrl),
+    paymentLinkStatus: normalizeText(payload.paymentLinkStatus),
   };
 }
 
@@ -269,6 +286,8 @@ export function renderCustomerOrderConfirmationEmail(payload) {
     flightNumber,
     greeting,
     rentalPeriodWithTime,
+    paymentUrl,
+    paymentLinkStatus,
   } = vm;
 
   /** Первое письмо клиенту после бронирования (не повтор при CONFIRM и т.д.) */
@@ -277,6 +296,14 @@ export function renderCustomerOrderConfirmationEmail(payload) {
     t.title,
     Boolean(payload.fromLocalhost)
   );
+  const marketplace = isMarketplaceRequestMode(payload.bookingMode);
+  const showPaymentCta = Boolean(paymentUrl) && !marketplace;
+  const showPaymentMissing =
+    !marketplace &&
+    !showPaymentCta &&
+    (paymentLinkStatus === PAYMENT_LINK_STATUS.NOT_CONFIGURED ||
+      paymentLinkStatus === PAYMENT_LINK_STATUS.FAILED ||
+      paymentLinkStatus === PAYMENT_LINK_STATUS.AMOUNT_TOO_LOW);
 
   const data = {
     t,
@@ -289,7 +316,7 @@ export function renderCustomerOrderConfirmationEmail(payload) {
     total,
     numberOfDays,
     childSeats,
-    insurance,
+    insurance: vm.insuranceWithFranchise || insurance,
     secondDriverLabel,
     secondDriverEnabled,
     secondDriverText,
@@ -299,6 +326,9 @@ export function renderCustomerOrderConfirmationEmail(payload) {
     timeOutStr,
     flightNumber,
     showExcludeCityDelivery,
+    paymentUrl,
+    showPaymentCta,
+    showPaymentMissing,
   };
   const html = renderCustomerOrderConfirmation(data);
 
@@ -324,7 +354,9 @@ export function renderCustomerOrderConfirmationEmail(payload) {
     rentalPeriodLineWithTime || rentalPeriodLine,
     numberOfDays ? `${t.daysLabel || "Number of days"}: ${numberOfDays}` : "",
     childSeats !== "0" ? `${t.childSeatsLabel || "Child seats"}: ${childSeats}` : "",
-    insurance ? `${t.insuranceLabel || "Insurance"}: ${insurance}` : "",
+    (vm.insuranceWithFranchise || insurance)
+      ? `${t.insuranceLabel || "Insurance"}: ${vm.insuranceWithFranchise || insurance}`
+      : "",
     secondDriverEnabled
       ? `${secondDriverLabel || "Second driver"}: ${secondDriverText}`
       : "",
@@ -332,9 +364,15 @@ export function renderCustomerOrderConfirmationEmail(payload) {
     placeOut ? `${t.returnLocationLabel || "Return location"}: ${placeOut}` : "",
     flightNumber ? `${t.flightNumberLabel || "Flight number"}: ${flightNumber}` : "",
     totalAmountLine,
+    ...(t.totalIncludesInsuranceNote ? [t.totalIncludesInsuranceNote] : []),
     ...(showExcludeCityDelivery && t.excludeCityDeliveryNote
       ? ["", t.excludeCityDeliveryNote]
       : []),
+    ...(showPaymentCta
+      ? ["", t.paymentCta || "Pay now", paymentUrl]
+      : showPaymentMissing
+        ? ["", t.paymentLinkNotConfigured || "Payment link is not configured."]
+        : []),
     "",
     "---",
     "",
@@ -499,7 +537,7 @@ export function renderCustomerOfficialConfirmationEmail(payload) {
     .join("\n");
 
   const filePart = toSafeFilePart(orderNum || payload.orderId);
-  const pdfFileName = `NataliCars-Official-Confirmation-${filePart}.pdf`;
+  const pdfFileName = `${getBrandName()}-Official-Confirmation-${filePart}.pdf`;
 
   const pdfData = {
     title,

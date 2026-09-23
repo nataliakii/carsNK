@@ -1,9 +1,10 @@
 /**
  * Тексты писем клиенту и orderNotification (если подключают).
- * Локали: en, ru, el, uk, de, bg, ro, sr, pl — ключи customerEmail / orderNotification в JSON.
+ * Локали: en, es, ru, el, uk, de, bg, ro, sr, pl — ключи customerEmail / orderNotification в JSON.
  */
 
 import enLocale from "./en.json";
+import esLocale from "./es.json";
 import ruLocale from "./ru.json";
 import elLocale from "./el.json";
 import ukLocale from "./uk.json";
@@ -14,11 +15,12 @@ import srLocale from "./sr.json";
 import plLocale from "./pl.json";
 
 /** Языки, для которых в проекте есть блоки customerEmail */
-const SUPPORTED = ["en", "ru", "el", "uk", "de", "bg", "ro", "sr", "pl"];
+const SUPPORTED = ["en", "es", "ru", "el", "uk", "de", "bg", "ro", "sr", "pl"];
 const DEFAULT_LOCALE = "en";
 
 const customerEmailByLocale = {
   en: enLocale.customerEmail,
+  es: esLocale.customerEmail,
   ru: ruLocale.customerEmail,
   el: elLocale.customerEmail,
   uk: ukLocale.customerEmail,
@@ -31,6 +33,7 @@ const customerEmailByLocale = {
 
 const orderNotificationByLocale = {
   en: enLocale.orderNotification,
+  es: esLocale.orderNotification,
   ru: ruLocale.orderNotification,
   el: elLocale.orderNotification,
   uk: ukLocale.orderNotification,

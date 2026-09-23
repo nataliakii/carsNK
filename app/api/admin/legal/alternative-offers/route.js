@@ -4,24 +4,20 @@ import { requireAdmin } from "@lib/adminAuth";
 import { ROLE } from "@models/user";
 import { connectToDB } from "@lib/database";
 import { Order } from "@models/order";
+import { extractAuditContext } from "@/domain/legal/auditTrail";
 import {
   offerAlternativeVehicle,
   listOffersForOrder,
+  listEligibleAlternativeCars,
+  withdrawAlternativeOffer,
 } from "@/domain/booking/alternativeVehicle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * Supplier-side alternative vehicle offers.
- *
- * A partner admin may only touch orders belonging to their own fleet. The
- * ownership check is done against the stored order, never against a value in
- * the request body.
- */
 async function assertOrderInScope(session, orderId) {
   await connectToDB();
-  const order = await Order.findById(orderId).select("ownerId").lean();
+  const order = await Order.findById(orderId).select("ownerId bookingMode bookingStatus").lean();
   if (!order) return { ok: false, status: 404, message: "Order not found" };
 
   if (Number(session.user?.role) === ROLE.SUPERADMIN) return { ok: true, order };
@@ -31,6 +27,16 @@ async function assertOrderInScope(session, orderId) {
     return { ok: false, status: 403, message: "This booking belongs to another fleet" };
   }
   return { ok: true, order };
+}
+
+function actorFrom(session) {
+  return {
+    role: Number(session.user?.role),
+    ownerId: session.user?.ownerId,
+    email: session.user?.email || "",
+    userId: session.user?.id,
+    isSuperadmin: Number(session.user?.role) === ROLE.SUPERADMIN,
+  };
 }
 
 export async function GET(request) {
@@ -46,19 +52,22 @@ export async function GET(request) {
     );
   }
 
+  const actor = actorFrom(session);
+  const [offers, eligible] = await Promise.all([
+    listOffersForOrder(orderId),
+    listEligibleAlternativeCars({ orderId, actor }),
+  ]);
+
   return NextResponse.json({
     success: true,
-    offers: await listOffersForOrder(orderId),
+    offers,
+    eligibleCars: eligible.ok ? eligible.cars : [],
+    excludedCars: eligible.ok ? eligible.excluded : [],
+    eligibilityError: eligible.ok ? null : { code: eligible.code, message: eligible.message },
+    paidOrderBlocked: eligible.code === "paid_requires_manual",
   });
 }
 
-/**
- * POST — propose an alternative vehicle.
- *
- * The offer is a proposal only; the booking is not modified until the
- * customer accepts. Downgrades and price increases are refused by the domain
- * layer, so a supplier cannot quietly worsen the deal.
- */
 export async function POST(request) {
   const { session, errorResponse } = await requireAdmin(request);
   if (errorResponse) return errorResponse;
@@ -82,11 +91,36 @@ export async function POST(request) {
     );
   }
 
+  const actor = actorFrom(session);
+  const { ipAddress, userAgent } = extractAuditContext(request);
+
+  if (String(body?.action || "") === "withdraw") {
+    const result = await withdrawAlternativeOffer({
+      offerId: String(body.offerId || ""),
+      orderId,
+      reason: body.reason,
+      actor,
+      ipAddress,
+      userAgent,
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, message: result.message, code: result.code },
+        { status: result.status || 400 }
+      );
+    }
+    return NextResponse.json({ success: true, status: result.status, offerId: result.offerId });
+  }
+
   const result = await offerAlternativeVehicle({
     orderId,
-    alternative: body?.alternative || {},
+    proposedCarId: body?.proposedCarId || body?.alternative?.carId,
+    alternative: {
+      reasonForReplacement:
+        body?.reasonForReplacement || body?.alternative?.reasonForReplacement || "",
+    },
     offeredByEmail: session.user?.email || "",
-    expiresInHours: body?.expiresInHours,
+    actor,
   });
 
   if (!result.ok) {
@@ -96,5 +130,10 @@ export async function POST(request) {
     );
   }
 
-  return NextResponse.json({ success: true, offerId: result.offerId });
+  return NextResponse.json({
+    success: true,
+    offerId: result.offerId,
+    holdCreated: false,
+    stripeCreated: false,
+  });
 }

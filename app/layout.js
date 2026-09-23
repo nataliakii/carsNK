@@ -110,12 +110,22 @@ export const metadata = {
   },
   icons: {
     icon: [
-      { url: brandFaviconPath, type: "image/png" },
-      { url: brandFaviconPath, type: "image/png", sizes: "32x32" },
-      { url: brandFaviconPath, type: "image/png", sizes: "16x16" },
+      {
+        url: activeBrand.logos.favicon32 || brandFaviconPath,
+        type: "image/png",
+        sizes: "32x32",
+      },
+      {
+        url: activeBrand.logos.favicon16 || brandFaviconPath,
+        type: "image/png",
+        sizes: "16x16",
+      },
+      ...(activeBrand.logos.faviconIco
+        ? [{ url: activeBrand.logos.faviconIco, type: "image/x-icon" }]
+        : []),
     ],
-    apple: [{ url: brandApplePath, type: "image/png" }],
-    shortcut: brandFaviconPath,
+    apple: [{ url: brandApplePath, type: "image/png", sizes: "180x180" }],
+    shortcut: activeBrand.logos.favicon32 || brandFaviconPath,
   },
 };
 

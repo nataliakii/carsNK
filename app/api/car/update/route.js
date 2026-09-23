@@ -10,6 +10,14 @@ import {
   normalizeOwnerId,
 } from "@/domain/owners/ownerScope";
 import { normalizeCarOffices } from "@/domain/orders/carOffices";
+import { listCarPhotos, photosForSave } from "@/domain/cars/carPhotos";
+import { extractAuditContext } from "@/domain/legal/auditTrail";
+import {
+  assertMarketplaceCarPublish,
+  auditPartnerComplianceBlock,
+  partnerComplianceJson,
+  PARTNER_OPERATION_PURPOSE,
+} from "@/domain/legal/partnerOperatingPolicy";
 
 export const PUT = async (req) => {
   try {
@@ -48,6 +56,33 @@ export const PUT = async (req) => {
 
     if (updateFields.offices !== undefined) {
       updateFields.offices = normalizeCarOffices(updateFields.offices);
+      const Company = (await import("@models/company")).default;
+      const owner = existingCar.ownerId
+        ? await Company.findById(existingCar.ownerId).select("offices").lean()
+        : null;
+      const { syncCarOfficeIds } = await import("@/domain/company/officeRecord");
+      const synced = syncCarOfficeIds({
+        offices: updateFields.offices,
+        officeIds: updateFields.officeIds,
+        officeScope: updateFields.officeScope,
+        company: owner,
+      });
+      updateFields.officeIds = synced.officeIds;
+      updateFields.officeScope = synced.officeScope;
+    }
+
+    if (updateFields.photos !== undefined || updateFields.photoUrl !== undefined) {
+      const merged = photosForSave(
+        listCarPhotos({
+          photoUrl: updateFields.photoUrl ?? existingCar.photoUrl,
+          photos:
+            updateFields.photos !== undefined
+              ? updateFields.photos
+              : existingCar.photos,
+        })
+      );
+      updateFields.photos = merged.photos;
+      updateFields.photoUrl = merged.photoUrl;
     }
 
     const needsSlugUpdate =
@@ -64,6 +99,42 @@ export const PUT = async (req) => {
           _id: { $ne: _id },
         }).lean();
         return !!existing;
+      });
+    }
+
+    const resultingCar = { ...existingCar, ...updateFields };
+    const ownerId = resultingCar.ownerId;
+    const Company = (await import("@models/company")).default;
+    const ownerCompany = ownerId
+      ? await Company.findById(ownerId)
+          .select("_id country bookingMode listedOnMarketplace")
+          .lean()
+      : null;
+    const { ipAddress, userAgent } = extractAuditContext(req);
+    const publishGate = await assertMarketplaceCarPublish(ownerId, {
+      car: resultingCar,
+      company: ownerCompany,
+      overrideReason: isSuperAdminUser(session.user)
+        ? String(updateFields.complianceOverrideReason || "")
+        : "",
+      overrideByRole: isSuperAdminUser(session.user) ? "superadmin" : "admin",
+      overrideByEmail: session.user?.email || "",
+      audit: { ipAddress, userAgent, carId: _id },
+    });
+    delete updateFields.complianceOverrideReason;
+    if (!publishGate.allowed) {
+      await auditPartnerComplianceBlock({
+        purpose: PARTNER_OPERATION_PURPOSE.CAR_PUBLISH,
+        result: publishGate,
+        actorEmail: session.user?.email || "",
+        actorRole: isSuperAdminUser(session.user) ? "superadmin" : "admin",
+        ipAddress,
+        userAgent,
+        carId: _id,
+      });
+      return new Response(JSON.stringify(partnerComplianceJson(publishGate)), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
       });
     }
 

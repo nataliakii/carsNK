@@ -40,18 +40,54 @@ const auditLogSchema = new mongoose.Schema(
         "PARTNER_AGREEMENT_ACCEPTED",
         "PARTNER_AGREEMENT_SNAPSHOT_ACCESSED",
         "PARTNER_AGREEMENT_TERMINATED",
+        "PARTNER_SUPPORT_MESSAGE_SENT",
         "BOOKING_CONFIRMATION_PAGE_VIEWED",
         "BOOKING_PARTNER_CONFIRMED",
         "BOOKING_PARTNER_DECLINED",
         "BOOKING_CONFIRMATION_TOKEN_REPLAY",
         "BOOKING_SNAPSHOT_CREATED",
+        "BOOKING_OWNER_MISSING",
+        "BOOKING_HOLD_CONFLICT",
+        "RENTAL_PREPAYMENT_RECEIVED",
+        "RENTAL_CHECKOUT_FAILED",
+        "RENTAL_PAYMENT_MISMATCH",
+        "RENTAL_PAYMENT_EXPIRED",
+        "RENTAL_CHECKOUT_INVALIDATED",
+        "RENTAL_CHECKOUT_INVALIDATE_FAILED",
+        "RENTAL_ALTERNATIVE_CHECKOUT_INVALIDATED",
+        "RENTAL_CHECKOUT_INVALIDATE_RETRY",
+        "RENTAL_PAYMENT_FAILED",
+        "RENTAL_REFUND_RECORDED",
+        "RENTAL_BOOKING_FEE_REFUND_REQUESTED",
+        "RENTAL_DISPUTE_CREATED",
+        "RENTAL_DISPUTE_RESOLVED",
         "ALTERNATIVE_OFFER_CREATED",
         "ALTERNATIVE_OFFER_ACCEPTED",
         "ALTERNATIVE_OFFER_DECLINED",
+        "ALTERNATIVE_OFFER_EXPIRED",
+        "ALTERNATIVE_OFFER_WITHDRAWN",
+        "ALTERNATIVE_OFFER_REJECTED",
+        "ALTERNATIVE_OFFER_AVAILABILITY_FAILED",
+        "ALTERNATIVE_HOLD_ACQUIRED",
+        "ALTERNATIVE_HOLD_RELEASED",
+        "ALTERNATIVE_TERMS_REACCEPTED",
+        "ALTERNATIVE_CHECKOUT_FAILED",
+        "ALTERNATIVE_STALE_STRIPE",
+        "RENTAL_PAYMENT_STALE_SESSION",
         "DRIVING_LICENCE_ACCESSED",
         "DRIVING_LICENCE_DELETED",
         "DRIVING_LICENCE_DELETION_FAILED",
         "DATA_SUBJECT_REQUEST",
+        "PARTNER_COMPLIANCE_BLOCKED",
+        "PARTNER_COMPLIANCE_OVERRIDE",
+        "RENTAL_PAYMENT_LINK_REISSUED",
+        "RENTAL_PAYMENT_EMAIL_RESENT",
+        "COMPANY_OFFICE_CREATED",
+        "COMPANY_OFFICE_UPDATED",
+        "COMPANY_OFFICE_ARCHIVED",
+        "COMPANY_DELIVERY_PRICING_UPDATED",
+        "MARKETPLACE_BOOKING_FEE_CHANGED",
+        "MARKETPLACE_PRICE_CORRECTED_AFTER_PAYMENT",
         "OTHER",
       ],
       index: true,
@@ -270,8 +306,41 @@ auditLogSchema.methods.toLogString = function () {
   return lines.join("\n");
 };
 
+if (mongoose.models?.AuditLog) {
+  const cached = mongoose.models.AuditLog.schema.path("action");
+  const values = cached?.enumValues || cached?.options?.enum || [];
+  if (
+    !values.includes("MARKETPLACE_BOOKING_FEE_CHANGED") ||
+    !values.includes("MARKETPLACE_PRICE_CORRECTED_AFTER_PAYMENT")
+  ) {
+    delete mongoose.models.AuditLog;
+    delete mongoose.connection.models.AuditLog;
+  }
+}
+
 const AuditLog =
   mongoose.models?.AuditLog || mongoose.model("AuditLog", auditLogSchema);
+
+// HMR/cache safety if the model was already compiled without new enum values.
+if (AuditLog?.schema?.path("action")) {
+  const path = AuditLog.schema.path("action");
+  const required = [
+    "MARKETPLACE_BOOKING_FEE_CHANGED",
+    "MARKETPLACE_PRICE_CORRECTED_AFTER_PAYMENT",
+    "COMPANY_DELIVERY_PRICING_UPDATED",
+    "RENTAL_BOOKING_FEE_REFUND_REQUESTED",
+  ];
+  const current = Array.isArray(path.enumValues)
+    ? path.enumValues
+    : Array.isArray(path.options?.enum)
+      ? path.options.enum
+      : [];
+  for (const value of required) {
+    if (!current.includes(value)) current.push(value);
+  }
+  path.enumValues = current;
+  if (path.options) path.options.enum = current;
+}
 
 export default AuditLog;
 

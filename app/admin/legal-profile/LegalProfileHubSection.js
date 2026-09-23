@@ -6,23 +6,31 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import PartnerLegalProfileSection from "./PartnerLegalProfileSection";
 import PartnerAgreementSection from "./agreement/PartnerAgreementSection";
+import PartnerCustomerRulesSection from "./PartnerCustomerRulesSection";
 import { adminSectionTabsSx } from "@app/admin/shared/components/AdminSectionTabs";
 
 const PROFILE = "profile";
 const AGREEMENT = "agreement";
+const RULES = "rules";
+
+function tabFromSearch(searchParams) {
+  const tab = searchParams?.get("tab");
+  if (tab === AGREEMENT) return AGREEMENT;
+  if (tab === RULES) return RULES;
+  return PROFILE;
+}
 
 function LegalProfileHubInner() {
   const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const tab =
-    searchParams?.get("tab") === AGREEMENT ? AGREEMENT : PROFILE;
+  const tab = tabFromSearch(searchParams);
 
   const setTab = useCallback(
     (next) => {
       const params = new URLSearchParams(searchParams?.toString() || "");
-      if (next === AGREEMENT) params.set("tab", AGREEMENT);
+      if (next === AGREEMENT || next === RULES) params.set("tab", next);
       else params.delete("tab");
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname);
@@ -30,13 +38,19 @@ function LegalProfileHubInner() {
     [pathname, router, searchParams]
   );
 
-  const value = useMemo(() => (tab === AGREEMENT ? 1 : 0), [tab]);
+  const value = useMemo(() => {
+    if (tab === AGREEMENT) return 1;
+    if (tab === RULES) return 2;
+    return 0;
+  }, [tab]);
 
   return (
     <Box>
       <Tabs
         value={value}
-        onChange={(_, v) => setTab(v === 1 ? AGREEMENT : PROFILE)}
+        onChange={(_, v) =>
+          setTab(v === 1 ? AGREEMENT : v === 2 ? RULES : PROFILE)
+        }
         sx={adminSectionTabsSx}
       >
         <Tab
@@ -45,9 +59,14 @@ function LegalProfileHubInner() {
         <Tab
           label={t("header.legalTabAgreement", { defaultValue: "Agreement" })}
         />
+        <Tab
+          label={t("header.legalTabRules", { defaultValue: "Rental rules" })}
+        />
       </Tabs>
       {tab === AGREEMENT ? (
         <PartnerAgreementSection />
+      ) : tab === RULES ? (
+        <PartnerCustomerRulesSection />
       ) : (
         <PartnerLegalProfileSection />
       )}

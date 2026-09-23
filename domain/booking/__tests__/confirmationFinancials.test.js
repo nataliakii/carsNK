@@ -1,7 +1,8 @@
 /**
  * The amounts shown to the partner and written into the immutable snapshot
  * are always recomputed on the server. A client-supplied total is never
- * trusted, and the prepayment is the fixed 10% product rule.
+ * trusted, and the prepayment is taken from the stored snapshot (documented
+ * default 10%).
  */
 
 import { resolveConfirmationFinancials } from "@/domain/booking/partnerBookingConfirmation";
@@ -26,6 +27,10 @@ describe("server-side prepayment calculation", () => {
       prepaymentMinor: 3000,
       balanceMinor: 27000,
       supplierBalancePercent: 90,
+      platformAmountMinor: 3000,
+      stripeAmountMinor: 3000,
+      supplierBalanceMinor: 27000,
+      payoutMinor: 0,
     });
   });
 

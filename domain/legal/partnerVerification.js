@@ -40,39 +40,33 @@ export function canPartnerOperate(status) {
 }
 
 /**
- * Fields the supplier must supply before verification can be requested.
- * Mirrors the verification list in the Partner Agreement.
+ * The only field that blocks "submit for verification".
+ *
+ * Creating a company (Companies → New company) does not collect KYB at all.
+ * The legal profile is a later step, and almost everything on it is optional so
+ * onboarding stays light. Superadmin can still verify from whatever was sent.
  */
-export const REQUIRED_PROFILE_FIELDS = Object.freeze([
-  "legalName",
-  "entityType",
-  "countryOfRegistration",
-  "registrationNumber",
+export const REQUIRED_PROFILE_FIELDS = Object.freeze(["legalName"]);
+
+/** Confirmations are optional — they help the reviewer, they do not block. */
+export const REQUIRED_PROFILE_CONFIRMATIONS = Object.freeze([]);
+
+/** Evidence is optional at submit. Superadmin asks for more if needed. */
+export const REQUIRED_PROFILE_DOCUMENTS = Object.freeze([]);
+
+/** Shown as "helps review" in the superadmin queue, never as a hard gate. */
+export const RECOMMENDED_PROFILE_FIELDS = Object.freeze([
   "nifCif",
-  "registeredAddress",
+  "registrationNumber",
   "signatoryName",
-  "signatoryRole",
   "businessEmail",
-  "businessPhone",
+  "registeredAddress",
   "insuranceProvider",
-  "insurancePolicyReference",
 ]);
 
-/** Boolean declarations that must be affirmatively confirmed. */
-export const REQUIRED_PROFILE_CONFIRMATIONS = Object.freeze([
-  "signatoryAuthorityConfirmed",
-  "vehicleAuthorityConfirmed",
-]);
-
-/**
- * Supporting documents the supplier must upload. `vat` is conditional: a
- * Spanish supplier below the registration threshold may legitimately have no
- * VAT number, so it is recommended rather than required.
- */
-export const REQUIRED_PROFILE_DOCUMENTS = Object.freeze([
+export const RECOMMENDED_PROFILE_DOCUMENTS = Object.freeze([
   "company_registration",
   "insurance_certificate",
-  "vehicle_authority",
 ]);
 
 /**
@@ -82,6 +76,8 @@ export const REQUIRED_PROFILE_DOCUMENTS = Object.freeze([
  *   missingFields: string[],
  *   missingConfirmations: string[],
  *   missingDocuments: string[],
+ *   missingRecommendedFields: string[],
+ *   missingRecommendedDocuments: string[],
  * }}
  */
 export function evaluateProfileCompleteness(profile) {
@@ -101,6 +97,13 @@ export function evaluateProfileCompleteness(profile) {
     (kind) => !present.has(kind)
   );
 
+  const missingRecommendedFields = RECOMMENDED_PROFILE_FIELDS.filter(
+    (key) => !String(p[key] || "").trim()
+  );
+  const missingRecommendedDocuments = RECOMMENDED_PROFILE_DOCUMENTS.filter(
+    (kind) => !present.has(kind)
+  );
+
   return {
     ready:
       missingFields.length === 0 &&
@@ -109,6 +112,8 @@ export function evaluateProfileCompleteness(profile) {
     missingFields,
     missingConfirmations,
     missingDocuments,
+    missingRecommendedFields,
+    missingRecommendedDocuments,
   };
 }
 
@@ -134,17 +139,8 @@ export function applyVerificationTransition(profile, { to, byEmail = "", reason 
       message: `Cannot move partner verification from ${from} to ${to}`,
     };
   }
-  if (to === S.VERIFIED) {
-    const completeness = evaluateProfileCompleteness(profile);
-    if (!completeness.ready) {
-      return {
-        ok: false,
-        code: "incomplete_profile",
-        message: "Partner profile is incomplete",
-        completeness,
-      };
-    }
-  }
+  // Superadmin may verify a thin profile: the partner is not forced to
+  // upload every paper before Rovaro can accept them.
 
   profile.verificationStatus = to;
   profile.verificationStatusAt = new Date();

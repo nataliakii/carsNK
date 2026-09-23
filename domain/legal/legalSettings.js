@@ -8,19 +8,22 @@
  *                            They ship with documented proposed defaults that
  *                            superadmin can change. They are not legal facts.
  *
- *   Commercial amounts     — commission, minimum commission, supplier
- *                            cancellation service charge, replacement cost cap.
- *                            These have NO default. Until superadmin sets them
- *                            the documents say the amount is the one set out in
- *                            the fee schedule notified to the Supplier, and the
- *                            superadmin Legal Configuration panel reports them
- *                            as Missing. Nothing is ever invented.
+ *   Commercial amounts     — supplier cancellation service charge and
+ *                            replacement cost cap. These have NO default.
+ *                            Until superadmin sets them the documents say the
+ *                            amount is the one set out in the fee schedule
+ *                            notified to the Supplier, and the superadmin
+ *                            Legal Configuration panel reports them as Missing.
  *
- * The booking prepayment percentage is a fixed product rule (10%) and lives in
- * `domain/orders/rentalPricingService`.
+ * The documented default Spain marketplace Booking Fee is 10% (1000 bps).
+ * Per-company overrides live on `company.marketplaceBookingFeeBps`.
+ * Legal documents must not state that the fee is always 10%: the applicable
+ * percentage is displayed to the Customer before payment and recorded in the
+ * booking confirmation. BOOKING_PREPAYMENT_PERCENT remains the documented
+ * default token only.
  */
 
-/** Fixed product rule: customer prepays this share of the total to Rovaro. */
+/** Documented default: customer prepays this share of the total to Rovaro. */
 export const BOOKING_PREPAYMENT_PERCENT = 10;
 
 /** Remaining share the customer pays the Supplier at handover. */
@@ -86,25 +89,11 @@ export const RETENTION_JOB_SETTING_KEYS = Object.freeze(
  * `null` means "not configured" — never treat it as zero.
  */
 export const COMMERCIAL_AMOUNT_KEYS = Object.freeze([
-  "commissionPercent",
-  "minimumCommissionAmount",
   "supplierCancellationServiceCharge",
   "replacementCostDifferenceCap",
 ]);
 
-/** Which optional charges enter the commission base. Off unless configured. */
-export const DEFAULT_COMMISSION_BASE = Object.freeze({
-  includeDelivery: false,
-  includeExtras: false,
-  includeInsuranceUpgrades: false,
-  includeAfterHours: false,
-});
-
-export const COMMISSION_BASE_KEYS = Object.freeze(
-  Object.keys(DEFAULT_COMMISSION_BASE)
-);
-
-/** Who bears payment-processing fees. Configurable; no silent assumption. */
+/** Who bears Stripe processing fees. Marketplace: always the platform. */
 export const PAYMENT_FEE_BEARER = Object.freeze({
   PLATFORM: "platform",
   SUPPLIER: "supplier",
@@ -122,12 +111,9 @@ export const VAT_TREATMENT = Object.freeze({
 export const DEFAULT_LEGAL_SETTINGS = Object.freeze({
   ...DEFAULT_OPERATIONAL_DEADLINES,
   ...DEFAULT_RETENTION_JOB_SETTINGS,
-  commissionPercent: null,
-  minimumCommissionAmount: null,
   supplierCancellationServiceCharge: null,
   replacementCostDifferenceCap: null,
   commissionCurrency: "EUR",
-  commissionBase: { ...DEFAULT_COMMISSION_BASE },
   paymentFeeBearer: PAYMENT_FEE_BEARER.PLATFORM,
   vatTreatment: VAT_TREATMENT.NOT_CONFIGURED,
   esignProvider: "clickwrap",
@@ -172,16 +158,9 @@ export function resolveLegalSettings(stored) {
     );
   }
 
-  const commissionBase = { ...DEFAULT_COMMISSION_BASE };
-  for (const key of COMMISSION_BASE_KEYS) {
-    commissionBase[key] = Boolean(raw?.commissionBase?.[key]);
-  }
-
   return {
     ...deadlines,
     ...retentionJob,
-    commissionPercent: nullableNumber(raw.commissionPercent),
-    minimumCommissionAmount: nullableNumber(raw.minimumCommissionAmount),
     supplierCancellationServiceCharge: nullableNumber(
       raw.supplierCancellationServiceCharge
     ),
@@ -190,17 +169,18 @@ export function resolveLegalSettings(stored) {
     ),
     commissionCurrency:
       String(raw.commissionCurrency || "EUR").toUpperCase() || "EUR",
-    commissionBase,
-    paymentFeeBearer:
-      Object.values(PAYMENT_FEE_BEARER).includes(raw.paymentFeeBearer)
-        ? raw.paymentFeeBearer
-        : PAYMENT_FEE_BEARER.PLATFORM,
+    paymentFeeBearer: PAYMENT_FEE_BEARER.PLATFORM,
     vatTreatment: Object.values(VAT_TREATMENT).includes(raw.vatTreatment)
       ? raw.vatTreatment
       : VAT_TREATMENT.NOT_CONFIGURED,
     esignProvider: String(raw.esignProvider || "clickwrap"),
     bookingPrepaymentPercent: BOOKING_PREPAYMENT_PERCENT,
     supplierBalancePercent: SUPPLIER_BALANCE_PERCENT,
+    /** Editable My business details (Platform settings). */
+    businessProfile:
+      raw.businessProfile && typeof raw.businessProfile === "object"
+        ? raw.businessProfile
+        : null,
   };
 }
 
@@ -235,12 +215,6 @@ export function buildLegalSettingsTokens(settings, { language = "en" } = {}) {
     tokens[key] = settings[key];
   }
 
-  tokens.commissionPercent =
-    settings.commissionPercent === null
-      ? unconfigured
-      : `${settings.commissionPercent}%`;
-  tokens.minimumCommissionAmount =
-    formatMoney(settings.minimumCommissionAmount, currency) ?? unconfigured;
   tokens.supplierCancellationServiceCharge =
     formatMoney(settings.supplierCancellationServiceCharge, currency) ??
     unconfigured;
@@ -249,6 +223,14 @@ export function buildLegalSettingsTokens(settings, { language = "en" } = {}) {
     unconfigured;
   tokens.bookingPrepaymentPercent = `${BOOKING_PREPAYMENT_PERCENT}%`;
   tokens.supplierBalancePercent = `${SUPPLIER_BALANCE_PERCENT}%`;
+  tokens.bookingFeeDisplayNote =
+    language === "es"
+      ? "El porcentaje aplicable de la Tasa de Reserva Rovaro se muestra al Cliente antes del pago y queda registrado en la confirmación de la reserva."
+      : "The applicable Rovaro Booking Fee percentage is displayed to the Customer before payment and recorded in the booking confirmation.";
+
+  if (settings.businessProfile && typeof settings.businessProfile === "object") {
+    tokens.businessProfile = settings.businessProfile;
+  }
 
   return tokens;
 }

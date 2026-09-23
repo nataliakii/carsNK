@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Car } from "@models/car";
 import { Order } from "@models/order";
-import { User } from "@models/user";
+import { User, ROLE } from "@models/user";
 import Company from "@models/company";
 import { COMPANY_ID } from "@config/company";
 import dayjs from "dayjs";
@@ -21,7 +21,14 @@ import { orderGuard } from "@/middleware/orderGuard";
 import { normalizeLocale } from "@domain/locationSeo/locationSeoService";
 import { generateOrderNumber } from "@/domain/time/athensTime";
 import { isOrderBookingRequestFromLocalhost } from "@/lib/http/orderRequestLocalhost";
-import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
+import { parseOrderCustomerContact } from "@/domain/validation/orderCustomerContact";
+import {
+  buildTermsAcceptanceRecord,
+  evaluateBookingTermsAcceptance,
+} from "@/domain/orders/bookingTermsAcceptance";
+import { pickCompanyRentalTermsForLanguage } from "@/domain/company/customerRentalTerms";
+import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
+import { resolveDocumentForDisplay } from "@/domain/legal/documentService";
 import {
   canonicalizeBookingLocation,
   isAllowedBookingLocation,
@@ -55,14 +62,35 @@ import {
   RentalPricingError,
   toAuthoritativePriceDoc,
 } from "@/domain/orders/rentalPricingService";
+import { getPlatformMarketplaceFeeSettings } from "@/domain/platform/platformSettingsService";
+import {
+  LocationQuoteError,
+  quoteAuthoritativeLocations,
+} from "@/domain/orders/authoritativeLocationQuote";
+import { parseLocationQuoteInput } from "@/domain/orders/locationQuoteInput";
+import { orderFieldsFromSnapshot } from "@/domain/orders/locationSnapshot";
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import {
+  PRICE_BREAKDOWN_CUSTOMER_MESSAGE,
+  PRICE_BREAKDOWN_MISMATCH,
+  assertAuthoritativePriceReconciled,
+  logPriceBreakdownMismatch,
+} from "@/domain/orders/priceBreakdownReconciliation";
 import { isStripeConfigured } from "@config/stripe";
 import {
+  PAYMENT_LINK_STATUS,
   resolveCompanyRentalPaymentPolicy,
   shouldChargeRentalOnCreate,
 } from "@/domain/orders/companyRentalPaymentPolicy";
 import { createRentalCheckoutSession } from "@/domain/orders/rentalStripeCheckout";
 import { localSnapshotFromUtc } from "@/domain/time/businessInstant";
 import AuditLog from "@models/auditLog";
+import { recordAuditEvent } from "@/domain/legal/auditTrail";
+import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
+import {
+  assertPartnerCanOperate,
+  PARTNER_OPERATION_PURPOSE,
+} from "@/domain/legal/partnerOperatingPolicy";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -71,33 +99,154 @@ dayjs.extend(isBetween);
 /** Макс. попыток подобрать свободный orderNumber (шаг −1 сек к метке YYYYMMDDHHmmss в Athens). */
 const ORDER_NUMBER_UNIQUENESS_MAX_ATTEMPTS = 100;
 
+function paymentResult(status, url = null, message = null) {
+  return { status, url: url || null, message: message || null };
+}
+
+async function warnMissingOwnerCompany(orderDoc, car) {
+  const orderId = orderDoc?._id;
+  try {
+    await recordAuditEvent({
+      action: "BOOKING_OWNER_MISSING",
+      severity: "critical",
+      result: "failure",
+      orderData: {
+        orderId,
+        orderNumber: orderDoc?.orderNumber,
+        carModel: orderDoc?.carModel || car?.model,
+      },
+      metadata: {
+        carId: car?._id ? String(car._id) : "",
+        ownerId: car?.ownerId ? String(car.ownerId) : "",
+      },
+    });
+  } catch (err) {
+    console.error("[ORDER-ADD] missing-owner audit failed", err?.message || err);
+  }
+  try {
+    await notifySuperadmin({
+      title: `⚠️ Booking saved without car owner — #${orderDoc?.orderNumber || orderId}`,
+      bodyLines: [
+        "A marketplace/client booking was saved but the selected car has no owner company.",
+        "No partner email was sent (the platform company was not used as a fallback).",
+        "",
+        `Order: ${orderId}`,
+        `Car: ${car?.model || orderDoc?.carModel || "—"} (${car?._id || "—"})`,
+        `Car.ownerId: ${car?.ownerId || "missing"}`,
+      ],
+      meta: { orderId, type: "BOOKING_OWNER_MISSING" },
+    });
+  } catch (err) {
+    console.error("[ORDER-ADD] missing-owner notify failed", err?.message || err);
+  }
+}
+
 async function maybeStartRentalPrepaymentOnCreate({
   orderDoc,
   ownerCompany,
   isAdminSession,
   offline,
 }) {
+  const bookingMode = orderDoc?.bookingMode;
+  const isClientOrder = orderDoc?.my_order === true;
   try {
+    const stripeConfigured = isStripeConfigured();
     const policy = resolveCompanyRentalPaymentPolicy(ownerCompany, {
-      stripeConfigured: isStripeConfigured(),
+      stripeConfigured,
+      bookingMode,
     });
     if (
       !shouldChargeRentalOnCreate(policy, {
         isAdminSession: Boolean(isAdminSession),
         offline: Boolean(offline),
+        isClientOrder,
+        bookingMode,
       })
     ) {
-      return null;
+      return paymentResult(PAYMENT_LINK_STATUS.NOT_REQUIRED);
     }
     const pay = await createRentalCheckoutSession(String(orderDoc._id), {
       company: ownerCompany,
-      emailCustomer: true,
+      emailCustomer: false,
     });
-    return pay.ok ? pay.url || null : null;
+    if (pay.ok && pay.url) {
+      return paymentResult(PAYMENT_LINK_STATUS.READY, pay.url);
+    }
+    if (pay.code === "stripe_not_configured") {
+      console.error(
+        "[ORDER-ADD] rental checkout skipped: Stripe is not configured"
+      );
+      return paymentResult(
+        PAYMENT_LINK_STATUS.NOT_CONFIGURED,
+        null,
+        pay.message
+      );
+    }
+    if (pay.code === "prepayment_too_low") {
+      console.error(
+        "[ORDER-ADD] rental checkout skipped: prepayment too low for Stripe",
+        pay.message
+      );
+      return paymentResult(
+        PAYMENT_LINK_STATUS.AMOUNT_TOO_LOW,
+        null,
+        pay.message
+      );
+    }
+    if (pay.onSite) {
+      return paymentResult(PAYMENT_LINK_STATUS.NOT_REQUIRED);
+    }
+    console.error("[ORDER-ADD] rental checkout failed:", pay.message || pay);
+    return paymentResult(
+      PAYMENT_LINK_STATUS.FAILED,
+      null,
+      pay.message || "Checkout failed"
+    );
   } catch (err) {
     console.error("[ORDER-ADD] rental checkout failed:", err?.message || err);
-    return null;
+    return paymentResult(
+      PAYMENT_LINK_STATUS.FAILED,
+      null,
+      err?.message || "Checkout failed"
+    );
   }
+}
+
+async function notifyAfterCreate({
+  newOrder,
+  payResult,
+  session,
+  company,
+  clientLocale,
+  offlineToSave,
+}) {
+  let notificationError = null;
+  const orderPlain = newOrder.toObject ? newOrder.toObject() : { ...newOrder };
+  orderPlain.paymentUrl = payResult?.url || null;
+  orderPlain.paymentLinkStatus = payResult?.status || "";
+  orderPlain.paymentLinkMessage = payResult?.message || "";
+  const user = session?.user || { id: null, role: 0, isAdmin: false };
+  try {
+    if (!offlineToSave) {
+      await notifyOrderAction({
+        order: orderPlain,
+        user,
+        action: "CREATE",
+        source: "BACKEND",
+        companyEmail: company?.email,
+        locale: clientLocale,
+      });
+    }
+  } catch (err) {
+    notificationError = err?.message || "Notifications failed";
+    console.error("[ORDER-ADD] notifyOrderAction failed (order created):", {
+      orderId: newOrder._id?.toString?.(),
+      action: "CREATE",
+      error: err?.message,
+      stack: err?.stack,
+    });
+  }
+  return { notificationError, orderPlain };
 }
 
 /**
@@ -309,6 +458,16 @@ async function postOrderAddHandler(request) {
       placeOut,
       placeInDetail,
       placeOutDetail,
+      pickupMethod,
+      returnMethod,
+      location,
+      pickupOfficeId,
+      returnOfficeId,
+      pickupPlaceId,
+      returnPlaceId,
+      placeInId,
+      placeOutId,
+      sameReturnLocation,
       flightNumber,
       confirmed,
       my_order = false,
@@ -323,6 +482,7 @@ async function postOrderAddHandler(request) {
       totalPrice: totalPriceFromClient,
       locale: clientLocale,
       drivingLicenceUrls: drivingLicenceUrlsRaw,
+      termsAcceptance: termsAcceptanceRaw,
     } = await request.json();
 
     // Check if request comes from admin session
@@ -335,7 +495,7 @@ async function postOrderAddHandler(request) {
       // Admin is creating this order - fetch their role from User model
       const adminUser = await User.findOne({ username: session.user.name });
       if (adminUser) {
-        createdByRole = adminUser.role || 0;
+        createdByRole = Number(adminUser.role) === ROLE.SUPERADMIN ? 1 : 0;
         createdByAdminId = adminUser._id;
       }
     }
@@ -349,8 +509,29 @@ async function postOrderAddHandler(request) {
       ? Boolean(confirmed) || offlineToSave
       : false;
 
-    // Явно присваиваем email пустую строку, если он не передан или undefined/null
-    const safeEmail = typeof email === "string" ? email : "";
+    // Public and admin customer orders require a valid email and phone.
+    // Offline calendar stubs may omit name/phone/email; a filled email must still be valid.
+    const contactResult = parseOrderCustomerContact({
+      offline: offlineToSave,
+      email,
+      phone,
+      customerName,
+    });
+    if (!contactResult.ok) {
+      return new Response(
+        JSON.stringify({
+          message: contactResult.message,
+          messageKey: contactResult.messageKey,
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+    const safeEmail = contactResult.email;
+    const normalizedPhone = contactResult.phone;
+    const customerNameToSave = contactResult.customerName;
 
     const startDateSource = timeIn || rentalStartDate;
     const endDateSource = timeOut || rentalEndDate;
@@ -374,21 +555,6 @@ async function postOrderAddHandler(request) {
       );
     }
 
-    const normalizedPhone =
-      typeof phone === "string" ? phone.trim() : String(phone ?? "").trim();
-    if (!normalizedPhone || !isValidInternationalPhone(normalizedPhone)) {
-      return new Response(
-        JSON.stringify({
-          message: "Invalid phone number",
-          messageKey: "order.phoneInvalid",
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-
     const placeInDetailTrim =
       typeof placeInDetail === "string" ? placeInDetail.trim() : "";
     const placeOutDetailTrim =
@@ -398,6 +564,40 @@ async function postOrderAddHandler(request) {
     let placeOutToSave = typeof placeOut === "string" ? placeOut.trim() : "";
     let placeInDetailToSave = placeInDetailTrim;
     let placeOutDetailToSave = placeOutDetailTrim;
+    let locationSnapshotToSave = null;
+    let locationQuote = null;
+    const locationInput = parseLocationQuoteInput({
+      location,
+      pickupMethod,
+      returnMethod,
+      pickupOfficeId,
+      returnOfficeId,
+      pickupPlaceId,
+      returnPlaceId,
+      placeInId,
+      placeOutId,
+      sameReturnLocation,
+    });
+    const pickupMethodToSave =
+      locationInput.pickup.kind === "office"
+        ? "office"
+        : locationInput.pickup.kind === "delivery"
+          ? "delivery"
+          : String(pickupMethod || "").trim().toLowerCase() === "office"
+            ? "office"
+            : String(pickupMethod || "").trim().toLowerCase() === "delivery"
+              ? "delivery"
+              : "";
+    const returnMethodToSave =
+      locationInput.dropoff.kind === "office"
+        ? "office"
+        : locationInput.dropoff.kind === "delivery"
+          ? "delivery"
+          : String(returnMethod || "").trim().toLowerCase() === "office"
+            ? "office"
+            : String(returnMethod || "").trim().toLowerCase() === "delivery"
+              ? "delivery"
+              : "";
 
     const isCustomerSelfServiceBooking = myOrderToSave === true;
 
@@ -427,9 +627,10 @@ async function postOrderAddHandler(request) {
 
     const ownerCompany = existingCar.ownerId
       ? await Company.findById(existingCar.ownerId).lean()
-      : await Company.findById(COMPANY_ID).lean();
+      : null;
+    const ownerMissing = !existingCar.ownerId || !ownerCompany;
 
-    if (!isAdminSession) {
+    if (!isAdminSession && ownerCompany) {
       const siteCountry = getSiteCountryCode();
       if (!isCompanyInSiteCountry(ownerCompany, siteCountry)) {
         return new Response(
@@ -442,6 +643,74 @@ async function postOrderAddHandler(request) {
           }
         );
       }
+      const bookingGate = await assertPartnerCanOperate(ownerCompany._id, {
+        company: ownerCompany,
+        requireListed: true,
+        purpose: PARTNER_OPERATION_PURPOSE.BOOKING,
+      });
+      if (!bookingGate.allowed) {
+        return new Response(
+          JSON.stringify({
+            message: "Car is not found",
+          }),
+          {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
+    const clientLangEarly = normalizeLocale(clientLocale);
+    let termsAcceptanceToSave;
+    const skipBookingTerms = isAdminSession || offlineToSave;
+    if (!skipBookingTerms) {
+      const { doc: platformDoc } = await resolveDocumentForDisplay({
+        documentType: LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS,
+        language: clientLangEarly,
+      });
+      const companyTerms = pickCompanyRentalTermsForLanguage(
+        ownerCompany?.customerRentalTerms,
+        clientLangEarly
+      );
+      const termsCheck = evaluateBookingTermsAcceptance({
+        skip: false,
+        payload: termsAcceptanceRaw,
+        platform: platformDoc
+          ? {
+              available: true,
+              checksum: platformDoc.checksum,
+              version: platformDoc.version,
+              documentType: platformDoc.documentType,
+              language: platformDoc.language,
+            }
+          : { available: false },
+        company: companyTerms,
+      });
+      if (!termsCheck.ok) {
+        return new Response(
+          JSON.stringify({
+            message: termsCheck.message,
+            messageKey: `order.${termsCheck.code}`,
+            error: termsCheck.code,
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+      termsAcceptanceToSave = buildTermsAcceptanceRecord({
+        payload: termsAcceptanceRaw,
+        platform: {
+          available: true,
+          checksum: platformDoc.checksum,
+          version: platformDoc.version,
+          documentType: platformDoc.documentType,
+          language: platformDoc.language,
+        },
+        company: companyTerms,
+      });
     }
 
     const bookingCities = await loadCompanyBookingCities(ownerCompany);
@@ -496,6 +765,9 @@ async function postOrderAddHandler(request) {
     if (isCustomerSelfServiceBooking) {
       const ownerBookingCityNames = bookingCities.map((city) => city.name);
       const siteCountry = getSiteCountryCode();
+      const spainMarketplace =
+        isSpainBookingSite(siteCountry) &&
+        isMarketplaceRequestMode(bookingMode);
       const allowedNames = resolveAllowedCustomerPlaceNames({
         countryCode: siteCountry,
         company: ownerCompany,
@@ -507,78 +779,171 @@ async function postOrderAddHandler(request) {
         ownerCompany,
         { countryCode: siteCountry, selectedCity: placeInToSave }
       );
-      const pin = placeInToSave;
-      const pout = placeOutToSave;
-      const outsideKey = isSpainBookingSite(siteCountry)
-        ? "order.spainLocationOutsideServiceArea"
-        : "order.locationOutsideServiceArea";
-      if (
-        !isAllowedBookingLocation(pin, allowedNames) ||
-        !isAllowedBookingLocation(pout, allowedNames)
-      ) {
-        return new Response(
-          JSON.stringify({
-            message:
-              "Pickup and return must match a location served by this car's owner.",
-            messageKey: outsideKey,
-          }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
+
+      if (spainMarketplace) {
+        const pickupOk =
+          (pickupMethodToSave === "office" &&
+            Boolean(locationInput.pickup.officeId)) ||
+          (pickupMethodToSave === "delivery" &&
+            Boolean(locationInput.pickup.placeId));
+        const returnOk =
+          locationInput.dropoff.sameAsPickup ||
+          (returnMethodToSave === "office" &&
+            Boolean(locationInput.dropoff.officeId)) ||
+          (returnMethodToSave === "delivery" &&
+            Boolean(locationInput.dropoff.placeId));
+        if (!pickupOk || !returnOk) {
+          return new Response(
+            JSON.stringify({
+              message:
+                "Choose office pickup/return or a verified address from suggestions.",
+              messageKey: "order.spainLocationRequired",
+              error: "LOCATION_METHOD_REQUIRED",
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
       }
-      const pinCanon = canonicalizeBookingLocation(pin, allowedNames);
-      const poutCanon = canonicalizeBookingLocation(pout, allowedNames);
-      if (!pinCanon || !poutCanon) {
-        return new Response(
-          JSON.stringify({
-            message: "Invalid pickup or return location.",
-            messageKey: outsideKey,
-          }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
+
+      const wantsQuotedLocation =
+        Boolean(location) ||
+        pickupMethodToSave === "office" ||
+        pickupMethodToSave === "delivery" ||
+        returnMethodToSave === "office" ||
+        returnMethodToSave === "delivery";
+      if (wantsQuotedLocation || spainMarketplace) {
+        try {
+          locationQuote = await quoteAuthoritativeLocations({
+            car: existingCar,
+            company: ownerCompany,
+            pickup: {
+              kind:
+                pickupMethodToSave ||
+                (isPlaceMatchingCarOffice(placeInToSave, displayOffices)
+                  ? "office"
+                  : "delivery"),
+              officeId: locationInput.pickup.officeId,
+              placeId: locationInput.pickup.placeId,
+            },
+            dropoff: {
+              kind:
+                returnMethodToSave ||
+                (isPlaceMatchingCarOffice(placeOutToSave, displayOffices)
+                  ? "office"
+                  : "delivery"),
+              officeId: locationInput.dropoff.officeId,
+              placeId: locationInput.dropoff.placeId,
+              sameAsPickup: locationInput.dropoff.sameAsPickup,
+            },
+            language: clientLocale,
+          });
+          locationSnapshotToSave = locationQuote.snapshot;
+          const quotedFields = orderFieldsFromSnapshot(locationSnapshotToSave);
+          placeInToSave = quotedFields.placeIn || placeInToSave;
+          placeOutToSave = quotedFields.placeOut || placeOutToSave;
+          placeInDetailToSave = quotedFields.placeInDetail || placeInDetailToSave;
+          placeOutDetailToSave =
+            quotedFields.placeOutDetail || placeOutDetailToSave;
+        } catch (err) {
+          if (err instanceof LocationQuoteError) {
+            return new Response(
+              JSON.stringify({
+                message: err.message,
+                messageKey: `order.${err.code}`,
+                error: err.code,
+              }),
+              {
+                status: err.code === "PLACES_UNAVAILABLE" ? 503 : 400,
+                headers: { "Content-Type": "application/json" },
+              }
+            );
           }
-        );
+          throw err;
+        }
       }
-      placeInToSave = pinCanon;
-      placeOutToSave = poutCanon;
-      const pinIsOffice = isPlaceMatchingCarOffice(pinCanon, displayOffices);
-      const poutIsOffice = isPlaceMatchingCarOffice(poutCanon, displayOffices);
-      if (
-        !pinIsOffice &&
-        locationRequiresAddressDetail(pinCanon, bookingCities) &&
-        placeInDetailToSave.length < 3
-      ) {
-        return new Response(
-          JSON.stringify({
-            message:
-              "Enter a hotel name or full address (at least 3 characters) for this pickup city.",
-            messageKey: "order.thessalonikiDetailRequired",
-          }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-      if (
-        !poutIsOffice &&
-        locationRequiresAddressDetail(poutCanon, bookingCities) &&
-        placeOutDetailToSave.length < 3
-      ) {
-        return new Response(
-          JSON.stringify({
-            message:
-              "Enter a hotel name or full address (at least 3 characters) for this return city.",
-            messageKey: "order.thessalonikiDetailRequired",
-          }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
+
+      // Spain marketplace: after a verified placeId/officeId quote, do not
+      // reject on city-name allowlist (hotel locality may differ from city list).
+      // Legacy Greece still uses the name allowlist when there is no payload quote.
+      const skipNameAllowlist =
+        spainMarketplace && Boolean(locationSnapshotToSave);
+      if (!skipNameAllowlist) {
+        const pin = placeInToSave;
+        const pout = placeOutToSave;
+        const outsideKey = isSpainBookingSite(siteCountry)
+          ? "order.spainLocationOutsideServiceArea"
+          : "order.locationOutsideServiceArea";
+        if (
+          !isAllowedBookingLocation(pin, allowedNames) ||
+          !isAllowedBookingLocation(pout, allowedNames)
+        ) {
+          return new Response(
+            JSON.stringify({
+              message:
+                "Pickup and return must match a location served by this car's owner.",
+              messageKey: outsideKey,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
+        const pinCanon = canonicalizeBookingLocation(pin, allowedNames);
+        const poutCanon = canonicalizeBookingLocation(pout, allowedNames);
+        if (!pinCanon || !poutCanon) {
+          return new Response(
+            JSON.stringify({
+              message: "Invalid pickup or return location.",
+              messageKey: outsideKey,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
+        placeInToSave = pinCanon;
+        placeOutToSave = poutCanon;
+        const pinIsOffice = isPlaceMatchingCarOffice(pinCanon, displayOffices);
+        const poutIsOffice = isPlaceMatchingCarOffice(poutCanon, displayOffices);
+        if (
+          !pinIsOffice &&
+          locationRequiresAddressDetail(pinCanon, bookingCities) &&
+          placeInDetailToSave.length < 3
+        ) {
+          return new Response(
+            JSON.stringify({
+              message:
+                "Enter a hotel name or full address (at least 3 characters) for this pickup city.",
+              messageKey: "order.thessalonikiDetailRequired",
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
+        if (
+          !poutIsOffice &&
+          locationRequiresAddressDetail(poutCanon, bookingCities) &&
+          placeOutDetailToSave.length < 3
+        ) {
+          return new Response(
+            JSON.stringify({
+              message:
+                "Enter a hotel name or full address (at least 3 characters) for this return city.",
+              messageKey: "order.thessalonikiDetailRequired",
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
       }
     }
 
@@ -625,6 +990,7 @@ async function postOrderAddHandler(request) {
 
     let quote;
     try {
+      const useQuotedFees = Boolean(locationSnapshotToSave);
       quote = await calculateAuthoritativeRentalPrice({
         car: existingCar,
         pickupAtUtc,
@@ -635,8 +1001,39 @@ async function postOrderAddHandler(request) {
         secondDriver: normalizedSecondDriver,
         placeIn: placeInToSave,
         placeOut: placeOutToSave,
+        placeInDetail: placeInDetailToSave,
+        placeOutDetail: placeOutDetailToSave,
+        placeInLat: useQuotedFees
+          ? locationSnapshotToSave?.pickup?.lat
+          : undefined,
+        placeInLon: useQuotedFees
+          ? locationSnapshotToSave?.pickup?.lon
+          : undefined,
+        placeOutLat: useQuotedFees
+          ? locationSnapshotToSave?.return?.lat
+          : undefined,
+        placeOutLon: useQuotedFees
+          ? locationSnapshotToSave?.return?.lon
+          : undefined,
+        placeInLocality: useQuotedFees
+          ? locationSnapshotToSave?.pickup?.city
+          : undefined,
+        placeOutLocality: useQuotedFees
+          ? locationSnapshotToSave?.return?.city
+          : undefined,
+        carOffices: locationQuote?.eligibleOffices,
         company: ownerCompany,
+        platformSettings: await getPlatformMarketplaceFeeSettings(),
         bookingMode,
+        ignoreClientGeo: isMarketplaceRequestMode(bookingMode),
+        quotedPickupFeeMinor: useQuotedFees
+          ? Math.round((Number(locationSnapshotToSave.pickup?.feeMajor) || 0) * 100)
+          : undefined,
+        quotedReturnFeeMinor: useQuotedFees
+          ? Math.round(
+              (Number(locationSnapshotToSave.return?.feeMajor) || 0) * 100
+            )
+          : undefined,
       });
     } catch (err) {
       if (err instanceof RentalPricingError) {
@@ -652,6 +1049,43 @@ async function postOrderAddHandler(request) {
         );
       }
       throw err;
+    }
+
+    if (isMarketplaceRequestMode(bookingMode) && quote) {
+      const reconciled = assertAuthoritativePriceReconciled({
+        authoritativePrice: toAuthoritativePriceDoc(quote),
+        locationSnapshot: locationSnapshotToSave,
+      });
+      if (!reconciled.ok) {
+        logPriceBreakdownMismatch({
+          companyId: ownerCompany?._id,
+          breakdown: reconciled.breakdown,
+          stage: "order_add",
+        });
+        return new Response(
+          JSON.stringify({
+            message: PRICE_BREAKDOWN_CUSTOMER_MESSAGE,
+            code: PRICE_BREAKDOWN_MISMATCH,
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    if (locationSnapshotToSave && quote) {
+      // Keep snapshot fees from the authoritative location quote — do not
+      // silently reprice from a later tariff recalculation.
+      locationSnapshotToSave = {
+        ...locationSnapshotToSave,
+        pickup: {
+          ...locationSnapshotToSave.pickup,
+          feeMajor: (Number(quote.pickupFeeMinor) || 0) / 100,
+        },
+        return: {
+          ...locationSnapshotToSave.return,
+          feeMajor: (Number(quote.returnFeeMinor) || 0) / 100,
+        },
+      };
     }
 
     const days = quote.rentalDays;
@@ -723,7 +1157,7 @@ async function postOrderAddHandler(request) {
     const newOrder = new Order({
       carNumber: existingCar.carNumber,
       regNumber: existingCar.regNumber || "",
-      customerName,
+      customerName: customerNameToSave,
       phone: normalizedPhone,
       email: safeEmail,
       rentalStartDate: toStoredBusinessDate(startDate, timezone),
@@ -738,6 +1172,9 @@ async function postOrderAddHandler(request) {
       placeOut: placeOutToSave,
       placeInDetail: placeInDetailToSave,
       placeOutDetail: placeOutDetailToSave,
+      pickupMethod: pickupMethodToSave || undefined,
+      returnMethod: returnMethodToSave || undefined,
+      locationSnapshot: locationSnapshotToSave || undefined,
       clientLang,
       clientIP,
       clientCountry,
@@ -757,9 +1194,12 @@ async function postOrderAddHandler(request) {
       Telegram: Boolean(Telegram),
       createdByRole,
       createdByAdminId,
-      ownerId: existingCar.ownerId || COMPANY_ID,
+      ownerId:
+        existingCar.ownerId ||
+        (isMarketplaceRequestMode(bookingMode) ? null : COMPANY_ID),
       fromLocalhost,
       drivingLicenceUrls,
+      termsAcceptance: termsAcceptanceToSave,
       bookingMode,
       countryCode,
       currency,
@@ -776,6 +1216,18 @@ async function postOrderAddHandler(request) {
 
     // HMR/cache safety: persist secondDriver even if cached schema was stale.
     newOrder.set("secondDriver", normalizedSecondDriver, { strict: false });
+    if (pickupMethodToSave) {
+      newOrder.set("pickupMethod", pickupMethodToSave, { strict: false });
+    }
+    if (returnMethodToSave) {
+      newOrder.set("returnMethod", returnMethodToSave, { strict: false });
+    }
+    if (locationSnapshotToSave) {
+      newOrder.set("locationSnapshot", locationSnapshotToSave, { strict: false });
+    }
+    if (termsAcceptanceToSave) {
+      newOrder.set("termsAcceptance", termsAcceptanceToSave, { strict: false });
+    }
 
     if (nonConfirmedDates.length > 0) {
       newOrder.hasConflictDates = [
@@ -792,46 +1244,33 @@ async function postOrderAddHandler(request) {
 
       await updateConflictingOrders(conflicOrdersId, newOrder._id);
 
-      // Уведомления по политике (orderNotificationPolicy)
-      let notificationError = null;
-      const orderPlain = newOrder.toObject ? newOrder.toObject() : { ...newOrder };
-      const user = session?.user || { id: null, role: 0, isAdmin: false };
-      const company = await Company.findById(COMPANY_ID);
-      try {
-        if (!offlineToSave) {
-          await notifyOrderAction({
-            order: orderPlain,
-            user,
-            action: "CREATE",
-            source: "BACKEND",
-            companyEmail: company?.email,
-            locale: clientLocale,
-          });
-        }
-      } catch (err) {
-        notificationError = err?.message || "Notifications failed";
-        console.error("[ORDER-ADD] notifyOrderAction failed (order created, 202):", {
-          orderId: newOrder._id?.toString?.(),
-          action: "CREATE",
-          error: err?.message,
-          stack: err?.stack,
-        });
-      }
-
-      const paymentUrl = await maybeStartRentalPrepaymentOnCreate({
+      const payResult = await maybeStartRentalPrepaymentOnCreate({
         orderDoc: newOrder,
         ownerCompany,
         isAdminSession,
         offline: offlineToSave,
+      });
+      if (ownerMissing) {
+        await warnMissingOwnerCompany(newOrder, existingCar);
+      }
+      const { notificationError, orderPlain } = await notifyAfterCreate({
+        newOrder,
+        payResult,
+        session,
+        company: ownerCompany,
+        clientLocale,
+        offlineToSave,
       });
 
       return new Response(
         JSON.stringify({
           messageCode: "bookMesssages.bookPendingDates",
           dates: nonConfirmedDates,
-          data: newOrder,
+          data: orderPlain,
           ...(notificationError && { notificationError }),
-          ...(paymentUrl && { paymentUrl }),
+          paymentUrl: payResult.url,
+          paymentLinkStatus: payResult.status,
+          paymentLinkMessage: payResult.message,
         }),
         {
           status: 202,
@@ -850,42 +1289,29 @@ async function postOrderAddHandler(request) {
       await existingCar.save();
     }
 
-    // Уведомления по политике (orderNotificationPolicy)
-    let notificationError = null;
-    const orderPlain = newOrder.toObject ? newOrder.toObject() : { ...newOrder };
-    const user = session?.user || { id: null, role: 0, isAdmin: false };
-    const company = await Company.findById(COMPANY_ID);
-    try {
-      if (!offlineToSave) {
-        await notifyOrderAction({
-          order: orderPlain,
-          user,
-          action: "CREATE",
-          source: "BACKEND",
-          companyEmail: company?.email,
-          locale: clientLocale,
-        });
-      }
-    } catch (err) {
-      notificationError = err?.message || "Notifications failed";
-      console.error("[ORDER-ADD] notifyOrderAction failed (order created, 201):", {
-        orderId: newOrder._id?.toString?.(),
-        action: "CREATE",
-        error: err?.message,
-        stack: err?.stack,
-      });
-    }
-
-    const paymentUrl = await maybeStartRentalPrepaymentOnCreate({
+    const payResult = await maybeStartRentalPrepaymentOnCreate({
       orderDoc: newOrder,
       ownerCompany,
       isAdminSession,
       offline: offlineToSave,
     });
+    if (ownerMissing) {
+      await warnMissingOwnerCompany(newOrder, existingCar);
+    }
+    const { notificationError, orderPlain } = await notifyAfterCreate({
+      newOrder,
+      payResult,
+      session,
+      company: ownerCompany,
+      clientLocale,
+      offlineToSave,
+    });
 
-    const body = newOrder.toObject ? newOrder.toObject() : { ...newOrder };
+    const body = { ...orderPlain };
     if (notificationError) body.notificationError = notificationError;
-    if (paymentUrl) body.paymentUrl = paymentUrl;
+    body.paymentUrl = payResult.url;
+    body.paymentLinkStatus = payResult.status;
+    body.paymentLinkMessage = payResult.message;
 
     return new Response(JSON.stringify(body), {
       status: 201,

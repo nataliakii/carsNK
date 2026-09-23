@@ -49,7 +49,11 @@ import { createBusinessDateTime } from "@/domain/time/businessInstant";
 import { updateOrder, calculateTotalPrice, deleteOrder } from "@utils/action";
 import { canUpdateStartDate } from "./startDateAccess";
 import i18n from "@locales/i18n";
-import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
+import { parseCustomerPhone } from "@/domain/validation/customerPhone";
+import {
+  parseOptionalCustomerEmail,
+  parseRequiredCustomerEmail,
+} from "@/domain/validation/customerEmail";
 import { locationRequiresAddressDetail } from "@/domain/platform/bookingLocations";
 import { normalizeDeliveryPricingLocation } from "@/domain/orders/bookingPricingOptions";
 import {
@@ -1030,7 +1034,8 @@ export function useEditOrderState({
         }
       }
       if (fieldPermissions.email !== false) {
-        // Always include email if permission allows (optional field, can be empty)
+        // Always include email if permission allows
+        payload.email = o.email ?? "";
         // Use ?? to handle null/undefined as empty string
         payload.email = o.email ?? "";
       }
@@ -1064,12 +1069,28 @@ export function useEditOrderState({
       }
 
       if (payload.phone !== undefined) {
-        const p = String(payload.phone ?? "").trim();
-        if (p && !isValidInternationalPhone(p)) {
-          setUpdateMessage(i18n.t("order.phoneInvalid"));
+        const phoneResult = parseCustomerPhone(payload.phone, {
+          required: false,
+          skipFormat: Boolean(payload.offline),
+        });
+        if (!phoneResult.ok) {
+          setUpdateMessage(i18n.t(phoneResult.messageKey));
           setIsUpdating(false);
           return false;
         }
+        payload.phone = phoneResult.phone;
+      }
+
+      if (payload.email !== undefined) {
+        const emailResult = payload.offline
+          ? parseOptionalCustomerEmail(payload.email)
+          : parseRequiredCustomerEmail(payload.email);
+        if (!emailResult.ok) {
+          setUpdateMessage(i18n.t(emailResult.messageKey));
+          setIsUpdating(false);
+          return false;
+        }
+        payload.email = emailResult.email;
       }
 
       // Check if we have any changes

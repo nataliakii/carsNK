@@ -53,6 +53,12 @@ import {
 import { canPendingOrderBeConfirmed } from "@/domain/booking/analyzeConfirmationConflicts";
 // 🎯 Модальное окно настройки буфера
 import BufferSettingsModal from "@/app/admin/features/settings/BufferSettingsModal";
+import MailThreadPanel from "@/app/admin/emails/MailThreadPanel";
+import ContactRovaroSupportButton from "@/app/admin/features/orders/ContactRovaroSupportButton";
+import PartnerSupportMessagesList from "@/app/admin/features/orders/PartnerSupportMessagesList";
+import MarketplacePaymentOpsPanel from "@/app/admin/features/orders/MarketplacePaymentOpsPanel";
+import OrderPriceBreakdown from "@/app/admin/features/orders/OrderPriceBreakdown";
+import OfferAlternativePanel from "@/app/admin/features/orders/OfferAlternativePanel";
 import { ORDER_COLORS } from "@/config/orderColors";
 import { getSecondDriverPriceLabelValue } from "@utils/secondDriverPricing";
 
@@ -1285,6 +1291,13 @@ const EditOrderModal = ({
                   return "";
                 })()}
               </Typography>
+              {!isCurrentUserSuperAdmin && (order?._id || editedOrder?._id) ? (
+                <Box sx={{ mt: 0.75, mb: 0.5 }}>
+                  <ContactRovaroSupportButton
+                    orderId={String(order?._id || editedOrder?._id)}
+                  />
+                </Box>
+              ) : null}
               {/* Количество дней и стоимость */}
               <Box
                 display="flex"
@@ -1455,10 +1468,19 @@ const EditOrderModal = ({
                 </Typography>
               )}
 
+              <Box sx={{ mt: 1, mb: 1, px: 0.5 }}>
+                <OrderPriceBreakdown
+                  order={editedOrder || order}
+                  priceBreakdown={displayedPriceBreakdown}
+                  locale={i18n.language}
+                  isSuperAdmin={isCurrentUserSuperAdmin}
+                />
+              </Box>
+
               {displayedPriceBreakdown && (
-                <Box sx={{ mt: 1, mb: 1, px: 0.5 }}>
+                <Box sx={{ mt: 0, mb: 1, px: 0.5 }}>
                   {(() => {
-                    const { dailyRates, baseRentalTotal, kaskoTotal, childSeatsTotal, secondDriverTotal, deliveryIn, deliveryOut, deliveryTotal } = displayedPriceBreakdown;
+                    const { dailyRates } = displayedPriceBreakdown;
                     const hasDiscount = dailyRates?.some((d) => d.discountActive);
                     const activeDiscountValue =
                       activeDiscount?.type === "fixed"
@@ -1494,69 +1516,6 @@ const EditOrderModal = ({
                             </Typography>
                           </Box>
                         )}
-
-                        <Box
-                          sx={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: 0.5,
-                            "& > div": {
-                              fontSize: "0.68rem",
-                              color: "text.secondary",
-                              lineHeight: 1.3,
-                            },
-                          }}
-                        >
-                          <Box>
-                            <Typography variant="caption" sx={{ fontSize: "inherit", color: "inherit" }}>
-                              {t("order.priceSummary.rental")} <b>€{baseRentalTotal}</b>
-                            </Typography>
-                          </Box>
-                          {kaskoTotal > 0 && (
-                            <Box>
-                              <Typography variant="caption" sx={{ fontSize: "inherit", color: "inherit" }}>
-                                · CDW: <b>€{kaskoTotal}</b>
-                              </Typography>
-                            </Box>
-                          )}
-                          {childSeatsTotal > 0 && (
-                            <Box>
-                              <Typography variant="caption" sx={{ fontSize: "inherit", color: "inherit" }}>
-                                · {t("order.priceSummary.childSeats")} <b>€{childSeatsTotal}</b>
-                              </Typography>
-                            </Box>
-                          )}
-                          {secondDriverTotal > 0 && (
-                            <Box>
-                              <Typography variant="caption" sx={{ fontSize: "inherit", color: "inherit" }}>
-                                · {t("order.priceSummary.secondDriver")} <b>€{secondDriverTotal}</b>
-                              </Typography>
-                            </Box>
-                          )}
-                          <Box>
-                            <Typography variant="caption" sx={{ fontSize: "inherit", color: "inherit" }}>
-                              · {t("order.priceSummary.delivery")} <b>€{deliveryTotal}</b>
-                              {(deliveryIn > 0 || deliveryOut > 0) &&
-                                deliveryIn !== deliveryOut && (
-                                  <span style={{ opacity: 0.7 }}>
-                                    {" "}
-                                    {t("order.priceSummary.deliverySplit", {
-                                      in: deliveryIn,
-                                      out: deliveryOut,
-                                    })}
-                                  </span>
-                                )}
-                              {deliveryTotal === 0 &&
-                                deliveryIn === 0 &&
-                                deliveryOut === 0 && (
-                                  <span style={{ opacity: 0.7 }}>
-                                    {" "}
-                                    {t("order.priceSummary.deliveryFree")}
-                                  </span>
-                                )}
-                            </Typography>
-                          </Box>
-                        </Box>
 
                         {dailyRates && dailyRates.length > 0 && (
                           <>
@@ -2189,6 +2148,37 @@ const EditOrderModal = ({
                       )}
                     </Box>
                   ))}
+                {editedOrder?._id ? (
+                  <Box sx={{ mt: 1.5 }}>
+                    <PartnerSupportMessagesList
+                      orderId={String(editedOrder._id)}
+                      isSuperAdmin={isCurrentUserSuperAdmin}
+                    />
+                    <MarketplacePaymentOpsPanel
+                      order={editedOrder}
+                      isSuperAdmin={isCurrentUserSuperAdmin}
+                    />
+                    <OfferAlternativePanel
+                      order={editedOrder}
+                      isSuperAdmin={isCurrentUserSuperAdmin}
+                    />
+                    {isCurrentUserSuperAdmin ? (
+                      <>
+                        <Typography
+                          variant="caption"
+                          sx={{ color: "text.secondary", fontWeight: 600, display: "block", mb: 0.75, mt: 1.5 }}
+                        >
+                          {t("admin.emails.orderThread")}
+                        </Typography>
+                        <MailThreadPanel
+                          orderId={String(editedOrder._id)}
+                          compact
+                          page={1}
+                        />
+                      </>
+                    ) : null}
+                  </Box>
+                ) : null}
               </Box>
 
               <Box sx={{ mb: 0 }}>
@@ -2475,7 +2465,7 @@ const EditOrderModal = ({
                           }
                           size={formMetrics.fieldSize}
                           helperText={pickupDeliveryHelperText || undefined}
-                          required
+                          required={!editedOrder?.offline}
                           sx={{ ...unifiedFieldSx, flex: 1, minWidth: 0 }}
                         />
                       )}
@@ -2532,7 +2522,7 @@ const EditOrderModal = ({
                           }
                           size={formMetrics.fieldSize}
                           helperText={returnDeliveryHelperText || undefined}
-                          required
+                          required={!editedOrder?.offline}
                           sx={{ ...unifiedFieldSx, flex: 1, minWidth: 0 }}
                         />
                       )}
@@ -2791,9 +2781,11 @@ const EditOrderModal = ({
                       label={
                         <>
                           <span>{t("order.clientName")}</span>
-                          <Box component="span" sx={{ color: "primary.dark" }}>
-                            *
-                          </Box>
+                          {!editedOrder?.offline && (
+                            <Box component="span" sx={{ color: "primary.dark" }}>
+                              *
+                            </Box>
+                          )}
                         </>
                       }
                       value={editedOrder.customerName || ""}
@@ -2826,9 +2818,11 @@ const EditOrderModal = ({
                       label={
                         <>
                           <span>{t("order.phone")}</span>
-                          <Box component="span" sx={{ color: "primary.dark" }}>
-                            *
-                          </Box>
+                          {!editedOrder?.offline && (
+                            <Box component="span" sx={{ color: "primary.dark" }}>
+                              *
+                            </Box>
+                          )}
                         </>
                       }
                       value={editedOrder.phone || ""}
@@ -2867,21 +2861,27 @@ const EditOrderModal = ({
                         },
                       }}
                       label={
-                        <>
-                          {t("order.email")}
-                          <Box
-                            component="span"
-                            sx={{
-                              color: "success.main",
-                              fontWeight: 500,
-                              ml: 1,
-                            }}
-                          >
-                            {t("basic.optional")}
-                          </Box>
-                        </>
+                        editedOrder?.offline ? (
+                          <>
+                            {t("order.email")}
+                            <Box
+                              component="span"
+                              sx={{
+                                color: "success.main",
+                                fontWeight: 500,
+                                ml: 1,
+                              }}
+                            >
+                              {t("basic.optional")}
+                            </Box>
+                          </>
+                        ) : (
+                          t("order.email")
+                        )
                       }
                       value={editedOrder.email || ""}
+                      type="email"
+                      required={!editedOrder?.offline}
                       onChange={(e) => {
                         if (permissions.viewOnly || !access?.canEditClientPII)
                           return;

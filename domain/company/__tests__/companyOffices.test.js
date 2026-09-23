@@ -1,5 +1,6 @@
 import {
   emptyCompanyOffice,
+  mergeOfficesPreservingIds,
   normalizeCompanyOffices,
   officeOrigins,
   primaryOfficePoint,
@@ -21,7 +22,7 @@ describe("normalizeCompanyOffices", () => {
     const offices = normalizeCompanyOffices([
       { name: "Barcelona", address: "", lat: "41.39", lng: "2.16" },
     ]);
-    expect(offices).toEqual([
+    expect(offices).toMatchObject([
       { name: "Barcelona", address: "", lat: "41.39", lon: "2.16" },
     ]);
   });
@@ -110,5 +111,17 @@ describe("public booking uses company.offices", () => {
     );
     expect(offices[0].address).toBe("");
     expect(offices[0].addressUnset).toBe(true);
+  });
+});
+
+describe("mergeOfficesPreservingIds", () => {
+  test("keeps existing _id when superadmin patches the same office", () => {
+    const id = "64b7f2c3a1b2c3d4e5f60711";
+    const merged = mergeOfficesPreservingIds(
+      [{ _id: id, name: "BCN", address: "Old" }],
+      [{ _id: id, name: "BCN", address: "New Mallorca 1" }]
+    );
+    expect(String(merged[0]._id)).toBe(id);
+    expect(merged[0].address).toContain("Mallorca");
   });
 });

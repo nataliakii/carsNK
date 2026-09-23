@@ -152,7 +152,7 @@ function AdminViewContent({ viewType }) {
     setNotification(null);
   }, []);
 
-  const { gate } = usePartnerLegalStatus();
+  const { gate, listedOnMarketplace } = usePartnerLegalStatus();
 
   // Memoize feature config lookup
   const featureConfig = useMemo(
@@ -191,7 +191,11 @@ function AdminViewContent({ viewType }) {
             flexShrink: 0,
           }}
         >
-          <PartnerComplianceGate gate={gate} hideWhenOpen />
+          <PartnerComplianceGate
+            gate={gate}
+            hideWhenOpen
+            listedOnMarketplace={listedOnMarketplace}
+          />
         </Box>
       ) : null}
 

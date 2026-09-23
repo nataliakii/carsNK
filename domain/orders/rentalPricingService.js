@@ -18,6 +18,11 @@ import {
 } from "@/domain/money/minorUnits";
 import { toBooleanField } from "@/domain/orders/fieldUtils";
 import { BOOKING_MODES, isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import {
+  bpsToPercentNumber,
+  marketplacePlatformAmountMinor,
+  resolveMarketplaceBookingFeeBps,
+} from "@/domain/orders/marketplaceBookingFee";
 import { toBusinessDateTime } from "@/domain/orders/numberOfDays";
 import {
   canonicalizeTimezone,
@@ -45,11 +50,13 @@ export function resolveCurrency() {
 
 /**
  * Prepayment percent resolution (snapshot only — no payment in this phase).
- * 1. explicit authorised booking override
- * 2. car override
- * 3. company override
- * 4. platform/country default
- * 5. 10 for Spain marketplace only; 0 for Greece OPS_CALENDAR
+ * 1. Spain marketplace: company marketplaceBookingFeeBps → platform → 10%.
+ *    Legacy company.prepaymentPercent is ignored for marketplace.
+ * 2. explicit authorised booking override (Greece / ops only)
+ * 3. car override
+ * 4. company override
+ * 5. platform/country default
+ * 6. 0 for Greece OPS_CALENDAR
  */
 export function resolvePrepaymentPercent({
   overridePercent,
@@ -57,7 +64,14 @@ export function resolvePrepaymentPercent({
   company,
   platformSettings,
   bookingMode,
+  marketplaceBookingFeeBps,
 } = {}) {
+  if (isMarketplaceRequestMode(bookingMode)) {
+    if (marketplaceBookingFeeBps != null) {
+      return bpsToPercentNumber(marketplaceBookingFeeBps);
+    }
+    return resolveMarketplaceBookingFeeBps(company, platformSettings).percent;
+  }
   const candidates = [
     overridePercent,
     car?.prepaymentPercent,
@@ -68,7 +82,6 @@ export function resolvePrepaymentPercent({
     const n = Number(raw);
     if (Number.isFinite(n) && n >= 0 && n <= 100) return n;
   }
-  if (isMarketplaceRequestMode(bookingMode)) return 10;
   return 0;
 }
 
@@ -196,11 +209,17 @@ export async function calculateAuthoritativeRentalPrice({
   placeOutLon,
   placeInLocality,
   placeOutLocality,
+  carOffices,
   company,
   bookingMode,
   platformSettings,
   prepaymentOverridePercent,
+  marketplaceBookingFeeBps,
   promoCode,
+  /** When set (Spain marketplace quote), skip client geo and use these fees. */
+  quotedPickupFeeMinor,
+  quotedReturnFeeMinor,
+  ignoreClientGeo = false,
 } = {}) {
   if (!car || typeof car.calculateTotalRentalPricePerDay !== "function") {
     throw new RentalPricingError("CAR_REQUIRED", "Car is required for pricing.");
@@ -235,27 +254,44 @@ export async function calculateAuthoritativeRentalPrice({
 
   assertNonNegativeFinite("rentalTotal", total);
 
+  const hasQuotedFees =
+    quotedPickupFeeMinor != null || quotedReturnFeeMinor != null;
   let deliveryData = {};
-  try {
-    deliveryData = await calculateDeliveryPrice({
-      placeIn,
-      placeOut,
-      companyId: car.ownerId ? String(car.ownerId) : company?._id ? String(company._id) : undefined,
-      timeIn: pickupAtUtc,
-      timeOut: returnAtUtc,
-      carOffices: car.offices,
-      placeInDetail,
-      placeOutDetail,
-      placeInLat,
-      placeInLon,
-      placeOutLat,
-      placeOutLon,
-      placeInLocality,
-      placeOutLocality,
-    });
-  } catch (err) {
-    console.error("[rentalPricing] delivery calc error:", err?.message || err);
-    deliveryData = {};
+  if (hasQuotedFees) {
+    const inMajor = (Number(quotedPickupFeeMinor) || 0) / 100;
+    const outMajor = (Number(quotedReturnFeeMinor) || 0) / 100;
+    deliveryData = {
+      deliveryIn: inMajor,
+      deliveryOut: outMajor,
+      deliveryTotal: inMajor + outMajor,
+    };
+  } else {
+    try {
+      deliveryData = await calculateDeliveryPrice({
+        placeIn,
+        placeOut,
+        companyId: car.ownerId
+          ? String(car.ownerId)
+          : company?._id
+            ? String(company._id)
+            : undefined,
+        timeIn: pickupAtUtc,
+        timeOut: returnAtUtc,
+        carOffices: carOffices != null ? carOffices : car.offices,
+        placeInDetail,
+        placeOutDetail,
+        // Spain marketplace must never trust client lat/lon/fee/distance.
+        placeInLat: ignoreClientGeo ? undefined : placeInLat,
+        placeInLon: ignoreClientGeo ? undefined : placeInLon,
+        placeOutLat: ignoreClientGeo ? undefined : placeOutLat,
+        placeOutLon: ignoreClientGeo ? undefined : placeOutLon,
+        placeInLocality: ignoreClientGeo ? undefined : placeInLocality,
+        placeOutLocality: ignoreClientGeo ? undefined : placeOutLocality,
+      });
+    } catch (err) {
+      console.error("[rentalPricing] delivery calc error:", err?.message || err);
+      deliveryData = {};
+    }
   }
 
   const dailyRates = Array.isArray(breakdown?.dailyRates) ? breakdown.dailyRates : [];
@@ -298,14 +334,27 @@ export async function calculateAuthoritativeRentalPrice({
     Math.abs(projectedMajor - compatibilityTotal) < 0.005;
 
   const mode = bookingMode || BOOKING_MODES.OPS_CALENDAR;
-  const prepaymentPercent = resolvePrepaymentPercent({
-    overridePercent: prepaymentOverridePercent,
-    car,
-    company,
-    platformSettings,
-    bookingMode: mode,
-  });
-  const prepaymentMinor = Math.round((grossMinor * prepaymentPercent) / 100);
+  const marketplaceFee = isMarketplaceRequestMode(mode)
+    ? marketplaceBookingFeeBps != null
+      ? {
+          bps: Math.round(Number(marketplaceBookingFeeBps)),
+          percent: bpsToPercentNumber(marketplaceBookingFeeBps),
+        }
+      : resolveMarketplaceBookingFeeBps(company, platformSettings)
+    : null;
+  const prepaymentPercent = marketplaceFee
+    ? marketplaceFee.percent
+    : resolvePrepaymentPercent({
+        overridePercent: prepaymentOverridePercent,
+        car,
+        company,
+        platformSettings,
+        bookingMode: mode,
+      });
+  const feeBps = marketplaceFee?.bps ?? Math.round(prepaymentPercent * 100);
+  const prepaymentMinor = marketplaceFee
+    ? marketplacePlatformAmountMinor(grossMinor, feeBps)
+    : Math.round((grossMinor * prepaymentPercent) / 100);
   const balanceMinor = grossMinor - prepaymentMinor;
 
   const lines = buildLines({
@@ -334,9 +383,15 @@ export async function calculateAuthoritativeRentalPrice({
     returnFeeMinor,
     otherFeesMinor,
     grossMinor,
+    marketplaceBookingFeeBps: marketplaceFee ? feeBps : undefined,
+    feePercent: marketplaceFee ? marketplaceFee.percent : prepaymentPercent,
     prepaymentPercent,
     prepaymentMinor,
     balanceMinor,
+    platformAmountMinor: prepaymentMinor,
+    stripeAmountMinor: prepaymentMinor,
+    supplierBalanceMinor: balanceMinor,
+    payoutMinor: 0,
     pricingVersion: RENTAL_PRICING_VERSION,
     calculatedAt,
     lines,
@@ -383,9 +438,15 @@ export function toAuthoritativePriceDoc(quote) {
     returnFeeMinor: quote.returnFeeMinor,
     otherFeesMinor: quote.otherFeesMinor,
     grossMinor: quote.grossMinor,
+    marketplaceBookingFeeBps: quote.marketplaceBookingFeeBps,
+    feePercent: quote.feePercent ?? quote.prepaymentPercent,
     prepaymentPercent: quote.prepaymentPercent,
     prepaymentMinor: quote.prepaymentMinor,
     balanceMinor: quote.balanceMinor,
+    platformAmountMinor: quote.platformAmountMinor ?? quote.prepaymentMinor,
+    stripeAmountMinor: quote.stripeAmountMinor ?? quote.prepaymentMinor,
+    supplierBalanceMinor: quote.supplierBalanceMinor ?? quote.balanceMinor,
+    payoutMinor: quote.payoutMinor ?? 0,
     pricingVersion: quote.pricingVersion,
     calculatedAt: quote.calculatedAt,
     lines: quote.lines,

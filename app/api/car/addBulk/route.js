@@ -101,7 +101,13 @@ export async function POST(request) {
         photoUrl: result.car.photoUrl,
       });
     } else {
-      errors.push({ index: i, error: result.error, model: row?.model });
+      errors.push({
+        index: i,
+        error: result.error,
+        errorCode: result.errorCode,
+        code: result.code,
+        model: row?.model,
+      });
     }
   }
 
@@ -116,11 +122,14 @@ export async function POST(request) {
       success: errors.length === 0,
       created,
       errors,
+      error: errors[0]?.errorCode || undefined,
+      code: errors[0]?.code || undefined,
       message:
         errors.length === 0
           ? `Created ${created.length} car(s)`
-          : `Created ${created.length}, failed ${errors.length}`,
+          : errors[0]?.error ||
+            `Created ${created.length}, failed ${errors.length}`,
     },
-    { status: created.length > 0 ? 201 : 400 }
+    { status: created.length > 0 ? 201 : errors[0]?.errorCode ? 403 : 400 }
   );
 }

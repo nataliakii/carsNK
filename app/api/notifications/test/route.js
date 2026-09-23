@@ -8,6 +8,7 @@ import { sendEmailDirect } from "@/lib/email/sendDirect";
 import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
 import { getInternalNotificationEmail } from "@config/email";
 import { sanitizeSmtpError } from "@/lib/email/smtpConfig";
+import { MAIL_TYPE } from "@/domain/mail/mailTypes";
 
 export async function GET() {
   if (process.env.NODE_ENV === "production") {
@@ -35,6 +36,7 @@ export async function GET() {
       message: "Test email from /api/notifications/test",
       to: [getInternalNotificationEmail()],
       cc: [],
+      meta: { type: MAIL_TYPE.TEST },
     });
     results.email = { ok: true };
   } catch (err) {

@@ -53,7 +53,7 @@ const ScrollingCalendar = React.memo(function ScrollingCalendar({
 
     if (start && end) {
       setBookedDates({ start, end });
-      onBookingComplete();
+      onBookingComplete({ start, end });
     }
   };
 

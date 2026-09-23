@@ -11,6 +11,10 @@ import { PARTNER_GATE_BLOCKER } from "@/domain/legal/partnerGate";
 import { PARTNER_VERIFICATION_STATUS } from "@/domain/legal/partnerVerification";
 import { PARTNER_DOCUMENT_KIND } from "@/domain/legal/partnerDocuments";
 import {
+  AGREEMENT_FORM_BLOCKER,
+  AGREEMENT_SIGNING_BLOCKER,
+} from "@/domain/legal/agreementSigning";
+import {
   PARTNER_PROFILE_CONFIRMATIONS,
   PARTNER_PROFILE_SECTIONS,
   PARTNER_PROFILE_TEXT_FIELDS,
@@ -56,6 +60,37 @@ describe("partner legal i18n", () => {
     }
     for (const code of Object.values(PARTNER_GATE_BLOCKER)) {
       expect(partnerLegalEn.gate.blocker[code]).toBeTruthy();
+    }
+    for (const code of Object.values(AGREEMENT_SIGNING_BLOCKER)) {
+      expect(partnerLegalEn.agreement.signingBlocker[code]).toBeTruthy();
+    }
+    for (const code of [
+      PARTNER_GATE_BLOCKER.NO_PROFILE,
+      PARTNER_GATE_BLOCKER.PROFILE_INCOMPLETE,
+      PARTNER_GATE_BLOCKER.AWAITING_VERIFICATION,
+      PARTNER_GATE_BLOCKER.REJECTED,
+      PARTNER_GATE_BLOCKER.SUSPENDED,
+    ]) {
+      expect(partnerLegalEn.agreement.signingBlocker[code]).toBeTruthy();
+    }
+    for (const code of Object.values(AGREEMENT_FORM_BLOCKER)) {
+      expect(partnerLegalEn.agreement.formBlocker[code]).toBeTruthy();
+    }
+    for (const key of [
+      "title",
+      "body",
+      "verify",
+      "reject",
+      "suspend",
+      "reopenDraft",
+      "reason",
+      "reasonRequired",
+      "failed",
+      "done",
+      "noProfile",
+    ]) {
+      expect(partnerLegalEn.review[key]).toBeTruthy();
+      expect(partnerLegalEs.review[key]).toBeTruthy();
     }
   });
 

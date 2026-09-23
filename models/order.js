@@ -57,6 +57,20 @@ const OrderSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  pickupMethod: {
+    type: String,
+    default: "",
+    trim: true,
+  },
+  locationSnapshot: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  returnMethod: {
+    type: String,
+    default: "",
+    trim: true,
+  },
   /** If both set, delivery uses these amounts (€); otherwise zones + company €/km */
   deliveryInOverride: {
     type: Number,
@@ -96,6 +110,19 @@ const OrderSchema = new mongoose.Schema({
   },
   companyEmailDecisionAt: {
     type: Date,
+    default: null,
+  },
+  partnerConfirmedAt: { type: Date, default: null },
+  partnerConfirmedByEmail: { type: String, default: "" },
+  partnerConfirmMeta: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  declineReason: { type: String, default: "" },
+  declinedAt: { type: Date, default: null },
+  declinedByEmail: { type: String, default: "" },
+  declineMeta: {
+    type: mongoose.Schema.Types.Mixed,
     default: null,
   },
   status: {
@@ -262,7 +289,7 @@ const OrderSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: false, // исправлено на false, чтобы email был необязательным
+    required: false, // legacy/offline stubs; customer creates require email at the API
   },
   secondDriver: {
     type: Boolean,
@@ -416,6 +443,32 @@ const OrderSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  /**
+   * Clickwrap at booking: platform (Rovaro) terms + company rental rules.
+   * Public orders store the checksum/hash of the text the customer accepted.
+   */
+  termsAcceptance: {
+    type: new mongoose.Schema(
+      {
+        platform: {
+          accepted: { type: Boolean, default: false },
+          acceptedAt: { type: Date, default: null },
+          documentType: { type: String, default: "" },
+          version: { type: Number, default: 0 },
+          checksum: { type: String, default: "" },
+          language: { type: String, default: "" },
+        },
+        company: {
+          accepted: { type: Boolean, default: false },
+          acceptedAt: { type: Date, default: null },
+          sourceHash: { type: String, default: "" },
+          language: { type: String, default: "" },
+        },
+      },
+      { _id: false }
+    ),
+    default: undefined,
+  },
   /** Secure image URLs (Cloudinary) for customer driving licence photos, optional. */
   drivingLicenceUrls: {
     type: [String],
@@ -475,6 +528,21 @@ const OrderSchema = new mongoose.Schema({
    * Uses Mixed for HMR-safe evolution; shape mirrors Transfer.payment.
    */
   payment: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  /** Immutable original marketplace request, captured before an accepted alternative mutates operational fields. */
+  originalRequestSnapshot: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  acceptedAlternativeOfferId: { type: String, default: "" },
+  /** Append-only marketplace gross revisions. Original paid snapshot is never overwritten. */
+  priceRevisions: {
+    type: mongoose.Schema.Types.Mixed,
+    default: [],
+  },
+  paidMarketplaceFeeSnapshot: {
     type: mongoose.Schema.Types.Mixed,
     default: null,
   },
@@ -815,6 +883,25 @@ if (Order?.schema && !Order.schema.path("companyEmailDecision")) {
   });
 }
 
+if (Order?.schema && !Order.schema.path("partnerConfirmedAt")) {
+  Order.schema.add({
+    partnerConfirmedAt: { type: Date, default: null },
+    partnerConfirmedByEmail: { type: String, default: "" },
+    partnerConfirmMeta: { type: mongoose.Schema.Types.Mixed, default: null },
+    declineReason: { type: String, default: "" },
+    declinedAt: { type: Date, default: null },
+    declinedByEmail: { type: String, default: "" },
+    declineMeta: { type: mongoose.Schema.Types.Mixed, default: null },
+  });
+}
+
+if (Order?.schema && !Order.schema.path("pickupMethod")) {
+  Order.schema.add({
+    pickupMethod: { type: String, default: "", trim: true },
+    returnMethod: { type: String, default: "", trim: true },
+  });
+}
+
 if (Order?.schema && !Order.schema.path("authoritativePrice")) {
   Order.schema.add({
     bookingMode: { type: String },
@@ -842,6 +929,18 @@ if (Order?.schema && !Order.schema.path("authoritativePrice")) {
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
+    originalRequestSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    acceptedAlternativeOfferId: { type: String, default: "" },
+  });
+}
+
+if (Order?.schema && !Order.schema.path("priceRevisions")) {
+  Order.schema.add({
+    priceRevisions: { type: mongoose.Schema.Types.Mixed, default: [] },
+    paidMarketplaceFeeSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
   });
 }
 

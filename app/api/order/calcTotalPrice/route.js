@@ -10,11 +10,23 @@ import {
   calculateAuthoritativeRentalPrice,
   RentalPricingError,
 } from "@/domain/orders/rentalPricingService";
+import { getPlatformMarketplaceFeeSettings } from "@/domain/platform/platformSettingsService";
 import {
   consumePublicPostOrError,
   rentalQuoteRateLimitOptions,
 } from "@/services/publicPostRateLimit";
 import { getSiteCountryCode } from "@config/siteCountry";
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { parseLocationQuoteInput } from "@/domain/orders/locationQuoteInput";
+import {
+  LocationQuoteError,
+  quoteAuthoritativeLocations,
+} from "@/domain/orders/authoritativeLocationQuote";
+import { orderFieldsFromSnapshot } from "@/domain/orders/locationSnapshot";
+import {
+  isMarketplaceOperatingCompany,
+  isPublicMarketplaceCarAllowed,
+} from "@/domain/legal/partnerOperatingPolicy";
 
 export async function POST(request) {
   let debugBody;
@@ -54,7 +66,31 @@ export async function POST(request) {
       placeOutLon,
       placeInLocality,
       placeOutLocality,
+      location,
+      pickupMethod,
+      returnMethod,
+      pickupOfficeId,
+      returnOfficeId,
+      pickupPlaceId,
+      returnPlaceId,
+      placeInId,
+      placeOutId,
+      sameReturnLocation,
+      // Client money fields are ignored for Spain marketplace (trust boundary).
+      totalPrice: _clientTotal,
+      currency: _clientCurrency,
+      deliveryIn: _clientDeliveryIn,
+      deliveryOut: _clientDeliveryOut,
+      deliveryTotal: _clientDeliveryTotal,
+      distanceKm: _clientDistanceKm,
     } = debugBody;
+    void _clientTotal;
+    void _clientCurrency;
+    void _clientDeliveryIn;
+    void _clientDeliveryOut;
+    void _clientDeliveryTotal;
+    void _clientDistanceKm;
+
     const calculationStartSource = timeIn ?? rentalStartDate;
     const calculationEndSource = timeOut ?? rentalEndDate;
     const normalizedSecondDriver = toBooleanField(secondDriver, false);
@@ -92,6 +128,16 @@ export async function POST(request) {
       ? await Company.findById(car.ownerId).lean()
       : await Company.findById(COMPANY_ID).lean();
 
+    if (
+      isMarketplaceOperatingCompany(company) &&
+      !(await isPublicMarketplaceCarAllowed({ car, company }))
+    ) {
+      return new Response(JSON.stringify({ message: "Car not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const rentalContext = resolveRentalBookingContext({
       company,
       countryCode: company?.country || getSiteCountryCode(),
@@ -113,6 +159,85 @@ export async function POST(request) {
       });
     }
 
+    const marketplace = isMarketplaceRequestMode(rentalContext.bookingMode);
+    const locationInput = parseLocationQuoteInput({
+      location,
+      pickupMethod,
+      returnMethod,
+      pickupOfficeId,
+      returnOfficeId,
+      pickupPlaceId,
+      returnPlaceId,
+      placeInId,
+      placeOutId,
+      sameReturnLocation,
+    });
+
+    let placeInForPrice = placeIn;
+    let placeOutForPrice = placeOut;
+    let placeInDetailForPrice = placeInDetail;
+    let placeOutDetailForPrice = placeOutDetail;
+    let quotedPickupFeeMinor;
+    let quotedReturnFeeMinor;
+    let locationSnapshot = null;
+    let eligibleOffices;
+
+    // Spain marketplace: unify preview with submit via quoteAuthoritativeLocations.
+    // Client lat/lon/fee/distance/total/currency are ignored.
+    if (
+      marketplace &&
+      (locationInput.pickup.kind ||
+        locationInput.pickup.officeId ||
+        locationInput.pickup.placeId ||
+        locationInput.dropoff.kind ||
+        locationInput.dropoff.officeId ||
+        locationInput.dropoff.placeId)
+    ) {
+      try {
+        const locationQuote = await quoteAuthoritativeLocations({
+          car,
+          company,
+          pickup: {
+            kind: locationInput.pickup.kind || "delivery",
+            officeId: locationInput.pickup.officeId,
+            placeId: locationInput.pickup.placeId,
+          },
+          dropoff: {
+            kind: locationInput.dropoff.kind || locationInput.pickup.kind || "delivery",
+            officeId: locationInput.dropoff.officeId,
+            placeId: locationInput.dropoff.placeId,
+            sameAsPickup: locationInput.dropoff.sameAsPickup,
+          },
+          language: debugBody.language,
+          sessionToken: debugBody.sessionToken,
+        });
+        locationSnapshot = locationQuote.snapshot;
+        eligibleOffices = locationQuote.eligibleOffices;
+        const fields = orderFieldsFromSnapshot(locationSnapshot);
+        placeInForPrice = fields.placeIn || placeInForPrice;
+        placeOutForPrice = fields.placeOut || placeOutForPrice;
+        placeInDetailForPrice = fields.placeInDetail || placeInDetailForPrice;
+        placeOutDetailForPrice = fields.placeOutDetail || placeOutDetailForPrice;
+        quotedPickupFeeMinor = Math.round(
+          (Number(locationSnapshot.pickup?.feeMajor) || 0) * 100
+        );
+        quotedReturnFeeMinor = Math.round(
+          (Number(locationSnapshot.return?.feeMajor) || 0) * 100
+        );
+      } catch (err) {
+        if (err instanceof LocationQuoteError) {
+          return new Response(
+            JSON.stringify({ message: err.message, code: err.code }),
+            {
+              status: err.code === "PLACES_UNAVAILABLE" ? 503 : 400,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
+        throw err;
+      }
+    }
+
     const quote = await calculateAuthoritativeRentalPrice({
       car,
       pickupAtUtc: startDate.utc().toDate(),
@@ -121,19 +246,25 @@ export async function POST(request) {
       insurance: kacko,
       childSeats,
       secondDriver: normalizedSecondDriver,
-      placeIn,
-      placeOut,
-      placeInDetail,
-      placeOutDetail,
-      placeInLat,
-      placeInLon,
-      placeOutLat,
-      placeOutLon,
-      placeInLocality,
-      placeOutLocality,
+      placeIn: placeInForPrice,
+      placeOut: placeOutForPrice,
+      placeInDetail: placeInDetailForPrice,
+      placeOutDetail: placeOutDetailForPrice,
+      // Greece OPS_CALENDAR may still use server-resolved localities; Spain marketplace ignores client geo.
+      placeInLat: marketplace ? undefined : placeInLat,
+      placeInLon: marketplace ? undefined : placeInLon,
+      placeOutLat: marketplace ? undefined : placeOutLat,
+      placeOutLon: marketplace ? undefined : placeOutLon,
+      placeInLocality: marketplace ? undefined : placeInLocality,
+      placeOutLocality: marketplace ? undefined : placeOutLocality,
+      carOffices: eligibleOffices,
       company,
+      platformSettings: await getPlatformMarketplaceFeeSettings(),
       bookingMode: rentalContext.bookingMode,
       promoCode,
+      ignoreClientGeo: marketplace,
+      quotedPickupFeeMinor,
+      quotedReturnFeeMinor,
     });
 
     return new Response(
@@ -145,6 +276,7 @@ export async function POST(request) {
         bookingMode: rentalContext.bookingMode,
         grossMinor: quote.grossMinor,
         breakdown: quote.compatibility.breakdown,
+        locationSnapshot: locationSnapshot || undefined,
         authoritativePrice: {
           currency: quote.currency,
           rentalDays: quote.rentalDays,
@@ -155,9 +287,15 @@ export async function POST(request) {
           pickupFeeMinor: quote.pickupFeeMinor,
           returnFeeMinor: quote.returnFeeMinor,
           grossMinor: quote.grossMinor,
+          marketplaceBookingFeeBps: quote.marketplaceBookingFeeBps,
+          feePercent: quote.feePercent,
           prepaymentPercent: quote.prepaymentPercent,
           prepaymentMinor: quote.prepaymentMinor,
           balanceMinor: quote.balanceMinor,
+          platformAmountMinor: quote.platformAmountMinor,
+          stripeAmountMinor: quote.stripeAmountMinor,
+          supplierBalanceMinor: quote.supplierBalanceMinor,
+          payoutMinor: quote.payoutMinor,
           pricingVersion: quote.pricingVersion,
         },
       }),

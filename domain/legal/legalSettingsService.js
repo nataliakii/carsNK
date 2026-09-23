@@ -17,8 +17,6 @@ import {
   OPERATIONAL_DEADLINE_KEYS,
   RETENTION_JOB_SETTING_KEYS,
   COMMERCIAL_AMOUNT_KEYS,
-  COMMISSION_BASE_KEYS,
-  PAYMENT_FEE_BEARER,
   VAT_TREATMENT,
 } from "./legalSettings";
 import { ALL_ESIGN_MODES } from "./esign";
@@ -82,18 +80,6 @@ export async function updateLegalSettings(patch = {}) {
       .slice(0, 3);
   }
 
-  if (patch.commissionBase && typeof patch.commissionBase === "object") {
-    current.commissionBase = { ...(current.commissionBase || {}) };
-    for (const key of COMMISSION_BASE_KEYS) {
-      if (key in patch.commissionBase) {
-        current.commissionBase[key] = Boolean(patch.commissionBase[key]);
-      }
-    }
-  }
-
-  if (Object.values(PAYMENT_FEE_BEARER).includes(patch.paymentFeeBearer)) {
-    current.paymentFeeBearer = patch.paymentFeeBearer;
-  }
   if (Object.values(VAT_TREATMENT).includes(patch.vatTreatment)) {
     current.vatTreatment = patch.vatTreatment;
   }

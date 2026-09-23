@@ -54,7 +54,7 @@ import {
 } from "@/domain/orders/locationOptions";
 import { getBusinessRentalDaysByMinutes } from "@/domain/orders/numberOfDays";
 import { RenderTextField } from "@/app/components/ui/inputs/Fields";
-import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
+import { parseOrderCustomerContact } from "@/domain/validation/orderCustomerContact";
 import {
   canonicalizeBookingLocation,
 } from "@/domain/platform/bookingLocations";
@@ -480,19 +480,16 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
     }
 
     const isOffline = Boolean(orderDetails.offline);
-    const phoneTrim = (orderDetails.phone || "").trim();
-    if (!isOffline && (!phoneTrim || !isValidInternationalPhone(phoneTrim))) {
+    const contactCheck = parseOrderCustomerContact({
+      offline: isOffline,
+      email: orderDetails.email,
+      phone: orderDetails.phone,
+      customerName: orderDetails.customerName,
+    });
+    if (!contactCheck.ok) {
       setStatusMessage({
         type: "error",
-        message: phoneTrim ? t("order.phoneInvalid") : t("order.required"),
-      });
-      setLoadingState(false);
-      return false;
-    }
-    if (isOffline && phoneTrim && !isValidInternationalPhone(phoneTrim)) {
-      setStatusMessage({
-        type: "error",
-        message: t("order.phoneInvalid"),
+        message: t(contactCheck.messageKey),
       });
       setLoadingState(false);
       return false;
@@ -503,6 +500,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
     const cin = canonicalizeBookingLocation(pin, locations);
     const cout = canonicalizeBookingLocation(pout, locations);
     if (
+      !isOffline &&
       cin &&
       requiresDetail(cin) &&
       String(orderDetails.placeInDetail || "").trim().length < 3
@@ -515,6 +513,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
       return false;
     }
     if (
+      !isOffline &&
       cout &&
       requiresDetail(cout) &&
       String(orderDetails.placeOutDetail || "").trim().length < 3
@@ -553,9 +552,9 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
       carId: car?._id?.toString?.() || "",
       regNumber: car?.regNumber,
       carNumber: car?.carNumber,
-      customerName: orderDetails.customerName,
-      phone: phoneTrim,
-      email: orderDetails.email,
+      customerName: contactCheck.customerName,
+      phone: contactCheck.phone,
+      email: contactCheck.email,
       secondDriver: Boolean(orderDetails.secondDriver),
       Viber: orderDetails.Viber,
       Whatsapp: orderDetails.Whatsapp,
@@ -981,6 +980,9 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
           disabled={loadingState}
           secondDriverPriceLabelValue={secondDriverPriceLabelValue}
           drivingLicenceEmphasized
+          nameRequired={!orderDetails.offline}
+          phoneRequired={!orderDetails.offline}
+          emailRequired={!orderDetails.offline}
         />
       </Box>
     );

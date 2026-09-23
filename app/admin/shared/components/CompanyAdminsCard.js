@@ -38,6 +38,7 @@ import {
   adminCardSx,
   adminReadableTextSx,
 } from "@/app/admin/shared/components/AdminSettingsSection";
+import SendMyPasswordResetButton from "@/app/admin/shared/components/SendMyPasswordResetButton";
 
 function generateStrongPassword(length = 16) {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -265,7 +266,9 @@ export default function CompanyAdminsCard({ companyId, companyName = "" }) {
           >
             {t("companyProfile.addAdmin")}
           </Button>
-        ) : null}
+        ) : (
+          <SendMyPasswordResetButton variant="outlined" />
+        )}
       </Stack>
 
       {error ? (

@@ -139,7 +139,7 @@ export default function CompanyStorefrontCard({
           defaultStart,
           defaultEnd,
           workingHours: { start: workStart, end: workEnd },
-          offices,
+          // Offices mutate via /api/admin/offices (CompanyOfficesEditor).
           langAdmin,
         }),
       });
@@ -166,7 +166,6 @@ export default function CompanyStorefrontCard({
     defaultEnd,
     workStart,
     workEnd,
-    offices,
     langAdmin,
     onSaved,
   ]);
@@ -386,6 +385,7 @@ export default function CompanyStorefrontCard({
           <CompanyOfficesEditor
             offices={offices}
             onChange={setOffices}
+            companyId={company?._id}
             country={company?.country}
             disabled={disabled}
           />

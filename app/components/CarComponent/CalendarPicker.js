@@ -791,12 +791,18 @@ const CalendarPicker = ({
   };
 
   const handleBooking = () => {
-    // Открываем модальное окно немедленно (приоритетное обновление)
-    onBookingComplete();
-    // Скрываем кнопку через CSS display: none (неблокирующее обновление)
-    // Используем startTransition для того, чтобы скрытие кнопки не блокировало открытие модального окна
+    const [start, end] = selectedRange;
+    const selection =
+      start && end
+        ? { start, end }
+        : null;
+    // Pass the latest calendar selection explicitly so Book never races
+    // parent bookDates state (which previously opened BookingModal with nulls → Invalid Date).
+    if (typeof onBookingComplete === "function") {
+      onBookingComplete(selection);
+    }
     startTransition(() => {
-    setShowBookButton(false);
+      setShowBookButton(false);
     });
   };
 
@@ -1209,13 +1215,15 @@ const CalendarPicker = ({
                   }}
                 >
                   <Box component="span">
-                    {`${t("order.bookShort")}\n${selectedRange[0]
-                      ?.locale(dayjsLang)
-                      .format("DD MMM")
-                      .replace(/\./g, "")} - ${selectedRange[1]
-                      ?.locale(dayjsLang)
-                      .format("DD MMM")
-                      .replace(/\./g, "")}`}
+                    {selectedRange[0]?.isValid?.() && selectedRange[1]?.isValid?.()
+                      ? `${t("order.bookShort")}\n${selectedRange[0]
+                          .locale(dayjsLang)
+                          .format("DD MMM")
+                          .replace(/\./g, "")} - ${selectedRange[1]
+                          .locale(dayjsLang)
+                          .format("DD MMM")
+                          .replace(/\./g, "")}`
+                      : t("order.bookShort")}
                   </Box>
                   {calcLoading && !(totalPrice > 0) ? (
                     <Box

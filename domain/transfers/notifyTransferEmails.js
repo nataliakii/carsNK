@@ -3,6 +3,7 @@ import {
   getInternalNotificationEmail,
 } from "@config/email";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
+import { MAIL_TYPE } from "@/domain/mail/mailTypes";
 import { renderAdminOrderNotificationHtml } from "@/app/ui/email/templates/adminOrderNotification";
 import {
   EMAIL_STYLE,
@@ -272,6 +273,7 @@ export async function notifyTransferEmails(doc) {
 
   try {
     await sendEmailDirect({
+      meta: { type: MAIL_TYPE.TRANSFER },
       title: adminTitle,
       message: adminBody,
       html: adminHtml,
@@ -342,6 +344,7 @@ export async function notifyTransferEmails(doc) {
     for (const email of emails) {
       try {
         await sendEmailDirect({
+      meta: { type: MAIL_TYPE.TRANSFER },
           title: formatTransferPartnerSubject(locale, brandName),
           // Do not put raw token-bearing URL in analytics; body may include claim link for the partner.
           message: `${body}\n\nOpen the secure claim page to accept.`,
@@ -413,6 +416,7 @@ export async function notifyTransferEmails(doc) {
 
   try {
     await sendEmailDirect({
+      meta: { type: MAIL_TYPE.TRANSFER },
       title: customerTitle,
       message: `${greeting}\n\n${customerLines.join("\n")}`,
       html: customerHtml,
@@ -473,6 +477,7 @@ export async function notifyTransferClaimed({
 
   try {
     await sendEmailDirect({
+      meta: { type: MAIL_TYPE.TRANSFER },
       title: `${brandName} — transfer claimed`,
       message: lines.join("\n"),
       to: uniqueEmails(adminTransferEmails()),
@@ -520,6 +525,7 @@ export async function notifyTransferClaimed({
         );
       }
       await sendEmailDirect({
+      meta: { type: MAIL_TYPE.TRANSFER },
         title: paymentUrl
           ? `${brandName} — pay to confirm your transfer`
           : `${brandName} — transfer assigned`,
@@ -544,6 +550,7 @@ export async function notifyTransferClaimed({
   if (winnerEmails.length) {
     try {
       await sendEmailDirect({
+      meta: { type: MAIL_TYPE.TRANSFER },
         title: `${brandName} — transfer assigned to you`,
         message: [
           `The transfer has been assigned to your company.`,

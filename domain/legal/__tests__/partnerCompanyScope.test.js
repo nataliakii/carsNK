@@ -1,32 +1,34 @@
-import { ROLE } from "@models/user";
-import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
+/**
+ * @jest-environment node
+ */
 
-const COMPANY = "64b7f0c2a1b2c3d4e5f60789";
-const OTHER = "64b7f0c2a1b2c3d4e5f60780";
+import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
+import { ROLE } from "@models/user";
 
 describe("resolvePartnerCompanyId", () => {
-  it("uses the partner admin's own company and ignores a requested id", () => {
-    const session = { user: { role: ROLE.ADMIN, ownerId: COMPANY } };
-    expect(resolvePartnerCompanyId(session, OTHER)).toBe(COMPANY);
-  });
+  const otherCompany = "507f1f77bcf86cd799439011";
+  const ownCompany = "507f1f77bcf86cd799439022";
 
-  it("uses view-as for a superadmin when no company is requested", () => {
+  it("lets SUPERADMIN open any companyId for document review", () => {
     const session = {
-      user: { role: ROLE.SUPERADMIN, viewAsCompanyId: COMPANY },
+      user: { role: ROLE.SUPERADMIN, isAdmin: true },
     };
-    expect(resolvePartnerCompanyId(session)).toBe(COMPANY);
+    expect(resolvePartnerCompanyId(session, otherCompany)).toBe(otherCompany);
   });
 
-  it("lets a superadmin target a company explicitly", () => {
+  it("ADMIN cannot override to another company via query/body companyId", () => {
     const session = {
-      user: { role: ROLE.SUPERADMIN, viewAsCompanyId: COMPANY },
+      user: {
+        role: ROLE.ADMIN,
+        isAdmin: true,
+        ownerId: ownCompany,
+      },
     };
-    expect(resolvePartnerCompanyId(session, OTHER)).toBe(OTHER);
+    expect(resolvePartnerCompanyId(session, otherCompany)).toBe(ownCompany);
   });
 
-  it("returns null when a superadmin has not picked a company", () => {
-    expect(resolvePartnerCompanyId({ user: { role: ROLE.SUPERADMIN } })).toBe(
-      null
-    );
+  it("rejects empty session company for ADMIN", () => {
+    const session = { user: { role: ROLE.ADMIN, isAdmin: true } };
+    expect(resolvePartnerCompanyId(session, otherCompany)).toBeFalsy();
   });
 });

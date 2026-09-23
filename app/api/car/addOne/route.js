@@ -4,18 +4,24 @@ import { Car } from "@models/car";
 import { connectToDB } from "@lib/database";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
-import cloudinary, {
-  ensureCloudinaryConfigured,
-} from "@utils/cloudinary";
-import {
-  getCloudinaryCarsFolder,
-  getCloudinaryPlaceholderPublicId,
-} from "@config/cloudinary";
+import { ensureCloudinaryConfigured } from "@utils/cloudinary";
+import { getCloudinaryPlaceholderPublicId } from "@config/cloudinary";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { generateSlugBase, ensureUniqueSlug } from "@utils/slugCar";
 import { requireAdmin } from "@lib/adminAuth";
-import { resolveOwnerIdForCreate } from "@/domain/owners/ownerScope";
+import { resolveOwnerIdForCreate, isSuperAdminUser } from "@/domain/owners/ownerScope";
+import { uploadCarImageFile } from "@/domain/cars/uploadCarImage";
+import { photosForSave, MAX_CAR_PHOTOS } from "@/domain/cars/carPhotos";
 import { normalizeCarOffices } from "@/domain/orders/carOffices";
+import { syncCarOfficeIds } from "@/domain/company/officeRecord";
+import { CAR_OFFICE_SCOPE } from "@/domain/company/officeConstants";
+import { extractAuditContext } from "@/domain/legal/auditTrail";
+import {
+  assertMarketplaceCarPublish,
+  auditPartnerComplianceBlock,
+  partnerComplianceJson,
+  PARTNER_OPERATION_PURPOSE,
+} from "@/domain/legal/partnerOperatingPolicy";
 
 dayjs.extend(isBetween);
 
@@ -44,18 +50,66 @@ export async function POST(req) {
       requestedOwnerId
     );
 
+    const Company = (await import("@models/company")).default;
+    const ownerCompany = carData.ownerId
+      ? await Company.findById(carData.ownerId)
+          .select("_id country bookingMode listedOnMarketplace offices")
+          .lean()
+      : null;
+    const { ipAddress, userAgent } = extractAuditContext(req);
+    const publishGate = await assertMarketplaceCarPublish(carData.ownerId, {
+      car: carData,
+      company: ownerCompany,
+      overrideReason: isSuperAdminUser(session.user)
+        ? String(formData.get("complianceOverrideReason") || "")
+        : "",
+      overrideByRole: isSuperAdminUser(session.user) ? "superadmin" : "admin",
+      overrideByEmail: session.user?.email || "",
+      audit: { ipAddress, userAgent, carId: "" },
+    });
+    if (!publishGate.allowed) {
+      await auditPartnerComplianceBlock({
+        purpose: PARTNER_OPERATION_PURPOSE.CAR_PUBLISH,
+        result: publishGate,
+        actorEmail: session.user?.email || "",
+        actorRole: isSuperAdminUser(session.user) ? "superadmin" : "admin",
+        ipAddress,
+        userAgent,
+      });
+      return NextResponse.json(partnerComplianceJson(publishGate), {
+        status: 403,
+      });
+    }
+
     // Generate carNumber by fetching the highest current car number and incrementing it
     carData.carNumber = await generateCarNumber();
 
     await validateRequiredFields(carData);
 
-    if (carData.file) {
-      carData.photoUrl = await handleImageUpload(carData.file);
+    const files = collectImageFiles(formData);
+    if (files.length) {
+      const ids = [];
+      for (const file of files.slice(0, MAX_CAR_PHOTOS)) {
+        ids.push(await uploadCarImageFile(file));
+      }
+      Object.assign(carData, photosForSave(ids));
     } else {
       carData.photoUrl = getCloudinaryPlaceholderPublicId();
+      carData.photos = [];
     }
 
     carData.dateAddCar = dayjs().toDate();
+
+    if (carData.ownerId) {
+      const synced = syncCarOfficeIds({
+        offices: carData.offices,
+        officeIds: carData.officeIds,
+        officeScope: carData.officeScope,
+        company: ownerCompany,
+      });
+      carData.officeIds = synced.officeIds;
+      carData.officeScope = synced.officeScope;
+    }
 
     // Auto-generate SEO slug from model + transmission
     const slugBase = generateSlugBase(carData);
@@ -102,10 +156,17 @@ async function generateCarNumber() {
   // Return as a zero-padded string (e.g., four digits)
   return newCarNumber.toString().padStart(4, "0");
 }
+function collectImageFiles(formData) {
+  const fromImages = formData.getAll("images");
+  const fromImage = formData.getAll("image");
+  return [...fromImages, ...fromImage].filter(
+    (file) => file && typeof file === "object" && typeof file.arrayBuffer === "function"
+  );
+}
+
 // Function to extract data from the form
 function extractCarData(formData) {
   console.log("[addOne] Incoming formData keys:", Array.from(formData.keys()));
-  const file = formData.get("image");
 
   // Normalize and coerce types from FormData (string | Blob) to schema types
   const toNumber = (val, fallback = undefined) => {
@@ -123,7 +184,6 @@ function extractCarData(formData) {
   };
 
   return {
-    file,
     model: formData.get("model"),
     class: formData.get("class"),
     transmission: formData.get("transmission"),
@@ -156,6 +216,20 @@ function extractCarData(formData) {
         }
       })()
     ),
+    officeIds: (() => {
+      const raw = formData.get("officeIds");
+      if (raw == null || raw === "") return [];
+      try {
+        const parsed = JSON.parse(String(raw));
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return String(raw)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+    })(),
+    officeScope: String(formData.get("officeScope") || CAR_OFFICE_SCOPE.ALL),
   };
 }
 
@@ -182,7 +256,6 @@ function validateRequiredFields(carData) {
   validateNumberOfDoors(carData.numberOfDoors);
 }
 
-// Function to parse and validate pricing tiers
 function parsePricingTiers(pricingTiersString) {
   try {
     return pricingTiersString
@@ -221,48 +294,12 @@ function validatePricingTiers(pricingTiers) {
   }
 }
 
-// Validate number of doors
 function validateNumberOfDoors(numberOfDoors) {
   if (numberOfDoors < 2 || numberOfDoors > 10) {
     throw new Error("Number of doors must be between 2 and 10");
   }
 }
 
-// Function to handle image upload
-async function handleImageUpload(file) {
-  const allowedMimeTypes = ["image/jpeg", "image/png"];
-  if (!allowedMimeTypes.includes(file.type)) {
-    throw new Error("Invalid file type. Only JPEG and PNG are allowed");
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const uploadToCloudinary = () =>
-    new Promise((resolve, reject) => {
-      const stream = require("stream");
-      const passthrough = new stream.PassThrough();
-      passthrough.end(buffer);
-
-      cloudinary.uploader
-        .upload_stream(
-          {
-            folder: getCloudinaryCarsFolder(),
-            resource_type: "image",
-          },
-          (error, result) => {
-            if (error) {
-              reject(new Error("Failed to upload image to Cloudinary"));
-            } else {
-              resolve(result.public_id);
-            }
-          }
-        )
-        .end(passthrough.read());
-    });
-
-  return await uploadToCloudinary();
-}
-
-// Error handling function
 function handleError(error) {
   console.error("Error:", error);
   const status = error.code === 11000 ? 409 : 500;

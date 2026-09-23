@@ -47,6 +47,7 @@
     "searchResultsTitle": "{{count}} коли налични {{from}} – {{to}}",
     "searchRegionLabel": "Регион: {{region}}",
     "searchPriceLabel": "{{price}}€ за {{days}} дни",
+    "fromPriceLabel": "от {{price}}€/ден",
     "deliverySelectDatesHint": "Изберете дати, за да видите цената с доставка.",
     "bookingDetailsButton": "Детайли на резервацията",
     "bookingDetailsTitle": "Детайли на резервацията",
@@ -271,6 +272,8 @@
   },
   "bookMesssages": {
     "bookOK": "Резервацията е получена. Благодарим ви за резервацията!",
+    "bookRequestSent": "Заявката е изпратена. Компанията ще провери наличността.",
+    "bookCompanyReview": "Компанията-собственик ще провери датите и ще потвърди наличността. Плащане ще се иска едва след потвърждение.",
     "bookReceive": "Получихме вашата резервация за",
     "bookDays": "Брой дни:",
     "bookPrice": "Обща цена:",
@@ -339,6 +342,8 @@
   },
   "footer": {
     "contactUs": "Контакт",
+    "legal": "Правна информация",
+    "links": "Връзки",
     "kallikratiaBanner": "Не знаете къде да отидете в Халкидики?",
     "kallikratiaBannerLink": "Nea Kallikratia Guide",
     "privacyPolicy": "Политика за поверителност",

@@ -13,6 +13,15 @@ import {
 import { getDocumentStatusOverview } from "@/domain/legal/documentService";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
 import { ALL_ESIGN_MODES } from "@/domain/legal/esign";
+import { connectToDB } from "@lib/database";
+import {
+  getOrCreatePlatformSettings,
+  readBusinessProfile,
+} from "@/domain/platform/platformSettingsService";
+import {
+  DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
+  formatMarketplaceFeePercent,
+} from "@/domain/orders/marketplaceBookingFee";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,32 +52,74 @@ export async function GET(request) {
   const settingsStatus = await getLegalSettingsStatus();
   const documents = await getDocumentStatusOverview();
 
+  await connectToDB();
+  const platform = await getOrCreatePlatformSettings();
+  const profile = readBusinessProfile(platform);
+  const feeBps =
+    platform.marketplaceBookingFeeBps == null
+      ? DEFAULT_MARKETPLACE_BOOKING_FEE_BPS
+      : platform.marketplaceBookingFeeBps;
+
+  const businessAddress =
+    profile.businessAddress || entity.businessAddress || "";
+  const businessNameNumber =
+    profile.businessNameNumber || entity.businessNameNumber || "";
+  const vatNumber = profile.vatNumber || entity.vatNumber || "";
+  const taxReferenceNumber =
+    profile.taxRegistrationNumber || entity.taxReferenceNumber || "";
+
   return NextResponse.json({
     success: true,
     warning: getLegalConfigWarning(),
     operator: {
       ownerLegalName: entity.ownerLegalName,
       legalStructure: entity.legalStructure,
-      countryOfEstablishment: entity.countryOfEstablishment,
+      countryOfEstablishment: profile.country || entity.countryOfEstablishment,
       tradingName: entity.tradingName,
       platformBrand: entity.platformBrand,
-      legalEmail: entity.legalEmail,
+      legalEmail: profile.businessEmail || entity.legalEmail,
       primaryDomain: entity.primaryDomain,
       spanishDomain: entity.spanishDomain,
-      businessAddress: entity.businessAddress,
-      businessNameNumber: entity.businessNameNumber,
-      vatRegistered: entity.vatRegistered,
-      vatNumberSet: Boolean(entity.vatNumber),
-      vatNumberMasked: maskTail(entity.vatNumber),
-      taxReferenceNumberSet: Boolean(entity.taxReferenceNumber),
-      taxReferenceNumberMasked: maskTail(entity.taxReferenceNumber),
+      businessAddress,
+      businessNameNumber,
+      vatRegistered: Boolean(profile.vatRegistered || entity.vatRegistered),
+      vatNumberSet: Boolean(vatNumber),
+      vatNumberMasked: maskTail(vatNumber),
+      taxReferenceNumberSet: Boolean(taxReferenceNumber),
+      taxReferenceNumberMasked: maskTail(taxReferenceNumber),
+      supportEmail: profile.supportEmail || "",
+      telephone: profile.telephone || "",
+      website: profile.website || "",
+      governingJurisdiction: profile.governingJurisdiction || "",
+      stripeStatementName: profile.stripeStatementName || "",
     },
-    entityStatus,
+    entityStatus: {
+      ...entityStatus,
+      fields: entityStatus.fields.map((field) => {
+        if (field.key === "businessAddress") {
+          return { ...field, status: businessAddress ? "ok" : "missing" };
+        }
+        if (field.key === "businessNameNumber") {
+          return { ...field, status: businessNameNumber ? "ok" : "missing" };
+        }
+        if (field.key === "vatNumber") {
+          return { ...field, status: vatNumber ? "ok" : "missing" };
+        }
+        if (field.key === "taxReferenceNumber") {
+          return { ...field, status: taxReferenceNumber ? "ok" : "missing" };
+        }
+        return field;
+      }),
+    },
     settings: settingsStatus.settings,
     settingsDefaults: settingsStatus.defaults,
     missingCommercial: settingsStatus.missingCommercial,
     esignModes: ALL_ESIGN_MODES,
     documents,
+    marketplaceBookingFee: {
+      bps: feeBps,
+      percentLabel: formatMarketplaceFeePercent(feeBps),
+    },
   });
 }
 

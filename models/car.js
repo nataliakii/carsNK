@@ -128,6 +128,11 @@ const CarSchema = new Schema({
   photoUrl: {
     type: String,
   },
+  /** Extra Cloudinary public ids. Cover is `photos[0]` and also `photoUrl`. */
+  photos: {
+    type: [String],
+    default: [],
+  },
   sort: {
     type: Number,
     default: 999,
@@ -220,6 +225,15 @@ const CarSchema = new Schema({
   offices: {
     type: [Schema.Types.Mixed],
     default: [],
+  },
+  officeIds: {
+    type: [Schema.Types.ObjectId],
+    default: [],
+  },
+  officeScope: {
+    type: String,
+    enum: ["all", "selected"],
+    default: "all",
   },
 });
 

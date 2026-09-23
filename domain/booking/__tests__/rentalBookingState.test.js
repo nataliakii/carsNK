@@ -3,13 +3,15 @@ import {
   ALL_RENTAL_STATES,
   RENTAL_STATE_TO_BOOKING_STATUS,
   canTransitionRentalState,
+  applyRentalStateTransition,
+  applyCompliancePaymentExpiration,
   resolveRentalState,
   blocksCalendar,
 } from "@/domain/booking/rentalBookingState";
 import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
 
 describe("lifecycle vocabulary", () => {
-  it("covers exactly the nine agreed states", () => {
+  it("covers the marketplace lifecycle plus alternative states", () => {
     expect([...ALL_RENTAL_STATES].sort()).toEqual(
       [
         "ALTERNATIVE_ACCEPTED",
@@ -18,7 +20,9 @@ describe("lifecycle vocabulary", () => {
         "CANCELLED",
         "COMPLETED",
         "CONFIRMED",
+        "DECLINED",
         "PARTNER_CONFIRMED",
+        "PAYMENT_EXPIRED",
         "PAYMENT_PENDING",
         "REQUESTED",
       ].sort()
@@ -47,6 +51,26 @@ describe("transitions", () => {
     expect(
       canTransitionRentalState(RENTAL_STATE.PAYMENT_PENDING, RENTAL_STATE.CONFIRMED)
     ).toBe(true);
+    expect(
+      canTransitionRentalState(RENTAL_STATE.REQUESTED, RENTAL_STATE.DECLINED)
+    ).toBe(true);
+    expect(
+      canTransitionRentalState(
+        RENTAL_STATE.PAYMENT_PENDING,
+        RENTAL_STATE.PAYMENT_EXPIRED
+      )
+    ).toBe(true);
+  });
+
+  it("stores PAYMENT_PENDING as PAYMENT_PROCESSING", () => {
+    expect(RENTAL_STATE_TO_BOOKING_STATUS[RENTAL_STATE.PAYMENT_PENDING]).toBe(
+      BOOKING_STATUS.PAYMENT_PROCESSING
+    );
+    const order = { bookingStatus: BOOKING_STATUS.PENDING_SUPPLIER_CONFIRMATION };
+    applyRentalStateTransition(order, RENTAL_STATE.PARTNER_CONFIRMED);
+    applyRentalStateTransition(order, RENTAL_STATE.PAYMENT_PENDING);
+    expect(order.bookingStatus).toBe(BOOKING_STATUS.PAYMENT_PROCESSING);
+    expect(order.confirmed).toBeUndefined();
   });
 
   it("refuses to skip payment", () => {
@@ -55,12 +79,13 @@ describe("transitions", () => {
     ).toBe(false);
   });
 
-  it("allows an alternative to be offered at any live stage", () => {
+  it("allows an alternative to be offered while the unpaid marketplace request is live", () => {
     for (const from of [
       RENTAL_STATE.REQUESTED,
       RENTAL_STATE.PARTNER_CONFIRMED,
       RENTAL_STATE.PAYMENT_PENDING,
-      RENTAL_STATE.CONFIRMED,
+      RENTAL_STATE.PAYMENT_EXPIRED,
+      RENTAL_STATE.ALTERNATIVE_DECLINED,
     ]) {
       expect(canTransitionRentalState(from, RENTAL_STATE.ALTERNATIVE_OFFERED)).toBe(
         true
@@ -68,11 +93,42 @@ describe("transitions", () => {
     }
   });
 
+  it("does not allow automatic alternative from a paid confirmed booking", () => {
+    expect(
+      canTransitionRentalState(RENTAL_STATE.CONFIRMED, RENTAL_STATE.ALTERNATIVE_OFFERED)
+    ).toBe(false);
+    const order = { bookingStatus: BOOKING_STATUS.BOOKING_CONFIRMED };
+    expect(applyRentalStateTransition(order, RENTAL_STATE.ALTERNATIVE_OFFERED).ok).toBe(
+      false
+    );
+    expect(order.bookingStatus).toBe(BOOKING_STATUS.BOOKING_CONFIRMED);
+  });
+
   it("treats cancelled and completed as terminal", () => {
     for (const to of ALL_RENTAL_STATES) {
       expect(canTransitionRentalState(RENTAL_STATE.CANCELLED, to)).toBe(false);
       expect(canTransitionRentalState(RENTAL_STATE.COMPLETED, to)).toBe(false);
     }
+  });
+
+  it("17. compliance expiration cannot force-expire paid/confirmed orders", () => {
+    const paid = {
+      bookingStatus: BOOKING_STATUS.BOOKING_CONFIRMED,
+      payment: { status: "paid" },
+    };
+    expect(applyCompliancePaymentExpiration(paid).ok).toBe(false);
+    expect(paid.bookingStatus).toBe(BOOKING_STATUS.BOOKING_CONFIRMED);
+    const cancelled = { bookingStatus: BOOKING_STATUS.CUSTOMER_CANCELLED };
+    expect(applyCompliancePaymentExpiration(cancelled).ok).toBe(false);
+    expect(cancelled.bookingStatus).toBe(BOOKING_STATUS.CUSTOMER_CANCELLED);
+    const pending = { bookingStatus: BOOKING_STATUS.PAYMENT_PROCESSING };
+    expect(applyCompliancePaymentExpiration(pending).ok).toBe(true);
+    expect(pending.bookingStatus).toBe(BOOKING_STATUS.PAYMENT_EXPIRED);
+    const alternative = {
+      bookingStatus: BOOKING_STATUS.ALTERNATIVE_ACCEPTED_AWAITING_PAYMENT,
+    };
+    expect(applyCompliancePaymentExpiration(alternative).ok).toBe(true);
+    expect(alternative.bookingStatus).toBe(BOOKING_STATUS.PAYMENT_EXPIRED);
   });
 });
 

@@ -22,6 +22,9 @@ import { useTranslation } from "react-i18next";
 import { useSession } from "next-auth/react";
 import { useAdminPendingInbox } from "@app/hooks/useAdminPendingInbox";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
+import { usePendingPartnerReviews } from "@app/hooks/usePendingPartnerReviews";
+import GavelIcon from "@mui/icons-material/Gavel";
+import { ROLE } from "@/domain/orders/admin-rbac";
 
 /**
  * Admin inbox bell: badge = unprocessed rentals + transfers.
@@ -32,11 +35,12 @@ export default function AdminPendingInboxBell() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const isAdmin = Boolean(session?.user?.isAdmin);
+  const isSuperAdmin = Number(session?.user?.role) === ROLE.SUPERADMIN;
   const { country } = useAdminCountryFilter();
   const {
     rentals,
     transfers,
-    total,
+    total: inboxTotal,
     arrival,
     dismissArrival,
     refresh,
@@ -44,6 +48,13 @@ export default function AdminPendingInboxBell() {
     enabled: isAdmin && status === "authenticated",
     country,
   });
+  const legalPending = usePendingPartnerReviews({
+    enabled: isSuperAdmin && status === "authenticated",
+    country,
+  });
+
+  /** Bell ≠ Orders badge: inbox (rentals+transfers) + legal reviews, once each. */
+  const total = inboxTotal + (isSuperAdmin ? legalPending : 0);
 
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
@@ -190,6 +201,29 @@ export default function AdminPendingInboxBell() {
             </Typography>
           ) : null}
         </MenuItem>
+        {isSuperAdmin ? (
+          <MenuItem onClick={() => go("/admin/legal?tab=partners")}>
+            <ListItemIcon>
+              <GavelIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={t("header.legal", { defaultValue: "Legal" })}
+              secondary={
+                legalPending > 0
+                  ? t("inbox.pendingCount", {
+                      defaultValue: "{{count}} pending",
+                      count: legalPending,
+                    })
+                  : t("inbox.none", { defaultValue: "None pending" })
+              }
+            />
+            {legalPending > 0 ? (
+              <Typography variant="body2" color="error" sx={{ fontWeight: 700 }}>
+                {legalPending}
+              </Typography>
+            ) : null}
+          </MenuItem>
+        ) : null}
       </Menu>
 
       <Snackbar

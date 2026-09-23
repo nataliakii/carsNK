@@ -9,8 +9,12 @@ import {
   getDocumentStatusOverview,
 } from "@/domain/legal/documentService";
 import { findSuppressedSections } from "@/domain/legal/tokens";
-import { isKnownDocumentType } from "@/domain/legal/documentTypes";
+import {
+  isKnownDocumentType,
+  MASTER_AGREEMENT_PACKAGE,
+} from "@/domain/legal/documentTypes";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
+import { invalidateMarketplaceCheckoutsForOutdatedAgreements } from "@/domain/orders/invalidateMarketplaceCheckout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,6 +138,22 @@ export async function POST(request) {
         checksum: result.doc?.checksum,
       },
     });
+    if (
+      !result.unchanged &&
+      MASTER_AGREEMENT_PACKAGE.includes(params.documentType)
+    ) {
+      await invalidateMarketplaceCheckoutsForOutdatedAgreements({
+        actorEmail: byEmail,
+        actorRole: "superadmin",
+        ipAddress,
+        userAgent,
+      }).catch((err) => {
+        console.error(
+          "[legal-documents] checkout invalidate failed",
+          err?.message || err
+        );
+      });
+    }
     return NextResponse.json({ success: true, document: result.doc });
   }
 

@@ -18,7 +18,7 @@ function baseDoc() {
       title: "Rovaro Partner Agreement",
       sections: [
         { id: "1", heading: "Parties", body: "The operator and the Supplier." },
-        { id: "2", heading: "Commission", body: "{{settings.commissionPercent}}" },
+        { id: "2", heading: "Prepayment", body: "{{settings.bookingPrepaymentPercent}}" },
       ],
     },
   };

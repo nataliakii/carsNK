@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { connectToDB } from "@lib/database";
-import AlternativeVehicleOffer from "@models/AlternativeVehicleOffer";
 import { decideAlternativeVehicle } from "@/domain/booking/alternativeVehicle";
+import { buildAlternativeOfferView } from "@/domain/booking/alternativeVehicleView";
 import { extractAuditContext } from "@/domain/legal/auditTrail";
+import { normalizeOfferCapabilityId } from "@/domain/booking/alternativeOfferCore";
 import {
   consumePublicPostOrError,
   alternativeDecisionRateLimitOptions,
@@ -17,42 +17,27 @@ export const dynamic = "force-dynamic";
  *
  *   GET  — read the offer. Read-only; viewing never accepts anything.
  *   POST — record the customer's explicit accept or decline.
- *
- * The offer id is the unguessable capability; no customer contact details are
- * returned, so a leaked link cannot be used to harvest personal data.
  */
 export async function GET(_request, { params }) {
   const { offerId } = await params;
-  await connectToDB();
-
-  const offer = await AlternativeVehicleOffer.findOne({ offerId }).lean();
-  if (!offer) {
+  const capabilityId = normalizeOfferCapabilityId(offerId);
+  if (!capabilityId) {
+    return NextResponse.json(
+      { success: false, message: "Offer not found" },
+      { status: 404 }
+    );
+  }
+  const view = await buildAlternativeOfferView(capabilityId);
+  if (!view) {
     return NextResponse.json(
       { success: false, message: "Offer not found" },
       { status: 404 }
     );
   }
 
-  const expired = offer.status === "OFFERED" && offer.expiresAt <= new Date();
-
   return NextResponse.json({
     success: true,
-    offer: {
-      offerId: offer.offerId,
-      status: expired ? "EXPIRED" : offer.status,
-      vehicle: offer.vehicle,
-      priceMinor: offer.priceMinor,
-      originalPriceMinor: offer.originalPriceMinor,
-      currency: offer.currency,
-      depositMinor: offer.depositMinor,
-      insurance: offer.insurance,
-      pickup: offer.pickup,
-      reasonForReplacement: offer.reasonForReplacement,
-      expiresAt: offer.expiresAt,
-      /** The customer must know a refund is due if they decline a paid booking. */
-      afterPayment: offer.afterPayment,
-      decidedAt: offer.decidedAt,
-    },
+    offer: view,
   });
 }
 
@@ -66,6 +51,13 @@ export async function POST(request, { params }) {
   }
 
   const { offerId } = await params;
+  const capabilityId = normalizeOfferCapabilityId(offerId);
+  if (!capabilityId) {
+    return NextResponse.json(
+      { success: false, message: "Offer not found" },
+      { status: 404 }
+    );
+  }
 
   let body;
   try {
@@ -87,11 +79,15 @@ export async function POST(request, { params }) {
 
   const { ipAddress, userAgent } = extractAuditContext(request);
   const result = await decideAlternativeVehicle({
-    offerId,
+    offerId: capabilityId,
     accept: decision === "accept",
     ipAddress,
     userAgent,
     declineReason: String(body?.reason || ""),
+    termsAccepted:
+      body?.termsAccepted === true ||
+      body?.termsAccepted === "true" ||
+      body?.termsAccepted === "yes",
   });
 
   if (!result.ok) {
@@ -106,5 +102,7 @@ export async function POST(request, { params }) {
     status: result.status,
     idempotent: Boolean(result.idempotent),
     refundRequired: Boolean(result.refundRequired),
+    paymentUrl: result.paymentUrl || "",
+    paymentLinkGenerationFailed: Boolean(result.paymentLinkGenerationFailed),
   });
 }

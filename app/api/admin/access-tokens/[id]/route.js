@@ -3,6 +3,7 @@ import { requireSuperAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
 import { ScopedAccessToken } from "@models/ScopedAccessToken";
 import mongoose from "mongoose";
+import { clearAccessTokenLiveCache } from "@/domain/auth/scopedAccessToken";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,8 @@ export async function DELETE(request, { params }) {
   if (!doc) {
     return json({ success: false, message: "Token not found" }, 404);
   }
+
+  clearAccessTokenLiveCache();
 
   return json({ success: true, token: { _id: doc._id, revokedAt: doc.revokedAt } });
 }

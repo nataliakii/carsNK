@@ -4,6 +4,8 @@ import {
   computeRuleDeliveryPrice,
   hasActiveDeliveryPricing,
   isAfterWorkingHours,
+  nextDeliveryPricingVersion,
+  normalizeDeliveryPricingInput,
 } from "../deliveryPricingPolicy";
 
 describe("deliveryPricingPolicy", () => {
@@ -95,5 +97,30 @@ describe("deliveryPricingPolicy", () => {
     expect(isAfterWorkingHours("22:00", { start: "08:00", end: "22:00" })).toBe(
       true
     );
+  });
+
+  test("deliveryPricing version is monotonic and bumps only on content change", () => {
+    const previous = {
+      strategy: "radius",
+      radiusKm: 15,
+      operatingCities: [],
+      maxDistanceKm: null,
+      inside: { mode: "fixed", amount: 25 },
+      outside: { mode: "perKm", amount: 1 },
+      afterHoursSurcharge: 0,
+      version: 3,
+    };
+    expect(nextDeliveryPricingVersion({ radiusKm: 15 }, previous)).toBe(3);
+    expect(nextDeliveryPricingVersion({ radiusKm: 20 }, previous)).toBe(4);
+    const normalized = normalizeDeliveryPricingInput(
+      {
+        radiusKm: 20,
+        inside: { mode: "fixed", amount: 25 },
+        outside: { mode: "perKm", amount: 1 },
+      },
+      { deliveryPricing: previous, deliveryPricePerKm: 1 }
+    );
+    expect(normalized.ok).toBe(true);
+    expect(normalized.value.version).toBe(4);
   });
 });

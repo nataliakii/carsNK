@@ -6,6 +6,7 @@ import {
   normalizeCarOfficeEntry,
   normalizeCarOffices,
 } from "@/domain/orders/carOffices";
+import { persistOfficeShape } from "@/domain/company/officeRecord";
 
 const DEFAULT_OFFICE_NAME = "Office";
 
@@ -27,12 +28,27 @@ export function normalizeCompanyOfficeEntry(raw) {
     return normalizeCarOfficeEntry(raw);
   }
   if (typeof raw !== "object") return null;
-  return normalizeCarOfficeEntry({
+  const base = normalizeCarOfficeEntry({
     ...raw,
     name:
       String(raw.name || raw.label || raw.value || "").trim() ||
       DEFAULT_OFFICE_NAME,
   });
+  if (!base) return null;
+  const extra = {};
+  if (raw._id) extra._id = raw._id;
+  if (raw.id) extra.id = raw.id;
+  if (raw.publicName) extra.publicName = raw.publicName;
+  if (raw.city) extra.city = raw.city;
+  if (raw.country) extra.country = raw.country;
+  if (raw.placeId) extra.placeId = raw.placeId;
+  if (raw.locationType) extra.locationType = raw.locationType;
+  if (raw.collectionInstructions) extra.collectionInstructions = raw.collectionInstructions;
+  if (raw.returnInstructions) extra.returnInstructions = raw.returnInstructions;
+  if (raw.status) extra.status = raw.status;
+  if (raw.freePickup != null) extra.freePickup = raw.freePickup;
+  if (raw.freeReturn != null) extra.freeReturn = raw.freeReturn;
+  return { ...base, ...extra };
 }
 
 export function normalizeCompanyOffices(offices) {
@@ -156,14 +172,36 @@ export function officeOrigins(offices, fallbackCoords) {
   return origins;
 }
 
-/** Persist shape: `{ name, address, lat, lon }` — lng accepted on input. */
+/** Persist shape — keeps `_id` and new office fields when present. */
 export function companyOfficesPatchValue(rawOffices) {
-  return normalizeCompanyOffices(rawOffices).map((office) => ({
-    name: office.name,
-    address: office.address,
-    lat: office.lat,
-    lon: office.lon,
-  }));
+  const list = Array.isArray(rawOffices) ? rawOffices : [];
+  return list
+    .map((office) => persistOfficeShape(office, { assignId: !office?._id && !office?.id }))
+    .filter(Boolean);
+}
+
+/**
+ * Superadmin whole-array patch helper: keep existing `_id`s when the client
+ * sends the same office (by id or stable name), assign ids only to new rows.
+ */
+export function mergeOfficesPreservingIds(existingOffices, incomingOffices) {
+  const existing = Array.isArray(existingOffices) ? existingOffices : [];
+  const byId = new Map(
+    existing
+      .filter((row) => row && (row._id || row.id))
+      .map((row) => [String(row._id || row.id), row])
+  );
+  const list = Array.isArray(incomingOffices) ? incomingOffices : [];
+  return list
+    .map((raw) => {
+      const id = String(raw?._id || raw?.id || "").trim();
+      const prior = id && byId.has(id) ? byId.get(id) : null;
+      return persistOfficeShape(
+        prior ? { ...prior, ...raw, _id: prior._id } : raw,
+        { assignId: !prior }
+      );
+    })
+    .filter(Boolean);
 }
 
 export { normalizeCarOffices };

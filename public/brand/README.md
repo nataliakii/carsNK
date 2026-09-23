@@ -13,13 +13,21 @@ PNG wordmarks + mark used via `next/image` in `SiteLogo` / `SiteMark`.
 
 ## rovaro (`brand/rovaro/`)
 
-- UI logos are **vector React SVGs** (`app/components/brand/RovaroBrandSvg.js`) — crisp at any size.
-- Static `.svg` / `.png` here are for favicon, Apple touch icon, OG, emails.
+Approved user assets only:
 
-### Colors (rovaro)
+| File | Use |
+|------|-----|
+| `rovaro-white-background.png` | Light wordmark |
+| `wordmark-compact.png` | Dark / footer wordmark (white ink, transparent) |
+| `rovaro-transparent.png` | Alternate transparent wordmark |
+| `mark.png` | OVA mark (1024) |
+| `favicon-{16,32,48,64,128,192,512}.png` | Favicons from same OVA master |
+| `favicon.png` | Alias of 32×32 |
+| `favicon.ico` | 16/32/48 multi-size ICO |
+| `apple-icon.png` | 180×180 |
 
-- Magenta `#E30052`
+### Colors
+
+- Magenta `#E9004F`
 - Black `#0A0A0A`
 - White `#FFFFFF`
-
-Do not drop new logos in `public/` root — put them under the correct brand folder and wire paths in `config/brand.js`.

@@ -29,7 +29,9 @@ function resolveOwnerId(user, requestedOwnerId) {
   if (isSuperAdminUser(user)) {
     return normalizeOwnerId(requestedOwnerId) || String(COMPANY_ID);
   }
-  return getSessionOwnerId(user) || String(COMPANY_ID);
+  const ownerId = getSessionOwnerId(user);
+  // Never fall back to platform COMPANY_ID for tenant admins — that was an IDOR.
+  return ownerId || null;
 }
 
 function buildZoneOwnerFilter(ownerId) {
@@ -53,6 +55,12 @@ export async function GET(request) {
       session.user,
       url.searchParams.get("ownerId")
     );
+    if (!ownerId) {
+      return Response.json(
+        { success: false, message: "Company required" },
+        { status: 403 }
+      );
+    }
     const zones = await DeliveryZone.find(buildZoneOwnerFilter(ownerId)).lean();
     return Response.json({
       success: true,
@@ -77,6 +85,12 @@ export async function POST(request) {
     const body = await request.json();
     const { name, distanceKm, fixedPrice, isFreeDelivery, coordinates } = body;
     const ownerId = resolveOwnerId(session.user, body?.ownerId);
+    if (!ownerId) {
+      return Response.json(
+        { success: false, message: "Company required" },
+        { status: 403 }
+      );
+    }
     const normalizedDistanceKm = Number(distanceKm);
     const normalizedFixedPrice = normalizeFixedPriceInput(fixedPrice);
 

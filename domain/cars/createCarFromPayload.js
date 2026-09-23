@@ -7,7 +7,14 @@ import { Car } from "@models/car";
 import { defaultPrices } from "@models/enums";
 import { getCloudinaryPlaceholderPublicId } from "@config/cloudinary";
 import { generateSlugBase, ensureUniqueSlug } from "@utils/slugCar";
-import { resolveOwnerIdForCreate } from "@/domain/owners/ownerScope";
+import { resolveOwnerIdForCreate, isSuperAdminUser } from "@/domain/owners/ownerScope";
+import { photosForSave } from "@/domain/cars/carPhotos";
+import Company from "@models/company";
+import {
+  assertMarketplaceCarPublish,
+  auditPartnerComplianceBlock,
+  PARTNER_OPERATION_PURPOSE,
+} from "@/domain/legal/partnerOperatingPolicy";
 
 async function nextCarNumber() {
   const cars = await Car.find().select("carNumber").lean();
@@ -61,6 +68,10 @@ export async function createCarFromPayload(payload, ctx) {
       payload?.ownerId ?? ctx.requestedOwnerId
     );
 
+    const gallery = photosForSave([
+      ...(Array.isArray(payload?.photos) ? payload.photos : []),
+      payload?.photoUrl,
+    ]);
     const data = {
       carNumber,
       model,
@@ -83,9 +94,8 @@ export async function createCarFromPayload(payload, ctx) {
       PriceChildSeats: Number(payload?.PriceChildSeats) || 3,
       PriceKacko: Number(payload?.PriceKacko) || 5,
       pricingTiers,
-      photoUrl:
-        (typeof payload?.photoUrl === "string" && payload.photoUrl.trim()) ||
-        getCloudinaryPlaceholderPublicId(),
+      photoUrl: gallery.photoUrl || getCloudinaryPlaceholderPublicId(),
+      photos: gallery.photos,
       dateAddCar: dayjs().toDate(),
       ownerId,
       sort: Number(payload?.sort) || 999,
@@ -93,6 +103,36 @@ export async function createCarFromPayload(payload, ctx) {
       isActive:
         payload?.isActive === undefined ? true : Boolean(payload.isActive),
     };
+
+    const ownerCompany = ownerId
+      ? await Company.findById(ownerId)
+          .select("_id country bookingMode listedOnMarketplace")
+          .lean()
+      : null;
+    const superadmin = isSuperAdminUser(ctx.user);
+    const publishGate = await assertMarketplaceCarPublish(ownerId, {
+      car: data,
+      company: ownerCompany,
+      overrideReason: superadmin
+        ? String(payload?.complianceOverrideReason || ctx.overrideReason || "")
+        : "",
+      overrideByRole: superadmin ? "superadmin" : "admin",
+      overrideByEmail: ctx.user?.email || "",
+    });
+    if (!publishGate.allowed) {
+      await auditPartnerComplianceBlock({
+        purpose: PARTNER_OPERATION_PURPOSE.CAR_PUBLISH,
+        result: publishGate,
+        actorEmail: ctx.user?.email || "",
+        actorRole: superadmin ? "superadmin" : "admin",
+      });
+      return {
+        ok: false,
+        error: publishGate.partnerMessage,
+        errorCode: publishGate.error,
+        code: publishGate.code,
+      };
+    }
 
     const slugBase = generateSlugBase(data);
     data.slug = await ensureUniqueSlug(slugBase, async (slug) => {

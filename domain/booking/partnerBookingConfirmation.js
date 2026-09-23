@@ -25,27 +25,57 @@ import {
   verifyConfirmationToken,
   hashConfirmationToken,
 } from "./partnerConfirmationToken";
-import { BOOKING_STATUS } from "./bookingStatus";
 import { recordAuditEvent } from "@/domain/legal/auditTrail";
+import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
+import { absoluteUrl } from "@config/domain";
 import { loadLegalSettings } from "@/domain/legal/legalSettingsService";
 import { getAgreementVersionRef } from "@/domain/legal/agreementService";
 import { computeSnapshotChecksum } from "@/domain/legal/checksum";
 import { resolveDocumentForDisplay } from "@/domain/legal/documentService";
 import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
+import { marketplaceFinancialSplit } from "@/domain/orders/marketplaceFinancialSplit";
 import {
-  BOOKING_PREPAYMENT_PERCENT,
-  SUPPLIER_BALANCE_PERCENT,
-} from "@/domain/legal/legalSettings";
+  applyRentalStateTransition,
+  RENTAL_STATE,
+  resolveRentalState,
+} from "@/domain/booking/rentalBookingState";
+import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
+import {
+  acquireMarketplaceHold,
+  attachStripeSessionToHold,
+  markHoldForRetry,
+  releaseMarketplaceHold,
+} from "@/domain/booking/bookingHold";
+import {
+  clampStripeExpiresMinutes,
+  createRentalCheckoutSession,
+  expireRentalCheckoutSession,
+} from "@/domain/orders/rentalStripeCheckout";
+import { computePriceSnapshotChecksum } from "@/domain/orders/priceSnapshotChecksum";
+import {
+  sendCustomerDeclineEmail,
+  sendCustomerPaymentRequestEmail,
+} from "@/domain/orders/marketplaceBookingEmails";
+import {
+  AVAILABILITY_PURPOSE,
+  evaluateRentalAvailability,
+} from "@/domain/booking/availabilityEngine";
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import {
+  assertPartnerCanOperate,
+  auditPartnerComplianceBlock,
+  PARTNER_OPERATION_PURPOSE,
+} from "@/domain/legal/partnerOperatingPolicy";
 
 /**
  * Exact wording the partner must accept. Stored verbatim on the snapshot so
  * the record shows what was agreed, not a later revision of the wording.
  */
-export const PARTNER_CONFIRMATION_STATEMENT =
-  "I confirm that the vehicle is available and that the Supplier is able and authorised to provide it " +
-  "on the dates, price and conditions shown above. I accept that this confirmation becomes binding after " +
-  "the Customer successfully pays the booking prepayment, subject to the Partner Agreement and Partner " +
-  "Operating Rules.";
+export function partnerConfirmationStatement() {
+  return "I confirm this car is available.";
+}
+
+export const PARTNER_CONFIRMATION_STATEMENT = partnerConfirmationStatement(1000);
 
 export const PARTNER_CONFIRMATION_BUTTON_LABEL = "Confirm availability";
 
@@ -112,8 +142,6 @@ function minor(value) {
  */
 export function resolveConfirmationFinancials(order) {
   const auth = order?.authoritativePrice || {};
-  const currency = String(auth.currency || order?.currency || "EUR").toUpperCase();
-
   let grossMinor = minor(auth.grossMinor);
   if (!grossMinor) {
     const fallbackMajor = Number(
@@ -124,21 +152,25 @@ export function resolveConfirmationFinancials(order) {
       : 0;
   }
 
-  const percent = Number.isFinite(Number(auth.prepaymentPercent))
-    ? Number(auth.prepaymentPercent)
-    : BOOKING_PREPAYMENT_PERCENT;
-
-  const prepaymentMinor = minor(auth.prepaymentMinor) ||
-    Math.round((grossMinor * percent) / 100);
-  const balanceMinor = minor(auth.balanceMinor) || grossMinor - prepaymentMinor;
+  const split = marketplaceFinancialSplit({
+    ...auth,
+    grossMinor,
+    currency: auth.currency || order?.currency || "EUR",
+  });
 
   return {
-    currency,
-    grossMinor,
-    prepaymentPercent: percent,
-    prepaymentMinor: Math.max(0, prepaymentMinor),
-    balanceMinor: Math.max(0, balanceMinor),
-    supplierBalancePercent: SUPPLIER_BALANCE_PERCENT,
+    currency: split.currency,
+    grossMinor: split.grossMinor,
+    marketplaceBookingFeeBps: split.marketplaceBookingFeeBps,
+    prepaymentPercent: split.prepaymentPercent,
+    feePercent: split.feePercent,
+    prepaymentMinor: split.prepaymentMinor,
+    balanceMinor: split.balanceMinor,
+    supplierBalancePercent: split.supplierBalancePercent,
+    platformAmountMinor: split.platformAmountMinor,
+    stripeAmountMinor: split.stripeAmountMinor,
+    supplierBalanceMinor: split.supplierBalanceMinor,
+    payoutMinor: split.payoutMinor,
   };
 }
 
@@ -188,6 +220,9 @@ export async function buildConfirmationView(token) {
   ]);
 
   const financials = resolveConfirmationFinancials(order);
+  const statement = partnerConfirmationStatement(
+    financials.marketplaceBookingFeeBps
+  );
 
   const { doc: partnerAgreementDoc } = await resolveDocumentForDisplay({
     documentType: LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT,
@@ -199,11 +234,13 @@ export async function buildConfirmationView(token) {
     alreadyConsumed: Boolean(record.consumedAt),
     decision: record.decision || null,
     expiresAt: record.expiresAt,
-    statement: PARTNER_CONFIRMATION_STATEMENT,
+    statement,
     buttonLabel: PARTNER_CONFIRMATION_BUTTON_LABEL,
     booking: {
       bookingId: String(order._id),
       orderNumber: order.orderNumber || "",
+      ownerId: order.ownerId ? String(order.ownerId) : "",
+      bookingMode: order.bookingMode || "",
       supplierName: company?.name || "",
       vehicle: {
         model: order.carModel || car?.model || "",
@@ -230,7 +267,7 @@ export async function buildConfirmationView(token) {
         secondDriver: Boolean(order.secondDriver),
       },
       /** Vehicle security deposit — collected by the Supplier, separate from
-       *  the booking prepayment. */
+       *  the non-refundable Rovaro Booking Fee. */
       securityDeposit: car?.deposit ?? order.franchiseOrder ?? null,
       financials,
     },
@@ -270,6 +307,386 @@ export async function buildConfirmationView(token) {
  *   reason?: string,
  * }} params
  */
+const CANCELLED_STATUSES = new Set([
+  BOOKING_STATUS.CUSTOMER_CANCELLED,
+  BOOKING_STATUS.SUPPLIER_CANCELLED,
+  BOOKING_STATUS.ADMIN_CANCELLED,
+]);
+
+export function evaluatePartnerDecisionGuards(order, { tokenCompanyId, decision } = {}) {
+  if (!order) {
+    return { ok: false, status: 404, code: "not_found", message: "Booking not found" };
+  }
+
+  const status = String(order.bookingStatus || "");
+  const rental = resolveRentalState(order);
+  const paid = order.payment?.status === "paid" || rental === RENTAL_STATE.CONFIRMED;
+
+  if (paid) {
+    return {
+      ok: false,
+      status: 409,
+      code: "already_paid",
+      message: "This booking is already paid and cannot be changed.",
+    };
+  }
+
+  if (
+    rental === RENTAL_STATE.DECLINED ||
+    status === BOOKING_STATUS.SUPPLIER_DECLINED
+  ) {
+    if (decision === "declined") {
+      return { ok: true, idempotentDecline: true };
+    }
+    return {
+      ok: false,
+      status: 409,
+      code: "already_declined",
+      message: "This booking was already declined and cannot be confirmed.",
+    };
+  }
+
+  if (CANCELLED_STATUSES.has(status) || rental === RENTAL_STATE.CANCELLED) {
+    return {
+      ok: false,
+      status: 409,
+      code: "cancelled",
+      message: "This booking was cancelled.",
+    };
+  }
+
+  if (
+    rental !== RENTAL_STATE.REQUESTED &&
+    rental !== RENTAL_STATE.PARTNER_CONFIRMED &&
+    rental !== RENTAL_STATE.PAYMENT_PENDING &&
+    rental !== RENTAL_STATE.PAYMENT_EXPIRED
+  ) {
+    return {
+      ok: false,
+      status: 409,
+      code: "not_pending",
+      message: "This booking is not waiting for a partner decision.",
+    };
+  }
+
+  if (decision === "accepted" && rental === RENTAL_STATE.PAYMENT_EXPIRED) {
+    return {
+      ok: false,
+      status: 409,
+      code: "payment_expired",
+      message: "The previous payment link expired. Ask Rovaro to issue a new one.",
+    };
+  }
+
+  if (decision === "accepted" && rental === RENTAL_STATE.PAYMENT_PENDING) {
+    return { ok: true, alreadyPaymentPending: true };
+  }
+
+  if (decision === "accepted" && rental !== RENTAL_STATE.REQUESTED && rental !== RENTAL_STATE.PARTNER_CONFIRMED) {
+    return {
+      ok: false,
+      status: 409,
+      code: "not_pending",
+      message: "This booking is not waiting for a partner confirmation.",
+    };
+  }
+
+  const orderCompany = order.ownerId ? String(order.ownerId) : "";
+  const tokenCompany = tokenCompanyId ? String(tokenCompanyId) : "";
+  if (tokenCompany && orderCompany && tokenCompany !== orderCompany) {
+    return {
+      ok: false,
+      status: 403,
+      code: "wrong_company",
+      message: "This confirmation link does not belong to the car owner.",
+    };
+  }
+
+  return { ok: true };
+}
+
+async function notifyPartnerDecision(order, decision, actorEmail) {
+  try {
+    await notifySuperadmin({
+      title:
+        decision === "accepted"
+          ? `✅ Partner confirmed availability — order #${order.orderNumber || order._id}`
+          : `⛔ Partner declined booking — order #${order.orderNumber || order._id}`,
+      bodyLines: [
+        decision === "accepted"
+          ? "The partner confirmed the vehicle is available."
+          : "The partner declined this booking.",
+        "",
+        `Order #${order.orderNumber || order._id}`,
+        `Car: ${order.carModel || "—"}`,
+        `Pickup: ${order.placeIn || "—"}`,
+        `Return: ${order.placeOut || "—"}`,
+        `Booking status: ${order.bookingStatus}`,
+        actorEmail ? `Actor: ${actorEmail}` : null,
+        "",
+        `Admin: ${absoluteUrl("/admin")}`,
+      ].filter((line) => line != null),
+    });
+  } catch (err) {
+    console.error(
+      "[partner-confirm] superadmin notify failed:",
+      err?.message || err
+    );
+  }
+}
+
+async function finalizePartnerAccept({
+  order,
+  consumed,
+  ipAddress,
+  userAgent,
+  actorEmail,
+}) {
+  const now = new Date();
+  const settings = await loadLegalSettings().catch(() => ({
+    paymentLinkExpirationMinutes: 60,
+  }));
+  const expireMinutes = clampStripeExpiresMinutes(
+    settings.paymentLinkExpirationMinutes
+  );
+  const holdExpiresAt = new Date(now.getTime() + expireMinutes * 60 * 1000);
+  const priceChecksum = computePriceSnapshotChecksum(order);
+
+  const toConfirmed = applyRentalStateTransition(
+    order,
+    RENTAL_STATE.PARTNER_CONFIRMED
+  );
+  if (!toConfirmed.ok && resolveRentalState(order) !== RENTAL_STATE.PARTNER_CONFIRMED) {
+    return {
+      ok: false,
+      status: 409,
+      code: toConfirmed.code || "illegal_transition",
+      message: "This booking cannot be confirmed in its current state.",
+    };
+  }
+
+  const hold = await acquireMarketplaceHold({
+    carId: order.car,
+    orderId: order._id,
+    companyId: order.ownerId,
+    pickupAtUtc: order.pickupAtUtc || order.timeIn,
+    returnAtUtc: order.returnAtUtc || order.timeOut,
+    holdExpiresAt,
+    timezone: order.timezone,
+    bookingMode: order.bookingMode,
+  });
+
+  if (!hold.ok) {
+    await recordAuditEvent({
+      action: "BOOKING_HOLD_CONFLICT",
+      severity: "high",
+      result: "failure",
+      orderData: { orderId: order._id, orderNumber: order.orderNumber },
+      metadata: { code: hold.code, message: hold.message },
+    });
+    return {
+      ok: false,
+      status: 409,
+      code: hold.code,
+      message: hold.message,
+    };
+  }
+
+  const checkout = await createRentalCheckoutSession(String(order._id), {
+    company: order.ownerId
+      ? await Company.findById(order.ownerId)
+          .select("name email rentalPayments prepaymentPercent")
+          .lean()
+      : null,
+    emailCustomer: false,
+  });
+
+  if (!checkout.ok || !checkout.url) {
+    await markHoldForRetry(order._id, { reason: checkout.code || "checkout_failed" });
+    await recordAuditEvent({
+      action: "RENTAL_CHECKOUT_FAILED",
+      severity: "critical",
+      result: "failure",
+      orderData: { orderId: order._id, orderNumber: order.orderNumber },
+      metadata: { code: checkout.code, message: checkout.message },
+    });
+    try {
+      await notifySuperadmin({
+        title: `⚠️ Checkout failed after partner confirm — order #${order.orderNumber || order._id}`,
+        bodyLines: [
+          checkout.message || checkout.code || "Checkout failed",
+          "No payment email was sent. Hold marked for retry.",
+        ],
+        meta: { orderId: order._id },
+      });
+    } catch (err) {
+      console.error("[partner-confirm] checkout fail notify", err?.message || err);
+    }
+    return {
+      ok: false,
+      status: 502,
+      code: checkout.code || "checkout_failed",
+      message:
+        "Availability was recorded but the payment link could not be created. Rovaro has been notified.",
+    };
+  }
+
+  const reloaded = await Order.findById(order._id);
+  if (resolveRentalState(reloaded) === RENTAL_STATE.REQUESTED) {
+    applyRentalStateTransition(reloaded, RENTAL_STATE.PARTNER_CONFIRMED);
+  }
+  applyRentalStateTransition(reloaded, RENTAL_STATE.PAYMENT_PENDING);
+  reloaded.companyEmailDecision = "accepted";
+  reloaded.companyEmailDecisionAt = now;
+  reloaded.partnerConfirmedAt = now;
+  reloaded.partnerConfirmedByEmail = actorEmail || "";
+  reloaded.set(
+    "partnerConfirmMeta",
+    {
+      jti: consumed.jti,
+      ipAddress,
+      userAgent,
+      companyId: reloaded.ownerId ? String(reloaded.ownerId) : "",
+      agreementVersion: consumed.agreementRef || null,
+      priceChecksum,
+    },
+    { strict: false }
+  );
+  await reloaded.save();
+  await attachStripeSessionToHold(reloaded._id, checkout.sessionId);
+
+  const mailed = await sendCustomerPaymentRequestEmail({
+    order: reloaded.toObject(),
+    paymentUrl: checkout.url,
+    expiresAt: checkout.expiresAt,
+    stripeSessionId: checkout.sessionId,
+  });
+  if (!mailed.ok && !mailed.deduped) {
+    console.error("[partner-confirm] payment email failed", mailed);
+  }
+
+  await recordAuditEvent({
+    action: "BOOKING_PARTNER_CONFIRMED",
+    userRole: "admin",
+    userEmail: actorEmail,
+    severity: "critical",
+    ipAddress,
+    userAgent,
+    orderData: {
+      orderId: reloaded._id,
+      orderNumber: reloaded.orderNumber,
+      carModel: reloaded.carModel,
+      rentalStartDate: reloaded.rentalStartDate,
+      rentalEndDate: reloaded.rentalEndDate,
+    },
+    metadata: {
+      jti: consumed.jti,
+      statement: partnerConfirmationStatement(
+        resolveConfirmationFinancials(reloaded).marketplaceBookingFeeBps
+      ),
+      agreementRef: consumed.agreementRef,
+      priceChecksum,
+      sessionId: checkout.sessionId,
+      reusedCheckout: Boolean(checkout.reused),
+    },
+  });
+
+  await notifyPartnerDecision(reloaded, "accepted", actorEmail);
+
+  return {
+    ok: true,
+    idempotent: Boolean(checkout.reused),
+    decision: "accepted",
+    orderId: String(reloaded._id),
+    bookingStatus: reloaded.bookingStatus,
+    paymentUrl: checkout.url,
+    message: "Availability confirmed. The customer will receive a payment link.",
+  };
+}
+
+async function finalizePartnerDecline({
+  order,
+  consumed,
+  ipAddress,
+  userAgent,
+  actorEmail,
+  reason,
+}) {
+  const now = new Date();
+  if (
+    order.bookingStatus === BOOKING_STATUS.SUPPLIER_DECLINED &&
+    order.companyEmailDecision === "rejected"
+  ) {
+    return {
+      ok: true,
+      idempotent: true,
+      decision: "declined",
+      orderId: String(order._id),
+      bookingStatus: order.bookingStatus,
+      message: "This booking was already declined.",
+    };
+  }
+
+  const moved = applyRentalStateTransition(order, RENTAL_STATE.DECLINED);
+  if (!moved.ok) {
+    order.bookingStatus = BOOKING_STATUS.SUPPLIER_DECLINED;
+  }
+  order.companyEmailDecision = "rejected";
+  order.companyEmailDecisionAt = now;
+  order.declineReason = String(reason || "").slice(0, 500);
+  order.declinedAt = now;
+  order.declinedByEmail = actorEmail || "";
+  order.set(
+    "declineMeta",
+    { jti: consumed?.jti, ipAddress, userAgent },
+    { strict: false }
+  );
+  const payment = {
+    ...(order.payment && typeof order.payment === "object" ? order.payment : {}),
+    checkoutUrl: "",
+  };
+  order.set("payment", payment, { strict: false });
+  await order.save();
+
+  await expireRentalCheckoutSession(order._id);
+  await releaseMarketplaceHold(order._id, { reason: "supplier_declined" });
+  await sendCustomerDeclineEmail({
+    order: order.toObject ? order.toObject() : order,
+    reason,
+  });
+
+  await recordAuditEvent({
+    action: "BOOKING_PARTNER_DECLINED",
+    userRole: "admin",
+    userEmail: actorEmail,
+    severity: "critical",
+    ipAddress,
+    userAgent,
+    reason,
+    orderData: {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      carModel: order.carModel,
+      rentalStartDate: order.rentalStartDate,
+      rentalEndDate: order.rentalEndDate,
+    },
+    metadata: { jti: consumed?.jti },
+  });
+  await notifyPartnerDecision(order, "declined", actorEmail);
+
+  return {
+    ok: true,
+    idempotent: false,
+    decision: "declined",
+    orderId: String(order._id),
+    bookingStatus: order.bookingStatus,
+    refundRequired: false,
+    refunded: false,
+    message:
+      "Booking declined. Rovaro will inform the customer.",
+  };
+}
+
 export async function consumeConfirmationToken({
   token,
   decision,
@@ -278,6 +695,8 @@ export async function consumeConfirmationToken({
   userAgent = "",
   actorEmail = "",
   reason = "",
+  complianceOverrideReason = "",
+  complianceOverrideRole = "",
 }) {
   const parsed = verifyConfirmationToken(token);
   if (!parsed.ok) return parsed;
@@ -295,7 +714,154 @@ export async function consumeConfirmationToken({
   const tokenHash = hashConfirmationToken(token);
   const now = new Date();
 
-  // Atomic consume — only the first caller matches `consumedAt: null`.
+  const existing = await BookingConfirmationToken.findOne({ tokenHash });
+  if (!existing) {
+    return {
+      ok: false,
+      status: 400,
+      code: "unknown_token",
+      message: "This confirmation link is not recognised",
+    };
+  }
+  if (!existing.consumedAt && existing.expiresAt <= now) {
+    return {
+      ok: false,
+      status: 410,
+      code: "expired",
+      message: "This confirmation link has expired. Ask Rovaro for a new one.",
+    };
+  }
+
+  const order = await Order.findById(existing.orderId);
+  if (!order) {
+    return { ok: false, status: 404, code: "not_found", message: "Booking not found" };
+  }
+
+  const guards = evaluatePartnerDecisionGuards(order, {
+    tokenCompanyId: parsed.companyId || existing.companyId,
+    decision,
+  });
+  if (!guards.ok) return guards;
+
+  if (guards.alreadyPaymentPending && decision === "accepted") {
+    if (order.payment?.checkoutUrl) {
+      return {
+        ok: true,
+        idempotent: true,
+        decision: "accepted",
+        orderId: String(order._id),
+        bookingStatus: order.bookingStatus,
+        paymentUrl: order.payment.checkoutUrl,
+        message: "This booking was already confirmed.",
+      };
+    }
+  }
+
+  const needsCheckoutRetry =
+    decision === "accepted" &&
+    existing.consumedAt &&
+    existing.decision === "accepted" &&
+    !order.payment?.checkoutUrl &&
+    order.payment?.status !== "paid";
+
+  if (guards.idempotentDecline) {
+    return {
+      ok: true,
+      idempotent: true,
+      decision: "declined",
+      orderId: String(order._id),
+      bookingStatus: order.bookingStatus,
+      message: "This booking was already declined.",
+    };
+  }
+
+  if (decision === "accepted" && isMarketplaceRequestMode(order.bookingMode)) {
+    const confirmGate = await assertPartnerCanOperate(order.ownerId, {
+      purpose: PARTNER_OPERATION_PURPOSE.CONFIRM,
+      overrideReason: complianceOverrideReason,
+      overrideByRole: complianceOverrideRole,
+      overrideByEmail: actorEmail,
+      audit: { orderId: order._id, ipAddress, userAgent },
+    });
+    if (!confirmGate.allowed) {
+      await auditPartnerComplianceBlock({
+        purpose: PARTNER_OPERATION_PURPOSE.CONFIRM,
+        result: confirmGate,
+        actorEmail,
+        actorRole: "admin",
+        ipAddress,
+        userAgent,
+        orderId: order._id,
+      });
+      return {
+        ok: false,
+        status: 403,
+        error: confirmGate.error,
+        code: confirmGate.code,
+        message: confirmGate.partnerMessage,
+      };
+    }
+  }
+
+  if (decision === "accepted") {
+    const { assertLocationSnapshotForConfirm } = await import(
+      "@/domain/orders/locationSnapshot"
+    );
+    const snapCheck = assertLocationSnapshotForConfirm(order);
+    if (!snapCheck.ok) {
+      return {
+        ok: false,
+        status: 409,
+        code: snapCheck.code,
+        message: snapCheck.message,
+      };
+    }
+    const { assertAuthoritativePriceReconciled, logPriceBreakdownMismatch, PRICE_BREAKDOWN_CUSTOMER_MESSAGE, PRICE_BREAKDOWN_MISMATCH } = await import(
+      "@/domain/orders/priceBreakdownReconciliation"
+    );
+    const priceCheck = assertAuthoritativePriceReconciled(order);
+    if (!priceCheck.ok) {
+      logPriceBreakdownMismatch({
+        orderId: order._id,
+        companyId: order.ownerId,
+        breakdown: priceCheck.breakdown,
+        stage: "partner_confirm",
+      });
+      return {
+        ok: false,
+        status: 409,
+        code: PRICE_BREAKDOWN_MISMATCH,
+        message: PRICE_BREAKDOWN_CUSTOMER_MESSAGE,
+      };
+    }
+  }
+
+  if (decision === "accepted" && isMarketplaceRequestMode(order.bookingMode)) {
+    const orderQuery = Order.find({ car: order.car });
+    const existingOrders =
+      typeof orderQuery.lean === "function"
+        ? await orderQuery.lean()
+        : await orderQuery;
+    const availability = evaluateRentalAvailability({
+      carId: order.car,
+      pickupAtUtc: order.pickupAtUtc || order.timeIn,
+      returnAtUtc: order.returnAtUtc || order.timeOut,
+      timezone: order.timezone,
+      existingOrders,
+      excludeOrderId: String(order._id),
+      purpose: AVAILABILITY_PURPOSE.CONFIRM,
+      bookingMode: order.bookingMode,
+    });
+    if (availability.hardConflict) {
+      return {
+        ok: false,
+        status: 409,
+        code: "date_conflict",
+        message: availability.userSafeReason || "Those dates are not available.",
+      };
+    }
+  }
+
   const consumed = await BookingConfirmationToken.findOneAndUpdate(
     { tokenHash, consumedAt: null, expiresAt: { $gt: now } },
     {
@@ -310,22 +876,14 @@ export async function consumeConfirmationToken({
   );
 
   if (!consumed) {
-    const existing = await BookingConfirmationToken.findOne({ tokenHash });
-    if (!existing) {
-      return {
-        ok: false,
-        status: 400,
-        code: "unknown_token",
-        message: "This confirmation link is not recognised",
-      };
-    }
-    if (!existing.consumedAt && existing.expiresAt <= now) {
-      return {
-        ok: false,
-        status: 410,
-        code: "expired",
-        message: "This confirmation link has expired. Ask Rovaro for a new one.",
-      };
+    if (needsCheckoutRetry) {
+      return finalizePartnerAccept({
+        order,
+        consumed: existing,
+        ipAddress,
+        userAgent,
+        actorEmail,
+      });
     }
 
     await BookingConfirmationToken.updateOne(
@@ -342,21 +900,46 @@ export async function consumeConfirmationToken({
       metadata: { jti: existing.jti, priorDecision: existing.decision },
     });
 
+    const latest = await Order.findById(existing.orderId);
+    if (existing.decision === "accepted") {
+      return {
+        ok: true,
+        idempotent: true,
+        decision: "accepted",
+        orderId: String(existing.orderId),
+        bookingStatus: latest?.bookingStatus,
+        paymentUrl: latest?.payment?.checkoutUrl || "",
+        message: "This booking was already confirmed.",
+      };
+    }
     return {
       ok: true,
       idempotent: true,
       decision: existing.decision,
       orderId: String(existing.orderId),
-      message:
-        existing.decision === "accepted"
-          ? "This booking was already confirmed."
-          : "This booking was already declined.",
+      bookingStatus: latest?.bookingStatus,
+      message: "This booking was already declined.",
     };
   }
 
-  const order = await Order.findById(consumed.orderId);
-  if (!order) {
-    return { ok: false, status: 404, code: "not_found", message: "Booking not found" };
+  if (isMarketplaceRequestMode(order.bookingMode)) {
+    if (decision === "accepted") {
+      return finalizePartnerAccept({
+        order,
+        consumed,
+        ipAddress,
+        userAgent,
+        actorEmail,
+      });
+    }
+    return finalizePartnerDecline({
+      order,
+      consumed,
+      ipAddress,
+      userAgent,
+      actorEmail,
+      reason,
+    });
   }
 
   if (decision === "accepted") {
@@ -367,6 +950,8 @@ export async function consumeConfirmationToken({
     order.companyEmailDecision = "rejected";
     order.companyEmailDecisionAt = now;
     order.bookingStatus = BOOKING_STATUS.SUPPLIER_DECLINED;
+    order.declineReason = String(reason || "").slice(0, 500);
+    order.declinedAt = now;
   }
   await order.save();
 
@@ -388,13 +973,9 @@ export async function consumeConfirmationToken({
       rentalStartDate: order.rentalStartDate,
       rentalEndDate: order.rentalEndDate,
     },
-    metadata: {
-      jti: consumed.jti,
-      statement:
-        decision === "accepted" ? PARTNER_CONFIRMATION_STATEMENT : undefined,
-      agreementRef: consumed.agreementRef,
-    },
+    metadata: { jti: consumed.jti },
   });
+  await notifyPartnerDecision(order, decision, actorEmail);
 
   return {
     ok: true,
@@ -404,7 +985,7 @@ export async function consumeConfirmationToken({
     bookingStatus: order.bookingStatus,
     message:
       decision === "accepted"
-        ? "Availability confirmed. The booking becomes binding once the customer pays the booking prepayment."
+        ? "Availability confirmed. The booking is confirmed once the customer pays."
         : "Booking declined. Rovaro will inform the customer.",
   };
 }
@@ -483,6 +1064,8 @@ export async function createConfirmedBookingSnapshot({
     financials: {
       currency: financials.currency,
       grossMinor: financials.grossMinor,
+      marketplaceBookingFeeBps: financials.marketplaceBookingFeeBps,
+      feePercent: financials.feePercent,
       prepaymentPercent: financials.prepaymentPercent,
       prepaymentMinor: financials.prepaymentMinor,
       balanceMinor: financials.balanceMinor,
@@ -494,8 +1077,10 @@ export async function createConfirmedBookingSnapshot({
         secondDriver: Boolean(order.secondDriver),
       },
       lines: order.authoritativePrice?.lines || null,
-      commissionPercent: settings.commissionPercent,
-      minimumCommissionAmount: settings.minimumCommissionAmount,
+      platformAmountMinor: financials.platformAmountMinor,
+      stripeAmountMinor: financials.stripeAmountMinor,
+      supplierBalanceMinor: financials.supplierBalanceMinor,
+      payoutMinor: financials.payoutMinor,
       paymentFeeBearer: settings.paymentFeeBearer,
       vatTreatment: settings.vatTreatment,
     },
@@ -512,7 +1097,9 @@ export async function createConfirmedBookingSnapshot({
       confirmationTokenJti: confirmationToken?.jti || "",
       ipAddress: confirmationToken?.consumedIp || "",
       userAgent: confirmationToken?.consumedUserAgent || "",
-      statementAccepted: confirmationToken ? PARTNER_CONFIRMATION_STATEMENT : "",
+      statementAccepted: confirmationToken
+        ? partnerConfirmationStatement(financials.marketplaceBookingFeeBps)
+        : "",
     },
     legalRefs: {
       agreementId: agreementRef?.agreementId || "",

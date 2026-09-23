@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import {
   Alert,
   Box,
   Button,
   Chip,
   CircularProgress,
-  Divider,
   Stack,
   Tab,
   Tabs,
@@ -15,19 +16,26 @@ import {
   Typography,
 } from "@mui/material";
 
+import PartnerReviewQueue from "./PartnerReviewQueue";
+
 /**
- * Superadmin legal hub.
- *
- * Three areas: the operator's own legal configuration (including what is
- * still missing), the partner agreement register, and a per-booking legal
- * audit. Missing values are surfaced here and only here.
+ * Superadmin legal hub: partner document review + platform publish.
  */
 
-const TABS = [
-  { key: "config", label: "Legal configuration" },
-  { key: "partners", label: "Partner agreements" },
-  { key: "audit", label: "Booking legal audit" },
-];
+const TAB_KEYS = ["partners", "documents", "settings", "audit"];
+const TAB_LABEL_KEYS = {
+  documents: "admin.legalHub.tabDocuments",
+  partners: "admin.legalHub.tabPartners",
+  settings: "admin.legalHub.tabSettings",
+  audit: "admin.legalHub.tabAudit",
+};
+
+function documentsNeedSeed(documents) {
+  if (!Array.isArray(documents) || documents.length === 0) return true;
+  return documents.every((entry) =>
+    ["en", "es"].every((lang) => !entry.languages?.[lang]?.latestVersion)
+  );
+}
 
 function StatusChip({ status }) {
   const ok = status === "ok";
@@ -56,6 +64,207 @@ function Row({ label, children }) {
   );
 }
 
+function DocumentsTab() {
+  const { t } = useTranslation();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/legal/config", { cache: "no-store" });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message || "Failed to load");
+      setData(json);
+      setError("");
+    } catch (err) {
+      setError(err.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function documentAction(payload) {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/legal/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || json.success === false) {
+        throw new Error(json.message || t("admin.legalHub.actionFailed"));
+      }
+      await load();
+    } catch (err) {
+      setError(err.message || t("admin.legalHub.actionFailed"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!data && !error) return <CircularProgress size={22} />;
+  if (error && !data) return <Alert severity="error">{error}</Alert>;
+
+  const empty = documentsNeedSeed(data.documents);
+
+  if (empty) {
+    return (
+      <Box
+        sx={{
+          textAlign: "center",
+          py: { xs: 6, md: 8 },
+          px: 2,
+          border: "1px dashed",
+          borderColor: "divider",
+          borderRadius: 2,
+        }}
+      >
+        {error ? (
+          <Alert severity="error" sx={{ mb: 2, textAlign: "left" }}>
+            {error}
+          </Alert>
+        ) : null}
+        <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>
+          {t("admin.legalHub.emptyTitle")}
+        </Typography>
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{ mb: 3, maxWidth: 520, mx: "auto" }}
+        >
+          {t("admin.legalHub.emptyBody")}
+        </Typography>
+        <Button
+          variant="contained"
+          size="large"
+          disabled={saving}
+          onClick={() => documentAction({ action: "seed" })}
+          sx={{ py: 1.5, px: 4, fontSize: "1.1rem", fontWeight: 800 }}
+        >
+          {saving
+            ? t("admin.legalHub.saving")
+            : t("admin.legalHub.loadDrafts")}
+        </Button>
+      </Box>
+    );
+  }
+
+  return (
+    <Stack spacing={3}>
+      {error ? <Alert severity="error">{error}</Alert> : null}
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.5}
+        alignItems={{ sm: "center" }}
+      >
+        <Button
+          variant="outlined"
+          size="large"
+          onClick={() => documentAction({ action: "seed" })}
+          disabled={saving}
+          sx={{ fontWeight: 700 }}
+        >
+          {t("admin.legalHub.loadDrafts")}
+        </Button>
+        <Typography variant="body2" color="text.secondary">
+          {t("admin.legalHub.publishHint")}
+        </Typography>
+      </Stack>
+
+      {data.documents.map((entry) => (
+        <Box
+          key={entry.documentType}
+          sx={{
+            p: 2,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+          }}
+        >
+          <Typography sx={{ fontSize: "1.05rem", fontWeight: 800, mb: 1.5 }}>
+            {t(`admin.legalHub.documentTypes.${entry.documentType}`, {
+              defaultValue: entry.documentType,
+            })}
+          </Typography>
+          <Stack spacing={1.25}>
+            {["en", "es"].map((lang) => {
+              const info = entry.languages[lang];
+              const published = Boolean(info.published);
+              return (
+                <Stack
+                  key={lang}
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1.5}
+                  alignItems={{ sm: "center" }}
+                  justifyContent="space-between"
+                >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip size="small" label={lang.toUpperCase()} />
+                    <Typography variant="body2">
+                      {published
+                        ? t("admin.legalHub.published", {
+                            version: info.published.version,
+                          })
+                        : info.latestVersion
+                          ? t("admin.legalHub.draft", {
+                              status: info.latestStatus,
+                              version: info.latestVersion,
+                            })
+                          : t("admin.legalHub.missing")}
+                    </Typography>
+                  </Stack>
+                  {info.latestVersion && !published ? (
+                    <Button
+                      variant="contained"
+                      size="large"
+                      disabled={saving}
+                      onClick={() =>
+                        documentAction({
+                          action: "publish",
+                          documentType: entry.documentType,
+                          language: lang,
+                          version: info.latestVersion,
+                        })
+                      }
+                      sx={{ fontWeight: 800, minWidth: 160 }}
+                    >
+                      {t("admin.legalHub.publishLang", {
+                        lang: lang.toUpperCase(),
+                      })}
+                    </Button>
+                  ) : null}
+                  {published ? (
+                    <Button
+                      size="small"
+                      color="warning"
+                      disabled={saving}
+                      onClick={() =>
+                        documentAction({
+                          action: "archive",
+                          documentType: entry.documentType,
+                          language: lang,
+                          version: info.published.version,
+                        })
+                      }
+                    >
+                      {t("admin.legalHub.archive")}
+                    </Button>
+                  ) : null}
+                </Stack>
+              );
+            })}
+          </Stack>
+        </Box>
+      ))}
+    </Stack>
+  );
+}
+
 function ConfigTab() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -69,8 +278,6 @@ function ConfigTab() {
       if (!json.success) throw new Error(json.message || "Failed to load");
       setData(json);
       setDraft({
-        commissionPercent: json.settings.commissionPercent ?? "",
-        minimumCommissionAmount: json.settings.minimumCommissionAmount ?? "",
         supplierCancellationServiceCharge:
           json.settings.supplierCancellationServiceCharge ?? "",
         replacementCostDifferenceCap:
@@ -112,20 +319,6 @@ function ConfigTab() {
     }
   }
 
-  async function documentAction(payload) {
-    setSaving(true);
-    try {
-      await fetch("/api/admin/legal/documents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      await load();
-    } finally {
-      setSaving(false);
-    }
-  }
-
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!data) return <CircularProgress size={22} />;
 
@@ -136,6 +329,13 @@ function ConfigTab() {
       <Box>
         <Typography variant="h6" sx={{ fontSize: "1rem", mb: 1 }}>
           Operator
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Edit My business details under{" "}
+          <Typography component="a" href="/admin/company" sx={{ fontWeight: 600 }}>
+            Platform settings
+          </Typography>
+          .
         </Typography>
         <Row label="Legal name">{data.operator.ownerLegalName}</Row>
         <Row label="Legal structure">
@@ -183,8 +383,22 @@ function ConfigTab() {
             ? data.operator.taxReferenceNumberMasked
             : "Missing"}
         </Row>
-        <Row label="VAT treatment of commission">{data.settings.vatTreatment}</Row>
-        <Row label="Payment processing fees">{data.settings.paymentFeeBearer}</Row>
+        <Row label="VAT treatment">{data.settings.vatTreatment}</Row>
+        <Row label="Stripe processing fees">Paid by Rovaro</Row>
+      </Box>
+
+      <Box>
+        <Typography variant="h6" sx={{ fontSize: "1rem", mb: 1 }}>
+          Rovaro booking fee
+        </Typography>
+        <Row label="Platform default">
+          {data.marketplaceBookingFee?.percentLabel
+            ? `${data.marketplaceBookingFee.percentLabel}%`
+            : "10%"}
+        </Row>
+        <Typography variant="caption" color="text.secondary">
+          Change the default under Platform settings. Partner overrides stay on each partner.
+        </Typography>
       </Box>
 
       <Box>
@@ -199,8 +413,6 @@ function ConfigTab() {
         ) : null}
         <Stack direction="row" flexWrap="wrap" gap={2}>
           {[
-            ["commissionPercent", "Commission %"],
-            ["minimumCommissionAmount", "Minimum commission"],
             ["supplierCancellationServiceCharge", "Supplier cancellation charge"],
             ["replacementCostDifferenceCap", "Replacement cost cap"],
           ].map(([key, label]) => (
@@ -276,188 +488,6 @@ function ConfigTab() {
           Save settings
         </Button>
       </Box>
-
-      <Divider />
-
-      <Box>
-        <Typography variant="h6" sx={{ fontSize: "1rem", mb: 1 }}>
-          Document versions
-        </Typography>
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => documentAction({ action: "seed" })}
-          disabled={saving}
-          sx={{ mb: 2 }}
-        >
-          Load built-in drafts
-        </Button>
-        {data.documents.map((entry) => (
-          <Box key={entry.documentType} sx={{ mb: 1.5 }}>
-            <Typography sx={{ fontSize: "0.9rem", fontWeight: 600 }}>
-              rovaro-{entry.documentType}
-            </Typography>
-            {["en", "es"].map((lang) => {
-              const info = entry.languages[lang];
-              return (
-                <Stack
-                  key={lang}
-                  direction="row"
-                  spacing={1.5}
-                  alignItems="center"
-                  sx={{ py: 0.4, fontSize: "0.82rem" }}
-                >
-                  <Chip size="small" label={lang.toUpperCase()} />
-                  <span>
-                    {info.published
-                      ? `published v${info.published.version}`
-                      : `${info.latestStatus}${
-                          info.latestVersion ? ` v${info.latestVersion}` : ""
-                        }`}
-                  </span>
-                  {info.published ? (
-                    <code style={{ fontSize: "0.7rem", color: "#90a4ae" }}>
-                      {info.published.checksum.slice(0, 12)}…
-                    </code>
-                  ) : null}
-                  {info.latestVersion && !info.published ? (
-                    <Button
-                      size="small"
-                      onClick={() =>
-                        documentAction({
-                          action: "publish",
-                          documentType: entry.documentType,
-                          language: lang,
-                          version: info.latestVersion,
-                        })
-                      }
-                      disabled={saving}
-                    >
-                      Publish
-                    </Button>
-                  ) : null}
-                  {info.published ? (
-                    <Button
-                      size="small"
-                      color="warning"
-                      onClick={() =>
-                        documentAction({
-                          action: "archive",
-                          documentType: entry.documentType,
-                          language: lang,
-                          version: info.published.version,
-                        })
-                      }
-                      disabled={saving}
-                    >
-                      Archive
-                    </Button>
-                  ) : null}
-                </Stack>
-              );
-            })}
-          </Box>
-        ))}
-      </Box>
-    </Stack>
-  );
-}
-
-function PartnersTab() {
-  const [rows, setRows] = useState(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    fetch("/api/admin/legal/partners", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((json) => {
-        if (!json.success) throw new Error(json.message || "Failed to load");
-        setRows(json.partners);
-      })
-      .catch((err) => setError(err.message));
-  }, []);
-
-  if (error) return <Alert severity="error">{error}</Alert>;
-  if (!rows) return <CircularProgress size={22} />;
-  if (!rows.length) return <Alert severity="info">No partners yet.</Alert>;
-
-  return (
-    <Stack spacing={2}>
-      {rows.map((row) => (
-        <Box
-          key={row.companyId}
-          sx={{ p: 2, border: "1px solid #eceff1", borderRadius: 2 }}
-        >
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
-            <Typography sx={{ fontWeight: 700 }}>{row.companyName}</Typography>
-            <Chip
-              size="small"
-              label={row.verification?.status || "NO PROFILE"}
-              color={
-                row.verification?.status === "VERIFIED" ? "success" : "default"
-              }
-            />
-            {row.agreement ? (
-              <Chip size="small" color="primary" label="Agreement signed" />
-            ) : (
-              <Chip size="small" label="Not signed" />
-            )}
-          </Stack>
-
-          {row.verification ? (
-            <>
-              <Row label="Legal name">{row.verification.legalName || "—"}</Row>
-              <Row label="Registration / NIF-CIF">
-                {[row.verification.registrationNumber, row.verification.nifCif]
-                  .filter(Boolean)
-                  .join(" · ") || "—"}
-              </Row>
-              {!row.verification.completeness.ready ? (
-                <Alert severity="warning" sx={{ mt: 1 }}>
-                  Incomplete:{" "}
-                  {[
-                    ...row.verification.completeness.missingFields,
-                    ...row.verification.completeness.missingDocuments,
-                  ].join(", ")}
-                </Alert>
-              ) : null}
-            </>
-          ) : (
-            <Alert severity="info">
-              This partner has not started the legal onboarding yet.
-            </Alert>
-          )}
-
-          {row.agreement ? (
-            <Box sx={{ mt: 1 }}>
-              <Row label="Agreement">{row.agreement.agreementId}</Row>
-              <Row label="Signer">
-                {row.agreement.signerName} · {row.agreement.signerRole}
-              </Row>
-              <Row label="Accepted at">
-                {new Date(row.agreement.acceptedAt).toISOString()}
-              </Row>
-              <Row label="Method">{row.agreement.acceptanceMethod}</Row>
-              <Row label="Package checksum">
-                <code style={{ fontSize: "0.72rem" }}>
-                  {row.agreement.packageChecksum}
-                </code>
-              </Row>
-              <Row label="Documents">
-                {row.agreement.documents
-                  .map((d) => `${d.documentType} ${d.language} v${d.version}`)
-                  .join(", ")}
-              </Row>
-            </Box>
-          ) : null}
-
-          {row.agreementHistory.length > 1 ? (
-            <Typography sx={{ mt: 1, fontSize: "0.78rem", color: "#90a4ae" }}>
-              {row.agreementHistory.length} agreement versions on record.
-            </Typography>
-          ) : null}
-        </Box>
-      ))}
     </Stack>
   );
 }
@@ -511,6 +541,35 @@ function AuditTab() {
             Read-only. Confirmed booking snapshots are immutable — they cannot
             be edited from here or anywhere else.
           </Alert>
+          {data.marketplacePayment?.invalidation ? (
+            <Alert
+              severity={
+                data.marketplacePayment.invalidation.pending ? "warning" : "info"
+              }
+              sx={{ mb: 2 }}
+            >
+              Checkout invalidation:{" "}
+              {data.marketplacePayment.invalidation.pending
+                ? "pending retry"
+                : "idle"}
+              {" · "}
+              session:{" "}
+              {data.marketplacePayment.invalidation.sessionType ===
+              "alternative_offer"
+                ? "alternative offer"
+                : "normal booking"}
+              {" · "}
+              attempts: {data.marketplacePayment.invalidation.attemptCount || 0}
+              {" · "}
+              last error:{" "}
+              {data.marketplacePayment.invalidation.lastErrorCategory || "—"}
+              {" · "}
+              last attempt:{" "}
+              {data.marketplacePayment.invalidation.lastAttemptAt
+                ? String(data.marketplacePayment.invalidation.lastAttemptAt)
+                : "—"}
+            </Alert>
+          ) : null}
           <pre
             style={{
               fontSize: "0.72rem",
@@ -530,12 +589,26 @@ function AuditTab() {
 }
 
 export default function LegalHubSection() {
-  const [tab, setTab] = useState("config");
+  const { t } = useTranslation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requested = searchParams.get("tab");
+  const tab = TAB_KEYS.includes(requested) ? requested : "partners";
+
+  function setTab(value) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", value);
+    if (value !== "partners") params.delete("companyId");
+    router.replace(`/admin/legal?${params.toString()}`, { scroll: false });
+  }
 
   return (
     <Box sx={{ maxWidth: 1080, mx: "auto", p: { xs: 2, md: 3 } }}>
-      <Typography variant="h5" sx={{ fontSize: "1.25rem", fontWeight: 700, mb: 2 }}>
-        Legal &amp; compliance
+      <Typography variant="h5" sx={{ fontSize: "1.35rem", fontWeight: 800, mb: 0.75 }}>
+        {t("admin.legalHub.title")}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t("admin.legalHub.subtitle")}
       </Typography>
 
       <Tabs
@@ -543,13 +616,18 @@ export default function LegalHubSection() {
         onChange={(_e, value) => setTab(value)}
         sx={{ mb: 3, borderBottom: "1px solid #eceff1" }}
       >
-        {TABS.map((t) => (
-          <Tab key={t.key} value={t.key} label={t.label} />
+        {TAB_KEYS.map((key) => (
+          <Tab
+            key={key}
+            value={key}
+            label={t(TAB_LABEL_KEYS[key])}
+          />
         ))}
       </Tabs>
 
-      {tab === "config" ? <ConfigTab /> : null}
-      {tab === "partners" ? <PartnersTab /> : null}
+      {tab === "documents" ? <DocumentsTab /> : null}
+      {tab === "partners" ? <PartnerReviewQueue /> : null}
+      {tab === "settings" ? <ConfigTab /> : null}
       {tab === "audit" ? <AuditTab /> : null}
     </Box>
   );

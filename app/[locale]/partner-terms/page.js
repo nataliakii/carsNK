@@ -37,7 +37,7 @@ export default async function PartnerTermsPage({ params }) {
       <div style={{ maxWidth: 820, margin: "0 auto", padding: "0 20px 48px" }}>
         <a
           href={`/${normalized}/partner-operating-rules`}
-          style={{ color: "#E30052", fontSize: 14 }}
+          style={{ color: "#E9004F", fontSize: 14 }}
         >
           Partner Operating Rules →
         </a>

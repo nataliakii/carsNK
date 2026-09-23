@@ -21,6 +21,7 @@ import { CldImage } from "next-cloudinary";
 import { useMainContext } from "@app/Context";
 import { useTranslation } from "react-i18next";
 import { CLOUDINARY_PLACEHOLDER_PUBLIC_ID } from "@config/cloudinary";
+import { listCarPhotos, photosForSave, MAX_CAR_PHOTOS } from "@/domain/cars/carPhotos";
 
 /** Сохраняем прокрутку списка admin/cars перед открытием EditCarModal и восстанавливаем после сохранения / закрытия */
 const ADMIN_CARS_SCROLL_KEY = "nc_admin_cars_scroll_restore";
@@ -176,7 +177,14 @@ function CarItem({
         isActive: nextActive,
       });
       if (!response?.data) {
-        throw new Error(response?.message || "Failed to update");
+        const code = response?.payload?.error;
+        throw new Error(
+          code === "PARTNER_SUSPENDED"
+            ? t("partnerLegal.gate.actionBlockedSuspended")
+            : code === "PARTNER_COMPLIANCE_REQUIRED"
+              ? `${t("partnerLegal.gate.actionBlocked")} ${t("partnerLegal.gate.openProfileCta")}`
+              : response?.message || "Failed to update"
+        );
       }
       setUpdatedCar(response.data);
       setUpdateStatus({
@@ -238,9 +246,10 @@ function CarItem({
         return;
       }
       const newPhotoUrl = data.data;
+      const current = listCarPhotos(updatedCar);
       const saved = await updateCarInContext({
         ...updatedCar,
-        photoUrl: newPhotoUrl,
+        ...photosForSave([...current, newPhotoUrl].slice(0, MAX_CAR_PHOTOS)),
       });
       if (!saved?.data) {
         setUpdateStatus({
@@ -272,6 +281,16 @@ function CarItem({
 
       const response = await updateCarInContext(updatedCar);
       if (!response?.data) {
+        const code = response?.payload?.error;
+        setUpdateStatus({
+          type: 403,
+          message:
+            code === "PARTNER_SUSPENDED"
+              ? `${t("partnerLegal.gate.actionBlockedSuspended")} ${t("partnerLegal.gate.openProfileCta")}`
+              : code === "PARTNER_COMPLIANCE_REQUIRED"
+                ? `${t("partnerLegal.gate.actionBlocked")} ${t("partnerLegal.gate.openProfileCta")}`
+                : response?.message || "Failed to update",
+        });
         return;
       }
 
@@ -377,7 +396,7 @@ function CarItem({
         )}
         <input
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           ref={fileInputRef}
           onChange={handleImageSelect}
           style={{ display: "none" }}

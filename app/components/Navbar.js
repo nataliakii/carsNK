@@ -25,12 +25,14 @@ import {
   Divider,
   Slider,
   InputAdornment,
+  Tooltip,
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { useSession, signOut } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import RovaroLogo from "@app/components/brand/RovaroLogo";
 import { BRAND } from "@config/brand";
+import SendMyPasswordResetButton from "@/app/admin/shared/components/SendMyPasswordResetButton";
 
 import LanguageIcon from "@mui/icons-material/Language";
 import SearchIcon from "@mui/icons-material/Search";
@@ -63,10 +65,11 @@ import AdminCountrySwitch from "@app/admin/shared/components/AdminCountrySwitch"
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { useAdminPendingInbox } from "@app/hooks/useAdminPendingInbox";
+import { usePendingPartnerReviews } from "@app/hooks/usePendingPartnerReviews";
 import AdminNavLinks, {
   adminNavLinkSx,
 } from "@app/admin/shared/components/AdminNavLinks";
-import { getAdminNavItems } from "@app/admin/shared/adminNav";
+import { ADMIN_PATHS, getAdminNavItems } from "@app/admin/shared/adminNav";
 
 const AdminPendingInboxBell = dynamic(
   () => import("@app/admin/shared/components/AdminPendingInboxBell"),
@@ -191,8 +194,12 @@ export default function NavBar({
   /** Superadmin chrome (Owners, Platform, country switch) — hidden while viewing as a company. */
   const showSuperAdminChrome = isSuperAdmin && !viewAsActive;
   const { country: adminCountry } = useAdminCountryFilter();
-  const { total: pendingOrdersTotal } = useAdminPendingInbox({
+  const { rentals: pendingRentalsCount } = useAdminPendingInbox({
     enabled: Boolean(isAdmin),
+    country: adminCountry,
+  });
+  const legalPendingCount = usePendingPartnerReviews({
+    enabled: Boolean(isSuperAdmin),
     country: adminCountry,
   });
   const [partnerCompanyName, setPartnerCompanyName] = useState("");
@@ -452,12 +459,19 @@ export default function NavBar({
     arrayOfAvailableSeats.length,
   ]);
 
+  const filterPairRowSx = {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+    columnGap: 1.25,
+    width: "100%",
+    minWidth: 0,
+  };
+
   const filterDateFieldSx = {
-    minWidth: { xs: 130, sm: 148 },
-    maxWidth: { xs: "48%", sm: 168 },
-    flex: { xs: "1 1 130px", sm: "0 0 auto" },
+    width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
     height: 40,
-    alignSelf: "flex-end",
     "& .MuiInputBase-root": {
       color: "#fff",
       fontSize: "0.85rem",
@@ -494,6 +508,22 @@ export default function NavBar({
     },
   };
 
+  const filterLocationFieldBoxSx = {
+    minWidth: 0,
+    width: "100%",
+    "& .MuiFormControl-root, & .MuiAutocomplete-root": {
+      m: 0,
+      width: "100%",
+      minWidth: "100% !important",
+      maxWidth: "100% !important",
+    },
+    "& .MuiOutlinedInput-input, & .MuiSelect-select": {
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+    },
+  };
+
   const enabledLocales = platform?.enabledLocales?.length
     ? platform.enabledLocales
     : getSiteCountryConfig().defaultLocales;
@@ -504,11 +534,20 @@ export default function NavBar({
   const adminIdentityLabel = viewAsActive
     ? viewAsCompany?.name || partnerCompanyName || t("header.adminRole")
     : isSuperAdmin
+      ? "S"
+      : "A";
+
+  const adminIdentityTooltip = viewAsActive
+    ? viewAsCompany?.name || partnerCompanyName || t("header.adminRole")
+    : isSuperAdmin
       ? t("header.superadmin")
-      : partnerCompanyName || session?.user?.companyName || t("header.adminRole");
+      : partnerCompanyName ||
+        session?.user?.companyName ||
+        t("header.adminRole");
 
   const adminChipSx = {
-    maxWidth: { xs: 150, sm: 210, md: 280 },
+    maxWidth: viewAsActive ? { xs: 150, sm: 210, md: 280 } : 36,
+    minWidth: viewAsActive ? undefined : 28,
     height: 24,
     fontWeight: 700,
     fontSize: "0.72rem",
@@ -524,7 +563,7 @@ export default function NavBar({
         ? "1px solid rgba(255, 193, 7, 0.55)"
         : `1px solid ${BRAND.pink}`,
     "& .MuiChip-label": {
-      px: 0.9,
+      px: viewAsActive ? 0.9 : 0.5,
       overflow: "hidden",
       textOverflow: "ellipsis",
     },
@@ -625,20 +664,37 @@ export default function NavBar({
     setBookingPlaceOut,
   ]);
 
-  const handleApplyDateSearch = () => {
+  const handleApplyDateSearch = useCallback(() => {
     if (!draftSearchStart || !draftSearchEnd) return;
     if (draftSearchEnd < draftSearchStart) return;
-    setSearchDates({ start: draftSearchStart, end: draftSearchEnd });
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    if (
+      searchDates?.start === draftSearchStart &&
+      searchDates?.end === draftSearchEnd
+    ) {
+      return;
     }
-  };
+    setSearchDates({ start: draftSearchStart, end: draftSearchEnd });
+  }, [
+    draftSearchStart,
+    draftSearchEnd,
+    searchDates?.start,
+    searchDates?.end,
+    setSearchDates,
+  ]);
+
+  useEffect(() => {
+    handleApplyDateSearch();
+  }, [handleApplyDateSearch]);
 
   const handleClearDateSearch = () => {
     setDraftSearchStart("");
     setDraftSearchEnd("");
     clearSearchDates();
   };
+
+  const datesOutOfOrder = Boolean(
+    draftSearchStart && draftSearchEnd && draftSearchEnd < draftSearchStart
+  );
 
   const handleLanguageClick = (event) => {
     event.preventDefault();
@@ -858,14 +914,17 @@ export default function NavBar({
 
   const discountButtonLabel = getDiscountButtonLabel();
   const discountActiveNow = isDiscountActiveToday();
-  const showPartnerAdminChrome = (isAdmin && !isSuperAdmin) || viewAsActive;
   const adminNavItems = isAdmin
     ? getAdminNavItems({
         t,
         showSuperAdminChrome,
         showCompanyNav: isAdmin,
-        showLegalNav: showPartnerAdminChrome,
-        pendingCount: pendingOrdersTotal,
+        showLegalNav: isAdmin,
+        legalHref: isSuperAdmin
+          ? `${ADMIN_PATHS.legalHub}?tab=partners`
+          : ADMIN_PATHS.legal,
+        pendingCount: pendingRentalsCount,
+        legalPendingCount: isSuperAdmin ? legalPendingCount : 0,
       })
     : [];
   const adminActionLinkSx = {
@@ -952,12 +1011,14 @@ export default function NavBar({
                       spacing={0.75}
                       sx={{ minWidth: 0, display: { xs: "none", sm: "flex" } }}
                     >
-                      <Chip
-                        label={headerIdentityLabel}
-                        size="small"
-                        title={headerIdentityLabel}
-                        sx={adminChipSx}
-                      />
+                      <Tooltip title={adminIdentityTooltip} arrow>
+                        <Chip
+                          label={headerIdentityLabel}
+                          size="small"
+                          aria-label={adminIdentityTooltip}
+                          sx={adminChipSx}
+                        />
+                      </Tooltip>
                       {viewAsActive ? (
                         <Button
                           size="small"
@@ -982,18 +1043,19 @@ export default function NavBar({
                       )}
                     </Stack>
                   ) : (
-                    <Chip
-                      label={headerIdentityLabel}
-                      size="small"
-                      title={headerIdentityLabel}
-                      sx={{
-                        ...adminChipSx,
-                        height: 26,
-                        fontSize: "0.8rem",
-                        maxWidth: { xs: 120, sm: 240, md: 320 },
-                        display: { xs: "none", sm: "inline-flex" },
-                      }}
-                    />
+                    <Tooltip title={adminIdentityTooltip} arrow>
+                      <Chip
+                        label={headerIdentityLabel}
+                        size="small"
+                        aria-label={adminIdentityTooltip}
+                        sx={{
+                          ...adminChipSx,
+                          height: 26,
+                          fontSize: "0.8rem",
+                          display: { xs: "none", sm: "inline-flex" },
+                        }}
+                      />
+                    </Tooltip>
                   )
                 ) : null}
               </>
@@ -1143,16 +1205,25 @@ export default function NavBar({
             </LanguageSwitcher>
 
             {isAdmin && adminRole !== null && (
-              <Button
-                size="small"
-                onClick={handleLogout}
-                sx={{
-                  ...adminActionLinkSx,
-                  display: { xs: "none", md: "inline-flex" },
-                }}
-              >
-                {t("header.logout") || "Logout"}
-              </Button>
+              <>
+                <SendMyPasswordResetButton
+                  sx={{
+                    ...adminActionLinkSx,
+                    display: { xs: "none", md: "inline-flex" },
+                    textTransform: "none",
+                  }}
+                />
+                <Button
+                  size="small"
+                  onClick={handleLogout}
+                  sx={{
+                    ...adminActionLinkSx,
+                    display: { xs: "none", md: "inline-flex" },
+                  }}
+                >
+                  {t("header.logout") || "Logout"}
+                </Button>
+              </>
             )}
 
             {isLandscapePhone && !isFullscreen && (
@@ -1350,7 +1421,7 @@ export default function NavBar({
               justifyContent="center"
               sx={{
                 width: "100%",
-                maxWidth: 1100,
+                maxWidth: "100%",
                 mx: "auto",
               }}
             >
@@ -1367,16 +1438,13 @@ export default function NavBar({
               </Box>
 
               <Stack
-                direction="row"
+                direction="column"
                 spacing={1.25}
-                alignItems="flex-end"
-                justifyContent="center"
+                alignItems="stretch"
                 sx={{
                   width: "100%",
                   flex: "1 1 auto",
                   minWidth: 0,
-                  flexWrap: "wrap",
-                  rowGap: 1.25,
                   pt: 0.75,
                 }}
               >
@@ -1387,6 +1455,7 @@ export default function NavBar({
                   onChange={handleCarSearchChange}
                   placeholder={t("header.searchCarsPlaceholder")}
                   aria-label={t("header.searchCars")}
+                  fullWidth
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -1408,11 +1477,9 @@ export default function NavBar({
                     ) : null,
                   }}
                   sx={{
-                    minWidth: { xs: 150, sm: 200 },
-                    maxWidth: { xs: "100%", sm: 280 },
-                    flex: { xs: "1 1 140px", sm: "0 1 260px" },
+                    width: "100%",
+                    minWidth: 0,
                     height: 40,
-                    alignSelf: "flex-end",
                     "& .MuiInputBase-root": {
                       color: "#fff",
                       fontSize: "0.85rem",
@@ -1422,6 +1489,8 @@ export default function NavBar({
                     },
                     "& .MuiOutlinedInput-input": {
                       py: 0,
+                      overflow: "visible",
+                      textOverflow: "clip",
                     },
                     "& .MuiOutlinedInput-notchedOutline": {
                       borderColor: "rgba(255,255,255,0.28)",
@@ -1446,9 +1515,17 @@ export default function NavBar({
                 />
                 <Box
                   sx={{
-                    flex: { xs: "1 1 120px", sm: "0 0 auto" },
-                    minWidth: { xs: 120, sm: 160 },
-                    maxWidth: { xs: "48%", sm: 220 },
+                    display: "grid",
+                    gridTemplateColumns: {
+                      xs: "minmax(0, 1fr) minmax(0, 1fr)",
+                      sm:
+                        arrayOfAvailableSeats.length > 0
+                          ? "repeat(3, minmax(0, 1fr))"
+                          : "minmax(0, 1fr) minmax(0, 1fr)",
+                    },
+                    columnGap: 1.25,
+                    width: "100%",
+                    minWidth: 0,
                     "& .MuiFormControl-root": {
                       m: 0,
                       minWidth: "100% !important",
@@ -1456,6 +1533,7 @@ export default function NavBar({
                     },
                   }}
                 >
+                <Box sx={{ minWidth: 0 }}>
                   <SelectedFieldClass
                     name="class"
                     label={t("header.carClass")}
@@ -1468,18 +1546,7 @@ export default function NavBar({
                   />
                 </Box>
 
-                <Box
-                  sx={{
-                    flex: { xs: "1 1 120px", sm: "0 0 auto" },
-                    minWidth: { xs: 120, sm: 160 },
-                    maxWidth: { xs: "48%", sm: 220 },
-                    "& .MuiFormControl-root": {
-                      m: 0,
-                      minWidth: "100% !important",
-                      maxWidth: "100% !important",
-                    },
-                  }}
-                >
+                <Box sx={{ minWidth: 0 }}>
                   <SelectedFieldClass
                     name="transmission"
                     label={t("header.transmission")}
@@ -1495,14 +1562,8 @@ export default function NavBar({
                 {arrayOfAvailableSeats.length > 0 && (
                   <Box
                     sx={{
-                      display: { xs: "none", sm: "flex" },
-                      minWidth: 140,
-                      maxWidth: 180,
-                      "& .MuiFormControl-root": {
-                        m: 0,
-                        minWidth: "100% !important",
-                        maxWidth: "100% !important",
-                      },
+                      display: { xs: "none", sm: "block" },
+                      minWidth: 0,
                     }}
                   >
                     <SelectedFieldClass
@@ -1517,27 +1578,11 @@ export default function NavBar({
                     />
                   </Box>
                 )}
+                </Box>
 
                 {bookingLocationOptions.length > 0 && (
-                  <>
-                    <Box
-                      sx={{
-                        // Prefer space over Class/Transmission/Seats; wrap full-width when tight
-                        flex: { xs: "1 1 100%", sm: "1 1 220px" },
-                        minWidth: { xs: "100%", sm: 220 },
-                        maxWidth: { xs: "100%", sm: 300 },
-                        "& .MuiFormControl-root, & .MuiAutocomplete-root": {
-                          m: 0,
-                          minWidth: "100% !important",
-                          maxWidth: "100% !important",
-                        },
-                        "& .MuiOutlinedInput-input, & .MuiSelect-select": {
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        },
-                      }}
-                    >
+                  <Box sx={filterPairRowSx}>
+                    <Box sx={filterLocationFieldBoxSx}>
                       {spainSite ? (
                         <FilterLocationAutocomplete
                           name="pickupLocation"
@@ -1560,23 +1605,7 @@ export default function NavBar({
                         />
                       )}
                     </Box>
-                    <Box
-                      sx={{
-                        flex: { xs: "1 1 100%", sm: "1 1 220px" },
-                        minWidth: { xs: "100%", sm: 220 },
-                        maxWidth: { xs: "100%", sm: 300 },
-                        "& .MuiFormControl-root, & .MuiAutocomplete-root": {
-                          m: 0,
-                          minWidth: "100% !important",
-                          maxWidth: "100% !important",
-                        },
-                        "& .MuiOutlinedInput-input, & .MuiSelect-select": {
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        },
-                      }}
-                    >
+                    <Box sx={filterLocationFieldBoxSx}>
                       {spainSite ? (
                         <FilterLocationAutocomplete
                           name="returnLocation"
@@ -1599,80 +1628,68 @@ export default function NavBar({
                         />
                       )}
                     </Box>
-                  </>
+                  </Box>
                 )}
 
-                <TextField
-                  size="small"
-                  type="date"
-                  name="searchStart"
-                  label={t("header.searchFrom")}
-                  value={draftSearchStart}
-                  onChange={(e) => setDraftSearchStart(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{
-                    min: new Date().toISOString().slice(0, 10),
-                    "aria-label": t("header.searchFrom"),
-                  }}
-                  sx={filterDateFieldSx}
-                />
-                <TextField
-                  size="small"
-                  type="date"
-                  name="searchEnd"
-                  label={t("header.searchTo")}
-                  value={draftSearchEnd}
-                  onChange={(e) => setDraftSearchEnd(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{
-                    min: draftSearchStart || new Date().toISOString().slice(0, 10),
-                    "aria-label": t("header.searchTo"),
-                  }}
-                  sx={filterDateFieldSx}
-                />
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={handleApplyDateSearch}
-                  disabled={
-                    !draftSearchStart ||
-                    !draftSearchEnd ||
-                    draftSearchEnd < draftSearchStart
-                  }
+                <Box
+                  id="catalog-date-fields"
                   sx={{
-                    height: 40,
-                    alignSelf: "flex-end",
-                    textTransform: "none",
-                    fontWeight: 700,
-                    px: 2,
-                    borderRadius: "10px",
-                    letterSpacing: "0.01em",
-                    wordSpacing: "0.16em",
-                    whiteSpace: "nowrap",
-                    backgroundColor: BRAND.pink,
-                    "&:hover": { backgroundColor: BRAND.pinkLight },
-                    "&.Mui-disabled": {
-                      backgroundColor: "rgba(255,255,255,0.12)",
-                      color: "rgba(255,255,255,0.35)",
-                    },
+                    ...filterPairRowSx,
+                    gridTemplateColumns:
+                      searchDates?.start || draftSearchStart
+                        ? "minmax(0, 1fr) minmax(0, 1fr) 40px"
+                        : "minmax(0, 1fr) minmax(0, 1fr)",
+                    alignItems: "end",
                   }}
                 >
-                  {t("header.searchDates")}
-                </Button>
-                {(searchDates?.start || draftSearchStart) && (
-                  <IconButton
-                    size="small"
-                    aria-label={t("header.clearSearchDates")}
-                    onClick={handleClearDateSearch}
-                    sx={{
-                      alignSelf: "flex-end",
-                      mb: 0.25,
-                      color: "rgba(255,255,255,0.75)",
-                    }}
-                  >
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
-                )}
+                      <TextField
+                        id="catalog-search-start"
+                        size="small"
+                        type="date"
+                        name="searchStart"
+                        label={t("header.searchFrom")}
+                        value={draftSearchStart}
+                        onChange={(e) => setDraftSearchStart(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        error={datesOutOfOrder}
+                        inputProps={{
+                          min: new Date().toISOString().slice(0, 10),
+                          "aria-label": t("header.searchFrom"),
+                        }}
+                        sx={filterDateFieldSx}
+                      />
+                      <TextField
+                        size="small"
+                        type="date"
+                        name="searchEnd"
+                        label={t("header.searchTo")}
+                        value={draftSearchEnd}
+                        onChange={(e) => setDraftSearchEnd(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        error={datesOutOfOrder}
+                        inputProps={{
+                          min:
+                            draftSearchStart ||
+                            new Date().toISOString().slice(0, 10),
+                          "aria-label": t("header.searchTo"),
+                        }}
+                        sx={filterDateFieldSx}
+                      />
+                      {(searchDates?.start || draftSearchStart) && (
+                        <IconButton
+                          size="small"
+                          aria-label={t("header.clearSearchDates")}
+                          onClick={handleClearDateSearch}
+                          sx={{
+                            height: 40,
+                            width: 40,
+                            color: "rgba(255,255,255,0.75)",
+                          }}
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                </Box>
               </Stack>
             </Stack>
           </StyledBox>
@@ -1704,12 +1721,17 @@ export default function NavBar({
               {headerIdentityLabel ? (
                 isSuperAdmin ? (
                   <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0, flexWrap: "wrap" }}>
-                    <Chip
-                      label={headerIdentityLabel}
-                      size="small"
-                      title={headerIdentityLabel}
-                      sx={{ ...adminChipSx, maxWidth: 180 }}
-                    />
+                    <Tooltip title={adminIdentityTooltip} arrow>
+                      <Chip
+                        label={headerIdentityLabel}
+                        size="small"
+                        aria-label={adminIdentityTooltip}
+                        sx={{
+                          ...adminChipSx,
+                          maxWidth: viewAsActive ? 180 : 36,
+                        }}
+                      />
+                    </Tooltip>
                     {viewAsActive ? (
                       <Button
                         size="small"
@@ -1728,12 +1750,19 @@ export default function NavBar({
                     )}
                   </Stack>
                 ) : (
-                  <Chip
-                    label={headerIdentityLabel}
-                    size="small"
-                    title={headerIdentityLabel}
-                    sx={{ ...adminChipSx, maxWidth: 220, height: 26, fontSize: "0.8rem" }}
-                  />
+                  <Tooltip title={adminIdentityTooltip} arrow>
+                    <Chip
+                      label={headerIdentityLabel}
+                      size="small"
+                      aria-label={adminIdentityTooltip}
+                      sx={{
+                        ...adminChipSx,
+                        maxWidth: viewAsActive ? 220 : 36,
+                        height: 26,
+                        fontSize: "0.8rem",
+                      }}
+                    />
+                  </Tooltip>
                 )
               ) : null}
             </Stack>
@@ -1819,6 +1848,15 @@ export default function NavBar({
                 <Box
                   sx={{ px: 2, py: 1, borderTop: "1px solid rgba(0,0,0,0.1)" }}
                 >
+                  <SendMyPasswordResetButton
+                    variant="outlined"
+                    fullWidth
+                    sx={{
+                      textTransform: "none",
+                      fontSize: "0.75rem",
+                      mb: 1,
+                    }}
+                  />
                   <Button
                     variant="outlined"
                     fullWidth

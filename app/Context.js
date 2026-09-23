@@ -472,10 +472,12 @@ export const MainContextProvider = ({
       if (process.env.NODE_ENV === "development") {
         console.error("Failed to update car:", error);
       }
+      const message = error.message || "Car WAS NOT successfully";
       setUpdateStatus({
         type: 500,
-        message: error.message || "Car WAS NOT successfully",
+        message,
       });
+      return { message, payload: error.payload || null };
     }
   }, []);
 

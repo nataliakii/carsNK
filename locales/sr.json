@@ -47,6 +47,7 @@
     "searchResultsTitle": "{{count}} auta dostupno {{from}} – {{to}}",
     "searchRegionLabel": "Region: {{region}}",
     "searchPriceLabel": "{{price}}€ za {{days}} dana",
+    "fromPriceLabel": "od {{price}}€/dan",
     "deliverySelectDatesHint": "Izaberite datume da vidite cenu sa dostavom.",
     "bookingDetailsButton": "Detalji rezervacije",
     "bookingDetailsTitle": "Detalji rezervacije",
@@ -271,6 +272,8 @@
   },
   "bookMesssages": {
     "bookOK": "Rezervacija primljena. Hvala vam na rezervaciji!",
+    "bookRequestSent": "Zahtev je poslat. Iznajmljivač će proveriti dostupnost.",
+    "bookCompanyReview": "Kompanija koja poseduje ovaj automobil proveriće datume i potvrditi dostupnost. Plaćanje će biti potrebno tek nakon potvrde.",
     "bookReceive": "Primili smo vašu rezervaciju za",
     "bookDays": "Broj dana:",
     "bookPrice": "Ukupna cena:",
@@ -339,6 +342,8 @@
   },
   "footer": {
     "contactUs": "Kontakt",
+    "legal": "Pravne informacije",
+    "links": "Linkovi",
     "kallikratiaBanner": "Ne znate kuda da odete u Halkidiki?",
     "kallikratiaBannerLink": "Nea Kallikratia Guide",
     "privacyPolicy": "Politika privatnosti",

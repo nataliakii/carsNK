@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
+import Company from "@models/company";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
 import {
   PARTNER_VERIFICATION_STATUS,
@@ -10,6 +11,12 @@ import {
 } from "@/domain/legal/partnerVerification";
 import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
+import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
+import { absoluteUrl } from "@config/domain";
+import {
+  CHECKOUT_INVALIDATION_REASON,
+  invalidateOpenMarketplaceCheckoutSessions,
+} from "@/domain/orders/invalidateMarketplaceCheckout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,6 +79,7 @@ export async function GET(request) {
 
   return NextResponse.json({
     success: true,
+    companyId,
     profile: profile || null,
     completeness: profile ? evaluateProfileCompleteness(profile) : null,
     statuses: PARTNER_VERIFICATION_STATUS,
@@ -112,6 +120,8 @@ export async function PUT(request) {
     profile = new PartnerLegalProfile({ companyId });
   }
 
+  const company = await Company.findById(companyId).select("name").lean();
+
   const wasVerified =
     profile.verificationStatus === PARTNER_VERIFICATION_STATUS.VERIFIED;
   const changed = [];
@@ -138,6 +148,7 @@ export async function PUT(request) {
   }
 
   const email = session.user?.email || "";
+  let submittedForReview = false;
 
   if (profile.verificationStatus === PARTNER_VERIFICATION_STATUS.REJECTED) {
     applyVerificationTransition(profile, {
@@ -159,9 +170,17 @@ export async function PUT(request) {
     body.submitForVerification &&
     profile.verificationStatus === PARTNER_VERIFICATION_STATUS.DRAFT
   ) {
+    // Thin KYB is allowed: fill legalName from company name when the partner
+    // submitted evidence but left the identity field blank.
+    if (!String(profile.legalName || "").trim() && company?.name) {
+      profile.legalName = String(company.name).trim();
+      if (!changed.includes("legalName")) changed.push("legalName");
+    }
+
     const transition = applyVerificationTransition(profile, {
       to: PARTNER_VERIFICATION_STATUS.PENDING_VERIFICATION,
       byEmail: email,
+      reason: "Partner submitted profile for review",
     });
     if (!transition.ok) {
       return NextResponse.json(
@@ -169,6 +188,10 @@ export async function PUT(request) {
         { status: 409 }
       );
     }
+    if (!profile.submittedAt) {
+      profile.submittedAt = profile.verificationStatusAt || new Date();
+    }
+    submittedForReview = true;
   }
 
   await profile.save();
@@ -187,6 +210,48 @@ export async function PUT(request) {
       verificationStatus: profile.verificationStatus,
     },
   });
+
+  const suspendedAfterVerified =
+    wasVerified &&
+    profile.verificationStatus === PARTNER_VERIFICATION_STATUS.SUSPENDED;
+
+  if (suspendedAfterVerified) {
+    await invalidateOpenMarketplaceCheckoutSessions(companyId, {
+      reason: CHECKOUT_INVALIDATION_REASON.SUSPENDED,
+      actorEmail: email,
+      actorRole: "admin",
+      ipAddress,
+      userAgent,
+    }).catch((err) => {
+      console.error(
+        "[partner-profile] checkout invalidate failed",
+        err?.message || err
+      );
+    });
+  }
+
+  if (submittedForReview || suspendedAfterVerified) {
+    try {
+      await notifySuperadmin({
+        title: submittedForReview
+          ? `📋 Partner submitted legal profile for review — ${profile.legalName || companyId}`
+          : `⏸ Verified partner changed legal data — ${profile.legalName || companyId}`,
+        bodyLines: [
+          `Company ID: ${companyId}`,
+          `Legal name: ${profile.legalName || "—"}`,
+          `Status: ${profile.verificationStatus}`,
+          `Submitted by: ${email}`,
+          changed.length ? `Changed fields: ${changed.join(", ")}` : null,
+          `Review: ${absoluteUrl(`/admin/legal?tab=partners&companyId=${encodeURIComponent(companyId)}`)}`,
+        ].filter(Boolean),
+      });
+    } catch (err) {
+      console.error(
+        "[partner-profile] superadmin notify failed:",
+        err?.message || err
+      );
+    }
+  }
 
   return NextResponse.json({
     success: true,

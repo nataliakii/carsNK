@@ -5,7 +5,9 @@ import { Autocomplete, TextField, CircularProgress } from "@mui/material";
 import { useTranslation } from "react-i18next";
 
 const MIN_QUERY_LENGTH = 3;
-const CLIENT_FETCH_TIMEOUT_MS = 6000;
+const CLIENT_FETCH_TIMEOUT_MS = 12000;
+/** Keep in sync with PLACES_DENIED_COOLDOWN_MS on the server. */
+const PLACES_RETRY_MS = 15 * 1000;
 
 function newSessionToken() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -16,8 +18,13 @@ function newSessionToken() {
 
 /**
  * Hotel/street address field with Google Places Autocomplete (server proxy).
- * Falls back to plain text when Places is not configured or the server key
- * is referer-restricted (REQUEST_DENIED).
+ *
+ * Spain marketplace (`requireVerifiedPlace`): typed free-text is never enough.
+ * When Places is missing or unavailable, show a clear recoverable message and
+ * do not present a manual address path that looks bookable.
+ *
+ * Legacy Greece / admin flows may keep `allowManualFallback` (default true when
+ * `requireVerifiedPlace` is false) for plain-text entry if the key is absent.
  */
 export default function BookingAddressPlacesField({
   label,
@@ -34,15 +41,26 @@ export default function BookingAddressPlacesField({
   FormHelperTextProps,
   disabled = false,
   sx,
+  requireVerifiedPlace = false,
+  allowManualFallback,
 }) {
   const { t, i18n } = useTranslation();
   const [inputValue, setInputValue] = useState(String(value || ""));
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [placesConfigured, setPlacesConfigured] = useState(true);
+  const [searchUnavailable, setSearchUnavailable] = useState(false);
+  const [failReason, setFailReason] = useState("");
   const sessionTokenRef = useRef(newSessionToken());
   const debounceRef = useRef(null);
   const abortRef = useRef(null);
+  const retryRef = useRef(null);
+  const fetchPredictionsRef = useRef(null);
+
+  const manualFallbackAllowed =
+    allowManualFallback !== undefined
+      ? Boolean(allowManualFallback)
+      : !requireVerifiedPlace;
 
   useEffect(() => {
     setInputValue(String(value || ""));
@@ -54,6 +72,10 @@ export default function BookingAddressPlacesField({
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
+    }
+    if (retryRef.current) {
+      clearTimeout(retryRef.current);
+      retryRef.current = null;
     }
     if (abortRef.current) {
       abortRef.current.abort();
@@ -69,6 +91,10 @@ export default function BookingAddressPlacesField({
         stopInFlight();
         setOptions([]);
         return;
+      }
+      if (retryRef.current) {
+        clearTimeout(retryRef.current);
+        retryRef.current = null;
       }
       if (abortRef.current) abortRef.current.abort();
       const abort = new AbortController();
@@ -88,25 +114,34 @@ export default function BookingAddressPlacesField({
           signal: abort.signal,
         });
         const body = await res.json().catch(() => ({}));
-        if (
-          body.configured === false ||
-          body.unavailable === true ||
-          body.success === false
-        ) {
+        // Missing key → optional plain text only for legacy/manual flows.
+        if (body.configured === false) {
           setPlacesConfigured(false);
+          setSearchUnavailable(true);
+          setFailReason(body.reason || "not_configured");
           setOptions([]);
           return;
         }
-        setOptions(Array.isArray(body.predictions) ? body.predictions : []);
-      } catch (err) {
-        if (err?.name === "AbortError") {
-          if (abortRef.current === abort) {
-            setPlacesConfigured(false);
-            setOptions([]);
-          }
+        if (body.unavailable || body.success === false) {
+          setSearchUnavailable(true);
+          setFailReason(String(body.reason || ""));
+          setOptions([]);
+          if (retryRef.current) clearTimeout(retryRef.current);
+          retryRef.current = setTimeout(() => {
+            retryRef.current = null;
+            fetchPredictionsRef.current?.(q);
+          }, PLACES_RETRY_MS);
           return;
         }
-        setPlacesConfigured(false);
+        setSearchUnavailable(false);
+        setFailReason("");
+        if (retryRef.current) {
+          clearTimeout(retryRef.current);
+          retryRef.current = null;
+        }
+        setOptions(Array.isArray(body.predictions) ? body.predictions : []);
+      } catch (err) {
+        if (err?.name === "AbortError") return;
         setOptions([]);
       } finally {
         clearTimeout(timeoutId);
@@ -118,6 +153,7 @@ export default function BookingAddressPlacesField({
     },
     [country, lang, placesConfigured, stopInFlight]
   );
+  fetchPredictionsRef.current = fetchPredictions;
 
   const scheduleFetch = useCallback(
     (text) => {
@@ -162,7 +198,7 @@ export default function BookingAddressPlacesField({
           setInputValue(body.address);
           if (onChange) onChange(body.address);
           if (onResolved) onResolved(body);
-        } else if (prediction.description) {
+        } else if (prediction.description && !requireVerifiedPlace) {
           setInputValue(prediction.description);
           if (onChange) onChange(prediction.description);
           if (onResolved) {
@@ -174,24 +210,84 @@ export default function BookingAddressPlacesField({
           }
         }
       } catch {
-        if (prediction.description) {
+        if (prediction.description && !requireVerifiedPlace) {
           setInputValue(prediction.description);
           if (onChange) onChange(prediction.description);
         }
       }
     },
-    [lang, cityBias, country, companyId, carId, onChange, onResolved]
+    [
+      lang,
+      cityBias,
+      country,
+      companyId,
+      carId,
+      onChange,
+      onResolved,
+      requireVerifiedPlace,
+    ]
   );
+
+  const unavailableMessage = useMemo(() => {
+    if (
+      process.env.NODE_ENV === "development" &&
+      failReason === "referer_restricted"
+    ) {
+      return t("order.placesSearchRefererHint", {
+        defaultValue:
+          "Google blocked the server key (HTTP referrer restrictions do not work here). Use a server key with no referrer restriction, Places API enabled, and billing on.",
+      });
+    }
+    return t("order.placesSearchUnavailable", {
+      defaultValue:
+        "Address search is temporarily unavailable. Please choose a company office or try again later.",
+    });
+  }, [failReason, t]);
 
   const fallbackHelper = useMemo(() => {
     if (helperText) return helperText;
-    if (!placesConfigured) {
+    if (!placesConfigured || searchUnavailable) {
+      if (requireVerifiedPlace || !manualFallbackAllowed) {
+        return unavailableMessage;
+      }
+      if (
+        process.env.NODE_ENV === "development" &&
+        failReason === "referer_restricted"
+      ) {
+        return unavailableMessage;
+      }
       return t("order.placesSearchUnavailable", {
         defaultValue: t("order.placesFallbackManual"),
       });
     }
     return "";
-  }, [helperText, placesConfigured, t]);
+  }, [
+    helperText,
+    placesConfigured,
+    searchUnavailable,
+    requireVerifiedPlace,
+    manualFallbackAllowed,
+    unavailableMessage,
+    failReason,
+    t,
+  ]);
+
+  const blockedField = (
+    <TextField
+      label={label}
+      value={inputValue}
+      onChange={() => {}}
+      error={error || requireVerifiedPlace}
+      helperText={fallbackHelper}
+      FormHelperTextProps={FormHelperTextProps}
+      disabled
+      fullWidth
+      size="small"
+      variant="outlined"
+      InputLabelProps={{ shrink: true }}
+      sx={sx}
+    />
+  );
 
   const manualField = (
     <TextField
@@ -214,12 +310,19 @@ export default function BookingAddressPlacesField({
   );
 
   if (!placesConfigured) {
+    if (requireVerifiedPlace || !manualFallbackAllowed) {
+      return blockedField;
+    }
     return manualField;
+  }
+
+  if (requireVerifiedPlace && searchUnavailable) {
+    return blockedField;
   }
 
   return (
     <Autocomplete
-      freeSolo
+      freeSolo={!requireVerifiedPlace}
       options={options}
       filterOptions={(x) => x}
       getOptionLabel={(opt) =>
@@ -233,12 +336,16 @@ export default function BookingAddressPlacesField({
         if (reason === "reset") return;
         setInputValue(newInput);
         if (onChange) onChange(newInput);
+        // Typing without selecting a suggestion clears verified place binding.
+        if (requireVerifiedPlace && onResolved) {
+          onResolved({ success: false, placeId: "", address: newInput });
+        }
         scheduleFetch(newInput);
       }}
       onChange={(_, newValue) => {
         if (newValue && typeof newValue === "object" && newValue.placeId) {
           resolvePlace(newValue);
-        } else if (typeof newValue === "string") {
+        } else if (typeof newValue === "string" && !requireVerifiedPlace) {
           setInputValue(newValue);
           if (onChange) onChange(newValue);
         }
@@ -250,7 +357,9 @@ export default function BookingAddressPlacesField({
               defaultValue: "Type at least 3 characters.",
             })
           : t("order.placesNoMatches", {
-              defaultValue: "No suggestions — type the address.",
+              defaultValue: requireVerifiedPlace
+                ? "No suggestions — choose a company office or try another address."
+                : "No suggestions — type the address.",
             })
       }
       renderInput={(params) => (

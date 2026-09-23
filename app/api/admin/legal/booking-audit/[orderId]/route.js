@@ -9,6 +9,8 @@ import { getOrderAuditTrail } from "@/domain/legal/auditTrail";
 import { listOffersForOrder } from "@/domain/booking/alternativeVehicle";
 import { resolveRentalState } from "@/domain/booking/rentalBookingState";
 import { getAgreementVersionRef } from "@/domain/legal/agreementService";
+import { listSupportMessagesForOrder } from "@/domain/orders/partnerSupportMessage";
+import { buildMarketplacePaymentOpsView } from "@/domain/orders/marketplacePaymentVisibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,13 +37,16 @@ export async function GET(request, { params }) {
     );
   }
 
-  const [snapshots, tokens, offers, auditTrail, agreementRef] = await Promise.all([
-    ConfirmedBookingSnapshot.find({ orderId }).sort({ sequence: 1 }).lean(),
-    BookingConfirmationToken.find({ orderId }).sort({ createdAt: 1 }).lean(),
-    listOffersForOrder(orderId),
-    getOrderAuditTrail(orderId),
-    order.ownerId ? getAgreementVersionRef(order.ownerId).catch(() => null) : null,
-  ]);
+  const [snapshots, tokens, offers, auditTrail, agreementRef, supportMessages, paymentOps] =
+    await Promise.all([
+      ConfirmedBookingSnapshot.find({ orderId }).sort({ sequence: 1 }).lean(),
+      BookingConfirmationToken.find({ orderId }).sort({ createdAt: 1 }).lean(),
+      listOffersForOrder(orderId),
+      getOrderAuditTrail(orderId),
+      order.ownerId ? getAgreementVersionRef(order.ownerId).catch(() => null) : null,
+      listSupportMessagesForOrder(orderId),
+      buildMarketplacePaymentOpsView(order),
+    ]);
 
   return NextResponse.json({
     success: true,
@@ -66,7 +71,7 @@ export async function GET(request, { params }) {
       replayAttempts: t.replayAttempts,
       agreementRef: t.agreementRef,
     })),
-    clientPayment: order.payment
+    clientPayment: paymentOps?.payment || (order.payment
       ? {
           provider: order.payment.provider || "",
           status: order.payment.status || "",
@@ -76,7 +81,8 @@ export async function GET(request, { params }) {
           providerPaymentId: order.payment.providerPaymentId || "",
           collectionMode: order.payment.collectionMode || "",
         }
-      : null,
+      : null),
+    marketplacePayment: paymentOps,
     priceSnapshot: order.authoritativePrice || null,
     /** Immutable; the checksum proves nothing was altered afterwards. */
     confirmedSnapshots: snapshots,
@@ -93,6 +99,7 @@ export async function GET(request, { params }) {
         declineReason: o.declineReason || "",
       })),
     emails: order.confirmationEmailHistory || [],
+    supportMessages,
     auditLog: auditTrail,
   });
 }

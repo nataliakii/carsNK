@@ -8,6 +8,8 @@ import {
   listAgreements,
   CLICKWRAP_ACCEPTANCE_STATEMENT,
 } from "@/domain/legal/agreementService";
+import { resolveEsignProvider } from "@/domain/legal/esign";
+import { resolveClickwrapIp } from "@/domain/legal/agreementSigning";
 import { normalizeLegalLanguage } from "@/domain/legal/documentTypes";
 import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
@@ -63,10 +65,13 @@ export async function GET(request) {
     metadata: { companyId, packageChecksum: pkg.packageChecksum },
   });
 
+  const { mode: esignMode } = resolveEsignProvider(pkg.settings.esignProvider);
+
   return NextResponse.json({
     success: true,
     acceptanceStatement: CLICKWRAP_ACCEPTANCE_STATEMENT,
     packageChecksum: pkg.packageChecksum,
+    esignMode,
     /** true while the documents are still drafts — signing is blocked. */
     containsDrafts: pkg.anyDraft,
     documents: pkg.documents.map((d) => ({
@@ -155,7 +160,7 @@ export async function POST(request) {
     confirmationOfAuthority: Boolean(body?.confirmationOfAuthority),
     acceptedCheckbox: Boolean(body?.acceptedCheckbox),
     authenticatedUserId: String(session.user?.id || session.user?.email || ""),
-    ipAddress,
+    ipAddress: resolveClickwrapIp(ipAddress),
     userAgent,
     evidenceStorageRef: body?.evidenceStorageRef,
   });

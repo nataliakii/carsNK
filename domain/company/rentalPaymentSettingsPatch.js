@@ -5,6 +5,7 @@
  */
 
 import { isSuperAdminUser } from "@/domain/owners/ownerScope";
+import { parseMarketplaceBookingFeeBps } from "@/domain/orders/marketplaceBookingFee";
 
 export const RENTAL_PAYMENTS_SUPERADMIN_ONLY =
   "Only platform superadmin can change rental payment settings";
@@ -12,6 +13,7 @@ export const RENTAL_PAYMENTS_SUPERADMIN_ONLY =
 export function hasRentalPaymentPatchFields(body) {
   return (
     body?.prepaymentPercent !== undefined ||
+    body?.marketplaceBookingFeeBps !== undefined ||
     (body?.rentalPayments != null && typeof body.rentalPayments === "object")
   );
 }
@@ -51,6 +53,21 @@ export function rentalPaymentUpdatesFromPatch(body, user) {
         };
       }
       updates.prepaymentPercent = n;
+    }
+  }
+
+  if (body?.marketplaceBookingFeeBps !== undefined) {
+    if (
+      body.marketplaceBookingFeeBps === null ||
+      body.marketplaceBookingFeeBps === ""
+    ) {
+      updates.marketplaceBookingFeeBps = null;
+    } else {
+      const parsed = parseMarketplaceBookingFeeBps(body.marketplaceBookingFeeBps);
+      if (!parsed.ok) {
+        return { ok: false, status: 400, error: parsed.error };
+      }
+      updates.marketplaceBookingFeeBps = parsed.bps;
     }
   }
 

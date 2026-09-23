@@ -5,7 +5,11 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { ROLE } from "@/domain/orders/admin-rbac";
-import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
+import { parseCustomerPhone } from "@/domain/validation/customerPhone";
+import {
+  parseOptionalCustomerEmail,
+  parseRequiredCustomerEmail,
+} from "@/domain/validation/customerEmail";
 
 export const PUT = async (req) => {
   try {
@@ -64,23 +68,40 @@ export const PUT = async (req) => {
     // Filter the update to only include allowed fields
     const updateFields = {};
     if (phone !== undefined && phone !== null) {
-      const phoneTrim =
-        typeof phone === "string" ? phone.trim() : String(phone).trim();
-      if (phoneTrim) {
-        if (!isValidInternationalPhone(phoneTrim)) {
-          return new Response(
-            JSON.stringify({
-              success: false,
-              message: "Некорректный номер телефона",
-              code: "INVALID_PHONE",
-            }),
-            { status: 400, headers: { "Content-Type": "application/json" } }
-          );
-        }
-        updateFields.phone = phoneTrim;
+      const phoneResult = parseCustomerPhone(phone, {
+        required: false,
+        skipFormat: Boolean(existingOrder.offline),
+      });
+      if (!phoneResult.ok) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: "Некорректный номер телефона",
+            code: "INVALID_PHONE",
+            messageKey: phoneResult.messageKey,
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (existingOrder.offline || phoneResult.phone) {
+        updateFields.phone = phoneResult.phone;
       }
     }
-    updateFields.email = email; // Обновляем email даже если он пустой
+    const emailResult = existingOrder.offline
+      ? parseOptionalCustomerEmail(email)
+      : parseRequiredCustomerEmail(email);
+    if (!emailResult.ok) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: emailResult.message,
+          code: emailResult.code === "required" ? "EMAIL_REQUIRED" : "INVALID_EMAIL",
+          messageKey: emailResult.messageKey,
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    updateFields.email = emailResult.email;
     if (customerName) updateFields.customerName = customerName;
     // Allow updating flightNumber (accept empty string as valid)
     if (flightNumber !== undefined) updateFields.flightNumber = flightNumber;

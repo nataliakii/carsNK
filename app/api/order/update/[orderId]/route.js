@@ -12,7 +12,11 @@ import { notifyOrderAction } from "@/domain/orders/orderNotificationDispatcher";
 import { getBusinessRentalDaysByMinutes } from "@/domain/orders/numberOfDays";
 import { analyzeConfirmationConflicts } from "@/domain/booking/analyzeConfirmationConflicts";
 import { COMPANY_ID } from "@config/company";
-import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
+import { parseCustomerPhone } from "@/domain/validation/customerPhone";
+import {
+  parseOptionalCustomerEmail,
+  parseRequiredCustomerEmail,
+} from "@/domain/validation/customerEmail";
 import { PriceBreakdown } from "@models/PriceBreakdown";
 import { detectPricingDrift } from "@/domain/orders/pricingDrift";
 import { toBooleanField, setSecondDriverField } from "@/domain/orders/fieldUtils";
@@ -24,7 +28,10 @@ import {
   AVAILABILITY_PURPOSE,
   checkOrderIntervalConflicts,
 } from "@/domain/booking/availabilityEngine";
-import { resolveBookingMode } from "@/domain/booking/bookingMode";
+import { isMarketplaceRequestMode, resolveBookingMode } from "@/domain/booking/bookingMode";
+import { applyMarketplacePriceCorrection } from "@/domain/orders/applyMarketplacePriceCorrection";
+import { extractAuditContext } from "@/domain/legal/auditTrail";
+import { toMinorUnits } from "@/domain/money/minorUnits";
 import { LEGACY_FALLBACK_TZ } from "@/domain/time/resolveBusinessTimezone";
 import { localSnapshotFromUtc } from "@/domain/time/businessInstant";
 import DiscountSetting from "@models/DiscountSetting";
@@ -320,10 +327,36 @@ export const PATCH = async (request, { params }) => {
       isPast,
       isClosed: isOrderPaidAndClosed(order.status),
       timeBucket,
+      bookingMode: order.bookingMode || "",
+      partnerConfirmed: Boolean(
+        order.partnerConfirmedAt || order.companyEmailDecision === "accepted"
+      ),
+      paymentStatus: order.payment?.status || "",
     });
 
+    const marketplaceCorrectionRequested =
+      isMarketplaceRequestMode(order.bookingMode) &&
+      payload.marketplacePriceCorrection === true &&
+      payload.totalPrice !== undefined;
+
     // Проверяем все поля из payload через единую логику
-    const fieldsToUpdate = Object.keys(payload).filter(key => payload[key] !== undefined);
+    const fieldsToUpdate = Object.keys(payload).filter((key) => {
+      if (payload[key] === undefined) return false;
+      if (
+        key === "marketplacePriceCorrection" ||
+        key === "correctionReason" ||
+        key === "confirmZeroSupplierBalance"
+      ) {
+        return false;
+      }
+      if (
+        marketplaceCorrectionRequested &&
+        (key === "totalPrice" || key === "isOverridePrice")
+      ) {
+        return false;
+      }
+      return true;
+    });
     const fieldCheck = checkFieldAccess(access, fieldsToUpdate);
     
     if (!fieldCheck.allowed) {
@@ -338,22 +371,100 @@ export const PATCH = async (request, { params }) => {
       );
     }
 
+    if (
+      isMarketplaceRequestMode(order.bookingMode) &&
+      payload.totalPrice !== undefined &&
+      !marketplaceCorrectionRequested
+    ) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Use an explicit price correction with a reason.",
+          code: "MARKETPLACE_PRICE_LOCKED",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (marketplaceCorrectionRequested) {
+      const { ipAddress, userAgent } = extractAuditContext(request);
+      const revisedGrossMinor = toMinorUnits(
+        payload.totalPrice,
+        order.authoritativePrice?.currency || order.currency || "EUR"
+      );
+      const correction = await applyMarketplacePriceCorrection({
+        orderId,
+        revisedGrossMinor,
+        reason: payload.correctionReason,
+        actorEmail: session.user?.email || "",
+        actorRole: isSuperAdmin ? "SUPERADMIN" : "ADMIN",
+        actorUserId: session.user?.id || session.user?._id || "",
+        confirmZeroSupplierBalance: payload.confirmZeroSupplierBalance === true,
+        ipAddress,
+        userAgent,
+      });
+      if (!correction.ok) {
+        return new Response(JSON.stringify(correction), {
+          status: correction.status || 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      delete payload.totalPrice;
+      delete payload.isOverridePrice;
+      delete payload.marketplacePriceCorrection;
+      delete payload.correctionReason;
+      delete payload.confirmZeroSupplierBalance;
+      if (fieldsToUpdate.length === 0) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "Price updated",
+            data: correction.order,
+            updatedOrder: correction.order,
+            revision: correction.revision,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const becomingOffline =
+      payload.offline !== undefined ? Boolean(payload.offline) : Boolean(order.offline);
     if (payload.phone !== undefined) {
-      const phoneTrim =
-        typeof payload.phone === "string"
-          ? payload.phone.trim()
-          : String(payload.phone ?? "").trim();
-      if (phoneTrim && !isValidInternationalPhone(phoneTrim)) {
+      const phoneResult = parseCustomerPhone(payload.phone, {
+        required: false,
+        skipFormat: becomingOffline,
+      });
+      if (!phoneResult.ok) {
         return new Response(
           JSON.stringify({
             success: false,
-            message: "Invalid phone number",
+            message: phoneResult.message,
             code: "INVALID_PHONE",
+            messageKey: phoneResult.messageKey,
           }),
           { status: 400, headers: { "Content-Type": "application/json" } }
         );
       }
-      payload.phone = phoneTrim;
+      payload.phone = phoneResult.phone;
+    }
+
+    if (payload.email !== undefined) {
+      const emailResult = becomingOffline
+        ? parseOptionalCustomerEmail(payload.email)
+        : parseRequiredCustomerEmail(payload.email);
+      if (!emailResult.ok) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: emailResult.message,
+            code: emailResult.code === "required" ? "EMAIL_REQUIRED" : "INVALID_EMAIL",
+            messageKey: emailResult.messageKey,
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      payload.email = emailResult.email;
     }
 
     // Handle terminal close status transition (PAID_AND_CLOSED)

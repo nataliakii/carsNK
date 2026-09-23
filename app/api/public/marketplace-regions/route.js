@@ -8,6 +8,7 @@ import {
 } from "@/domain/platform/companyCountryScope";
 import { getSiteCountryCode } from "@config/siteCountry";
 import { normalizeBookingLocationKey } from "@/domain/platform/bookingLocations";
+import { ownerIdsHiddenFromPublicMarketplace } from "@/domain/legal/partnerOperatingPolicy";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +25,20 @@ export async function GET() {
       ...buildSiteCountryCompanyFilter(siteCountry),
       listedOnMarketplace: { $ne: false },
     })
-      .select("name cityIds locations coords orderRadiusKm country listedOnMarketplace")
+      .select("name cityIds locations coords orderRadiusKm country listedOnMarketplace bookingMode")
       .lean();
 
     const byKey = new Map();
 
-    for (const company of companies || []) {
-      if (!isCompanyInSiteCountry(company, siteCountry)) continue;
+    const listed = (companies || []).filter((company) =>
+      isCompanyInSiteCountry(company, siteCountry)
+    );
+    const hidden = new Set(
+      (await ownerIdsHiddenFromPublicMarketplace(listed)).map((id) => String(id))
+    );
+
+    for (const company of listed) {
+      if (hidden.has(String(company._id))) continue;
       const ownerId = String(company._id);
       const cities = await loadCompanyBookingCities(company);
       for (const city of cities || []) {

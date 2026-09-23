@@ -3,6 +3,7 @@
  */
 
 import { getBaseUrl } from "@config/domain";
+import { listCarPhotos } from "@/domain/cars/carPhotos";
 
 /** Booking / public links always use SEO canonical (carsnk.gr), never peer mirror. */
 export function getAggregatorBookingBaseUrl() {
@@ -127,6 +128,7 @@ export function mapCarToAggregatorDto(doc, options = {}) {
       typeof doc.photoUrl === "string" ? doc.photoUrl : null
     ),
     imageId: typeof doc.photoUrl === "string" ? doc.photoUrl : null,
+    images: listCarPhotos(doc).map((id) => buildCloudinaryImageUrl(id)).filter(Boolean),
     bookingUrl: slug
       ? `${baseUrl}/en/cars/${encodeURIComponent(slug)}`
       : `${baseUrl}/en`,
@@ -168,4 +170,4 @@ export function isAggregatorRequestAuthorized(request) {
 }
 
 export const AGGREGATOR_CAR_SELECT =
-  "_id carNumber model transmission slug photoUrl pricingTiers fueltype seats class registration color numberOfDoors airConditioning enginePower engine deposit franchise updatedAt";
+  "_id carNumber model transmission slug photoUrl photos pricingTiers fueltype seats class registration color numberOfDoors airConditioning enginePower engine deposit franchise updatedAt";

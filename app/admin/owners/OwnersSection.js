@@ -8,6 +8,7 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -49,6 +50,8 @@ import CompanyRentalPaymentsCard from "@/app/admin/shared/components/CompanyRent
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
+import { useTranslation } from "react-i18next";
 import {
   meetingContactsFromCompany,
   meetingContactsUpdatePayload,
@@ -94,6 +97,7 @@ function shortId(id) {
 }
 
 export default function OwnersSection() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { enter: enterViewAs, loading: viewAsLoading } = useAdminViewAs();
   const [companies, setCompanies] = useState([]);
@@ -133,6 +137,7 @@ export default function OwnersSection() {
   const [editAdminOpen, setEditAdminOpen] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState(null);
   const [editAdminEmail, setEditAdminEmail] = useState("");
+  const [storefrontOpen, setStorefrontOpen] = useState(false);
 
   const { country: adminCountry } = useAdminCountryFilter();
 
@@ -283,6 +288,13 @@ export default function OwnersSection() {
     setOk(`Viewing as ${result.company?.name || "company"}`);
     router.push("/admin/orders-calendar");
     router.refresh();
+  };
+
+  const openCompanyLegal = async () => {
+    if (!selectedCompanyId) return;
+    router.push(
+      `/admin/legal?tab=partners&companyId=${encodeURIComponent(selectedCompanyId)}`
+    );
   };
 
   const createUser = async () => {
@@ -571,6 +583,15 @@ export default function OwnersSection() {
         ) : null}
       </Stack>
 
+      <Alert severity="info" sx={{ mb: 2 }}>
+        <Typography variant="body2">
+          {t("admin.companies.legalHelperPlatform")}
+        </Typography>
+        <Typography variant="body2">
+          {t("admin.companies.legalHelperPartner")}
+        </Typography>
+      </Alert>
+
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
@@ -608,7 +629,7 @@ export default function OwnersSection() {
         >
           <Box sx={{ px: 2, py: 1.25, borderBottom: "1px solid", borderColor: "divider", flexShrink: 0 }}>
             <Typography variant="subtitle2" fontWeight={700}>
-              Companies
+              Partners
             </Typography>
           </Box>
           <List dense disablePadding sx={{ overflowY: "auto", flex: 1 }}>
@@ -684,6 +705,15 @@ export default function OwnersSection() {
                     <Button
                       size="small"
                       variant="contained"
+                      startIcon={<AssignmentTurnedInIcon />}
+                      onClick={openCompanyLegal}
+                      disabled={busy || viewAsLoading || !selectedCompanyId}
+                    >
+                      {t("admin.companies.reviewLegal")}
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
                       startIcon={<OpenInNewIcon />}
                       onClick={openCompanyAdmin}
                       disabled={busy || viewAsLoading || !selectedCompanyId}
@@ -720,20 +750,53 @@ export default function OwnersSection() {
                 }
               />
 
-              <CompanyStorefrontCard
-                company={selectedCompany}
-                onEditBaseLocation={openEditCompany}
-                onSaved={(updated) => {
-                  setCompanies((prev) =>
-                    prev.map((item) =>
-                      String(item._id) === String(updated._id)
-                        ? { ...item, ...updated }
-                        : item
-                    )
-                  );
-                  setOk(`Company updated: ${updated.name}`);
+              <Box
+                sx={{
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                  p: 1.5,
+                  bgcolor: "background.paper",
                 }}
-              />
+              >
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1}
+                  alignItems={{ sm: "center" }}
+                  justifyContent="space-between"
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    {t("admin.companies.storefrontHint")}
+                  </Typography>
+                  <Button
+                    size="small"
+                    onClick={() => setStorefrontOpen((open) => !open)}
+                    sx={{ textTransform: "none", flexShrink: 0 }}
+                  >
+                    {storefrontOpen
+                      ? t("admin.companies.hideStorefront")
+                      : t("admin.companies.showStorefront")}
+                  </Button>
+                </Stack>
+                <Collapse in={storefrontOpen}>
+                  <Box sx={{ mt: 2 }}>
+                    <CompanyStorefrontCard
+                      company={selectedCompany}
+                      onEditBaseLocation={openEditCompany}
+                      onSaved={(updated) => {
+                        setCompanies((prev) =>
+                          prev.map((item) =>
+                            String(item._id) === String(updated._id)
+                              ? { ...item, ...updated }
+                              : item
+                          )
+                        );
+                        setOk(`Company updated: ${updated.name}`);
+                      }}
+                    />
+                  </Box>
+                </Collapse>
+              </Box>
 
               <CompanyRentalPaymentsCard
                 company={selectedCompany}

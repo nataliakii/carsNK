@@ -6,6 +6,8 @@ import "dayjs/locale/ru";
 import { getOrderNumberOfDaysOrZero } from "@/domain/orders/numberOfDays";
 dayjs.extend(timezone);
 import { useTranslation } from "react-i18next";
+import { PAYMENT_LINK_STATUS } from "@/domain/orders/companyRentalPaymentPolicy";
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 
 function formatEuroAmount(value) {
   const numericValue = Number(value);
@@ -26,6 +28,15 @@ const SuccessMessage = ({
 }) => {
   const { t } = useTranslation();
   const displayTz = submittedOrder?.timezone || "Europe/Athens";
+  const isMarketplace = isMarketplaceRequestMode(submittedOrder?.bookingMode);
+  const paymentUrl = isMarketplace ? "" : submittedOrder?.paymentUrl || "";
+  const paymentLinkStatus = String(submittedOrder?.paymentLinkStatus || "");
+  const showPaymentMissing =
+    !isMarketplace &&
+    !paymentUrl &&
+    (paymentLinkStatus === PAYMENT_LINK_STATUS.NOT_CONFIGURED ||
+      paymentLinkStatus === PAYMENT_LINK_STATUS.FAILED ||
+      paymentLinkStatus === PAYMENT_LINK_STATUS.AMOUNT_TOO_LOW);
   return (
     <Box>
       {message ? (
@@ -44,7 +55,12 @@ const SuccessMessage = ({
           textAlign="center"
           sx={{ textTransform: "uppercase" }}
         >
-          {t("bookMesssages.bookOK")}
+          {isMarketplace
+            ? t("bookMesssages.bookRequestSent", {
+                defaultValue:
+                  "Request sent. The rental company will review availability.",
+              })
+            : t("bookMesssages.bookOK")}
         </Typography>
       )}
 
@@ -119,6 +135,36 @@ const SuccessMessage = ({
           {t("bookMesssages.bookFinalize")}
         </Typography>
       )}
+      {paymentUrl ? (
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+          <Button
+            href={paymentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="contained"
+            sx={{
+              fontWeight: 700,
+              backgroundColor: "primary.main",
+              color: "white",
+            }}
+          >
+            {t("bookMesssages.payPrepayment", {
+              defaultValue: "Pay prepayment",
+            })}
+          </Button>
+        </Box>
+      ) : showPaymentMissing ? (
+        <Typography
+          variant="body2"
+          textAlign="center"
+          sx={{ mt: 2, color: "warning.main", fontWeight: 600 }}
+        >
+          {t("bookMesssages.paymentLinkNotConfigured", {
+            defaultValue:
+              "Payment link is not configured. We will send it when online payment is available.",
+          })}
+        </Typography>
+      ) : null}
       <Typography
         variant="body1"
         textAlign="center"
@@ -130,7 +176,12 @@ const SuccessMessage = ({
           lineHeight: 1.5,
         }}
       >
-        {t("order.weContact")}
+        {isMarketplace
+          ? t("bookMesssages.bookCompanyReview", {
+              defaultValue:
+                "The company that owns this car will review your dates and confirm if the vehicle is available. You will only be asked to pay after they confirm.",
+            })
+          : t("order.weContact")}
       </Typography>
       {/* Добавлена кнопка OK для выхода из сообщения */}
       <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>

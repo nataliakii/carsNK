@@ -1,3 +1,4 @@
+import { PassThrough } from "stream";
 import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@lib/adminAuth";
@@ -20,6 +21,8 @@ import { PARTNER_VERIFICATION_STATUS } from "@/domain/legal/partnerVerification"
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Cloudinary uploads can take ~15s; do not let the platform default cut them off. */
+export const maxDuration = 60;
 
 /**
  * Supporting evidence for the partner legal profile.
@@ -33,13 +36,18 @@ function resolveCompanyId(session, requested) {
   return resolvePartnerCompanyId(session, requested);
 }
 
-function noCompanyResponse() {
+function jsonError(status, error, message, extra) {
   return NextResponse.json(
-    {
-      success: false,
-      message: "No partner company is associated with this account",
-    },
-    { status: 403 }
+    { success: false, error, message, ...(extra || {}) },
+    { status }
+  );
+}
+
+function noCompanyResponse() {
+  return jsonError(
+    403,
+    "no_company",
+    "No partner company is associated with this account"
   );
 }
 
@@ -69,284 +77,308 @@ function uploadBufferToCloudinary(buffer, folder, resourceType) {
         else resolve(result);
       }
     );
-    const stream = require("stream");
-    const passthrough = new stream.PassThrough();
+    const passthrough = new PassThrough();
     passthrough.end(buffer);
     passthrough.pipe(uploadStream);
   });
 }
 
+function isDuplicateKeyError(err) {
+  return Number(err?.code) === 11000;
+}
+
+/**
+ * Two first-time uploads (or an upload racing a profile save) both used to
+ * `new PartnerLegalProfile` + `save()`, and the loser threw E11000 with no JSON.
+ */
+async function loadOrCreateProfile(companyId) {
+  const existing = await PartnerLegalProfile.findOne({ companyId });
+  if (existing) return existing;
+  try {
+    const created = new PartnerLegalProfile({ companyId, documents: [] });
+    await created.save();
+    return created;
+  } catch (err) {
+    if (!isDuplicateKeyError(err)) throw err;
+    const raced = await PartnerLegalProfile.findOne({ companyId });
+    if (!raced) throw err;
+    return raced;
+  }
+}
+
+/** Replace or append one evidence slot without dropping a parallel upload. */
+async function saveDocumentEntry(companyId, entry) {
+  const replaced = await PartnerLegalProfile.findOneAndUpdate(
+    { companyId, "documents.kind": entry.kind },
+    { $set: { "documents.$": entry } },
+    { new: true }
+  );
+  if (replaced) return { replaced: true };
+
+  const pushed = await PartnerLegalProfile.findOneAndUpdate(
+    { companyId, "documents.kind": { $ne: entry.kind } },
+    { $push: { documents: entry } },
+    { new: true }
+  );
+  if (pushed) return { replaced: false };
+
+  const retry = await PartnerLegalProfile.findOneAndUpdate(
+    { companyId, "documents.kind": entry.kind },
+    { $set: { "documents.$": entry } },
+    { new: true }
+  );
+  if (retry) return { replaced: true };
+
+  throw new Error("Partner legal profile not found");
+}
+
 /** GET — short-lived signed URLs for the partner's own evidence. */
 export async function GET(request) {
-  const { session, errorResponse } = await requireAdmin(request);
-  if (errorResponse) return errorResponse;
+  try {
+    const { session, errorResponse } = await requireAdmin(request);
+    if (errorResponse) return errorResponse;
 
-  const companyId = resolveCompanyId(
-    session,
-    request.nextUrl.searchParams.get("companyId")
-  );
-  if (!companyId) return noCompanyResponse();
-
-  await connectToDB();
-  const profile = await PartnerLegalProfile.findOne({ companyId })
-    .select("documents")
-    .lean();
-
-  const stored = (profile?.documents || []).filter((doc) => doc?.storageRef);
-  if (!stored.length) {
-    return NextResponse.json({ success: true, documents: [] });
-  }
-
-  const cfg = ensureCloudinaryConfigured();
-  if (!cfg.ok) {
-    return NextResponse.json(
-      { success: false, message: "Document storage is not configured" },
-      { status: 503 }
+    const companyId = resolveCompanyId(
+      session,
+      request.nextUrl.searchParams.get("companyId")
     );
+    if (!companyId) return noCompanyResponse();
+
+    await connectToDB();
+    const profile = await PartnerLegalProfile.findOne({ companyId })
+      .select("documents")
+      .lean();
+
+    const stored = (profile?.documents || []).filter((doc) => doc?.storageRef);
+    if (!stored.length) {
+      return NextResponse.json({ success: true, documents: [] });
+    }
+
+    const cfg = ensureCloudinaryConfigured();
+    if (!cfg.ok) {
+      return jsonError(503, "storage_unconfigured", "Document storage is not configured");
+    }
+
+    const expiresAt = Math.floor(Date.now() / 1000) + SIGNED_URL_TTL_SECONDS;
+    const documents = stored.map((doc) => ({
+      kind: doc.kind,
+      label: doc.label || "",
+      uploadedAt: doc.uploadedAt,
+      accepted: Boolean(doc.accepted),
+      note: doc.note || "",
+      url: cloudinary.url(doc.storageRef, {
+        secure: true,
+        sign_url: true,
+        type: "upload",
+        resource_type: resourceTypeFromStorageRef(doc.storageRef),
+        expires_at: expiresAt,
+      }),
+      expiresAt: new Date(expiresAt * 1000).toISOString(),
+    }));
+
+    const { ipAddress, userAgent } = extractAuditContext(request);
+    await recordAuditEvent({
+      action: "PARTNER_DOCUMENT_ACCESSED",
+      userRole: "admin",
+      userId: session.user?.id,
+      userEmail: session.user?.email || "",
+      severity: "medium",
+      ipAddress,
+      userAgent,
+      metadata: {
+        companyId,
+        kinds: documents.map((d) => d.kind),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      documents,
+      ttlSeconds: SIGNED_URL_TTL_SECONDS,
+    });
+  } catch (err) {
+    console.error("[partner-legal-documents] GET failed", err?.message || err);
+    return jsonError(500, "view_failed", "Could not load documents");
   }
-
-  const expiresAt = Math.floor(Date.now() / 1000) + SIGNED_URL_TTL_SECONDS;
-  const documents = stored.map((doc) => ({
-    kind: doc.kind,
-    label: doc.label || "",
-    uploadedAt: doc.uploadedAt,
-    accepted: Boolean(doc.accepted),
-    note: doc.note || "",
-    url: cloudinary.url(doc.storageRef, {
-      secure: true,
-      sign_url: true,
-      type: "upload",
-      resource_type: resourceTypeFromStorageRef(doc.storageRef),
-      expires_at: expiresAt,
-    }),
-    expiresAt: new Date(expiresAt * 1000).toISOString(),
-  }));
-
-  const { ipAddress, userAgent } = extractAuditContext(request);
-  await recordAuditEvent({
-    action: "PARTNER_DOCUMENT_ACCESSED",
-    userRole: "admin",
-    userId: session.user?.id,
-    userEmail: session.user?.email || "",
-    severity: "medium",
-    ipAddress,
-    userAgent,
-    metadata: {
-      companyId,
-      kinds: documents.map((d) => d.kind),
-    },
-  });
-
-  return NextResponse.json({
-    success: true,
-    documents,
-    ttlSeconds: SIGNED_URL_TTL_SECONDS,
-  });
 }
 
 /** POST multipart — upload or replace one piece of evidence. */
 export async function POST(request) {
-  const { session, errorResponse } = await requireAdmin(request);
-  if (errorResponse) return errorResponse;
-
-  let formData;
   try {
-    formData = await request.formData();
-  } catch {
-    return NextResponse.json(
-      { success: false, message: "Expected a multipart upload" },
-      { status: 400 }
-    );
-  }
+    const { session, errorResponse } = await requireAdmin(request);
+    if (errorResponse) return errorResponse;
 
-  const companyId = resolveCompanyId(session, formData.get("companyId"));
-  if (!companyId) return noCompanyResponse();
+    let formData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return jsonError(400, "invalid_multipart", "Expected a multipart upload");
+    }
 
-  const kind = String(formData.get("kind") || "").trim();
-  if (!isKnownPartnerDocumentKind(kind)) {
-    return NextResponse.json(
-      { success: false, message: `Unknown document kind ${kind}` },
-      { status: 400 }
-    );
-  }
+    const companyId = resolveCompanyId(session, formData.get("companyId"));
+    if (!companyId) return noCompanyResponse();
 
-  const file = formData.get("file");
-  if (!file || typeof file.arrayBuffer !== "function") {
-    return NextResponse.json(
-      { success: false, message: "No file uploaded" },
-      { status: 400 }
-    );
-  }
+    const kind = String(formData.get("kind") || "").trim();
+    if (!isKnownPartnerDocumentKind(kind)) {
+      return jsonError(400, "unknown_kind", `Unknown document kind ${kind}`);
+    }
 
-  const mime = String(file.type || "").toLowerCase();
-  if (!isAllowedPartnerDocumentType(mime)) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: `Allowed formats: ${PARTNER_DOCUMENT_ALLOWED_TYPES.join(", ")}`,
-      },
-      { status: 400 }
-    );
-  }
+    const file = formData.get("file");
+    if (!file || typeof file.arrayBuffer !== "function") {
+      return jsonError(400, "no_file", "No file uploaded");
+    }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  if (buffer.length > PARTNER_DOCUMENT_MAX_BYTES) {
-    return NextResponse.json(
-      { success: false, message: "File too large (max 10 MB)" },
-      { status: 400 }
-    );
-  }
+    const mime = String(file.type || "").toLowerCase();
+    if (!isAllowedPartnerDocumentType(mime)) {
+      return jsonError(
+        400,
+        "unsupported_type",
+        `Allowed formats: ${PARTNER_DOCUMENT_ALLOWED_TYPES.join(", ")}`
+      );
+    }
 
-  await connectToDB();
-  let profile = await PartnerLegalProfile.findOne({ companyId });
-  if (!profile) profile = new PartnerLegalProfile({ companyId });
+    const buffer = Buffer.from(await file.arrayBuffer());
+    if (buffer.length > PARTNER_DOCUMENT_MAX_BYTES) {
+      return jsonError(400, "file_too_large", "File too large (max 10 MB)");
+    }
 
-  if (!UPLOADABLE_STATUSES.has(profile.verificationStatus)) {
-    return NextResponse.json(
-      {
-        success: false,
-        code: "locked",
-        message: `Evidence cannot be changed while the profile is ${profile.verificationStatus}`,
-      },
-      { status: 409 }
-    );
-  }
+    await connectToDB();
+    const profile = await loadOrCreateProfile(companyId);
 
-  const cfg = ensureCloudinaryConfigured();
-  if (!cfg.ok) {
-    return NextResponse.json({ success: false, message: cfg.message }, { status: 503 });
-  }
+    if (!UPLOADABLE_STATUSES.has(profile.verificationStatus)) {
+      return jsonError(
+        409,
+        "locked",
+        `Evidence cannot be changed while the profile is ${profile.verificationStatus}`,
+        { code: "locked" }
+      );
+    }
 
-  let uploaded;
-  try {
-    uploaded = await uploadBufferToCloudinary(
-      buffer,
-      buildPartnerLegalFolderPath(companyId),
-      partnerDocumentResourceType(mime)
-    );
-  } catch (err) {
-    console.error("[partner-legal-documents] upload failed", err?.message || err);
-    return NextResponse.json(
-      { success: false, message: "Upload failed" },
-      { status: 500 }
-    );
-  }
+    const cfg = ensureCloudinaryConfigured();
+    if (!cfg.ok) {
+      return jsonError(503, "storage_unconfigured", cfg.message);
+    }
 
-  const entry = {
-    kind,
-    label: String(formData.get("label") || file.name || "").slice(0, 200),
-    storageRef: uploaded.public_id,
-    uploadedAt: new Date(),
-    uploadedByUserId: String(session.user?.id || ""),
-    reviewedAt: null,
-    reviewedByEmail: "",
-    accepted: false,
-    note: "",
-  };
+    let uploaded;
+    try {
+      uploaded = await uploadBufferToCloudinary(
+        buffer,
+        buildPartnerLegalFolderPath(companyId),
+        partnerDocumentResourceType(mime)
+      );
+    } catch (err) {
+      console.error("[partner-legal-documents] upload failed", err?.message || err);
+      return jsonError(500, "upload_failed", "Upload failed");
+    }
 
-  const existingIndex = (profile.documents || []).findIndex(
-    (doc) => doc.kind === kind
-  );
-  if (existingIndex >= 0) {
-    profile.documents[existingIndex] = entry;
-  } else {
-    profile.documents.push(entry);
-  }
-  await profile.save();
-
-  const { ipAddress, userAgent } = extractAuditContext(request);
-  await recordAuditEvent({
-    action: "PARTNER_DOCUMENT_UPLOADED",
-    userRole: "admin",
-    userId: session.user?.id,
-    userEmail: session.user?.email || "",
-    severity: "medium",
-    ipAddress,
-    userAgent,
-    metadata: { companyId, kind, replaced: existingIndex >= 0 },
-  });
-
-  return NextResponse.json({
-    success: true,
-    document: {
-      kind: entry.kind,
-      label: entry.label,
-      uploadedAt: entry.uploadedAt,
+    const entry = {
+      kind,
+      label: String(formData.get("label") || file.name || "").slice(0, 200),
+      storageRef: uploaded.public_id,
+      uploadedAt: new Date(),
+      uploadedByUserId: String(session.user?.id || ""),
+      reviewedAt: null,
+      reviewedByEmail: "",
       accepted: false,
-    },
-  });
+      note: "",
+    };
+
+    const { replaced } = await saveDocumentEntry(companyId, entry);
+
+    const { ipAddress, userAgent } = extractAuditContext(request);
+    await recordAuditEvent({
+      action: "PARTNER_DOCUMENT_UPLOADED",
+      userRole: "admin",
+      userId: session.user?.id,
+      userEmail: session.user?.email || "",
+      severity: "medium",
+      ipAddress,
+      userAgent,
+      metadata: { companyId, kind, replaced },
+    });
+
+    return NextResponse.json({
+      success: true,
+      document: {
+        kind: entry.kind,
+        label: entry.label,
+        uploadedAt: entry.uploadedAt,
+        accepted: false,
+      },
+    });
+  } catch (err) {
+    console.error("[partner-legal-documents] POST failed", err?.message || err);
+    return jsonError(500, "upload_failed", "Upload failed");
+  }
 }
 
 /** DELETE ?kind= — remove a file the partner uploaded by mistake. */
 export async function DELETE(request) {
-  const { session, errorResponse } = await requireAdmin(request);
-  if (errorResponse) return errorResponse;
+  try {
+    const { session, errorResponse } = await requireAdmin(request);
+    if (errorResponse) return errorResponse;
 
-  const companyId = resolveCompanyId(
-    session,
-    request.nextUrl.searchParams.get("companyId")
-  );
-  if (!companyId) return noCompanyResponse();
-
-  const kind = String(request.nextUrl.searchParams.get("kind") || "").trim();
-  if (!isKnownPartnerDocumentKind(kind)) {
-    return NextResponse.json(
-      { success: false, message: `Unknown document kind ${kind}` },
-      { status: 400 }
+    const companyId = resolveCompanyId(
+      session,
+      request.nextUrl.searchParams.get("companyId")
     );
+    if (!companyId) return noCompanyResponse();
+
+    const kind = String(request.nextUrl.searchParams.get("kind") || "").trim();
+    if (!isKnownPartnerDocumentKind(kind)) {
+      return jsonError(400, "unknown_kind", `Unknown document kind ${kind}`);
+    }
+
+    await connectToDB();
+    const profile = await PartnerLegalProfile.findOne({ companyId });
+    if (!profile) {
+      return jsonError(404, "not_found", "Partner legal profile not found");
+    }
+    if (!UPLOADABLE_STATUSES.has(profile.verificationStatus)) {
+      return jsonError(
+        409,
+        "locked",
+        `Evidence cannot be changed while the profile is ${profile.verificationStatus}`,
+        { code: "locked" }
+      );
+    }
+
+    const existing = (profile.documents || []).find((doc) => doc.kind === kind);
+    if (!existing) {
+      return NextResponse.json({ success: true, removed: false });
+    }
+
+    profile.documents = profile.documents.filter((doc) => doc.kind !== kind);
+    await profile.save();
+
+    if (existing.storageRef && ensureCloudinaryConfigured().ok) {
+      await cloudinary.uploader
+        .destroy(existing.storageRef, {
+          resource_type: resourceTypeFromStorageRef(existing.storageRef),
+        })
+        .catch((err) => {
+          console.error(
+            "[partner-legal-documents] asset delete failed",
+            err?.message || err
+          );
+        });
+    }
+
+    const { ipAddress, userAgent } = extractAuditContext(request);
+    await recordAuditEvent({
+      action: "PARTNER_DOCUMENT_DELETED",
+      userRole: "admin",
+      userId: session.user?.id,
+      userEmail: session.user?.email || "",
+      severity: "medium",
+      ipAddress,
+      userAgent,
+      metadata: { companyId, kind },
+    });
+
+    return NextResponse.json({ success: true, removed: true });
+  } catch (err) {
+    console.error("[partner-legal-documents] DELETE failed", err?.message || err);
+    return jsonError(500, "remove_failed", "Could not remove the document");
   }
-
-  await connectToDB();
-  const profile = await PartnerLegalProfile.findOne({ companyId });
-  if (!profile) {
-    return NextResponse.json(
-      { success: false, message: "Partner legal profile not found" },
-      { status: 404 }
-    );
-  }
-  if (!UPLOADABLE_STATUSES.has(profile.verificationStatus)) {
-    return NextResponse.json(
-      {
-        success: false,
-        code: "locked",
-        message: `Evidence cannot be changed while the profile is ${profile.verificationStatus}`,
-      },
-      { status: 409 }
-    );
-  }
-
-  const existing = (profile.documents || []).find((doc) => doc.kind === kind);
-  if (!existing) {
-    return NextResponse.json({ success: true, removed: false });
-  }
-
-  profile.documents = profile.documents.filter((doc) => doc.kind !== kind);
-  await profile.save();
-
-  if (existing.storageRef && ensureCloudinaryConfigured().ok) {
-    await cloudinary.uploader
-      .destroy(existing.storageRef, {
-        resource_type: resourceTypeFromStorageRef(existing.storageRef),
-      })
-      .catch((err) => {
-        console.error(
-          "[partner-legal-documents] asset delete failed",
-          err?.message || err
-        );
-      });
-  }
-
-  const { ipAddress, userAgent } = extractAuditContext(request);
-  await recordAuditEvent({
-    action: "PARTNER_DOCUMENT_DELETED",
-    userRole: "admin",
-    userId: session.user?.id,
-    userEmail: session.user?.email || "",
-    severity: "medium",
-    ipAddress,
-    userAgent,
-    metadata: { companyId, kind },
-  });
-
-  return NextResponse.json({ success: true, removed: true });
 }

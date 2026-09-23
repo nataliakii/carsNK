@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
+import Company from "@models/company";
 import {
   buildAgreementPackage,
   getActiveAgreement,
@@ -50,10 +51,13 @@ export async function GET(request) {
   );
 
   await connectToDB();
-  const [profile, activeAgreement, pkg] = await Promise.all([
+  const [profile, activeAgreement, pkg, company] = await Promise.all([
     PartnerLegalProfile.findOne({ companyId }).lean(),
     getActiveAgreement(companyId),
     buildAgreementPackage({ language }),
+    Company.findById(companyId)
+      .select("listedOnMarketplace country bookingMode")
+      .lean(),
   ]);
 
   const completeness = profile ? evaluateProfileCompleteness(profile) : null;
@@ -64,11 +68,15 @@ export async function GET(request) {
     currentPackageChecksum: pkg.packageChecksum,
   });
 
+  const listedOnMarketplace = company?.listedOnMarketplace !== false;
+
   return NextResponse.json({
     success: true,
     companyId,
     gate,
     completeness,
+    listedOnMarketplace,
+    canListPublicly: Boolean(gate.canOperate && listedOnMarketplace),
     currentPackageChecksum: pkg.packageChecksum,
     containsDrafts: pkg.anyDraft,
     signedAgreement: activeAgreement

@@ -161,7 +161,7 @@ describe("rentalPricingService", () => {
         bookingMode: BOOKING_MODES.MARKETPLACE_REQUEST,
         company: { prepaymentPercent: 15 },
       })
-    ).toBe(15);
+    ).toBe(10);
   });
 
   test("minor-unit gross is rental + delivery", async () => {
@@ -172,5 +172,24 @@ describe("rentalPricingService", () => {
       timezone: "Europe/Madrid",
     });
     expect(quote.grossMinor).toBe(quote.baseRentalMinor + quote.pickupFeeMinor + quote.returnFeeMinor);
+  });
+
+  test("Spain marketplace 10% prepayment is of gross including delivery (numerical)", async () => {
+    // Rental €200 + pickup delivery €25 + return delivery €15 = €240 gross
+    // Customer prepay retained by Rovaro = 10% of €240 = €24
+    // Supplier collects 90% at pickup = €216. No supplier payout.
+    const quote = await calculateAuthoritativeRentalPrice({
+      car: fakeCar({ total: 200, days: 2, breakdown: { baseRentalTotal: 200 } }),
+      pickupAtUtc: pickup,
+      returnAtUtc: ret,
+      timezone: "Europe/Madrid",
+      bookingMode: BOOKING_MODES.MARKETPLACE_REQUEST,
+      quotedPickupFeeMinor: 2500,
+      quotedReturnFeeMinor: 1500,
+    });
+    expect(quote.grossMinor).toBe(24000);
+    expect(quote.prepaymentPercent).toBe(10);
+    expect(quote.prepaymentMinor).toBe(2400);
+    expect(quote.balanceMinor).toBe(21600);
   });
 });

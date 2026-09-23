@@ -81,8 +81,8 @@ const FilterLocationAutocomplete = ({
         m: 0,
         mt: 0,
         width: "100%",
-        minWidth: light ? "100%" : { xs: "100%", sm: 220 },
-        maxWidth: light ? "100%" : { xs: "100%", sm: 300 },
+        minWidth: 0,
+        maxWidth: "100%",
         "& .MuiInputBase-root": {
           color: light ? "text.primary" : "#fff",
           fontSize: "0.85rem",

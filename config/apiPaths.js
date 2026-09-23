@@ -5,6 +5,8 @@
 
 export const API_PATHS = {
   CAR_ALL: "/api/car/all",
+  /** Alias of CAR_ALL — kept so legacy/mistaken /api/car/getAll callers work. */
+  CAR_GET_ALL: "/api/car/getAll",
   CAR_BY_ID: (id) => `/api/car/${id}`,
   CAR_BY_SLUG: (slug) => `/api/car/slug/${encodeURIComponent(slug)}`,
   CAR_ADD_ONE: "/api/car/addOne",

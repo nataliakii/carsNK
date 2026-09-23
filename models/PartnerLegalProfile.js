@@ -98,6 +98,8 @@ const partnerLegalProfileSchema = new mongoose.Schema(
       index: true,
     },
     verificationStatusAt: { type: Date, default: Date.now },
+    /** Set once when the partner explicitly submits for review. */
+    submittedAt: { type: Date, default: null },
     verifiedByEmail: { type: String, default: "" },
     verificationNote: { type: String, default: "" },
     suspensionReason: { type: String, default: "" },

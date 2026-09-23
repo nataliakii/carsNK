@@ -13,6 +13,7 @@ import { getInternalNotificationEmail } from "@config/email";
 import { requireSuperAdmin } from "@/lib/adminAuth";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
 import { sanitizeSmtpError } from "@/lib/email/smtpConfig";
+import { MAIL_TYPE } from "@/domain/mail/mailTypes";
 import { connectToDB } from "@lib/database";
 import AuditLog from "@models/auditLog";
 import {
@@ -173,6 +174,7 @@ export async function POST(request) {
       message: text,
       to: toParsed.emails,
       cc: ccParsed.emails,
+      meta: { type: MAIL_TYPE.RELAY },
     });
     await writeSendEmailAudit({
       actor: auth.actor,

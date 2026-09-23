@@ -1,7 +1,7 @@
 /**
  * Pending / unprocessed inbox criteria for admin badges & notifications.
  *
- * Rentals: not confirmed and still ACTIVE.
+ * Rentals: not confirmed and still ACTIVE, scoped by admin workspace country.
  * Transfers: claimable / awaiting admin quote (not yet confirmed workflow).
  */
 
@@ -17,6 +17,10 @@ import {
   getSessionOwnerId,
   isSuperAdminUser,
 } from "@/domain/owners/ownerScope";
+import {
+  normalizeAdminCountryFilter,
+  buildAdminCountryCompanyFilter,
+} from "@/domain/platform/adminCountryScope";
 
 /** Transfer statuses that still need admin / supplier attention. */
 export const TRANSFER_PENDING_ATTENTION_STATUSES = [
@@ -26,14 +30,70 @@ export const TRANSFER_PENDING_ATTENTION_STATUSES = [
 ];
 
 /**
+ * Resolve company ObjectIds for a superadmin workspace country filter.
+ * Used by rentals inbox so badge counts match the Orders table country scope.
+ *
+ * @param {import("mongoose").Model} CompanyModel
+ * @param {string} countryCode - GR | ES | ALL
+ * @returns {Promise<import("mongoose").Types.ObjectId[] | null>}
+ *   null = no country restriction (ALL / partner / view-as)
+ */
+export async function resolveAdminCountryOwnerIds(CompanyModel, countryCode) {
+  const country = normalizeAdminCountryFilter(countryCode);
+  if (!country || country === "ALL") return null;
+  const filter = buildAdminCountryCompanyFilter(country);
+  const rows = await CompanyModel.find(filter).select("_id").lean();
+  return rows.map((row) => row._id);
+}
+
+/**
  * @param {object|null} session
+ * @param {string} [countryCode] - GR | ES | ALL (superadmin country switcher)
+ * @param {{ ownerIds?: import("mongoose").Types.ObjectId[] | null }} [options]
  * @returns {object} Mongo filter for unconfirmed active rentals
  */
-export function buildPendingRentalsFilter(session) {
-  return {
+export function buildPendingRentalsFilter(
+  session,
+  countryCode = "ALL",
+  options = {}
+) {
+  const base = {
     ...buildOrdersOwnerFilter(session),
     confirmed: { $ne: true },
     status: { $ne: ORDER_STATUS.PAID_AND_CLOSED },
+  };
+
+  const user = session?.user ?? null;
+  if (!isSuperAdminUser(user)) return base;
+  if (getEffectiveOwnerId(user)) return base;
+
+  const country = normalizeAdminCountryFilter(countryCode);
+  if (!country || country === "ALL") return base;
+
+  const { ownerIds } = options;
+  if (ownerIds === null || ownerIds === undefined) {
+    // Sync fallback when caller did not resolve company ids: order.countryCode.
+    if (country === "GR") {
+      return {
+        ...base,
+        $or: [
+          { countryCode: "GR" },
+          { countryCode: { $exists: false } },
+          { countryCode: null },
+          { countryCode: "" },
+        ],
+      };
+    }
+    return { ...base, countryCode: country };
+  }
+
+  if (!Array.isArray(ownerIds) || ownerIds.length === 0) {
+    return { ...base, _id: null };
+  }
+
+  return {
+    ...base,
+    ownerId: { $in: ownerIds },
   };
 }
 
@@ -127,10 +187,19 @@ export function buildPendingTransfersFilter(session, countryCode = "ALL") {
 }
 
 /**
+ * Badge metrics: Orders uses rentals only; bell uses rentals + transfers.
  * @param {{ rentals?: number, transfers?: number }} counts
  */
 export function sumPendingInbox(counts) {
   const rentals = Math.max(0, Number(counts?.rentals) || 0);
   const transfers = Math.max(0, Number(counts?.transfers) || 0);
-  return { rentals, transfers, total: rentals + transfers };
+  return {
+    rentals,
+    transfers,
+    /** Orders nav badge — rentals requiring attention in this workspace */
+    ordersBadge: rentals,
+    /** Bell badge — rentals + transfers (not a copy of a separate total source) */
+    notificationsBadge: rentals + transfers,
+    total: rentals + transfers,
+  };
 }

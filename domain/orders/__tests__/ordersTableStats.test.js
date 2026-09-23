@@ -83,14 +83,30 @@ describe("ordersTableStats", () => {
     expect(pending[0]._id).toBe("2");
   });
 
-  test("summarizeFilteredOrders includes commission", () => {
+  test("summarizeFilteredOrders uses stored marketplace amounts, not a hardcoded percent", () => {
     const orders = [
-      { totalPrice: 100, OverridePrice: null },
-      { totalPrice: 200, OverridePrice: 150 },
+      {
+        totalPrice: 100,
+        OverridePrice: null,
+        bookingMode: "MARKETPLACE_REQUEST",
+        authoritativePrice: {
+          grossMinor: 10000,
+          platformAmountMinor: 1000,
+          supplierBalanceMinor: 9000,
+          marketplaceBookingFeeBps: 1000,
+        },
+      },
+      {
+        totalPrice: 200,
+        OverridePrice: 150,
+        bookingMode: "OPS_CALENDAR",
+      },
     ];
-    const s = summarizeFilteredOrders(orders, 10);
+    const s = summarizeFilteredOrders(orders);
     expect(s.sum).toBe(250); // 100 + 150
-    expect(s.commission).toBe(25);
+    expect(s.marketplaceCount).toBe(1);
+    expect(s.commission).toBe(10);
+    expect(s.remaining).toBe(90);
     expect(s.count).toBe(2);
   });
 });

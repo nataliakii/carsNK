@@ -1,7 +1,6 @@
-/**
- * Pure helpers for admin Orders table filters / totals.
- * Keep UI (OrdersTableSection) thin — logic here is unit-tested.
- */
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { marketplaceFinancialSplit } from "@/domain/orders/marketplaceFinancialSplit";
+import { formatMarketplaceFeePercent } from "@/domain/orders/marketplaceBookingFee";
 
 /**
  * effectivePrice = OverridePrice ?? totalPrice
@@ -55,11 +54,12 @@ export function resolveOrderOwnerId(order, cars = []) {
 export function computeCommission(sum, percent) {
   const safeSum = Number.isFinite(Number(sum)) ? Number(sum) : 0;
   const safePercent = Number.isFinite(Number(percent)) ? Number(percent) : 0;
-  const commission = Math.round(safeSum * safePercent) / 100;
+  const grossMinor = Math.round(safeSum * 100);
+  const commissionMinor = Math.round((grossMinor * safePercent) / 100);
   return {
     sum: safeSum,
     percent: safePercent,
-    commission: Number.isFinite(commission) ? commission : 0,
+    commission: commissionMinor / 100,
   };
 }
 
@@ -147,18 +147,32 @@ export function filterOrdersForTable(orders, criteria = {}, helpers = {}) {
 
 /**
  * @param {object[]} filteredOrders
- * @param {number} commissionPercent
  */
-export function summarizeFilteredOrders(filteredOrders, commissionPercent = 10) {
-  const sum = (filteredOrders || []).reduce(
-    (acc, o) => acc + getEffectivePrice(o),
-    0
-  );
-  const { commission, percent } = computeCommission(sum, commissionPercent);
+export function summarizeFilteredOrders(filteredOrders) {
+  const orders = filteredOrders || [];
+  let sum = 0;
+  let platformMinor = 0;
+  let supplierMinor = 0;
+  let marketplaceCount = 0;
+  for (const order of orders) {
+    sum += getEffectivePrice(order);
+    if (!isMarketplaceRequestMode(order?.bookingMode)) continue;
+    marketplaceCount += 1;
+    const split = marketplaceFinancialSplit(order?.authoritativePrice || {});
+    platformMinor += Number(split.platformAmountMinor) || 0;
+    supplierMinor += Number(split.supplierBalanceMinor) || 0;
+  }
   return {
-    count: (filteredOrders || []).length,
+    count: orders.length,
     sum,
-    commissionPercent: percent,
-    commission,
+    marketplaceCount,
+    commission: platformMinor / 100,
+    remaining: supplierMinor / 100,
+    commissionPercent:
+      marketplaceCount === 1
+        ? formatMarketplaceFeePercent(
+            marketplaceFinancialSplit(orders.find((o) => isMarketplaceRequestMode(o?.bookingMode))?.authoritativePrice || {}).marketplaceBookingFeeBps
+          )
+        : null,
   };
 }

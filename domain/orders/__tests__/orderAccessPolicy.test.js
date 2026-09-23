@@ -319,4 +319,54 @@ describe("orderAccessPolicy", () => {
       expect(access.canEditTotalPrice).toBe(false);
     });
   });
+
+  describe("Spain marketplace price lock", () => {
+    it("never lets rental-company ADMIN change marketplace price", () => {
+      const access = getOrderAccess({
+        role: "ADMIN",
+        isClientOrder: true,
+        confirmed: false,
+        isPast: false,
+        timeBucket: "FUTURE",
+        bookingMode: "MARKETPLACE_REQUEST",
+        partnerConfirmed: false,
+        paymentStatus: "",
+      });
+      expect(access.canEditPricing).toBe(false);
+      expect(access.canEditTotalPrice).toBe(false);
+      expect(access.canCorrectMarketplacePrice).toBe(false);
+    });
+
+    it("locks marketplace price after partner confirmation even for superadmin", () => {
+      const access = getOrderAccess({
+        role: "SUPERADMIN",
+        isClientOrder: true,
+        confirmed: false,
+        isPast: false,
+        timeBucket: "FUTURE",
+        bookingMode: "MARKETPLACE_REQUEST",
+        partnerConfirmed: true,
+        paymentStatus: "pending",
+      });
+      expect(access.canEditPricing).toBe(false);
+      expect(access.canEditTotalPrice).toBe(false);
+      expect(access.canCorrectMarketplacePrice).toBe(true);
+    });
+
+    it("locks marketplace price after payment", () => {
+      const access = getOrderAccess({
+        role: "SUPERADMIN",
+        isClientOrder: true,
+        confirmed: true,
+        isPast: false,
+        timeBucket: "FUTURE",
+        bookingMode: "MARKETPLACE_REQUEST",
+        partnerConfirmed: true,
+        paymentStatus: "paid",
+      });
+      expect(access.canEditPricing).toBe(false);
+      expect(access.canEditTotalPrice).toBe(false);
+      expect(access.canCorrectMarketplacePrice).toBe(true);
+    });
+  });
 });

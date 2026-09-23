@@ -147,8 +147,52 @@ export function normalizeDeliveryPricingInput(raw, company = {}) {
       inside: { mode: insideMode, amount: insideAmount },
       outside: { mode: outsideMode, amount: outsideAmount },
       afterHoursSurcharge,
+      version: nextDeliveryPricingVersion(raw, company?.deliveryPricing),
     },
   };
+}
+
+/**
+ * Monotonic version: bump when tariff content changes; retain when identical.
+ */
+export function nextDeliveryPricingVersion(incoming, previous) {
+  const prevVersion = Number(previous?.version);
+  const base = Number.isFinite(prevVersion) && prevVersion >= 1 ? prevVersion : 1;
+  if (!previous || typeof previous !== "object") return base;
+  if (!incoming || typeof incoming !== "object") return base;
+  const keys = [
+    "strategy",
+    "radiusKm",
+    "maxDistanceKm",
+    "afterHoursSurcharge",
+  ];
+  let changed = false;
+  for (const key of keys) {
+    if (incoming[key] !== undefined && String(incoming[key] ?? "") !== String(previous[key] ?? "")) {
+      changed = true;
+      break;
+    }
+  }
+  if (!changed) {
+    const citiesIn = normalizeOperatingCities(incoming.operatingCities).join("|");
+    const citiesPrev = normalizeOperatingCities(previous.operatingCities).join("|");
+    if (citiesIn !== citiesPrev) changed = true;
+  }
+  if (!changed) {
+    const inMode = String(incoming.inside?.mode ?? previous.inside?.mode ?? "");
+    const inAmt = String(incoming.inside?.amount ?? previous.inside?.amount ?? "");
+    const outMode = String(incoming.outside?.mode ?? previous.outside?.mode ?? "");
+    const outAmt = String(incoming.outside?.amount ?? previous.outside?.amount ?? "");
+    const prevIn = `${previous.inside?.mode ?? ""}|${previous.inside?.amount ?? ""}`;
+    const prevOut = `${previous.outside?.mode ?? ""}|${previous.outside?.amount ?? ""}`;
+    if (`${inMode}|${inAmt}` !== prevIn || `${outMode}|${outAmt}` !== prevOut) {
+      changed = true;
+    }
+  }
+  if (Number.isFinite(Number(incoming.version)) && Number(incoming.version) > base) {
+    return Math.floor(Number(incoming.version));
+  }
+  return changed ? base + 1 : base;
 }
 
 /** Radius as a number, or null when unset (null/undefined/"" are not 0). */

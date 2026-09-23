@@ -47,6 +47,7 @@
     "searchResultsTitle": "{{count}} mașini disponibile {{from}} – {{to}}",
     "searchRegionLabel": "Regiune: {{region}}",
     "searchPriceLabel": "{{price}}€ pentru {{days}} zile",
+    "fromPriceLabel": "de la {{price}}€/zi",
     "deliverySelectDatesHint": "Alegeți datele pentru a vedea prețul cu livrare.",
     "bookingDetailsButton": "Detalii rezervare",
     "bookingDetailsTitle": "Detalii rezervare",
@@ -271,6 +272,8 @@
   },
   "bookMesssages": {
     "bookOK": "Rezervare primită. Vă mulțumim pentru rezervare!",
+    "bookRequestSent": "Cererea a fost trimisă. Compania va verifica disponibilitatea.",
+    "bookCompanyReview": "Compania care deține această mașină va verifica datele și va confirma disponibilitatea. Plata va fi solicitată doar după confirmare.",
     "bookReceive": "Am primit rezervarea dvs. pentru",
     "bookDays": "Număr de zile:",
     "bookPrice": "Preț total:",
@@ -339,6 +342,8 @@
   },
   "footer": {
     "contactUs": "Contact",
+    "legal": "Legal",
+    "links": "Linkuri",
     "kallikratiaBanner": "Nu știți unde să mergeți în Halkidiki?",
     "kallikratiaBannerLink": "Nea Kallikratia Guide",
     "privacyPolicy": "Politica de confidențialitate",

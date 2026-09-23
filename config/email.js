@@ -76,6 +76,27 @@ export function getAdminTransferEmails() {
 }
 
 /**
+ * Superadmin notify To-list: ops inbox plus the login mailbox when it differs.
+ * AUTH_SUPERADMIN_EMAIL is included even on Spain so the operator still
+ * receives mail if they sign in with that address. From stays the Rovaro
+ * mailbox via SMTP config — this list is recipients only.
+ */
+export function getSuperadminNotificationEmails() {
+  const seen = new Set();
+  const out = [];
+  for (const raw of [
+    getInternalNotificationEmail(),
+    process.env.AUTH_SUPERADMIN_EMAIL,
+  ]) {
+    const email = normalizeEmailAddress(raw);
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+    out.push(email);
+  }
+  return out;
+}
+
+/**
  * Greece default ops inbox. Prefer getInternalNotificationEmail() for sends
  * so Spain does not silently notify BBQR.
  * @deprecated

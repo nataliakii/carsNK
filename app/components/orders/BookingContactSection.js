@@ -24,29 +24,41 @@ export default function BookingContactSection({
   showDrivingLicencePreviewHint = true,
   drivingLicenceFrameLabel,
   showDrivingLicenceUpload = true,
+  nameRequired = true,
+  phoneRequired = true,
+  emailRequired = true,
 }) {
   const { t } = useTranslation();
   const isAdmin = mode === "admin";
 
   const nameLabel = isAdmin ? (
     t("order.name")
-  ) : (
+  ) : nameRequired ? (
     <>
       <span>{t("order.yourName")}</span>
       <span style={{ color: "red" }}>*</span>
     </>
+  ) : (
+    t("order.yourName")
   );
 
   const phoneLabel = isAdmin ? (
     t("order.phone")
-  ) : (
+  ) : phoneRequired ? (
     <>
       <span>{t("order.phone")}</span>
       <span style={{ color: "red" }}>*</span>
     </>
+  ) : (
+    t("order.phone")
   );
 
-  const emailLabel = isAdmin ? (
+  const emailLabel = emailRequired ? (
+    <>
+      <span>{t("order.email")}</span>
+      <span style={{ color: "red" }}>*</span>
+    </>
+  ) : isAdmin ? (
     t("order.email")
   ) : (
     <>
@@ -70,7 +82,7 @@ export default function BookingContactSection({
           label={nameLabel}
           value={values.customerName || ""}
           onChange={(e) => onFieldChange("customerName", e.target.value)}
-          required
+          required={nameRequired}
           error={Boolean(errors?.name)}
           helperText={errors?.name}
           sx={{ mb: 1 }}
@@ -90,7 +102,7 @@ export default function BookingContactSection({
           label={phoneLabel}
           value={values.phone || ""}
           onChange={(e) => onFieldChange("phone", e.target.value)}
-          required
+          required={phoneRequired}
           placeholder={t("order.phoneHint")}
           error={Boolean(errors?.phone)}
           helperText={errors?.phone}
@@ -101,6 +113,7 @@ export default function BookingContactSection({
           value={values.email || ""}
           onChange={(e) => onFieldChange("email", e.target.value)}
           type="email"
+          required={emailRequired}
           error={Boolean(errors?.email)}
           helperText={errors?.email}
           sx={{ mb: 1, flex: 1, minHeight: 36 }}

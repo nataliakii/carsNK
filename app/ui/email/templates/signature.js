@@ -55,7 +55,7 @@ function buildSignature() {
   const lineText = isGreeceSite()
     ? "Car rental aggregator in Greece · Halkidiki & Thessaloniki"
     : `${brand.tagline} · Spain`;
-  const accent = brand.primary || "#E30052";
+  const accent = brand.primary || "#E9004F";
 
   return {
     html: `

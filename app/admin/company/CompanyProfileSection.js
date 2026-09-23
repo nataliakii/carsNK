@@ -59,6 +59,14 @@ const TransferPricingSection = dynamic(
   () => import("@app/admin/platform/TransferPricingSection"),
   { ssr: false, loading: TabLoader }
 );
+const PlatformMyBusinessCard = dynamic(
+  () => import("@/app/admin/shared/components/PlatformMyBusinessCard"),
+  { ssr: false, loading: TabLoader }
+);
+const PlatformBookingFeeCard = dynamic(
+  () => import("@/app/admin/shared/components/PlatformBookingFeeCard"),
+  { ssr: false, loading: TabLoader }
+);
 
 const TAB_STOREFRONT = "storefront";
 const TAB_PEOPLE = "people";
@@ -195,6 +203,8 @@ function CompanyHubInner({
     tab === TAB_VOUCHERS ||
     tab === TAB_PLATFORM;
 
+  const platformHub = !hasCompanyContext && showSuperAdminTabs;
+
   return (
     <Box
       sx={{
@@ -207,13 +217,50 @@ function CompanyHubInner({
       }}
     >
       <Typography variant="h4" fontWeight={700} sx={{ mb: 1, ...adminReadableTextSx }}>
-        {t("companyProfile.hubTitle", { defaultValue: t("header.companyProfile") })}
+        {platformHub
+          ? t("header.platformSettings", { defaultValue: "Platform settings" })
+          : t("companyProfile.hubTitle", { defaultValue: t("header.companyProfile") })}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, ...adminReadableTextSx }}>
-        {t("companyProfile.hubSubtitle", {
-          defaultValue: t("companyProfile.subtitle"),
-        })}
+        {platformHub
+          ? t("companyProfile.platformHubSubtitle", {
+              defaultValue:
+                "My business details, default booking fee, catalogue, delivery and tools.",
+            })
+          : t("companyProfile.hubSubtitle", {
+              defaultValue: t("companyProfile.subtitle"),
+            })}
       </Typography>
+
+      {platformHub ? (
+        <Stack gap={2.5} sx={{ mb: 3 }}>
+          <PlatformMyBusinessCard />
+          <PlatformBookingFeeCard />
+          <Box
+            sx={{
+              p: 1.5,
+              borderRadius: 2,
+              border: "1px solid",
+              borderColor: "divider",
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
+              Legal documents
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Publish Rovaro agreement, terms and privacy documents.
+            </Typography>
+            <Typography
+              component="a"
+              href="/admin/legal?tab=documents"
+              variant="body2"
+              sx={{ fontWeight: 600 }}
+            >
+              Open legal documents →
+            </Typography>
+          </Box>
+        </Stack>
+      ) : null}
 
       {hasCompanyContext ? <PartnerComplianceCard /> : null}
 

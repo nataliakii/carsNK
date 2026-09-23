@@ -89,6 +89,11 @@ function createContext(order, session) {
     isPast,
     isClosed: isOrderPaidAndClosed(order.status),
     timeBucket,
+    bookingMode: order.bookingMode || "",
+    partnerConfirmed: Boolean(
+      order.partnerConfirmedAt || order.companyEmailDecision === "accepted"
+    ),
+    paymentStatus: order.payment?.status || "",
   };
 }
 

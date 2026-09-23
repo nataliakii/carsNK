@@ -266,6 +266,7 @@ export async function PATCH(request, { params }) {
                 pay.url,
               ].join("\n"),
               to: [customerEmail],
+              meta: { type: "transfer.payment_link" },
             });
           } catch (err) {
             console.error(

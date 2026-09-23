@@ -7,15 +7,42 @@ import {
 } from "@config/stripe";
 import { getStripeClient } from "@/lib/stripe";
 import { markTransferPaidFromCheckoutSession } from "@/domain/transfers/stripeCheckout";
-import { markRentalPaidFromCheckoutSession } from "@/domain/orders/rentalStripeCheckout";
+import {
+  handleRentalCheckoutExpired,
+  handleRentalPaymentFailed,
+  markRentalPaidEmailsSent,
+  markRentalPaidFromCheckoutSession,
+  recordRentalRefundOrDispute,
+} from "@/domain/orders/rentalStripeCheckout";
 import { createConfirmedBookingSnapshot } from "@/domain/booking/partnerBookingConfirmation";
+import { sendPaidConfirmationEmails } from "@/domain/orders/marketplaceBookingEmails";
 
 export const runtime = "nodejs";
+
+async function finalizePaidRental(result) {
+  if (!result?.ok || !result.order?._id) return;
+  if (result.idempotent && result.order.payment?.paidEmailsSentAt) return;
+
+  await createConfirmedBookingSnapshot({
+    orderId: String(result.order._id),
+  }).catch((err) => {
+    console.error("[stripe webhook] booking snapshot failed", err?.message || err);
+  });
+
+  if (result.idempotent) return;
+
+  await sendPaidConfirmationEmails({ order: result.order }).catch((err) => {
+    console.error("[stripe webhook] paid emails failed", err?.message || err);
+  });
+  await markRentalPaidEmailsSent(result.order._id);
+}
 
 /**
  * Stripe webhook — raw body required for signature verification.
  * Configure endpoint: POST /api/payments/stripe/webhook
- * Events: checkout.session.completed, checkout.session.async_payment_succeeded
+ *
+ * Paid events confirm the booking. Verification mismatches are audited and
+ * still return { received: true } so Stripe does not retry a dangerous pay.
  */
 export async function POST(request) {
   if (!isStripeConfigured()) {
@@ -64,37 +91,50 @@ export async function POST(request) {
 
   try {
     await connectToDB();
+    const object = event.data?.object || {};
+    const kind = object?.metadata?.kind;
 
     if (
       event.type === "checkout.session.completed" ||
       event.type === "checkout.session.async_payment_succeeded"
     ) {
-      const session = event.data.object;
-      const kind = session?.metadata?.kind;
-      if (kind === "rental") {
-        const result = await markRentalPaidFromCheckoutSession(session);
+      if (kind === "rental" || (!kind && object?.metadata?.orderId)) {
+        const result = await markRentalPaidFromCheckoutSession(object, {
+          eventId: event.id,
+        });
         if (!result.ok && result.code !== "not_paid") {
           console.error("[stripe webhook] rental pay failed", result);
         }
-        // Successful prepayment is what makes the booking binding, so this is
-        // where the immutable record of the agreed terms is written. It is
-        // idempotent, and a failure here must not fail the webhook.
-        if (result.ok && result.order?._id) {
-          await createConfirmedBookingSnapshot({
-            orderId: String(result.order._id),
-          }).catch((err) => {
-            console.error(
-              "[stripe webhook] booking snapshot failed",
-              err?.message || err
-            );
-          });
+        if (result.ok) {
+          await finalizePaidRental(result);
         }
       } else if (kind === "transfer") {
-        const result = await markTransferPaidFromCheckoutSession(session);
+        const result = await markTransferPaidFromCheckoutSession(object);
         if (!result.ok && result.code !== "not_paid") {
           console.error("[stripe webhook] transfer pay failed", result);
         }
       }
+    } else if (
+      event.type === "checkout.session.expired" ||
+      event.type === "checkout.session.async_payment_failed"
+    ) {
+      if (kind === "rental" || object?.metadata?.orderId) {
+        if (event.type === "checkout.session.expired") {
+          await handleRentalCheckoutExpired(object);
+        } else {
+          await handleRentalPaymentFailed(object);
+        }
+      }
+    } else if (
+      event.type === "charge.refunded" ||
+      event.type === "refund.created" ||
+      event.type === "charge.dispute.created" ||
+      event.type === "charge.dispute.updated" ||
+      event.type === "charge.dispute.closed"
+    ) {
+      await recordRentalRefundOrDispute(event.type, object, {
+        eventId: event.id,
+      });
     }
 
     return NextResponse.json({ received: true });

@@ -1,17 +1,25 @@
 import { NextResponse } from "next/server";
 
 import { absoluteUrl } from "@config/domain";
-import { getOperatorLine, getPublicLegalEntity } from "@config/legalEntity";
 import {
   buildConfirmationView,
   consumeConfirmationToken,
   PARTNER_CONFIRMATION_BUTTON_LABEL,
 } from "@/domain/booking/partnerBookingConfirmation";
+import {
+  listEligibleAlternativeCars,
+  offerAlternativeVehicle,
+} from "@/domain/booking/alternativeVehicle";
+import { ROLE } from "@models/user";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
 import {
   consumePublicPostOrError,
   bookingConfirmRateLimitOptions,
 } from "@/services/publicPostRateLimit";
+import {
+  formatMarketplaceEuro,
+  marketplaceSplitLabels,
+} from "@/domain/orders/marketplaceFinancialSplit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,11 +43,6 @@ function esc(value) {
     .replace(/"/g, "&quot;");
 }
 
-function money(minor, currency) {
-  const amount = Number(minor || 0) / 100;
-  return `${currency} ${amount.toFixed(2)}`;
-}
-
 function dateTime(value, timezone) {
   if (!value) return "—";
   try {
@@ -51,7 +54,6 @@ function dateTime(value, timezone) {
 }
 
 function page({ title, bodyHtml, ok = true }) {
-  const entity = getPublicLegalEntity();
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -61,13 +63,9 @@ function page({ title, bodyHtml, ok = true }) {
   <title>${esc(title)}</title>
 </head>
 <body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f5f7fa;color:#0A0A0A;">
-  <div style="max-width:680px;margin:40px auto;padding:28px 24px;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.08);">
-    <h1 style="margin:0 0 16px;font-size:1.3rem;color:${ok ? "#0A0A0A" : "#B71C1C"};">${esc(title)}</h1>
+  <div style="max-width:640px;margin:32px auto;padding:24px 20px;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.08);">
+    <h1 style="margin:0 0 16px;font-size:1.25rem;color:${ok ? "#0A0A0A" : "#B71C1C"};">${esc(title)}</h1>
     ${bodyHtml}
-    <p style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:0.76rem;color:#78909c;line-height:1.7;">
-      ${esc(getOperatorLine())}<br />
-      ${esc(entity.legalEmail)}
-    </p>
   </div>
 </body>
 </html>`;
@@ -94,87 +92,106 @@ function detailRow(label, value) {
 function confirmationFormHtml(token, view) {
   const b = view.booking;
   const f = b.financials;
+  const splitLabels = marketplaceSplitLabels("en");
   const actionUrl = absoluteUrl("/api/booking/partner-confirm");
-
-  const rules = view.cancellationRules;
-  const ruleLines = [
-    rules.supplierCancellationServiceCharge != null
-      ? `Supplier cancellation service charge: ${rules.currency} ${Number(rules.supplierCancellationServiceCharge).toFixed(2)}`
-      : "Supplier cancellation service charge: as set out in the Rovaro fee schedule",
-    rules.replacementCostDifferenceCap != null
-      ? `Replacement cost difference cap: ${rules.currency} ${Number(rules.replacementCostDifferenceCap).toFixed(2)}`
-      : "Replacement cost difference cap: as set out in the Rovaro fee schedule",
-    `A replacement vehicle must be notified at least ${rules.replacementNotificationHours} hours before pickup and requires the customer's explicit consent.`,
-  ];
-
-  const agreementLine = view.agreement.applicableVersion
-    ? `Partner Agreement ${esc(view.agreement.applicableVersion.agreementId)} (accepted ${esc(
-        new Date(view.agreement.applicableVersion.acceptedAt).toISOString().slice(0, 10)
-      )})`
-    : view.agreement.partnerAgreementVersion
-      ? `Partner Agreement v${esc(view.agreement.partnerAgreementVersion.version)}`
-      : "Partner Agreement — version not yet recorded";
+  const partnerTermsUrl = absoluteUrl("/en/partner-terms");
 
   return page({
-    title: "Confirm vehicle availability",
+    title: "Confirm availability",
     bodyHtml: `
-      <p style="font-size:0.9rem;color:#455a64;line-height:1.6;margin:0 0 20px;">
-        Please check the booking below. Opening this page does not change anything —
-        the booking is only confirmed when you submit the form.
-      </p>
-
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-        ${detailRow("Booking ID", b.orderNumber ? `${b.orderNumber} (${b.bookingId})` : b.bookingId)}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        ${detailRow("Booking", b.orderNumber || b.bookingId)}
         ${detailRow("Vehicle", [b.vehicle.model, b.vehicle.regNumber].filter(Boolean).join(" · "))}
-        ${detailRow("Category", [b.vehicle.category, b.vehicle.transmission, b.vehicle.seats ? `${b.vehicle.seats} seats` : ""].filter(Boolean).join(" · ") || "—")}
-        ${detailRow("Pickup", `${dateTime(b.pickup.atUtc, b.timezone)} — ${b.pickup.place || "—"}${b.pickup.detail ? ` (${b.pickup.detail})` : ""}`)}
-        ${detailRow("Return", `${dateTime(b.dropoff.atUtc, b.timezone)} — ${b.dropoff.place || "—"}${b.dropoff.detail ? ` (${b.dropoff.detail})` : ""}`)}
-        ${detailRow("Rental days", b.numberOfDays ?? "—")}
-        ${detailRow("Insurance", b.insurance || "—")}
-        ${detailRow("Extras", [b.extras.childSeats ? `Child seats ×${b.extras.childSeats}` : "", b.extras.secondDriver ? "Second driver" : ""].filter(Boolean).join(", ") || "None")}
+        ${detailRow("Pickup", `${dateTime(b.pickup.atUtc, b.timezone)} — ${b.pickup.place || "—"}`)}
+        ${detailRow("Return", `${dateTime(b.dropoff.atUtc, b.timezone)} — ${b.dropoff.place || "—"}`)}
       </table>
 
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;background:#fafafa;padding:8px;">
-        ${detailRow("Total price", money(f.grossMinor, f.currency))}
-        ${detailRow(`Booking prepayment (${f.prepaymentPercent}%, paid to Rovaro)`, money(f.prepaymentMinor, f.currency))}
-        ${detailRow("Balance you collect at handover", money(f.balanceMinor, f.currency))}
-        ${detailRow("Vehicle security deposit (yours, separate)", b.securityDeposit != null ? `${f.currency} ${Number(b.securityDeposit).toFixed(2)}` : "As per your rental agreement")}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+        ${detailRow(splitLabels.total, formatMarketplaceEuro(f.grossMinor))}
+        ${detailRow(splitLabels.paidToRovaro, formatMarketplaceEuro(f.prepaymentMinor))}
+        ${detailRow(splitLabels.collectFromCustomer, formatMarketplaceEuro(f.balanceMinor))}
       </table>
-
-      <div style="background:#fff8e1;border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:0.82rem;color:#5d4037;line-height:1.65;">
-        <strong>Cancellation and replacement rules</strong><br />
-        ${ruleLines.map((line) => esc(line)).join("<br />")}
-      </div>
-
-      <p style="font-size:0.8rem;color:#607d8b;margin-bottom:20px;">
-        Applicable agreement: ${agreementLine}
+      <p style="margin:0 0 20px;font-size:0.85rem;">
+        <a href="${esc(partnerTermsUrl)}" style="color:#E9004F;font-weight:600;text-decoration:none;">${esc(splitLabels.partnerTerms)}</a>
       </p>
 
       <form method="POST" action="${actionUrl}">
         <input type="hidden" name="token" value="${esc(token)}" />
         <input type="hidden" name="decision" value="accepted" />
-        <label style="display:flex;gap:10px;align-items:flex-start;font-size:0.86rem;line-height:1.6;cursor:pointer;">
+        <label style="display:flex;gap:10px;align-items:flex-start;font-size:0.9rem;line-height:1.5;cursor:pointer;">
           <input type="checkbox" name="accepted" value="yes" required style="margin-top:3px;" />
           <span>${esc(view.statement)}</span>
         </label>
         <button type="submit"
-          style="margin-top:18px;background:#E30052;color:#fff;border:0;border-radius:8px;padding:13px 22px;font-weight:700;font-size:0.95rem;cursor:pointer;">
+          style="margin-top:16px;background:#E9004F;color:#fff;border:0;border-radius:8px;padding:12px 20px;font-weight:700;font-size:0.95rem;cursor:pointer;">
           ${esc(PARTNER_CONFIRMATION_BUTTON_LABEL)}
         </button>
       </form>
 
-      <form method="POST" action="${actionUrl}" style="margin-top:18px;">
+      <form method="POST" action="${actionUrl}" style="margin-top:16px;">
         <input type="hidden" name="token" value="${esc(token)}" />
         <input type="hidden" name="decision" value="declined" />
         <input type="text" name="reason" maxlength="500" placeholder="Reason (optional)"
           style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #cfd8dc;border-radius:8px;font:inherit;font-size:0.86rem;" />
         <button type="submit"
-          style="margin-top:10px;background:#fff;color:#B71C1C;border:1px solid #ef9a9a;border-radius:8px;padding:11px 18px;font-weight:600;font-size:0.88rem;cursor:pointer;">
-          Cannot provide this vehicle
+          style="margin-top:10px;background:#fff;color:#B71C1C;border:1px solid #ef9a9a;border-radius:8px;padding:10px 16px;font-weight:600;font-size:0.88rem;cursor:pointer;">
+          Decline
         </button>
       </form>
+      ${alternativeFormHtml(token, view, actionUrl)}
     `,
   });
+}
+
+function moneyCap(cap) {
+  if (!cap) return "";
+  return formatMarketplaceEuro(cap.offeredGrossMinor);
+}
+
+function alternativeFormHtml(token, view, actionUrl) {
+  const cars = Array.isArray(view.eligibleAlternativeCars) ? view.eligibleAlternativeCars : [];
+  const blocked = view.alternativeEligibility;
+  if (blocked?.code === "paid_requires_manual") {
+    return `<div style="margin-top:24px;padding:12px;border:1px solid #eee;border-radius:8px;font-size:0.85rem;">
+      This booking is already paid. Contact Rovaro to change the car.
+    </div>`;
+  }
+  if (!cars.length) {
+    return `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;">
+      <h2 style="font-size:1rem;margin:0 0 6px;">Offer alternative</h2>
+      <p style="font-size:0.85rem;color:#546e7a;margin:0;">No other car from this fleet is available for these dates.</p>
+    </div>`;
+  }
+  const options = cars
+    .map((car) => {
+      const label = [
+        car.unpublished ? "(internal)" : null,
+        car.name,
+        car.category,
+        moneyCap(car.cap),
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return `<option value="${esc(car.carId)}">${esc(label)}</option>`;
+    })
+    .join("");
+  return `<form method="POST" action="${actionUrl}" style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;">
+    <h2 style="font-size:1rem;margin:0 0 10px;">Offer alternative</h2>
+    <input type="hidden" name="token" value="${esc(token)}" />
+    <input type="hidden" name="decision" value="offer_alternative" />
+    <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;">Replacement car</label>
+    <select name="proposedCarId" required
+      style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #cfd8dc;border-radius:8px;font:inherit;font-size:0.9rem;">
+      <option value="">Select a car</option>
+      ${options}
+    </select>
+    <input type="text" name="reason" maxlength="500" required placeholder="Reason (shown to the customer)"
+      style="width:100%;box-sizing:border-box;margin-top:10px;padding:10px;border:1px solid #cfd8dc;border-radius:8px;font:inherit;font-size:0.86rem;" />
+    <button type="submit"
+      style="margin-top:12px;background:#1565c0;color:#fff;border:0;border-radius:8px;padding:11px 16px;font-weight:700;font-size:0.9rem;cursor:pointer;">
+      Offer alternative
+    </button>
+  </form>`;
 }
 
 /** GET never writes to the booking. */
@@ -218,6 +235,22 @@ export async function GET(request) {
     );
   }
 
+  const actor = {
+    role: ROLE.ADMIN,
+    ownerId: view.booking?.ownerId,
+    email: "",
+    isSuperadmin: false,
+  };
+  const eligible = await listEligibleAlternativeCars({
+    orderId: view.booking.bookingId,
+    actor,
+  });
+  view.eligibleAlternativeCars = eligible.ok ? eligible.cars : [];
+  view.excludedAlternativeCars = eligible.ok ? eligible.excluded : [];
+  view.alternativeEligibility = eligible.ok
+    ? { ok: true }
+    : { code: eligible.code, message: eligible.message };
+
   return htmlResponse(confirmationFormHtml(token, view));
 }
 
@@ -243,6 +276,7 @@ export async function POST(request) {
   let decision = "";
   let accepted = false;
   let reason = "";
+  let proposedCarId = "";
 
   if (contentType.includes("application/json")) {
     const body = await request.json().catch(() => ({}));
@@ -250,12 +284,58 @@ export async function POST(request) {
     decision = String(body.decision || "");
     accepted = Boolean(body.accepted);
     reason = String(body.reason || "");
+    proposedCarId = String(body.proposedCarId || body.carId || "");
   } else {
     const form = await request.formData();
     token = String(form.get("token") || "");
     decision = String(form.get("decision") || "");
     accepted = String(form.get("accepted") || "") === "yes";
     reason = String(form.get("reason") || "");
+    proposedCarId = String(form.get("proposedCarId") || "");
+  }
+
+  if (decision === "offer_alternative") {
+    const view = await buildConfirmationView(token);
+    if (!view.ok) {
+      return htmlResponse(
+        page({
+          title: "Could not record your answer",
+          ok: false,
+          bodyHtml: `<p style="font-size:0.92rem;color:#455a64;">${esc(view.message)}</p>`,
+        }),
+        view.status || 400
+      );
+    }
+    const result = await offerAlternativeVehicle({
+      orderId: view.booking.bookingId,
+      proposedCarId,
+      alternative: { reasonForReplacement: reason },
+      offeredByEmail: "",
+      actor: {
+        role: ROLE.ADMIN,
+        ownerId: view.booking.ownerId,
+        email: "",
+        isSuperadmin: false,
+      },
+    });
+    if (!result.ok) {
+      return htmlResponse(
+        page({
+          title: "Could not offer an alternative",
+          ok: false,
+          bodyHtml: `<p style="font-size:0.92rem;color:#455a64;">${esc(result.message)}</p>`,
+        }),
+        result.status || 400
+      );
+    }
+    return htmlResponse(
+      page({
+        title: "Alternative offered",
+        bodyHtml: `<p style="font-size:0.92rem;color:#455a64;line-height:1.6;">
+          The customer has been sent a replacement-car offer. No hold or payment was created. The original request stays unchanged until they accept.
+        </p>`,
+      })
+    );
   }
 
   if (decision !== "accepted" && decision !== "declined") {

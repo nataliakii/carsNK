@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import mongoose from "mongoose";
 import { ScopedAccessToken } from "@models/ScopedAccessToken";
-import { isValidAccessScope } from "@/domain/auth/accessScopes";
+import { ACCESS_SCOPE, isValidAccessScope } from "@/domain/auth/accessScopes";
 import { connectToDB } from "@lib/database";
 
 export function hashAccessToken(rawToken) {
@@ -11,6 +11,39 @@ export function hashAccessToken(rawToken) {
 export function createRawAccessToken() {
   // URL-safe token
   return randomBytes(32).toString("base64url");
+}
+
+const liveCache = new Map();
+const LIVE_CACHE_MS = 30_000;
+
+export function clearAccessTokenLiveCache() {
+  liveCache.clear();
+}
+
+/**
+ * Whether an admin.console token is still usable (not revoked / expired).
+ */
+export async function isAdminAccessTokenLive(tokenHash) {
+  const hash = String(tokenHash || "");
+  if (!hash) return false;
+  const cached = liveCache.get(hash);
+  if (cached && cached.until > Date.now()) return cached.ok;
+
+  await connectToDB();
+  const doc = await ScopedAccessToken.findOne({
+    tokenHash: hash,
+    revokedAt: null,
+  })
+    .select("expiresAt scopes")
+    .lean();
+  const ok = Boolean(
+    doc &&
+      Array.isArray(doc.scopes) &&
+      doc.scopes.includes(ACCESS_SCOPE.ADMIN_CONSOLE) &&
+      (!doc.expiresAt || new Date(doc.expiresAt).getTime() > Date.now())
+  );
+  liveCache.set(hash, { ok, until: Date.now() + LIVE_CACHE_MS });
+  return ok;
 }
 
 /**
@@ -46,6 +79,7 @@ export async function resolveScopedAccessToken(rawToken, requiredScope) {
   return {
     tokenDoc: doc,
     ownerId: String(doc.ownerId),
+    userId: doc.userId ? String(doc.userId) : null,
     scopes: doc.scopes,
   };
 }

@@ -6,44 +6,216 @@ import {
 const GOOGLE_PLACES_TIMEOUT_MS = Number(
   process.env.GOOGLE_PLACES_TIMEOUT_MS || 8000
 );
-const PLACES_DENIED_COOLDOWN_MS = 10 * 60 * 1000;
+/**
+ * Skip Google for a short window after REQUEST_DENIED so a burst of keystrokes
+ * does not hammer a blocked key. Short enough that a GCP restriction fix is
+ * picked up on the next search without restarting the server.
+ */
+export const PLACES_DENIED_COOLDOWN_MS = 15 * 1000;
+
+export const PLACES_FAIL_REASON = {
+  NOT_CONFIGURED: "not_configured",
+  REFERER_RESTRICTED: "referer_restricted",
+  IP_RESTRICTED: "ip_restricted",
+  API_NOT_ENABLED: "api_not_enabled",
+  BILLING_DISABLED: "billing_disabled",
+  QUOTA_EXCEEDED: "quota_exceeded",
+  INVALID_REQUEST: "invalid_request",
+  TIMEOUT: "provider_timeout",
+  ZERO_RESULTS: "zero_results",
+  UNSUPPORTED_AREA: "unsupported_area",
+  REQUEST_DENIED: "request_denied",
+  GOOGLE_ERROR: "google_error",
+};
 
 /** Skip further Google calls after REQUEST_DENIED (referer-restricted key, etc.). */
 let placesDeniedUntil = 0;
+let lastDeniedReason = PLACES_FAIL_REASON.REQUEST_DENIED;
+let lastDeniedPublicMessage =
+  "Places API denied this server key (need a server key without HTTP-referrer restriction)";
 
 function getMapsApiKey() {
   return String(process.env.GOOGLE_MAPS_API_KEY || "").trim();
 }
 
+/** Map Google country long names / ISO2 onto the 2-letter codes stored on companies. */
+const COUNTRY_NAME_TO_ISO = Object.freeze({
+  spain: "ES",
+  espana: "ES",
+  españa: "ES",
+  greece: "GR",
+  hellas: "GR",
+  ελλάδα: "GR",
+  ελλαδα: "GR",
+});
+
+export function placeCountryCode(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^[A-Za-z]{2}$/.test(raw)) return raw.toUpperCase();
+  return COUNTRY_NAME_TO_ISO[raw.toLowerCase()] || raw.toUpperCase();
+}
+
 export function isGooglePlacesConfigured() {
-  if (Date.now() < placesDeniedUntil) return false;
   return Boolean(getMapsApiKey());
 }
 
 export function resetGooglePlacesDeniedState() {
   placesDeniedUntil = 0;
+  lastDeniedReason = PLACES_FAIL_REASON.REQUEST_DENIED;
+  lastDeniedPublicMessage =
+    "Places API denied this server key (need a server key without HTTP-referrer restriction)";
 }
 
-function markPlacesDenied() {
+function markPlacesDenied(reason, publicMessage) {
   placesDeniedUntil = Date.now() + PLACES_DENIED_COOLDOWN_MS;
+  lastDeniedReason = reason || PLACES_FAIL_REASON.REQUEST_DENIED;
+  if (publicMessage) lastDeniedPublicMessage = publicMessage;
 }
 
-function placesDeniedResponse(message) {
+function placesDeniedResponse(message, reason) {
   return {
     ok: false,
-    configured: false,
+    configured: true,
     unavailable: true,
+    reason: reason || lastDeniedReason,
     predictions: [],
     message:
       message ||
-      "Places API denied this server key (need an unrestricted server key)",
+      lastDeniedPublicMessage ||
+      "Places API denied this server key (need a server key without HTTP-referrer restriction)",
   };
+}
+
+/**
+ * Map Google status / error text → stable server-side reason codes.
+ * Never include API key material in the returned reason.
+ */
+export function classifyPlacesFailure(dataOrMessage) {
+  const status = String(
+    typeof dataOrMessage === "object" && dataOrMessage
+      ? dataOrMessage.status || dataOrMessage?.error?.status || ""
+      : ""
+  ).toUpperCase();
+  const raw = (
+    typeof dataOrMessage === "string"
+      ? dataOrMessage
+      : googleErrorMessage(dataOrMessage)
+  ).toLowerCase();
+
+  if (status === "ZERO_RESULTS" || /zero[_ ]?results/.test(raw)) {
+    return PLACES_FAIL_REASON.ZERO_RESULTS;
+  }
+  if (
+    status === "OVER_QUERY_LIMIT" ||
+    status === "RESOURCE_EXHAUSTED" ||
+    /quota|rate.?limit|over.?query|resource.?exhausted/.test(raw)
+  ) {
+    return PLACES_FAIL_REASON.QUOTA_EXCEEDED;
+  }
+  if (
+    status === "INVALID_REQUEST" ||
+    /invalid[_ ]?request|invalid argument/.test(raw)
+  ) {
+    return PLACES_FAIL_REASON.INVALID_REQUEST;
+  }
+  if (
+    /timeout|timed out|abort|deadline.?exceeded|etimedout/.test(raw) ||
+    status === "TIMEOUT"
+  ) {
+    return PLACES_FAIL_REASON.TIMEOUT;
+  }
+  if (/referer|referrer/.test(raw)) {
+    return PLACES_FAIL_REASON.REFERER_RESTRICTED;
+  }
+  if (
+    /ip address|ip.?restrict|not authorized from this ip|requests from this ip/.test(
+      raw
+    )
+  ) {
+    return PLACES_FAIL_REASON.IP_RESTRICTED;
+  }
+  if (/billing/.test(raw)) return PLACES_FAIL_REASON.BILLING_DISABLED;
+  if (
+    /not been used|has not been enabled|api not activated|not authorized to use this api|access not configured|permission.?denied.*api/.test(
+      raw
+    )
+  ) {
+    return PLACES_FAIL_REASON.API_NOT_ENABLED;
+  }
+  if (
+    /unsupported.*(country|region|area)|outside.*(service|coverage)|not available in this (country|region)/.test(
+      raw
+    )
+  ) {
+    return PLACES_FAIL_REASON.UNSUPPORTED_AREA;
+  }
+  if (status === "REQUEST_DENIED" || status === "PERMISSION_DENIED") {
+    return PLACES_FAIL_REASON.REQUEST_DENIED;
+  }
+  if (status || raw) return PLACES_FAIL_REASON.REQUEST_DENIED;
+  return PLACES_FAIL_REASON.GOOGLE_ERROR;
+}
+
+function publicDeniedMessage(reason) {
+  if (reason === PLACES_FAIL_REASON.REFERER_RESTRICTED) {
+    return "Places server key is blocked by HTTP-referrer restrictions";
+  }
+  if (reason === PLACES_FAIL_REASON.IP_RESTRICTED) {
+    return "Places server key is blocked by IP address restrictions";
+  }
+  if (reason === PLACES_FAIL_REASON.BILLING_DISABLED) {
+    return "Places API billing is not enabled";
+  }
+  if (reason === PLACES_FAIL_REASON.API_NOT_ENABLED) {
+    return "Places API is not enabled for this key";
+  }
+  if (reason === PLACES_FAIL_REASON.QUOTA_EXCEEDED) {
+    return "Places API quota exceeded";
+  }
+  if (reason === PLACES_FAIL_REASON.INVALID_REQUEST) {
+    return "Places request was invalid";
+  }
+  if (reason === PLACES_FAIL_REASON.TIMEOUT) {
+    return "Places provider timed out";
+  }
+  if (reason === PLACES_FAIL_REASON.UNSUPPORTED_AREA) {
+    return "Address is outside the supported service area";
+  }
+  if (reason === PLACES_FAIL_REASON.ZERO_RESULTS) {
+    return "No matching places found";
+  }
+  return "Places API denied this server key (need a server key without HTTP-referrer restriction)";
+}
+
+/** Safe public message — never include provider key or raw Google payloads. */
+export function publicPlacesMessage(reason, fallback) {
+  switch (reason) {
+    case PLACES_FAIL_REASON.NOT_CONFIGURED:
+      return "Places API is not configured";
+    case PLACES_FAIL_REASON.REFERER_RESTRICTED:
+    case PLACES_FAIL_REASON.IP_RESTRICTED:
+    case PLACES_FAIL_REASON.BILLING_DISABLED:
+    case PLACES_FAIL_REASON.API_NOT_ENABLED:
+    case PLACES_FAIL_REASON.QUOTA_EXCEEDED:
+    case PLACES_FAIL_REASON.INVALID_REQUEST:
+    case PLACES_FAIL_REASON.TIMEOUT:
+    case PLACES_FAIL_REASON.UNSUPPORTED_AREA:
+    case PLACES_FAIL_REASON.ZERO_RESULTS:
+    case PLACES_FAIL_REASON.REQUEST_DENIED:
+      return publicDeniedMessage(reason);
+    case PLACES_FAIL_REASON.GOOGLE_ERROR:
+      return "Places lookup is temporarily unavailable";
+    default:
+      return fallback || "Places lookup is temporarily unavailable";
+  }
 }
 
 async function fetchGoogleJson(url, { timeoutMs = GOOGLE_PLACES_TIMEOUT_MS, method = "GET", headers, body } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    // Server-to-server: do not set Referer. Browser-restricted keys fail here by design.
     const res = await fetch(url.toString(), {
       method,
       cache: "no-store",
@@ -52,6 +224,14 @@ async function fetchGoogleJson(url, { timeoutMs = GOOGLE_PLACES_TIMEOUT_MS, meth
       body,
     });
     return await res.json().catch(() => ({}));
+  } catch (err) {
+    const msg = String(err?.name || err?.message || err || "");
+    if (/abort|timeout|etimedout/i.test(msg)) {
+      const timeoutErr = new Error("Places provider timed out");
+      timeoutErr.code = PLACES_FAIL_REASON.TIMEOUT;
+      throw timeoutErr;
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -191,14 +371,24 @@ export async function fetchPlaceAutocomplete({
     return {
       ok: false,
       configured: false,
+      unavailable: true,
+      reason: PLACES_FAIL_REASON.NOT_CONFIGURED,
       predictions: [],
-      message: "GOOGLE_MAPS_API_KEY is not configured",
+      message: "Places API is not configured",
     };
   }
 
   const params = { q, country, language, sessionToken, types, apiKey };
   try {
-    const neu = await fetchNewAutocomplete(params);
+    let neu = { data: {}, predictions: [] };
+    try {
+      neu = await fetchNewAutocomplete(params);
+    } catch (err) {
+      console.warn(
+        "[places] Places API (New) failed, trying legacy",
+        redactSecretsForLog(err?.message || err)
+      );
+    }
     const newDenied = isPlacesPermissionDenied(neu.data);
     if (!newDenied && Array.isArray(neu.data.suggestions)) {
       return { ok: true, configured: true, predictions: neu.predictions };
@@ -211,50 +401,72 @@ export async function fetchPlaceAutocomplete({
 
     const legacyDenied = isPlacesPermissionDenied(legacy.data);
     if (newDenied && legacyDenied) {
-      markPlacesDenied();
+      const googleMsg =
+        googleErrorMessage(legacy.data) || googleErrorMessage(neu.data);
+      const reason = classifyPlacesFailure(
+        `${googleErrorMessage(legacy.data)} ${googleErrorMessage(neu.data)}`
+      );
+      const publicMessage = publicDeniedMessage(reason);
+      markPlacesDenied(reason, publicMessage);
       console.warn(
         "[places] autocomplete REQUEST_DENIED",
-        redactSecretsForLog(googleErrorMessage(legacy.data) || googleErrorMessage(neu.data))
+        reason,
+        redactSecretsForLog(googleMsg)
       );
-      return placesDeniedResponse(
-        sanitizeProviderErrorMessage(
-          googleErrorMessage(legacy.data) ||
-            googleErrorMessage(neu.data) ||
-            "Places autocomplete denied"
-        )
-      );
+      if (reason === PLACES_FAIL_REASON.REFERER_RESTRICTED) {
+        console.warn(
+          "[places] HTTP-referrer restrictions cannot be used with this server call. Adding a website domain will not enable autocomplete. Use a server key with no referrer restriction (IP restriction is OK), enable Places API (New) and/or Places API, and billing."
+        );
+      }
+      return placesDeniedResponse(publicMessage, reason);
     }
 
     if (legacy.data.status && !legacyDenied) {
+      const reason = classifyPlacesFailure(legacy.data);
       console.warn(
         "[places] autocomplete status:",
         legacy.data.status,
+        reason,
         redactSecretsForLog(googleErrorMessage(legacy.data))
       );
+      return {
+        ok: false,
+        configured: true,
+        unavailable: true,
+        reason,
+        predictions: [],
+        message: publicPlacesMessage(reason),
+      };
     }
 
     return {
       ok: false,
       configured: true,
       unavailable: true,
+      reason: PLACES_FAIL_REASON.GOOGLE_ERROR,
       predictions: [],
-      message: sanitizeProviderErrorMessage(
-        googleErrorMessage(legacy.data) ||
-          googleErrorMessage(neu.data) ||
-          "Places autocomplete failed"
-      ),
+      message: publicPlacesMessage(PLACES_FAIL_REASON.GOOGLE_ERROR),
     };
   } catch (err) {
+    const reason =
+      err?.code === PLACES_FAIL_REASON.TIMEOUT
+        ? PLACES_FAIL_REASON.TIMEOUT
+        : classifyPlacesFailure(err?.message || err);
     console.error(
       "[places] autocomplete error:",
+      reason,
       redactSecretsForLog(err?.message || err)
     );
     return {
       ok: false,
       configured: true,
       unavailable: true,
+      reason,
       predictions: [],
-      message: sanitizeProviderErrorMessage(err?.message || "Places request failed"),
+      message: publicPlacesMessage(
+        reason,
+        sanitizeProviderErrorMessage(err?.message || "Places request failed")
+      ),
     };
   }
 }
@@ -281,7 +493,9 @@ export async function fetchPlaceDetails({
     return {
       ok: false,
       configured: false,
-      message: "GOOGLE_MAPS_API_KEY is not configured",
+      unavailable: true,
+      reason: PLACES_FAIL_REASON.NOT_CONFIGURED,
+      message: "Places API is not configured",
     };
   }
 
@@ -319,25 +533,48 @@ export async function fetchPlaceDetails({
 
     const legacyDenied = isPlacesPermissionDenied(data);
     if (newDenied && legacyDenied) {
-      markPlacesDenied();
-      return placesDeniedResponse(
-        sanitizeProviderErrorMessage(
-          googleErrorMessage(data) || googleErrorMessage(neu) || "Place details denied"
-        )
+      const googleMsg = googleErrorMessage(data) || googleErrorMessage(neu);
+      const reason = classifyPlacesFailure(
+        `${googleErrorMessage(data)} ${googleErrorMessage(neu)}`
       );
+      const publicMessage = publicDeniedMessage(reason);
+      markPlacesDenied(reason, publicMessage);
+      console.warn(
+        "[places] details REQUEST_DENIED",
+        reason,
+        redactSecretsForLog(googleMsg)
+      );
+      return placesDeniedResponse(publicMessage, reason);
     }
+    const detailsReason = classifyPlacesFailure(data || neu);
     return {
       ok: false,
       configured: true,
-      message: sanitizeProviderErrorMessage(
-        googleErrorMessage(data) || googleErrorMessage(neu) || "Place details failed"
+      unavailable: true,
+      reason: detailsReason || PLACES_FAIL_REASON.GOOGLE_ERROR,
+      message: publicPlacesMessage(
+        detailsReason || PLACES_FAIL_REASON.GOOGLE_ERROR
       ),
     };
   } catch (err) {
+    const reason =
+      err?.code === PLACES_FAIL_REASON.TIMEOUT
+        ? PLACES_FAIL_REASON.TIMEOUT
+        : classifyPlacesFailure(err?.message || err);
+    console.warn(
+      "[places] details error:",
+      reason,
+      redactSecretsForLog(err?.message || err)
+    );
     return {
       ok: false,
       configured: true,
-      message: sanitizeProviderErrorMessage(err?.message || "Place details failed"),
+      unavailable: true,
+      reason,
+      message: publicPlacesMessage(
+        reason,
+        sanitizeProviderErrorMessage(err?.message || "Place details failed")
+      ),
     };
   }
 }
@@ -359,6 +596,12 @@ function mapNewPlaceDetails(id, result) {
     findComponent("postal_town") ||
     findComponent("administrative_area_level_2") ||
     "";
+  const countryRow = components.find(
+    (c) => Array.isArray(c.types) && c.types.includes("country")
+  );
+  const country = placeCountryCode(
+    (countryRow && (countryRow.shortText || countryRow.longText)) || ""
+  );
   return {
     ok: true,
     configured: true,
@@ -367,6 +610,7 @@ function mapNewPlaceDetails(id, result) {
     lat: Number.isFinite(lat) ? lat : null,
     lon: Number.isFinite(lon) ? lon : null,
     locality,
+    country,
   };
 }
 
@@ -387,6 +631,12 @@ function mapLegacyPlaceDetails(id, result) {
     findComponent("postal_town") ||
     findComponent("administrative_area_level_2") ||
     "";
+  const countryRow = components.find(
+    (c) => Array.isArray(c.types) && c.types.includes("country")
+  );
+  const country = placeCountryCode(
+    (countryRow && (countryRow.short_name || countryRow.long_name)) || ""
+  );
   return {
     ok: true,
     configured: true,
@@ -395,5 +645,6 @@ function mapLegacyPlaceDetails(id, result) {
     lat: Number.isFinite(lat) ? lat : null,
     lon: Number.isFinite(lon) ? lon : null,
     locality,
+    country,
   };
 }

@@ -25,6 +25,7 @@
 
 import { ROLE } from "@models/user";
 import { isOrderPaidAndClosed } from "@/domain/orders/orderStatus";
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 
 // ════════════════════════════════════════════════════════════════
 // TYPES (JSDoc for JS, but structured like TS)
@@ -71,12 +72,38 @@ import { isOrderPaidAndClosed } from "@/domain/orders/orderStatus";
  * @property {{ clientPII?: string }} reasons - Human-readable restriction reasons
  */
 
+function marketplacePriceLocked(ctx) {
+  if (!isMarketplaceRequestMode(ctx?.bookingMode)) return false;
+  if (ctx?.role === "ADMIN") return true;
+  return (
+    ctx?.partnerConfirmed === true ||
+    ctx?.paymentStatus === "paid" ||
+    ctx?.confirmed === true
+  );
+}
+
 function withDerivedOrderActionAccess(access, ctx) {
   const appliesConfirmedPricingRule =
     ctx?.timeBucket === "CURRENT" || ctx?.timeBucket === "FUTURE";
-  const canUseConfirmedPricingActions = appliesConfirmedPricingRule
+  let canUseConfirmedPricingActions = appliesConfirmedPricingRule
     ? access.canEdit && ctx?.confirmed !== true
     : access.canEditPricing;
+
+  const canCorrectMarketplacePrice =
+    isMarketplaceRequestMode(ctx?.bookingMode) &&
+    ctx?.role === "SUPERADMIN" &&
+    !ctx?.isPast &&
+    !ctx?.isClosed;
+
+  if (marketplacePriceLocked(ctx)) {
+    return {
+      ...access,
+      canEditPricing: false,
+      canEditTotalPrice: false,
+      canResetToAutoPrice: false,
+      canCorrectMarketplacePrice,
+    };
+  }
 
   return {
     ...access,
@@ -84,6 +111,7 @@ function withDerivedOrderActionAccess(access, ctx) {
     // unlock manual total price editing without widening other pricing fields.
     canEditTotalPrice: canUseConfirmedPricingActions,
     canResetToAutoPrice: canUseConfirmedPricingActions,
+    canCorrectMarketplacePrice,
   };
 }
 
@@ -274,7 +302,7 @@ export function getOrderAccess(ctx) {
         canEditReturn: true, // ✅ return place + time: placeOut, timeOut
         canEditInsurance: false,
         canEditFranchise: false,
-        canEditPricing: true,
+        canEditPricing: false,
         canConfirm: true,
         canSeeClientPII: true,
         canEditClientPII: true,
@@ -354,6 +382,21 @@ export function createOrderContext(order, user, isPastFn, timeBucket) {
     isPast,
     isClosed: isOrderPaidAndClosed(order.status),
     timeBucket,
+    bookingMode: order.bookingMode || "",
+    partnerConfirmed: Boolean(
+      order.partnerConfirmedAt || order.companyEmailDecision === "accepted"
+    ),
+    paymentStatus: order.payment?.status || "",
+  };
+}
+
+export function marketplaceAccessFields(order) {
+  return {
+    bookingMode: order?.bookingMode || "",
+    partnerConfirmed: Boolean(
+      order?.partnerConfirmedAt || order?.companyEmailDecision === "accepted"
+    ),
+    paymentStatus: order?.payment?.status || "",
   };
 }
 

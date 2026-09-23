@@ -1,6 +1,9 @@
 /**
  * GET /api/admin/inbox/pending
  * Counts unprocessed rentals + transfers for admin badges / notifications.
+ *
+ * Superadmin workspace country scopes BOTH rentals and transfers so Spain
+ * mode never includes Greek OPS_CALENDAR rentals (and vice versa).
  */
 
 import { NextResponse } from "next/server";
@@ -12,6 +15,7 @@ import { getServerSessionWithViewAs } from "@lib/adminAuth";
 import {
   buildPendingRentalsFilter,
   buildPendingTransfersFilter,
+  resolveAdminCountryOwnerIds,
   sumPendingInbox,
 } from "@/domain/orders/pendingInbox";
 import {
@@ -52,7 +56,13 @@ export async function GET(request) {
       }
     }
 
-    const rentalFilter = buildPendingRentalsFilter(session);
+    const ownerIds = isSuperAdminUser(session.user)
+      ? await resolveAdminCountryOwnerIds(Company, country)
+      : null;
+
+    const rentalFilter = buildPendingRentalsFilter(session, country, {
+      ownerIds,
+    });
     let transferFilter = buildPendingTransfersFilter(session, country);
 
     // Partners: unclaimed open transfers only in their country

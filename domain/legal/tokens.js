@@ -29,37 +29,51 @@ const TOKEN_RE = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g;
  */
 export function buildTokenValues({ settings = {}, language = "en" } = {}) {
   const e = getPublicLegalEntity(language);
+  const profile =
+    settings?.businessProfile && typeof settings.businessProfile === "object"
+      ? settings.businessProfile
+      : {};
+  const businessAddress = profile.businessAddress || e.businessAddress;
+  const businessNameNumber =
+    profile.businessNameNumber || e.businessNameNumber;
+  const legalEmail = profile.businessEmail || e.legalEmail;
   return {
     "operator.legalName": e.ownerLegalName,
     "operator.legalStructure": e.legalStructureLabel,
-    "operator.country": e.countryOfEstablishment,
+    "operator.country": profile.country || e.countryOfEstablishment,
     "operator.tradingName": e.tradingName,
     "operator.platformBrand": e.platformBrand,
-    "operator.legalEmail": e.legalEmail,
+    "operator.legalEmail": legalEmail,
     "operator.primaryDomain": e.primaryDomain,
     "operator.spanishDomain": e.spanishDomain,
-    "operator.businessAddress": e.businessAddress,
-    "operator.businessNameNumber": e.businessNameNumber,
+    "operator.businessAddress": businessAddress,
+    "operator.businessNameNumber": businessNameNumber,
     "operator.description": getOperatorLegalDescription(language),
     "operator.platformSentence": getPlatformOperatorSentence(language),
     "operator.footerLine": getOperatorLine(language),
     "operator.dpa": e.dataProtectionAuthority,
     "operator.dpaUrl": e.dataProtectionAuthorityUrl,
     ...Object.fromEntries(
-      Object.entries(settings).map(([key, value]) => [
-        `settings.${key}`,
-        value == null ? "" : String(value),
-      ])
+      Object.entries(settings)
+        .filter(([, value]) => value == null || typeof value !== "object")
+        .map(([key, value]) => [
+          `settings.${key}`,
+          value == null ? "" : String(value),
+        ])
     ),
   };
 }
 
 /** Configurable values that a section may declare in `requires`. */
-export function getRequirableValues() {
+export function getRequirableValues(settings = {}) {
   const e = getPublicLegalEntity();
+  const profile =
+    settings?.businessProfile && typeof settings.businessProfile === "object"
+      ? settings.businessProfile
+      : {};
   return {
-    businessAddress: e.businessAddress,
-    businessNameNumber: e.businessNameNumber,
+    businessAddress: profile.businessAddress || e.businessAddress,
+    businessNameNumber: profile.businessNameNumber || e.businessNameNumber,
   };
 }
 
@@ -95,7 +109,7 @@ export function renderLegalDocument(doc, { settings = {}, language } = {}) {
     settings,
     language: language || doc?.language || "en",
   });
-  const requirable = getRequirableValues();
+  const requirable = getRequirableValues(settings);
   const sections = (doc?.content?.sections || [])
     .filter((section) => sectionRequirementsMet(section, requirable))
     .map((section, index) => ({

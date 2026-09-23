@@ -43,16 +43,41 @@ describe("companyEmailActionToken", () => {
 });
 
 describe("buildCompanyEmailOrderActions", () => {
-  test("returns four CTAs with signed links", () => {
+  test("omits fake accept links and superadmin calendar when no confirm token is issued", () => {
     const actions = buildCompanyEmailOrderActions(
       "507f1f77bcf86cd799439011",
       "ru"
     );
-    expect(actions).toHaveLength(4);
-    expect(actions[0].label).toBe("Принять");
-    expect(actions[1].label).toBe("Отклонить");
-    expect(actions[2].href).toContain("/admin");
+    expect(actions).toHaveLength(1);
+    expect(actions[0].label).toBe("Contact Rovaro support");
     expect(actions[0].href).toContain("/api/order/company-email-action?token=");
-    expect(actions[3].label).toMatch(/суперадмин/i);
+    expect(JSON.stringify(actions)).not.toMatch(/superadmin/i);
+    expect(actions.every((a) => !a.href.includes("/admin"))).toBe(true);
+    expect(actions[0].href).not.toContain("/api/booking/partner-confirm");
+  });
+
+  test("points confirm and decline at the partner-confirm page", () => {
+    const actions = buildCompanyEmailOrderActions(
+      "507f1f77bcf86cd799439011",
+      "en",
+      { confirmToken: "one-time-token" }
+    );
+    expect(actions).toHaveLength(3);
+    expect(actions[0].label).toBe("Confirm availability");
+    expect(actions[0].href).toContain("/api/booking/partner-confirm?token=");
+    expect(actions[0].href).toContain("one-time-token");
+    expect(actions[1].href).toBe(actions[0].href);
+    expect(actions[2].label).toBe("Contact Rovaro support");
+    expect(actions.some((a) => a.href === actions[0].href.replace(/partner-confirm.*/, "admin") || a.href.endsWith("/admin"))).toBe(false);
+  });
+
+  test("Spanish partner CTA never says superadmins", () => {
+    const actions = buildCompanyEmailOrderActions(
+      "507f1f77bcf86cd799439011",
+      "es",
+      { confirmToken: "tok" }
+    );
+    expect(actions[2].label).toBe("Contactar con soporte de Rovaro");
+    expect(JSON.stringify(actions)).not.toMatch(/superadmin/i);
   });
 });

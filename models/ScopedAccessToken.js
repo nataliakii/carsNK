@@ -27,20 +27,30 @@ const ScopedAccessTokenSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    /** Explicit page scopes only — never full admin. */
+    /** Company admin this login link signs in as (admin.console only). */
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
+    /**
+     * Explicit page scopes only — voucher pages or 7-day company login.
+     * Values are checked in application code (`isValidAccessScope`) so new
+     * scopes can ship without a mongoose enum rebuild.
+     */
     scopes: {
-      type: [
-        {
-          type: String,
-          enum: ALL_ACCESS_SCOPES,
-        },
-      ],
+      type: [String],
       required: true,
       validate: {
         validator(v) {
-          return Array.isArray(v) && v.length > 0;
+          return (
+            Array.isArray(v) &&
+            v.length > 0 &&
+            v.every((scope) => ALL_ACCESS_SCOPES.includes(String(scope)))
+          );
         },
-        message: "At least one scope is required",
+        message: "At least one valid scope is required",
       },
     },
     expiresAt: {
@@ -72,3 +82,14 @@ const ScopedAccessTokenSchema = new mongoose.Schema(
 export const ScopedAccessToken =
   mongoose.models?.ScopedAccessToken ||
   mongoose.model("ScopedAccessToken", ScopedAccessTokenSchema);
+
+if (ScopedAccessToken?.schema && !ScopedAccessToken.schema.path("userId")) {
+  ScopedAccessToken.schema.add({
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
+  });
+}

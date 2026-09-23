@@ -29,6 +29,12 @@ export {
 } from "./functions";
 
 export {
+  isValidBookingDateValue,
+  normalizeBookingDateSelection,
+  formatValidBookingDate,
+} from "./bookingDateSelection";
+
+export {
   buildTransferCalendarOverlays,
   carsForTransferOverlay,
   CALENDAR_TRANSFER_STATUSES,

@@ -20,7 +20,6 @@ import {
 import DialogLayout from "@/app/components/ui/modals/DialogLayout";
 import { ConfirmButton, CancelButton } from "@/app/components/ui";
 import Snackbar from "@/app/components/ui/feedback/Snackbar";
-import { styled } from "@mui/material/styles";
 import PricingTiersTable from "../PricingTiers";
 import { useMainContext } from "@app/Context";
 import {
@@ -33,12 +32,12 @@ import {
   RenderTextField,
   RenderSelectField,
 } from "@/app/components/ui/inputs/Fields";
-import CarImageUpload from "@/app/components/ui/media/AddImageComponent";
+import CarPhotosEditor from "./CarPhotosEditor";
+import CarCompanyOfficesPicker from "./CarCompanyOfficesPicker";
 import { useTranslation } from "react-i18next";
 import { useSession } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";
-import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
-import { normalizeCarOffices } from "@/domain/orders/carOffices";
+import { CAR_OFFICE_SCOPE } from "@/domain/company/officeConstants";
 
 const EditCarModal = ({
   open,
@@ -62,8 +61,6 @@ const EditCarModal = ({
       : company?._id
         ? String(company._id)
         : "";
-  const { names: officeLocationOptions } =
-    useCompanyBookingLocations(officeCompanyId);
 
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
@@ -294,6 +291,15 @@ const EditCarModal = ({
                 sx={{ m: 0, "& .MuiFormControlLabel-label": { fontWeight: 700 } }}
               />
             </Box>
+          </Grid>
+          <Grid item xs={12}>
+            <CarPhotosEditor
+              car={updatedCar}
+              disabled={isLoading}
+              onChange={({ photos, photoUrl }) =>
+                setUpdatedCar((prev) => ({ ...prev, photos, photoUrl }))
+              }
+            />
           </Grid>
           {isSuperAdmin && (
             <Grid item xs={12}>
@@ -563,73 +569,30 @@ const EditCarModal = ({
           </Grid>
 
           <Grid item xs={12}>
-            <Autocomplete
-              multiple
-              freeSolo
-              options={officeLocationOptions}
-              value={normalizeCarOffices(updatedCar.offices).map((o) => o.name)}
-              getOptionLabel={(opt) =>
-                typeof opt === "string" ? opt : String(opt?.name || "")
+            <CarCompanyOfficesPicker
+              companyId={officeCompanyId}
+              companyOffices={
+                (isSuperAdmin
+                  ? localCompanies.find(
+                      (c) => String(c._id) === String(officeCompanyId)
+                    )?.offices
+                  : company?.offices) || []
               }
-              onChange={(_, newValue) => {
-                const prev = normalizeCarOffices(updatedCar.offices);
-                const next = (newValue || []).map((raw) => {
-                  const name =
-                    typeof raw === "string"
-                      ? raw.trim()
-                      : String(raw?.name || "").trim();
-                  const existing = prev.find(
-                    (p) =>
-                      String(p.name).toLowerCase() === name.toLowerCase()
-                  );
-                  return (
-                    existing || {
-                      name,
-                      address: String(company?.address || "").trim(),
-                      lat: "",
-                      lon: "",
-                    }
-                  );
+              officeIds={updatedCar.officeIds || []}
+              officeScope={updatedCar.officeScope || CAR_OFFICE_SCOPE.ALL}
+              disabled={isLoading}
+              onChange={({ officeIds, officeScope, offices }) => {
+                handleChange({
+                  target: { name: "officeIds", value: officeIds },
                 });
                 handleChange({
-                  target: {
-                    name: "offices",
-                    value: normalizeCarOffices(next),
-                  },
+                  target: { name: "officeScope", value: officeScope },
+                });
+                handleChange({
+                  target: { name: "offices", value: offices },
                 });
               }}
-              disabled={isLoading}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label={t("car.offices") || "Offices (pickup / return)"}
-                  helperText={
-                    t("car.officesHelp") ||
-                    "Pickup or return at these places is free for this car."
-                  }
-                />
-              )}
             />
-            {normalizeCarOffices(updatedCar.offices).map((office, idx) => (
-              <TextField
-                key={`${office.name}-${idx}`}
-                fullWidth
-                size="small"
-                sx={{ mt: 1.5 }}
-                label={`${office.name} — address`}
-                value={office.address || ""}
-                disabled={isLoading}
-                onChange={(e) => {
-                  const next = normalizeCarOffices(updatedCar.offices).map(
-                    (o, i) =>
-                      i === idx ? { ...o, address: e.target.value } : o
-                  );
-                  handleChange({
-                    target: { name: "offices", value: next },
-                  });
-                }}
-              />
-            ))}
           </Grid>
 
           <Grid item xs={12}>

@@ -1,6 +1,7 @@
 import Company from "@models/company";
 import { COMPANY_ID } from "@config/company";
 import { calculateDeliveryPrice } from "./calculateDeliveryPrice";
+import { deliverySliceFromStoredSnapshot } from "@/domain/orders/priceBreakdownReconciliation";
 
 /**
  * Delivery slice for PriceBreakdown: either admin overrides (both set) or zones from placeIn/placeOut.
@@ -22,6 +23,15 @@ export async function buildDeliveryBreakdownSlice(orderLike) {
       deliveryOut,
       deliveryTotal: deliveryIn + deliveryOut,
       deliveryPricePerKm: company?.deliveryPricePerKm ?? 0,
+      placeIn,
+      placeOut,
+    };
+  }
+
+  const stored = deliverySliceFromStoredSnapshot(orderLike);
+  if (stored) {
+    return {
+      ...stored,
       placeIn,
       placeOut,
     };

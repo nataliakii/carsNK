@@ -11,6 +11,13 @@ import {
   isSuperAdminUser,
 } from "@/domain/owners/ownerScope";
 import { rentalPaymentUpdatesFromPatch } from "@/domain/company/rentalPaymentSettingsPatch";
+import { marketplaceBookingFeeAuditMetadata } from "@/domain/orders/marketplaceBookingFee";
+import {
+  assertPartnerCanOperate,
+  isMarketplaceOperatingCompany,
+  partnerComplianceJson,
+  PARTNER_OPERATION_PURPOSE,
+} from "@/domain/legal/partnerOperatingPolicy";
 
 // Кеширование для статических данных (company меняется очень редко)
 // Revalidate каждый час (3600 секунд)
@@ -199,10 +206,25 @@ export async function PATCH(request, { params }) {
     updates.langSuperadmin = normalizeNotifyLocale(body.langSuperadmin);
   }
   if (Array.isArray(body?.offices)) {
-    const { companyOfficesPatchValue, primaryOfficePoint } = await import(
-      "@/domain/company/companyOffices"
-    );
-    const offices = companyOfficesPatchValue(body.offices);
+    // Authoritative office mutations go through /api/admin/offices so `_id`s stay stable.
+    // Whole-array replace on company PATCH is rejected for normal admins.
+    if (!isSuperAdminUser(user)) {
+      return NextResponse.json(
+        {
+          error:
+            "Use /api/admin/offices to create or update offices. Whole-array offices replace is no longer supported.",
+          code: "OFFICES_USE_ADMIN_API",
+        },
+        { status: 400 }
+      );
+    }
+    const { companyOfficesPatchValue, primaryOfficePoint, mergeOfficesPreservingIds } =
+      await import("@/domain/company/companyOffices");
+    await connectToDB();
+    const existing = await Company.findById(companyId).select("offices").lean();
+    const offices = mergeOfficesPreservingIds
+      ? mergeOfficesPreservingIds(existing?.offices, body.offices)
+      : companyOfficesPatchValue(body.offices);
     updates.offices = offices;
     const primary = primaryOfficePoint(offices);
     if (primary) {
@@ -259,6 +281,37 @@ export async function PATCH(request, { params }) {
   }
   Object.assign(updates, rentalPaymentPatch.updates);
 
+  let listingWasEnabled = false;
+  if (updates.listedOnMarketplace != null) {
+    await connectToDB();
+    const existingCompany = await Company.findById(companyId)
+      .select("_id country bookingMode listedOnMarketplace")
+      .lean();
+    listingWasEnabled = existingCompany?.listedOnMarketplace !== false;
+    if (updates.listedOnMarketplace === true && isMarketplaceOperatingCompany(existingCompany)) {
+      if (!isSuperAdminUser(user)) {
+        return NextResponse.json(
+          {
+            error: "Forbidden",
+            code: "MARKETPLACE_LISTING_SUPERADMIN_ONLY",
+            message: "Marketplace listing is enabled by Rovaro after verification.",
+          },
+          { status: 403 }
+        );
+      }
+      const listingGate = await assertPartnerCanOperate(companyId, {
+        company: existingCompany,
+        requireListed: false,
+        purpose: PARTNER_OPERATION_PURPOSE.LISTING,
+      });
+      if (!listingGate.allowed) {
+        return NextResponse.json(partnerComplianceJson(listingGate), {
+          status: 403,
+        });
+      }
+    }
+  }
+
   try {
     await connectToDB();
 
@@ -295,6 +348,18 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
 
+    const feeChanging = Object.prototype.hasOwnProperty.call(
+      updates,
+      "marketplaceBookingFeeBps"
+    );
+    let previousFeeBps = null;
+    if (feeChanging) {
+      const prevFee = await Company.findById(companyId)
+        .select("marketplaceBookingFeeBps")
+        .lean();
+      previousFeeBps = prevFee?.marketplaceBookingFeeBps ?? null;
+    }
+
     const updateDoc = {};
     if (Object.keys(updates).length) updateDoc.$set = updates;
     if (unset) updateDoc.$unset = unset;
@@ -308,6 +373,67 @@ export async function PATCH(request, { params }) {
     }
 
     revalidatePath(`/api/company/${companyId}`);
+
+    if (
+      listingWasEnabled &&
+      company.listedOnMarketplace === false &&
+      isMarketplaceOperatingCompany(company)
+    ) {
+      const {
+        CHECKOUT_INVALIDATION_REASON,
+        invalidateOpenMarketplaceCheckoutSessions,
+      } = await import("@/domain/orders/invalidateMarketplaceCheckout");
+      await invalidateOpenMarketplaceCheckoutSessions(companyId, {
+        reason: CHECKOUT_INVALIDATION_REASON.MARKETPLACE_DISABLED,
+        actorEmail: user?.email || "",
+        actorRole: isSuperAdminUser(user) ? "superadmin" : "admin",
+      }).catch((err) => {
+        console.error("[company] checkout invalidate failed", err?.message || err);
+      });
+    }
+
+    if (feeChanging) {
+      const { recordAuditEvent, extractAuditContext } = await import(
+        "@/domain/legal/auditTrail"
+      );
+      const { ipAddress, userAgent } = extractAuditContext(request);
+      const newBps = company.marketplaceBookingFeeBps ?? null;
+      await recordAuditEvent({
+        action: "MARKETPLACE_BOOKING_FEE_CHANGED",
+        userRole: "superadmin",
+        userId: user?.id,
+        userEmail: user?.email,
+        ipAddress,
+        userAgent,
+        reason: String(body?.marketplaceBookingFeeReason || "").slice(0, 500),
+        metadata: marketplaceBookingFeeAuditMetadata({
+          companyId,
+          previousBps: previousFeeBps,
+          newBps,
+          actorEmail: user?.email,
+          actorUserId: user?.id,
+          reason: String(body?.marketplaceBookingFeeReason || "").slice(0, 500),
+        }),
+      });
+    }
+
+    if (body?.deliveryPricing !== undefined || Array.isArray(body?.offices)) {
+      const { recordAuditEvent } = await import("@/domain/legal/auditTrail");
+      await recordAuditEvent({
+        action: Array.isArray(body?.offices)
+          ? "COMPANY_OFFICE_UPDATED"
+          : "COMPANY_DELIVERY_PRICING_UPDATED",
+        userRole: isSuperAdminUser(user) ? "superadmin" : "admin",
+        userId: user?.id,
+        userEmail: user?.email,
+        metadata: {
+          companyId,
+          kind: Array.isArray(body?.offices)
+            ? "offices"
+            : "deliveryPricing",
+        },
+      });
+    }
 
     return NextResponse.json(company, { status: 200 });
   } catch (error) {

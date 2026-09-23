@@ -58,6 +58,16 @@ module.exports = {
   ),
   SEND_EMAIL_RATE_LIMIT_COLLECTION: "sendEmailRateLimit",
 
+  SUPPORT_MESSAGE_RATE_LIMIT_MAX: parseInt(
+    process.env.SUPPORT_MESSAGE_RATE_LIMIT_MAX || "5",
+    10
+  ),
+  SUPPORT_MESSAGE_RATE_LIMIT_WINDOW_SEC: parseInt(
+    process.env.SUPPORT_MESSAGE_RATE_LIMIT_WINDOW_SEC || "600",
+    10
+  ),
+  SUPPORT_MESSAGE_RATE_LIMIT_COLLECTION: "supportMessageRateLimit",
+
   /** Partner clicking "Confirm availability" from an emailed link. */
   BOOKING_CONFIRM_RATE_LIMIT_MAX: parseInt(
     process.env.BOOKING_CONFIRM_RATE_LIMIT_MAX || "20",
@@ -105,4 +115,15 @@ module.exports = {
     10
   ),
   RETENTION_JOB_RATE_LIMIT_COLLECTION: "retentionJobRateLimit",
+
+  /** Public Google Places autocomplete proxy (booking address field). */
+  PLACES_AUTOCOMPLETE_RATE_LIMIT_MAX: parseInt(
+    process.env.PLACES_AUTOCOMPLETE_RATE_LIMIT_MAX || "30",
+    10
+  ),
+  PLACES_AUTOCOMPLETE_RATE_LIMIT_WINDOW_SEC: parseInt(
+    process.env.PLACES_AUTOCOMPLETE_RATE_LIMIT_WINDOW_SEC || "60",
+    10
+  ),
+  PLACES_AUTOCOMPLETE_RATE_LIMIT_COLLECTION: "placesAutocompleteRateLimit",
 };

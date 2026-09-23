@@ -11,6 +11,7 @@ import { renderCustomerOfficialConfirmationEmail } from "@/app/ui/email/renderEm
 import { pickCustomerEmailLocale } from "@locales/customerEmail";
 import { buildCustomerOfficialConfirmationPdf } from "@/app/ui/email/pdf/customerOfficialConfirmationPdf";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
+import { MAIL_RENDER_KEY, MAIL_TYPE } from "@/domain/mail/mailTypes";
 import { getDefaultConfirmationCcEmail } from "@config/email";
 import {
   formatMeetingContactsDisplay,
@@ -318,6 +319,13 @@ export async function POST(request) {
             contentType: "application/pdf",
           },
         ],
+        meta: {
+          type: MAIL_TYPE.ORDER_OFFICIAL,
+          orderId: payload.orderId,
+          companyId: order.ownerId,
+          renderKey: MAIL_RENDER_KEY.CUSTOMER_OFFICIAL_CONFIRMATION,
+          payload,
+        },
       });
     } catch (emailErr) {
       return NextResponse.json(

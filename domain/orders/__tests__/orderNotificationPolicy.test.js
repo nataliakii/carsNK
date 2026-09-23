@@ -196,9 +196,32 @@ describe("orderNotificationPolicy", () => {
         action: "CONFIRM",
         access,
         order,
+        actorIsSuperadmin: true,
       });
 
       expect(notifications.some((n) => n.target === "CUSTOMER")).toBe(false);
+      expect(notifications.some((n) => n.target === "SUPERADMIN")).toBe(false);
+    });
+
+    it("CONFIRM by company admin → SUPERADMIN email", () => {
+      const access = createAccess({ canConfirm: true });
+      const order = createOrder({
+        my_order: false,
+        confirmed: true,
+        email: "guest@example.com",
+      });
+
+      const notifications = getOrderNotifications({
+        action: "CONFIRM",
+        access,
+        order,
+        actorIsSuperadmin: false,
+      });
+
+      const superadmin = notifications.find((n) => n.target === "SUPERADMIN");
+      expect(superadmin).toBeTruthy();
+      expect(superadmin.channels).toEqual(["TELEGRAM", "EMAIL"]);
+      expect(superadmin.reason).toBe("Company admin confirmed an order");
     });
 
     it("CONFIRM internal order with email → CUSTOMER email in English", () => {
@@ -242,6 +265,14 @@ describe("orderNotificationPolicy", () => {
   // ════════════════════════════════════════════════════════════════
   
   describe("Company notification", () => {
+    const previousEmailTesting = process.env.EMAIL_TESTING;
+    beforeAll(() => {
+      process.env.EMAIL_TESTING = "false";
+    });
+    afterAll(() => {
+      process.env.EMAIL_TESTING = previousEmailTesting;
+    });
+
     it("CREATE unconfirmed client order → COMPANY_EMAIL", () => {
       const access = createAccess();
       const order = createOrder({ my_order: true, confirmed: false });

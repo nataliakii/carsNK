@@ -24,6 +24,8 @@ import {
   TableRow,
   TextField,
   Typography,
+  FormControlLabel,
+  Checkbox,
   alpha,
 } from "@mui/material";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
@@ -32,12 +34,20 @@ import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
+import { ROVARO_MAILBOX } from "@config/email";
 
 import CarPhoto from "@app/components/CarComponent/CarPhoto";
 import { formatMinor } from "@/domain/money/minorUnits";
 import { formatDateTime } from "@/domain/time/businessTime";
+import {
+  formatMarketplaceEuro,
+  marketplaceFeeNotice,
+  marketplaceSplitLabels,
+} from "@/domain/orders/marketplaceFinancialSplit";
 
-const DECISION_ENDPOINT = "/api/booking/alternative";
+function feeCopyVars() {
+  return {};
+}
 
 /** Below this the deadline is shown as urgent rather than informational. */
 const URGENT_MS = 6 * 60 * 60 * 1000;
@@ -131,6 +141,7 @@ function VehiclePanel({ heading, side, highlight, fallbackName }) {
 /** Label / booked value / offered value. Differences stand out on the right. */
 function ComparisonTable({ offer }) {
   const { t, i18n } = useTranslation();
+  const feeVars = feeCopyVars(offer);
 
   const money = useCallback(
     (minor) => formatMinor(minor, offer.currency, i18n.language),
@@ -156,17 +167,20 @@ function ComparisonTable({ offer }) {
       { key: "pickupAt", label: t("alternativeOffer.spec.pickupAt"), read: (s) => s.pickup.atUtc, format: dateTime },
       { key: "pickupPlace", label: t("alternativeOffer.spec.pickupPlace"), read: (s) => joinPickup(s.pickup) },
       { key: "price", label: t("alternativeOffer.spec.price"), read: (s) => s.priceMinor, format: money, emphasis: true },
+      { key: "discount", label: t("alternativeOffer.spec.replacementDiscount"), read: () => offer.replacementDiscountMinor || null, format: money, offeredOnly: true },
+      { key: "prepayment", label: t("alternativeOffer.spec.prepayment", feeVars), read: () => offer.prepaymentMinor, format: money, offeredOnly: true },
+      { key: "balance", label: t("alternativeOffer.spec.balance", feeVars), read: () => offer.balanceMinor, format: money, offeredOnly: true },
     ];
 
     // A row with no stored value on either side would only add noise.
     return definitions
       .map((row) => ({
         ...row,
-        bookedRaw: row.read(offer.booked),
-        offeredRaw: row.read(offer.offered),
+        bookedRaw: row.offeredOnly ? null : row.read(offer.booked),
+        offeredRaw: row.offeredOnly ? row.read(offer.offered) : row.read(offer.offered),
       }))
       .filter((row) => row.bookedRaw != null || row.offeredRaw != null);
-  }, [offer, t, money, dateTime]);
+  }, [offer, t, money, dateTime, feeVars]);
 
   const cell = (raw, format) => {
     if (raw == null) return t("alternativeOffer.notSpecified");
@@ -321,10 +335,11 @@ function DeadlineBanner({ expiresAt, timezone, expired }) {
  */
 export default function AlternativeOfferClient({ offer, locale = "en" }) {
   const { t } = useTranslation();
+  const feeVars = feeCopyVars(offer);
 
   const [outcome, setOutcome] = useState(null);
   const [confirming, setConfirming] = useState("");
-  const [declineReason, setDeclineReason] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [expiredNow, setExpiredNow] = useState(false);
@@ -343,8 +358,6 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
 
   const status = outcome?.status || (expiredNow ? "EXPIRED" : offer.status);
   const decidable = status === "OFFERED";
-  const refundDue =
-    status === "DECLINED" && (outcome ? outcome.refundRequired : offer.afterPayment);
 
   const submit = async (decision) => {
     setPending(true);
@@ -358,6 +371,7 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
           body: JSON.stringify({
             decision,
             reason: decision === "decline" ? declineReason.trim() : "",
+            termsAccepted: decision === "accept" ? termsAccepted : undefined,
           }),
         }
       );
@@ -379,9 +393,9 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
       setOutcome({
         status: body.status,
         idempotent: Boolean(body.idempotent),
-        refundRequired:
-          Boolean(body.refundRequired) ||
-          (body.status === "DECLINED" && offer.afterPayment),
+        refundRequired: Boolean(body.refundRequired),
+        paymentUrl: body.paymentUrl || "",
+        paymentLinkGenerationFailed: Boolean(body.paymentLinkGenerationFailed),
       });
       setConfirming("");
     } catch (err) {
@@ -432,7 +446,7 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
             </AlertTitle>
             <Typography variant="body2" sx={{ mb: 1 }}>
               {offer.afterPayment
-                ? t("alternativeOffer.acceptedBodyPaid")
+                ? t("alternativeOffer.acceptedBodyPaid", feeVars)
                 : t("alternativeOffer.acceptedBodyUnpaid")}
             </Typography>
             {outcome?.idempotent && (
@@ -440,6 +454,21 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
                 {t("alternativeOffer.alreadyRecorded")}
               </Typography>
             )}
+            {(outcome?.paymentUrl || offer.paymentUrl) && (
+              <Button
+                href={outcome?.paymentUrl || offer.paymentUrl}
+                variant="contained"
+                sx={{ mt: 1.5 }}
+              >
+                {t("alternativeOffer.payCta", feeVars)}
+              </Button>
+            )}
+            {(outcome?.paymentLinkGenerationFailed || offer.paymentLinkGenerationFailed) &&
+            !(outcome?.paymentUrl || offer.paymentUrl) ? (
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                {t("alternativeOffer.paymentLinkPending")}
+              </Typography>
+            ) : null}
             {offer.decidedAt && !outcome && (
               <Typography variant="body2" color="text.secondary">
                 {t("alternativeOffer.decidedOn", {
@@ -460,23 +489,10 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
               {t("alternativeOffer.declinedTitle")}
             </AlertTitle>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              {refundDue
-                ? t("alternativeOffer.declinedBodyRefund")
+              {offer.afterPayment
+                ? t("alternativeOffer.declinedBodyFeeRetained", feeVars)
                 : t("alternativeOffer.declinedBodyNoPayment")}
             </Typography>
-            {refundDue && (
-              <Box component="ol" sx={{ pl: 2.5, m: 0, "& li": { mb: 0.5 } }}>
-                <Typography component="li" variant="body2">
-                  {t("alternativeOffer.refundStep1")}
-                </Typography>
-                <Typography component="li" variant="body2">
-                  {t("alternativeOffer.refundStep2")}
-                </Typography>
-                <Typography component="li" variant="body2">
-                  {t("alternativeOffer.refundStep3")}
-                </Typography>
-              </Box>
-            )}
             {outcome?.idempotent && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 {t("alternativeOffer.alreadyRecorded")}
@@ -491,7 +507,7 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
               {t("alternativeOffer.expiredTitle")}
             </AlertTitle>
             {offer.afterPayment
-              ? t("alternativeOffer.expiredBodyPaid")
+              ? t("alternativeOffer.expiredBodyPaid", feeVars)
               : t("alternativeOffer.expiredBodyUnpaid")}
           </Alert>
         )}
@@ -537,8 +553,32 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
           </Box>
 
           <Divider sx={{ mb: 1 }} />
+          {offer.sameOrBetter && (
+            <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
+              {t("alternativeOffer.sameOrBetter")}
+            </Typography>
+          )}
+          {offer.availabilityNote && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+              {offer.availabilityNote}
+            </Typography>
+          )}
           <Box sx={{ overflowX: "auto", mx: { xs: -1, sm: 0 } }}>
             <ComparisonTable offer={offer} />
+          </Box>
+          <Box sx={{ mt: 1.5 }}>
+            <Typography variant="body2">
+              {marketplaceSplitLabels(locale).total}: {formatMarketplaceEuro(offer.offered?.priceMinor || offer.prepaymentMinor + offer.balanceMinor)}
+            </Typography>
+            <Typography variant="body2">
+              {marketplaceSplitLabels(locale).payNow}: {formatMarketplaceEuro(offer.prepaymentMinor)}
+            </Typography>
+            <Typography variant="body2">
+              {marketplaceSplitLabels(locale).payAtPickup}: {formatMarketplaceEuro(offer.balanceMinor)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              {marketplaceFeeNotice(locale, offer.prepaymentMinor)}
+            </Typography>
           </Box>
 
           <Typography
@@ -557,6 +597,32 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
             </Typography>
 
             <Stack spacing={2} sx={{ mb: 2.5 }}>
+              {offer.termsChanged ? (
+                <Alert severity="warning">
+                  <AlertTitle sx={{ fontWeight: 700 }}>
+                    {t("alternativeOffer.termsChangedTitle")}
+                  </AlertTitle>
+                  {(offer.changedTerms || []).map((row) => (
+                    <Typography key={row.key || row.field} variant="body2">
+                      {t(`alternativeOffer.term.${row.key}`, { defaultValue: row.key })}:{" "}
+                      {String(row.original ?? t("alternativeOffer.notSpecified"))} →{" "}
+                      {String(row.proposed ?? t("alternativeOffer.notSpecified"))}
+                    </Typography>
+                  ))}
+                  <FormControlLabel
+                    sx={{ mt: 1, alignItems: "flex-start" }}
+                    control={
+                      <Checkbox
+                        checked={termsAccepted}
+                        onChange={(event) => setTermsAccepted(event.target.checked)}
+                      />
+                    }
+                    label={t("alternativeOffer.termsAcceptLabel")}
+                  />
+                </Alert>
+              ) : (
+                <Alert severity="info">{t("alternativeOffer.termsUnchanged")}</Alert>
+              )}
               <Box>
                 <Typography sx={{ fontWeight: 700, fontSize: "0.95rem" }}>
                   {t("alternativeOffer.acceptHeading")}
@@ -573,7 +639,7 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {offer.afterPayment
-                    ? t("alternativeOffer.declineBodyPaid")
+                    ? t("alternativeOffer.declineBodyPaid", feeVars)
                     : t("alternativeOffer.declineBodyUnpaid")}
                 </Typography>
               </Box>
@@ -599,7 +665,7 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
                 color="primary"
                 size="large"
                 fullWidth
-                disabled={pending}
+                disabled={pending || (offer.termsChanged && !termsAccepted)}
                 onClick={() => setConfirming("accept")}
               >
                 {t("alternativeOffer.accept")}
@@ -620,6 +686,14 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
 
         <Typography variant="caption" color="text.secondary">
           {t("alternativeOffer.supportNote")}{" "}
+          <Box
+            component="a"
+            href={`mailto:${ROVARO_MAILBOX}`}
+            sx={{ color: "primary.main", fontWeight: 600 }}
+          >
+            {t("alternativeOffer.contactSupport")}
+          </Box>
+          {" · "}
           <Box
             component={Link}
             href={`/${locale}/booking-terms`}
@@ -656,7 +730,7 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
           <Button
             variant="contained"
             onClick={() => submit("accept")}
-            disabled={pending}
+            disabled={pending || (offer.termsChanged && !termsAccepted)}
             startIcon={pending ? <CircularProgress size={16} color="inherit" /> : null}
           >
             {pending ? t("alternativeOffer.submitting") : t("alternativeOffer.confirmAcceptCta")}
@@ -676,7 +750,7 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
         <DialogContent>
           <DialogContentText variant="body2">
             {offer.afterPayment
-              ? t("alternativeOffer.declineBodyPaid")
+              ? t("alternativeOffer.declineBodyPaid", feeVars)
               : t("alternativeOffer.declineBodyUnpaid")}
           </DialogContentText>
           <TextField

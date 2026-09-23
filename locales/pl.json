@@ -47,6 +47,7 @@
     "searchResultsTitle": "{{count}} aut dostępnych {{from}} – {{to}}",
     "searchRegionLabel": "Region: {{region}}",
     "searchPriceLabel": "{{price}}€ za {{days}} dni",
+    "fromPriceLabel": "od {{price}}€/dzień",
     "deliverySelectDatesHint": "Wybierz daty, aby zobaczyć cenę z dostawą.",
     "bookingDetailsButton": "Szczegóły rezerwacji",
     "bookingDetailsTitle": "Szczegóły rezerwacji",
@@ -266,6 +267,8 @@
   },
   "bookMesssages": {
     "bookOK": "Rezerwacja otrzymana. Dziękujemy za rezerwację u nas!",
+    "bookRequestSent": "Wniosek wysłany. Wypożyczalnia sprawdzi dostępność.",
+    "bookCompanyReview": "Firma, do której należy ten samochód, sprawdzi terminy i potwierdzi dostępność. Płatność będzie wymagana dopiero po potwierdzeniu.",
     "bookReceive": "Otrzymaliśmy Twoją rezerwację na",
     "bookDays": "Liczba dni:",
     "bookPrice": "Całkowita cena:",
@@ -462,6 +465,8 @@
   },
   "footer": {
     "contactUs": "Skontaktuj się z nami",
+    "legal": "Informacje prawne",
+    "links": "Linki",
     "kallikratiaBanner": "Nie wiesz, gdzie iść na Chalkidiki?",
     "kallikratiaBannerLink": "Przewodnik po Nea Kallikratia",
     "privacyPolicy": "Polityka prywatności",

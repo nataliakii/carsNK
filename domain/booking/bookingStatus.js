@@ -1,21 +1,19 @@
 /**
- * Compatibility constants for the future rental booking FSM.
+ * Storage-level booking statuses. Lifecycle names live in
+ * `domain/booking/rentalBookingState.js` and must be applied through
+ * `canTransitionRentalState` / `applyRentalStateTransition`.
  *
- * This phase does NOT implement the full state machine or payment holds.
- * New marketplace requests may snapshot PENDING_SUPPLIER_CONFIRMATION.
- * Blocking uses these constants when `order.bookingStatus` is set;
- * otherwise falls back to legacy `confirmed` / `offline`.
+ * Spain MARKETPLACE_REQUEST mapping (P0):
+ *   PENDING_SUPPLIER_CONFIRMATION  — request submitted; does not hard-block
+ *   CONFIRMED_AWAITING_PAYMENT     — partner confirmed; brief hold (hard-block)
+ *   PAYMENT_PROCESSING             — checkout created; user-facing PAYMENT_PENDING (hard-block)
+ *   BOOKING_CONFIRMED              — Stripe webhook paid only (hard-block)
+ *   SUPPLIER_DECLINED              — partner rejected; does not block
+ *   PAYMENT_EXPIRED                — checkout expired/failed before pay; does not block
+ *   CUSTOMER_CANCELLED / SUPPLIER_CANCELLED / ADMIN_CANCELLED — do not block
  *
- * Future mapping (holds phase):
- *   CONFIRMED_AWAITING_PAYMENT          — hard-block (temporary hold)
- *   ALTERNATIVE_ACCEPTED_AWAITING_PAYMENT — hard-block
- *   PAYMENT_PROCESSING                  — hard-block
- *   BOOKING_CONFIRMED                   — hard-block
- *   COMPLETED                           — hard-block for those dates
- *   PENDING_SUPPLIER_CONFIRMATION       — does not hard-block
- *   ALTERNATIVE_PROPOSED                — does not hard-block
- *   SUPPLIER_DECLINED / NO_AVAILABILITY — do not block
- *   PAYMENT_EXPIRED / cancelled         — do not block
+ * Do not mass-migrate historical rows. New marketplace writes use these
+ * constants; Greece ops still mostly uses legacy `confirmed` / `offline`.
  */
 
 export const BOOKING_STATUS = {
