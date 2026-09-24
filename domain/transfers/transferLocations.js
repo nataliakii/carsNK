@@ -1,4 +1,9 @@
 import locations from "@/data/delivery-locations.json";
+import {
+  COUNTRY_CODES,
+  getCountryPreset,
+  getSiteCountryCode,
+} from "@config/siteCountry";
 
 /**
  * Curated Halkidiki / Thessaloniki transfer points (shared with delivery zones seed).
@@ -80,24 +85,63 @@ export function estimateTransferDistanceFromCatalog(from, to) {
   };
 }
 
+const KNOWN_COUNTRY_CODES = new Set(COUNTRY_CODES);
+
 /**
  * Build a geocoding-friendly query for Google Distance Matrix.
+ * Bias by explicit country (company / transfer), then site country.
+ * Never force Spanish (or other non-GR) places into Halkidiki.
+ *
  * @param {string} placeName
+ * @param {string} [country] ISO country (ES|GR|…)
  */
-export function toGooglePlaceQuery(placeName) {
+export function toGooglePlaceQuery(placeName, country) {
   const name = String(placeName || "").trim();
   if (!name) return "";
+
+  // Distance Matrix accepts "lat,lng" — do not append a country suffix.
+  if (/^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/.test(name)) {
+    return name.replace(/\s+/g, "");
+  }
+
+  const code = String(country || getSiteCountryCode() || "")
+    .trim()
+    .toUpperCase();
   const lower = name.toLowerCase();
-  if (lower.includes("airport")) {
-    return "Thessaloniki Airport SKG, Greece";
+
+  // Already region-qualified — leave alone.
+  if (
+    /,\s*(spain|españa|greece|hellas|halkidiki|chalkidiki|catalonia|catalunya|andalucia|andalucía|portugal|france|italy|germany)\b/i.test(
+      name
+    )
+  ) {
+    return name;
   }
-  if (lower === "thessaloniki") {
-    return "Thessaloniki, Greece";
+
+  if (code === "ES") {
+    return `${name}, Spain`;
   }
-  if (lower === "halkidiki" || lower === "chalkidiki") {
-    return "Chalkidiki, Greece";
+
+  // Greece / Halkidiki shortcuts — only when country is explicitly GR.
+  if (code === "GR") {
+    if (lower.includes("airport") && /thessaloniki|skg/i.test(lower)) {
+      return "Thessaloniki Airport SKG, Greece";
+    }
+    if (lower === "thessaloniki") {
+      return "Thessaloniki, Greece";
+    }
+    if (lower === "halkidiki" || lower === "chalkidiki") {
+      return "Chalkidiki, Greece";
+    }
+    return `${name}, Halkidiki, Greece`;
   }
-  return `${name}, Halkidiki, Greece`;
+
+  if (KNOWN_COUNTRY_CODES.has(code)) {
+    return `${name}, ${getCountryPreset(code).countryName}`;
+  }
+
+  // Unknown country: never invent Halkidiki.
+  return name;
 }
 
 export default getTransferLocationOptions;

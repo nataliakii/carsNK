@@ -5,6 +5,7 @@ import { COMPANY_ID } from "@config/company";
 import { getCachedDrivingRoute } from "@/domain/transfers/routeCache";
 import { buildLocationSnapshot } from "@/domain/transfers/locationSnapshot";
 import { getTransferBaseDistances } from "@/domain/transfers/getTransferDistance";
+import { getSiteCountryCode } from "@config/siteCountry";
 import {
   consumePublicPostOrError,
   transferRateLimitOptions,
@@ -14,6 +15,19 @@ export const runtime = "nodejs";
 
 function json(body, status = 200) {
   return NextResponse.json(body, { status });
+}
+
+function resolveCountry(payload, company) {
+  return String(
+    payload?.country ||
+      payload?.origin?.country ||
+      payload?.destination?.country ||
+      company?.country ||
+      getSiteCountryCode() ||
+      ""
+  )
+    .trim()
+    .toUpperCase();
 }
 
 export async function POST(request) {
@@ -37,20 +51,23 @@ export async function POST(request) {
   );
   if (limited) return json(limited.body, limited.status);
   const company = await Company.findById(COMPANY_ID).lean();
+  const country = resolveCountry(payload, company);
   const baseCoords = {
     lat: company?.coords?.lat,
     lon: company?.coords?.lon,
   };
 
   const origin = buildLocationSnapshot({
-    placeName: from,
-    rawInput: from,
     ...(payload.origin || {}),
+    placeName: payload.origin?.placeName || from,
+    rawInput: from,
+    country: payload.origin?.country || country,
   });
   const destination = buildLocationSnapshot({
-    placeName: to,
-    rawInput: to,
     ...(payload.destination || {}),
+    placeName: payload.destination?.placeName || to,
+    rawInput: to,
+    country: payload.destination?.country || country,
   });
 
   const [result, baseResult] = await Promise.all([
@@ -60,7 +77,7 @@ export async function POST(request) {
       fromLabel: from,
       toLabel: to,
     }),
-    getTransferBaseDistances({ baseCoords, from, to }),
+    getTransferBaseDistances({ baseCoords, from, to, country }),
   ]);
 
   if (!result.ok) {

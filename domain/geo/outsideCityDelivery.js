@@ -68,6 +68,7 @@ export async function estimateDeliveryFeeFromCoords({
     const google = await getDistanceFromBase({
       baseCoords: base,
       place: label,
+      country: company?.country,
     });
     if (google?.ok && Number.isFinite(Number(google.distanceKm))) {
       distanceFromBaseKm = Number(google.distanceKm);

@@ -168,6 +168,7 @@ export async function POST(request) {
       const google = await getDistanceFromBase({
         baseCoords: nearest,
         place: details.address,
+        country: company?.country,
       });
       if (google?.ok && Number.isFinite(Number(google.distanceKm))) {
         distanceFromBaseKm = Number(google.distanceKm);

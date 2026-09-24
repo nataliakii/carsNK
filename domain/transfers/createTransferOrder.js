@@ -193,6 +193,7 @@ export async function createTransferOrder(rawPayload = {}) {
       },
       from,
       to,
+      country,
     });
     if (baseResult.baseToFrom?.ok) {
       baseFromDistanceKm = baseResult.baseToFrom.distanceKm ?? null;
@@ -287,8 +288,13 @@ export async function createTransferOrder(rawPayload = {}) {
 
 /**
  * Public quote preview — no persistence.
+ * @param {object} payload
+ * @param {{ includeInternal?: boolean }} [opts]
  */
-export async function previewTransferQuote(payload = {}) {
+export async function previewTransferQuote(
+  payload = {},
+  { includeInternal = false } = {}
+) {
   const country = String(
     payload?.country || payload?.origin?.country || getSiteCountryCode()
   )
@@ -369,6 +375,7 @@ export async function previewTransferQuote(payload = {}) {
   return {
     ok: true,
     quote: publicQuote,
+    ...(includeInternal ? { internalQuote: result.quote } : {}),
     route: result.route
       ? {
           distanceKm: result.route.distanceKm,

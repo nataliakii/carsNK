@@ -81,12 +81,20 @@ export function locationCacheKeyPart(snapshot) {
   if (!snapshot) return "unknown";
   if (snapshot.providerPlaceId) return `pid:${snapshot.providerPlaceId}`;
   if (snapshot.iataCode) return `iata:${String(snapshot.iataCode).toUpperCase()}`;
-  const lat = Number(snapshot.lat);
-  const lng = Number(snapshot.lng);
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
-    return `geo:${lat.toFixed(5)},${lng.toFixed(5)}`;
+  // Important: Number(null) === 0 — never treat missing coords as Null Island.
+  if (snapshot.lat != null && snapshot.lng != null) {
+    const lat = Number(snapshot.lat);
+    const lng = Number(snapshot.lng);
+    if (
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      !(lat === 0 && lng === 0)
+    ) {
+      return `geo:${lat.toFixed(5)},${lng.toFixed(5)}`;
+    }
   }
-  return `name:${normalizeKey(locationDisplayName(snapshot))}`;
+  const nameKey = normalizeKey(locationDisplayName(snapshot));
+  return nameKey ? `name:${nameKey}` : "unknown";
 }
 
 function parseCoord(value) {

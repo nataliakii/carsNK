@@ -57,6 +57,7 @@ async function resolveDrivingDistanceKm({ company, carOffices, lat, lon, address
     const google = await getDistanceFromBase({
       baseCoords: nearest,
       place: String(addressLabel || "").trim() || `${lat},${lon}`,
+      country: company?.country,
     });
     if (google?.ok && Number.isFinite(Number(google.distanceKm))) {
       return {

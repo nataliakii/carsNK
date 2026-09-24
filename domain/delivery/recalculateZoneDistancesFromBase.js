@@ -3,7 +3,7 @@ import { COMPANY_ID } from "@config/company";
 import { toGooglePlaceQuery } from "@/domain/transfers/transferLocations";
 import { getDistancesFromBaseToDestinations } from "@/domain/transfers/getTransferDistance";
 
-function destinationQueryForZone(zone) {
+function destinationQueryForZone(zone, country) {
   const lat = Number(zone?.coordinates?.lat);
   const lng = Number(zone?.coordinates?.lng);
   if (
@@ -16,7 +16,7 @@ function destinationQueryForZone(zone) {
   ) {
     return `${lat},${lng}`;
   }
-  return toGooglePlaceQuery(zone?.name);
+  return toGooglePlaceQuery(zone?.name, country || zone?.country);
 }
 
 /**
@@ -46,7 +46,7 @@ export async function recalculateZoneDistancesFromBase(baseCoords, options = {})
   const destinations = zones.map((zone) => ({
     id: String(zone._id),
     name: zone.name,
-    query: destinationQueryForZone(zone),
+    query: destinationQueryForZone(zone, zone.country),
   }));
 
   const results = await getDistancesFromBaseToDestinations({

@@ -6,6 +6,7 @@ import {
   locationCacheKeyPart,
   locationDisplayName,
 } from "@/domain/transfers/locationSnapshot";
+import { getSiteCountryCode } from "@config/siteCountry";
 
 /**
  * Stable cache key for a driving route between two normalised locations.
@@ -45,7 +46,12 @@ export async function getCachedDrivingRoute({
     destination || { placeName: destLabel }
   );
 
-  if (!skipCache) {
+  // Poisoned keys from Number(null)===0 — never reuse Null Island routes.
+  const cachePoisoned = /(?:^|\|)geo:0(?:\.0+)?,\s*0(?:\.0+)?(?:\||$)/.test(
+    cacheKey
+  );
+
+  if (!skipCache && !cachePoisoned) {
     const cached = await TransferRouteCache.findOne({
       cacheKey,
       expiresAt: { $gt: new Date() },
@@ -69,11 +75,20 @@ export async function getCachedDrivingRoute({
         },
       };
     }
+  } else if (cachePoisoned) {
+    TransferRouteCache.deleteMany({
+      cacheKey: { $regex: /geo:0(\.0+)?,0(\.0+)?/ },
+    }).catch(() => {});
   }
 
   const computed = await getTransferDistance({
     from: originLabel,
     to: destLabel,
+    country:
+      origin?.country ||
+      destination?.country ||
+      getSiteCountryCode() ||
+      undefined,
   });
   if (!computed.ok) {
     return computed;

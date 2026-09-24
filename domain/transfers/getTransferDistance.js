@@ -30,7 +30,7 @@ const GOOGLE_DISTANCE_TIMEOUT_MS = Number(
  *   message?: string,
  * }>}
  */
-export async function getTransferDistance({ from, to }) {
+export async function getTransferDistance({ from, to, country }) {
   const originName = String(from || "").trim();
   const destName = String(to || "").trim();
   if (!originName || !destName) {
@@ -50,7 +50,12 @@ export async function getTransferDistance({ from, to }) {
   const apiKey = String(process.env.GOOGLE_MAPS_API_KEY || "").trim();
   let lastGoogleMessage = "";
   if (apiKey) {
-    const google = await fetchGoogleDistance(originName, destName, apiKey);
+    const google = await fetchGoogleDistance(
+      originName,
+      destName,
+      apiKey,
+      country
+    );
     if (google.ok) return google;
     lastGoogleMessage = google.message || "";
   }
@@ -82,7 +87,7 @@ export async function getTransferDistance({ from, to }) {
   };
 }
 
-export async function getDistanceFromBase({ baseCoords, place }) {
+export async function getDistanceFromBase({ baseCoords, place, country }) {
   const placeName = String(place || "").trim();
   if (!placeName) {
     return { ok: false, message: "place is required" };
@@ -102,7 +107,7 @@ export async function getDistanceFromBase({ baseCoords, place }) {
   if (apiKey && hasBaseCoords) {
     const google = await fetchGoogleDistanceQuery(
       `${lat},${lon}`,
-      toGooglePlaceQuery(placeName),
+      toGooglePlaceQuery(placeName, country),
       apiKey
     );
     if (google.ok) return google;
@@ -140,19 +145,24 @@ export async function getDistanceFromBase({ baseCoords, place }) {
   };
 }
 
-export async function getTransferBaseDistances({ baseCoords, from, to }) {
+export async function getTransferBaseDistances({
+  baseCoords,
+  from,
+  to,
+  country,
+}) {
   const [baseToFrom, baseToTo] = await Promise.all([
-    getDistanceFromBase({ baseCoords, place: from }),
-    getDistanceFromBase({ baseCoords, place: to }),
+    getDistanceFromBase({ baseCoords, place: from, country }),
+    getDistanceFromBase({ baseCoords, place: to, country }),
   ]);
 
   return { baseToFrom, baseToTo };
 }
 
-async function fetchGoogleDistance(originName, destName, apiKey) {
+async function fetchGoogleDistance(originName, destName, apiKey, country) {
   return fetchGoogleDistanceQuery(
-    toGooglePlaceQuery(originName),
-    toGooglePlaceQuery(destName),
+    toGooglePlaceQuery(originName, country),
+    toGooglePlaceQuery(destName, country),
     apiKey
   );
 }
@@ -229,10 +239,13 @@ async function fetchGoogleDistanceMatrix(origins, destinations, apiKey) {
     const denied =
       payload.status === "REQUEST_DENIED" ||
       payload.status === "OVER_QUERY_LIMIT";
+    const detail = sanitizeProviderErrorMessage(payload.error_message);
     return {
       ok: false,
       message: denied
-        ? "Distance unavailable. Check GOOGLE_MAPS_API_KEY (Distance Matrix enabled; Application restrictions None or IP — not HTTP referrers)."
+        ? detail
+          ? `Distance unavailable (${payload.status}): ${detail}`
+          : "Distance unavailable. Check GOOGLE_MAPS_API_KEY (Distance Matrix enabled; Application restrictions None or IP — not HTTP referrers)."
         : `Distance provider unavailable (${payload.status})`,
       providerStatus: payload.status,
     };
