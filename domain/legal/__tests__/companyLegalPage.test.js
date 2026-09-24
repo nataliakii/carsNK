@@ -266,6 +266,9 @@ describe("partner terms package", () => {
     expect(record.companyId).toBe(OWN);
     expect(record.authenticatedUserId).toBe("user-1");
     expect(record.documents.map((doc) => doc.version)).toEqual([1, 1, 1]);
+    expect(record.documents.every((doc) => doc.language && doc.checksum)).toBe(
+      true
+    );
     expect(record.packageChecksum).toBe(standardPkg.packageChecksum);
     expect(record.ipAddress).toBe("203.0.113.8");
   });

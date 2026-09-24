@@ -531,5 +531,23 @@
     "source": "Source: {{source}}",
     "close": "Close",
     "save": "Save"
+  },
+  "table": {
+    "supplierResponse": "Отговор на доставчика",
+    "platformStatus": "Статус на платформата",
+    "vehicleAvailable": "Автомобилът е наличен",
+    "cannotProvide": "Не може да се предостави",
+    "awaitingSupplier": "Очаква се отговор",
+    "confirmedByAdmin": "Потвърдено от {{name}}",
+    "supplierReason": "Причина",
+    "sentAt": "Изпратено {{when}}",
+    "changeResponse": "Промяна на отговора",
+    "changeResponseConfirm": "Да се промени отговорът на доставчика за тази резервация?",
+    "bookingConfirmedByRovaro": "Резервацията е потвърдена от Rovaro",
+    "confirmBooking": "Потвърди резервацията",
+    "cancelConfirmation": "Отмени потвърждението",
+    "platformPending": "Изчакване",
+    "platformConfirmed": "Потвърдена",
+    "platformCancelled": "Отменена"
   }
 }

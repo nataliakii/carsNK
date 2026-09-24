@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { googleMapsSearchUrl } from "@/domain/orders/carOffices";
+import { canonicalOfficeId } from "@/domain/orders/bookingLocationSelection";
 
 const TYPE_KEYS = {
   office: "order.officeTypeOffice",
@@ -26,12 +27,15 @@ export default function BookingOfficeDeliveryChoice({
   method,
   onMethodChange,
   offices = [],
-  selectedOfficeName,
   selectedOfficeId,
   onSelectOffice,
   officeLabel,
   deliveryLabel,
   disabled = false,
+  deliveryDisabled = false,
+  deliveryDisabledMessage = "",
+  error = "",
+  fieldRef = null,
 }) {
   const { t } = useTranslation();
   if (!offices.length) return null;
@@ -39,15 +43,11 @@ export default function BookingOfficeDeliveryChoice({
   const selectedId = String(selectedOfficeId || "");
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+    <Box ref={fieldRef} sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
       {offices.map((office) => {
         const mapsUrl = googleMapsSearchUrl(office);
-        const officeId = String(office.id || office._id || office.name);
-        const selected =
-          method === "office" &&
-          (selectedId
-            ? officeId === selectedId
-            : String(office.name) === String(selectedOfficeName || offices[0].name));
+        const officeId = canonicalOfficeId(office);
+        const selected = method === "office" && Boolean(selectedId) && officeId === selectedId;
         const typeLabel = t(TYPE_KEYS[office.locationType] || TYPE_KEYS.office);
         const instructions =
           office.collectionInstructions || office.returnInstructions || "";
@@ -143,12 +143,8 @@ export default function BookingOfficeDeliveryChoice({
         onChange={(e) => {
           const next = e.target.value;
           onMethodChange(next);
-          if (next === "office" && onSelectOffice) {
-            const match =
-              offices.find((o) => String(o.id || o._id) === selectedId) ||
-              offices.find((o) => o.name === selectedOfficeName) ||
-              offices[0];
-            onSelectOffice(match);
+          if (next === "office" && offices.length === 1 && onSelectOffice) {
+            onSelectOffice(offices[0]);
           }
         }}
       >
@@ -165,7 +161,7 @@ export default function BookingOfficeDeliveryChoice({
         />
         <FormControlLabel
           value="delivery"
-          disabled={disabled}
+          disabled={disabled || deliveryDisabled}
           control={<Radio size="small" />}
           label={
             <Typography sx={{ fontSize: "0.8rem", fontWeight: 600 }}>
@@ -175,6 +171,16 @@ export default function BookingOfficeDeliveryChoice({
           sx={{ m: 0, alignItems: "center" }}
         />
       </RadioGroup>
+      {error ? (
+        <Typography variant="caption" color="error" sx={{ lineHeight: 1.35 }}>
+          {error}
+        </Typography>
+      ) : null}
+      {deliveryDisabled && deliveryDisabledMessage ? (
+        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.35 }}>
+          {deliveryDisabledMessage}
+        </Typography>
+      ) : null}
     </Box>
   );
 }

@@ -305,10 +305,10 @@ async function fetchLegacyAutocomplete({ q, country, language, sessionToken, typ
     url.searchParams.set("types", typeFilter);
   }
   if (country) {
-    url.searchParams.set(
-      "components",
-      `country:${String(country).trim().toLowerCase()}`
-    );
+    const iso = placeCountryCode(country);
+    if (/^[A-Za-z]{2}$/.test(iso)) {
+      url.searchParams.set("components", `country:${iso.toLowerCase()}`);
+    }
   }
   if (sessionToken) {
     url.searchParams.set("sessiontoken", String(sessionToken));
@@ -323,7 +323,10 @@ async function fetchNewAutocomplete({ q, country, language, sessionToken, apiKey
     languageCode: language || "en",
   };
   if (country) {
-    body.includedRegionCodes = [String(country).trim().toLowerCase()];
+    const iso = placeCountryCode(country);
+    if (/^[A-Za-z]{2}$/.test(iso)) {
+      body.includedRegionCodes = [iso.toLowerCase()];
+    }
   }
   if (sessionToken) {
     body.sessionToken = String(sessionToken);
@@ -378,7 +381,14 @@ export async function fetchPlaceAutocomplete({
     };
   }
 
-  const params = { q, country, language, sessionToken, types, apiKey };
+  const params = {
+    q,
+    country: placeCountryCode(country) || "",
+    language,
+    sessionToken,
+    types,
+    apiKey,
+  };
   try {
     let neu = { data: {}, predictions: [] };
     try {

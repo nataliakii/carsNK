@@ -15,11 +15,7 @@ import { useMainContext } from "../Context";
 import CarItemComponent from "./CarComponent/CarItemComponent";
 import { carMatchesSearchQuery } from "@utils/carSearch";
 import { isCarAvailableForSearchDates } from "@utils/carDateSearch";
-import { calculateTotalPrice } from "@utils/action";
 import dayjs from "dayjs";
-import { getSiteCountryCode } from "@config/siteCountry";
-import { isSpainBookingSite } from "@/domain/orders/catalogPlaceOptions";
-import { resolveDefaultInsurance } from "@/domain/orders/defaultInsurance";
 
 const Section = styled("section")(({ theme }) => ({
   backgroundColor: "transparent",
@@ -45,13 +41,6 @@ function CarGrid() {
 
   const skipScrollOnFilterMount = useRef(true);
   const hasActiveDateSearch = Boolean(searchDates?.start && searchDates?.end);
-  const spainSite = isSpainBookingSite(getSiteCountryCode());
-  const hasSelectedCities = Boolean(
-    bookingPlaceIn?.trim() || bookingPlaceOut?.trim()
-  );
-  const showDeliveryWithDatesNote =
-    spainSite && hasSelectedCities && hasActiveDateSearch;
-
   useEffect(() => {
     if (skipScrollOnFilterMount.current) {
       skipScrollOnFilterMount.current = false;
@@ -74,9 +63,6 @@ function CarGrid() {
   const [discount, setDiscount] = useState(null);
   const [discountStart, setDiscountStart] = useState(null);
   const [discountEnd, setDiscountEnd] = useState(null);
-  const [pricesByCarId, setPricesByCarId] = useState({});
-  const [pricesLoading, setPricesLoading] = useState(false);
-
   const fetchDiscount = useCallback(async () => {
     try {
       const res = await fetch("/api/discount");
@@ -161,82 +147,6 @@ function CarGrid() {
     platform,
   ]);
 
-  const filteredCarIdsKey = useMemo(
-    () => filteredCars.map((c) => String(c._id)).join(","),
-    [filteredCars]
-  );
-
-  const pickupForPricing = bookingPlaceIn?.trim() || undefined;
-  const returnForPricing = bookingPlaceOut?.trim() || undefined;
-
-  // Fetch prices for date search results (reuse calcTotalPrice API).
-  useEffect(() => {
-    if (!hasActiveDateSearch || filteredCars.length === 0) {
-      setPricesByCarId({});
-      setPricesLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const abort = new AbortController();
-    // Clear immediately so a prior search (e.g. 2 days) never shows under new dates.
-    setPricesByCarId({});
-    setPricesLoading(true);
-    const carsSnapshot = filteredCars;
-    const searchStartKey = dayjs(searchDates.start).format("YYYY-MM-DD");
-    const searchEndKey = dayjs(searchDates.end).format("YYYY-MM-DD");
-
-    (async () => {
-      const next = {};
-      for (const car of carsSnapshot) {
-        if (cancelled) return;
-        const carApiIdentifier =
-          car?._id?.toString?.() || car?.carNumber || car?.regNumber || "";
-        if (!carApiIdentifier) continue;
-        try {
-          const result = await calculateTotalPrice(
-            carApiIdentifier,
-            searchDates.start,
-            searchDates.end,
-            resolveDefaultInsurance(car),
-            0,
-            {
-              signal: abort.signal,
-              placeIn: pickupForPricing,
-              placeOut: returnForPricing,
-            }
-          );
-          if (result?.ok !== false && result?.totalPrice != null) {
-            next[String(car._id)] = {
-              totalPrice: result.totalPrice,
-              days: result.days,
-              startKey: searchStartKey,
-              endKey: searchEndKey,
-            };
-          }
-        } catch {
-          // Skip failed price for one car
-        }
-      }
-      if (!cancelled) {
-        setPricesByCarId(next);
-        setPricesLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      abort.abort();
-    };
-  }, [
-    hasActiveDateSearch,
-    filteredCarIdsKey,
-    searchDates?.start,
-    searchDates?.end,
-    pickupForPricing,
-    returnForPricing,
-  ]);
-
   const noCarsMatchFilters =
     Array.isArray(cars) && cars.length > 0 && filteredCars.length === 0;
 
@@ -313,21 +223,6 @@ function CarGrid() {
             </Grid>
           ) : null}
           {filteredCars?.map((car, index) => {
-            const priceInfo = pricesByCarId[String(car._id)];
-            const searchStartKey = hasActiveDateSearch
-              ? dayjs(searchDates.start).format("YYYY-MM-DD")
-              : null;
-            const searchEndKey = hasActiveDateSearch
-              ? dayjs(searchDates.end).format("YYYY-MM-DD")
-              : null;
-            const priceMatchesSearch =
-              priceInfo &&
-              priceInfo.startKey === searchStartKey &&
-              priceInfo.endKey === searchEndKey;
-            const showSearchPricePill =
-              hasActiveDateSearch && (priceMatchesSearch || pricesLoading);
-            const showApproxBadge = showDeliveryWithDatesNote;
-
             return (
               <Grid item xs={12} sx={{ padding: 2, width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }} key={car._id}>
                 <CarItemComponent
@@ -336,26 +231,6 @@ function CarGrid() {
                   discountStart={discountStart}
                   discountEnd={discountEnd}
                   isFirstCar={index === 0}
-                  presetSearchDates={
-                    hasActiveDateSearch
-                      ? {
-                          start: searchDates.start,
-                          end: searchDates.end,
-                        }
-                      : null
-                  }
-                  searchPrice={
-                    showSearchPricePill
-                      ? {
-                          loading: !priceMatchesSearch,
-                          totalPrice: priceMatchesSearch
-                            ? priceInfo.totalPrice
-                            : null,
-                          days: priceMatchesSearch ? priceInfo.days : null,
-                          showApprox: showApproxBadge,
-                        }
-                      : null
-                  }
                 />
               </Grid>
             );

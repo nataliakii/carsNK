@@ -46,17 +46,29 @@ export default function CompanyRentalTermsPanel() {
   }
 
   return (
-    <Box sx={{ maxWidth: 720, px: { xs: 1, md: 2 }, pb: 4 }}>
-      <Typography variant="h6" sx={{ fontWeight: 800, mt: 3 }}>Add your own rental terms</Typography>
+    <Box data-testid="company-rental-terms" sx={{ width: "100%", pb: 1 }}>
+      <Typography variant="h6" sx={{ fontWeight: 800 }}>Add your own rental terms</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         Upload your own rental conditions, or continue using Rovaro standard rental terms.
       </Typography>
       {error ? <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert> : null}
       {message ? <Alert severity="success" sx={{ mb: 1 }}>{message}</Alert> : null}
-      <Stack spacing={1}>
-        <TextField size="small" label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <TextField size="small" label="Source language" value={language} onChange={(e) => setLanguage(e.target.value)} />
-        <LegalRichTextEditor onChange={setHtml} />
+      <Stack spacing={1.5}>
+        <TextField
+          size="small"
+          fullWidth
+          label="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        <TextField
+          size="small"
+          fullWidth
+          label="Source language"
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+        />
+        <LegalRichTextEditor onChange={setHtml} constrainHeight={false} />
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
           <Button onClick={() => send("draft", text()).catch((err) => setError(err.message))}>Save draft</Button>
           <Button variant="contained" onClick={() => send("publish", text()).catch((err) => setError(err.message))}>Publish</Button>

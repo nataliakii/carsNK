@@ -47,7 +47,6 @@ import { normalizeBookingDateSelection } from "@/domain/calendar";
 
 // Lazy load тяжелых компонентов для улучшения производительности
 const BookingModal = lazy(() => import("./BookingModal"));
-const CalendarPicker = lazy(() => import("./CalendarPicker"));
 const PricingTiers = lazy(() => import("@app/components/CarComponent/PricingTiers"));
 const CarDetails = lazy(() => import("./CarDetails"));
 const CarDetailsModal = lazy(() => import("./CarDetailsModal"));
@@ -55,7 +54,7 @@ const CarDeliveryInfo = lazy(() => import("./CarDeliveryInfo"));
 
 import { useTranslation } from "react-i18next";
 import CarPhotoCarousel from "./CarPhotoCarousel";
-import SearchPriceBadge from "./SearchPriceBadge";
+import CarBookingPanel from "./CarBookingPanel";
 import CarCitiesSummary from "./CarCitiesSummary";
 import { resolveCarOperatingZones } from "@/domain/cars/carOperatingZones";
 import { listCarPhotos } from "@/domain/cars/carPhotos";
@@ -469,34 +468,12 @@ const CarItemComponent = React.memo(function CarItemComponent({
               </Box>
             </Collapse>
           </Box>
-          <Box className="calendar-wrapper">
-            {searchPrice ? (
-              <SearchPriceBadge
-                loading={searchPrice.loading}
-                totalPrice={searchPrice.totalPrice}
-                days={searchPrice.days}
-                showApprox={searchPrice.showApprox}
-              />
-            ) : null}
-            <Suspense fallback={null}>
-              <CalendarPicker
-              carId={car._id}
+          <Box className="calendar-wrapper" sx={{ width: "100%", maxWidth: "100%", minWidth: 0, overflowX: "hidden" }}>
+            <CarBookingPanel
               car={car}
-              isLoading={isLoading}
               orders={carOrders}
-              setBookedDates={setBookedDates}
-              onBookingComplete={handleBookingComplete}
-              setSelectedTimes={setSelectedTimes}
-              selectedTimes={selectedTimes}
-              onCurrentDateChange={handleCurrentDateChange}
-              discount={discount}
-              discountStart={discountStart}
-              discountEnd={discountEnd}
-              onDateChange={handleDateChange}
-              onPriceCalculated={setCalculatedPrice}
-              presetSearchDates={presetSearchDates}
-              />
-            </Suspense>
+              onContinue={handleBookingComplete}
+            />
             {/* Информация о дискаунте с логикой как в PricingTiers */}
             {(() => {
               // При useSeasons=false скидка показывается в скобках у строки цены в PricingTiers

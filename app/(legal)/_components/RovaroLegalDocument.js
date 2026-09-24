@@ -55,7 +55,7 @@ function PreparingMessage({ documentType }) {
   );
 }
 
-function DocumentHeader({ title, version, effectiveFrom, source, fellBackToEnglish }) {
+function DocumentHeader({ title, version, effectiveFrom, publishedAt, source, fellBackToEnglish }) {
   return (
     <header data-testid="public-legal-document-header">
       <h1
@@ -77,8 +77,7 @@ function DocumentHeader({ title, version, effectiveFrom, source, fellBackToEngli
           marginBottom: 32,
         }}
       >
-        Version {version}
-        {effectiveFrom ? ` · Effective from ${effectiveFrom}` : ""}
+        {publishedAt ? `Published ${publishedAt}` : effectiveFrom ? `Published ${effectiveFrom}` : ""}
         {source === "draft" ? " · Draft — not yet published" : ""}
         {fellBackToEnglish ? " · English version shown" : ""}
       </p>
@@ -124,6 +123,7 @@ export default async function RovaroLegalDocument({
     const addressLine = getBusinessAddressLine(doc.language);
     const registrationLine = getRegistrationLine(doc.language);
     const effectiveFrom = formatDate(doc.effectiveFrom);
+    const publishedAt = formatDate(doc.publishedAt);
 
     return (
       <>
@@ -132,6 +132,7 @@ export default async function RovaroLegalDocument({
             title={rendered.title}
             version={doc.version}
             effectiveFrom={effectiveFrom}
+            publishedAt={publishedAt}
             source={source}
             fellBackToEnglish={fellBackToEnglish}
           />

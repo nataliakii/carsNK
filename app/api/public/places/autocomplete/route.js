@@ -50,6 +50,7 @@ export async function POST(request) {
   }
 
   const typesRaw = body.types;
+  const cityBias = String(body.city || body.cityName || "").trim().toLowerCase();
   const result = await fetchPlaceAutocomplete({
     input,
     country: body.country,
@@ -62,6 +63,9 @@ export async function POST(request) {
   });
 
   if (!result.configured) {
+    console.warn("[places] autocomplete not configured", {
+      reason: result.reason || "not_configured",
+    });
     return NextResponse.json(
       {
         success: false,
@@ -76,6 +80,9 @@ export async function POST(request) {
   }
 
   if (result.unavailable || result.ok === false) {
+    console.warn("[places] autocomplete unavailable", {
+      reason: result.reason || "google_error",
+    });
     return NextResponse.json(
       {
         success: false,
@@ -89,11 +96,27 @@ export async function POST(request) {
     );
   }
 
+  const raw = result.predictions || [];
+  // Prefer the selected city, but never drop every suggestion — a hard filter
+  // made valid Spain addresses look like a broken Places API.
+  const predictions = cityBias
+    ? [
+        ...raw.filter((prediction) => {
+          const hay = `${prediction?.description || ""} ${prediction?.secondaryText || ""} ${prediction?.mainText || ""}`.toLowerCase();
+          return hay.includes(cityBias);
+        }),
+        ...raw.filter((prediction) => {
+          const hay = `${prediction?.description || ""} ${prediction?.secondaryText || ""} ${prediction?.mainText || ""}`.toLowerCase();
+          return !hay.includes(cityBias);
+        }),
+      ]
+    : raw;
+
   return NextResponse.json({
     success: result.ok,
     configured: true,
     unavailable: false,
-    predictions: result.predictions || [],
+    predictions,
     message: result.ok ? undefined : result.message,
   });
 }

@@ -113,6 +113,10 @@ const CalendarPicker = ({
   discountEnd,
   onPriceCalculated, // Callback для передачи просчитанной цены
   presetSearchDates = null,
+  embedded = false,
+  onRangeCommitted,
+  onSelectionCleared,
+  onUnavailableRange,
 }) => {
   const { t, i18n } = useTranslation();
   const uiLang = (i18n.language || "en").split("-")[0];
@@ -144,6 +148,7 @@ const CalendarPicker = ({
   // Add refs for the calendar container and tracking clicks
   const lastClickTimeRef = useRef(0);
   const clickCountRef = useRef(0);
+  const userPickedRef = useRef(false);
   const bookButtonRef = useRef(null);
   // DEBUG: чтобы не спамить логами для одной и той же даты
   const loggedCellsRef = useRef(new Set());
@@ -414,6 +419,7 @@ const CalendarPicker = ({
     setShowBookButton(false);
     setSelectedTimes({ start: null, end: null });
     setBookedDates({ start: null, end: null });
+    if (typeof onSelectionCleared === "function") onSelectionCleared();
   };
 
   useEffect(() => {
@@ -461,13 +467,14 @@ const CalendarPicker = ({
     setSelectedRange([start, end]);
     setCurrentDate(start);
     setBookedDates({ start, end });
-    setShowBookButton(true);
+    if (!embedded) setShowBookButton(true);
   }, [
     presetSearchDates?.start,
     presetSearchDates?.end,
     carId,
     calendarTz,
     setBookedDates,
+    embedded,
   ]);
 
   // ДОБАВИТЬ ЭТОТ useEffect ЗДЕСЬ:
@@ -807,6 +814,7 @@ const CalendarPicker = ({
   };
 
   const onSelect = (date) => {
+    if (embedded && !userPickedRef.current) return;
     // --- ДОБАВЛЕНЫ ПРОВЕРКИ ДЛЯ ЗАПРЕТА КЛИКА ПО ПОДТВЕРЖДЁННЫМ ДАТАМ ---
     const dateStr = date.format("YYYY-MM-DD");
     const isConfirmed = confirmedDates?.includes(dateStr);
@@ -873,11 +881,18 @@ const CalendarPicker = ({
         confirmedDates.includes(d)
       );
       if (hasConfirmedInRange) {
-        // if (onDateChange) {
-        //   onDateChange({ type: "error", message: t("order.unavailableDates") });
-        // }
-        setSelectedRange([null, null]); // сбросить выбор
+        setSelectedRange([start, null]);
         setShowBookButton(false);
+        if (typeof onUnavailableRange === "function") {
+          onUnavailableRange();
+        } else if (onDateChange) {
+          onDateChange({
+            type: "error",
+            message: t("order.unavailableDates", {
+              defaultValue: "Not available for these dates",
+            }),
+          });
+        }
         return;
       }
     }
@@ -917,8 +932,9 @@ const CalendarPicker = ({
     clickCountRef.current += 1;
     lastClickTimeRef.current = now;
 
-    // Handle double click
-    if (clickCountRef.current === 2 && timeSinceLastClick < 300) {
+    // Handle double click. Embedded calendars ignore this: Ant Design also
+    // emits onSelect while mounting, which was clearing the shared search dates.
+    if (clickCountRef.current === 2 && timeSinceLastClick < 300 && !embedded) {
       handleClearSelection();
       clickCountRef.current = 0;
       return;
@@ -979,7 +995,13 @@ const CalendarPicker = ({
           start: range[0].hour(hourStart).minute(minuteStart),
           end: range[1].hour(hourEnd).minute(minuteEnd),
         });
-        setShowBookButton(true);
+        if (typeof onRangeCommitted === "function") {
+          onRangeCommitted({
+            start: range[0].format("YYYY-MM-DD"),
+            end: range[1].format("YYYY-MM-DD"),
+          });
+        }
+        if (!embedded) setShowBookButton(true);
       }
     }
   };
@@ -1041,11 +1063,12 @@ const CalendarPicker = ({
           {`${month} ${year}`}
         </Typography>
         <Box sx={{ display: "flex", gap: 1 }}>
-          {selectedRange[0] && (
+          {selectedRange[0] && !embedded && (
             <IconButton
               onClick={handleClearSelection}
               color="inherit"
               size="small"
+              aria-label="Clear dates"
               sx={{
                 backgroundColor: "rgba(0,0,0,0.05)",
                 "&:hover": { backgroundColor: "rgba(0,0,0,0.1)" },
@@ -1121,6 +1144,9 @@ const CalendarPicker = ({
 
   return (
     <Box
+      onPointerDown={() => {
+        userPickedRef.current = true;
+      }}
       sx={{
         width: "100%",
         maxWidth: "100%",
@@ -1175,9 +1201,11 @@ const CalendarPicker = ({
     >
       {" "}
       {/* Уменьшили верхний padding */}
+      {embedded ? null : (
       <Typography variant="h6" sx={headerSx}>
         {t("order.chooseDates")}
       </Typography>
+      )}
       {/* {showDiscountInfo && (
         <Typography
           variant="body2"
@@ -1192,7 +1220,7 @@ const CalendarPicker = ({
           - Данные обновятся автоматически после refresh */}
             <Box
               sx={{
-          display: showBookButton ? "flex" : "none",
+          display: !embedded && showBookButton ? "flex" : "none",
                 justifyContent: "center",
                 mb: isPortraitPhone ? 1 : 2,
                 mt: isPortraitPhone ? 0.5 : 1,

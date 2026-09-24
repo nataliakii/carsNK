@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -14,7 +14,14 @@ import {
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { googleMapsSearchUrl } from "@/domain/orders/carOffices";
-import { emptyCompanyOffice } from "@/domain/company/companyOffices";
+import {
+  addOfficeToList,
+  createDefaultOffice,
+  ensureOfficeIdentities,
+  getOfficeKey,
+  removeOfficeByKey,
+  updateOfficeByKey,
+} from "@/domain/company/companyOffices";
 import AddressPlacesAutocomplete from "@/app/components/ui/inputs/AddressPlacesAutocomplete";
 import {
   adminFieldSx,
@@ -25,6 +32,9 @@ import {
  * Company offices editor. When `companyId` is set, mutations go through
  * /api/admin/offices (authoritative path). freePickup/freeReturn toggles are
  * removed — official office legs are always EUR 0.
+ *
+ * Each card is keyed and updated by a stable office id (database id or
+ * one-shot clientId). Cards never share object references or HTML ids.
  */
 export default function CompanyOfficesEditor({
   offices = [],
@@ -36,8 +46,10 @@ export default function CompanyOfficesEditor({
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const list =
-    Array.isArray(offices) && offices.length ? offices : [emptyCompanyOffice()];
+  const list = useMemo(() => {
+    const rows = ensureOfficeIdentities(Array.isArray(offices) ? offices : []);
+    return rows.length ? rows : [createDefaultOffice()];
+  }, [offices]);
   const useAdminApi = Boolean(companyId);
 
   const persistLocal = useCallback(
@@ -47,16 +59,13 @@ export default function CompanyOfficesEditor({
     [onChange]
   );
 
-  const updateAt = (index, patch) => {
-    const next = list.map((office, i) =>
-      i === index ? { ...office, ...patch } : office
-    );
-    persistLocal(next);
+  const updateOffice = (officeId, changes) => {
+    persistLocal(updateOfficeByKey(list, officeId, changes));
   };
 
   const addOffice = async () => {
     if (!useAdminApi) {
-      persistLocal([...list, emptyCompanyOffice()]);
+      persistLocal(addOfficeToList(list));
       return;
     }
     setBusy(true);
@@ -75,12 +84,14 @@ export default function CompanyOfficesEditor({
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.message || body.error || "Failed");
       const created = body.office || {};
+      const createdId = created._id || created.id;
       persistLocal([
-        ...list.filter((row) => row.name || row.address || row._id),
+        ...list,
         {
+          ...createDefaultOffice(),
           ...created,
-          _id: created._id || created.id,
-          id: created.id || created._id,
+          _id: createdId,
+          id: createdId,
         },
       ]);
     } catch (err) {
@@ -90,19 +101,19 @@ export default function CompanyOfficesEditor({
     }
   };
 
-  const saveOffice = async (index) => {
+  const saveOffice = async (officeId) => {
     if (!useAdminApi) return;
-    const office = list[index];
-    const officeId = office?._id || office?.id;
+    const office = list.find((row) => getOfficeKey(row) === String(officeId));
+    const persistedId = office?._id || office?.id;
     // Never POST/PATCH an unsaved empty draft from onBlur.
-    if (!officeId) return;
+    if (!persistedId) return;
     const name = String(office?.name || "").trim();
     const address = String(office?.address || "").trim();
     if (!name && !address) return;
     setBusy(true);
     setError("");
     try {
-      const res = await fetch(`/api/admin/offices/${officeId}`, {
+      const res = await fetch(`/api/admin/offices/${persistedId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -115,7 +126,7 @@ export default function CompanyOfficesEditor({
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.message || body.error || "Failed");
       const saved = body.office || office;
-      updateAt(index, { ...saved, _id: saved._id || officeId });
+      updateOffice(officeId, { ...saved, _id: saved._id || persistedId, id: saved.id || persistedId });
     } catch (err) {
       setError(err.message || "Failed");
     } finally {
@@ -123,20 +134,19 @@ export default function CompanyOfficesEditor({
     }
   };
 
-  const removeOffice = async (index) => {
-    const office = list[index];
-    const officeId = office?._id || office?.id;
-    if (useAdminApi && officeId) {
+  const removeOffice = async (officeId) => {
+    const office = list.find((row) => getOfficeKey(row) === String(officeId));
+    const persistedId = office?._id || office?.id;
+    if (useAdminApi && persistedId) {
       setBusy(true);
       setError("");
       try {
-        const res = await fetch(`/api/admin/offices/${officeId}`, {
+        const res = await fetch(`/api/admin/offices/${persistedId}`, {
           method: "DELETE",
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(body.message || body.error || "Failed");
-        const next = list.filter((_, i) => i !== index);
-        persistLocal(next.length ? next : [emptyCompanyOffice()]);
+        persistLocal(removeOfficeByKey(list, officeId));
       } catch (err) {
         setError(err.message || "Failed");
       } finally {
@@ -144,11 +154,7 @@ export default function CompanyOfficesEditor({
       }
       return;
     }
-    if (list.length <= 1) {
-      persistLocal([emptyCompanyOffice()]);
-      return;
-    }
-    persistLocal(list.filter((_, i) => i !== index));
+    persistLocal(removeOfficeByKey(list, officeId));
   };
 
   return (
@@ -158,12 +164,18 @@ export default function CompanyOfficesEditor({
           {error}
         </Typography>
       ) : null}
-      {list.map((office, index) => {
+      {list.map((office) => {
+        const officeId = getOfficeKey(office);
+        const fieldId = (name) => `office-${officeId}-${name}`;
         const mapsUrl = googleMapsSearchUrl(office);
-        const officeKey = office._id || office.id || `${office.name}-${index}`;
+        const isActive =
+          office.active != null
+            ? Boolean(office.active)
+            : office.status !== "archived";
         return (
           <Box
-            key={officeKey}
+            key={office.id || office.clientId || office._id}
+            data-office-key={officeId}
             sx={{
               p: 1.75,
               border: "1px solid",
@@ -179,23 +191,27 @@ export default function CompanyOfficesEditor({
               alignItems={{ sm: "flex-start" }}
             >
               <TextField
+                id={fieldId("name")}
+                name={fieldId("name")}
                 size="small"
                 label={t("companyProfile.officeName")}
                 value={office.name || ""}
-                onChange={(e) => updateAt(index, { name: e.target.value })}
-                onBlur={() => saveOffice(index)}
+                onChange={(e) => updateOffice(officeId, { name: e.target.value })}
+                onBlur={() => saveOffice(officeId)}
                 disabled={disabled || busy}
                 sx={adminFieldSx}
               />
               <TextField
+                id={fieldId("locationType")}
+                name={fieldId("locationType")}
                 size="small"
                 select
                 label={t("companyProfile.officeLocationType")}
                 value={office.locationType || "office"}
                 onChange={(e) =>
-                  updateAt(index, { locationType: e.target.value })
+                  updateOffice(officeId, { locationType: e.target.value })
                 }
-                onBlur={() => saveOffice(index)}
+                onBlur={() => saveOffice(officeId)}
                 disabled={disabled || busy}
                 sx={adminFieldSx}
               >
@@ -212,7 +228,7 @@ export default function CompanyOfficesEditor({
                 <Button
                   size="small"
                   color="inherit"
-                  onClick={() => removeOffice(index)}
+                  onClick={() => removeOffice(officeId)}
                   disabled={disabled || busy}
                   sx={{
                     textTransform: "none",
@@ -237,23 +253,24 @@ export default function CompanyOfficesEditor({
 
             <Box sx={{ mt: 1.5 }}>
               <AddressPlacesAutocomplete
+                id={fieldId("address")}
+                name={fieldId("address")}
                 value={office.address || ""}
                 country={country}
                 disabled={disabled || busy}
                 label={t("companyProfile.officeAddress")}
                 placeholder={t("companyProfile.officeAddressPlaceholder")}
-                onChange={(address) => updateAt(index, { address })}
+                onChange={(address) => updateOffice(officeId, { address })}
                 onResolved={({ address, lat, lon, placeId, locality }) => {
-                  updateAt(index, {
+                  updateOffice(officeId, {
                     address,
                     lat: lat || office.lat,
                     lon: lon || office.lon,
                     placeId: placeId || office.placeId,
                     city: locality || office.city,
                   });
-                  // Persist after Places resolve when using admin API.
                   if (useAdminApi && (office._id || office.id)) {
-                    setTimeout(() => saveOffice(index), 0);
+                    setTimeout(() => saveOffice(officeId), 0);
                   }
                 }}
               />
@@ -267,49 +284,61 @@ export default function CompanyOfficesEditor({
               }}
             >
               <TextField
+                id={fieldId("city")}
+                name={fieldId("city")}
                 size="small"
                 label={t("companyProfile.officeCity")}
                 value={office.city || ""}
-                onChange={(e) => updateAt(index, { city: e.target.value })}
-                onBlur={() => saveOffice(index)}
+                onChange={(e) => updateOffice(officeId, { city: e.target.value })}
+                onBlur={() => saveOffice(officeId)}
                 disabled={disabled || busy}
                 sx={adminFieldSx}
               />
               <TextField
+                id={fieldId("country")}
+                name={fieldId("country")}
                 size="small"
                 label={t("companyProfile.officeCountry")}
                 value={office.country || country || ""}
-                onChange={(e) => updateAt(index, { country: e.target.value })}
-                onBlur={() => saveOffice(index)}
+                onChange={(e) => updateOffice(officeId, { country: e.target.value })}
+                onBlur={() => saveOffice(officeId)}
                 disabled={disabled || busy}
                 sx={adminFieldSx}
               />
             </Box>
             <TextField
+              id={fieldId("collectionInstructions")}
+              name={fieldId("collectionInstructions")}
               size="small"
               multiline
               minRows={2}
               label={t("companyProfile.officeCollectionInstructions")}
               value={office.collectionInstructions || ""}
               onChange={(e) =>
-                updateAt(index, { collectionInstructions: e.target.value })
+                updateOffice(officeId, {
+                  collectionInstructions: e.target.value,
+                })
               }
-              onBlur={() => saveOffice(index)}
+              onBlur={() => saveOffice(officeId)}
               disabled={disabled || busy}
               sx={{ ...adminFieldSx, mt: 1.5 }}
             />
             <Stack direction={{ xs: "column", sm: "row" }} gap={1} mt={1}>
               <FormControlLabel
+                htmlFor={fieldId("active")}
                 control={
                   <Switch
+                    id={fieldId("active")}
+                    name={fieldId("active")}
                     size="small"
-                    checked={office.status !== "archived"}
+                    checked={Boolean(isActive)}
                     onChange={(e) => {
-                      updateAt(index, {
+                      updateOffice(officeId, {
+                        active: e.target.checked,
                         status: e.target.checked ? "active" : "archived",
                       });
                       if (useAdminApi) {
-                        setTimeout(() => saveOffice(index), 0);
+                        setTimeout(() => saveOffice(officeId), 0);
                       }
                     }}
                     disabled={disabled || busy}
@@ -339,20 +368,24 @@ export default function CompanyOfficesEditor({
               }}
             >
               <TextField
+                id={fieldId("lat")}
+                name={fieldId("lat")}
                 size="small"
                 label={t("companyProfile.officeLat")}
                 value={office.lat || ""}
-                onChange={(e) => updateAt(index, { lat: e.target.value })}
-                onBlur={() => saveOffice(index)}
+                onChange={(e) => updateOffice(officeId, { lat: e.target.value })}
+                onBlur={() => saveOffice(officeId)}
                 disabled={disabled || busy}
                 sx={adminFieldSx}
               />
               <TextField
+                id={fieldId("lng")}
+                name={fieldId("lng")}
                 size="small"
                 label={t("companyProfile.officeLng")}
                 value={office.lon || office.lng || ""}
-                onChange={(e) => updateAt(index, { lon: e.target.value })}
-                onBlur={() => saveOffice(index)}
+                onChange={(e) => updateOffice(officeId, { lon: e.target.value })}
+                onBlur={() => saveOffice(officeId)}
                 disabled={disabled || busy}
                 sx={adminFieldSx}
               />

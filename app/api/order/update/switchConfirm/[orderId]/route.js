@@ -2,7 +2,7 @@ import { Order } from "@models/order";
 import Company from "@models/company";
 import { COMPANY_ID } from "@config/company";
 import { connectToDB } from "@lib/database";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireAdmin, requirePlatformAdmin } from "@/lib/adminAuth";
 import { confirmOrderFlow } from "@/domain/orders/confirmOrderFlow";
 import { orderMessages } from "@/domain/messages";
 
@@ -30,6 +30,24 @@ export const PATCH = async (request, { params }) => {
         JSON.stringify({ success: false, message: "Order not found" }),
         { status: 404, headers: JSON_HEADERS }
       );
+    }
+
+    if (order.my_order === true) {
+      const platformGate = await requirePlatformAdmin(request);
+      if (platformGate.errorResponse) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            data: null,
+            message: orderMessages.CONFIRM_PERMISSION_DENIED,
+            level: "block",
+            conflicts: [],
+            affectedOrders: [],
+            code: "PLATFORM_CONFIRM_FORBIDDEN",
+          }),
+          { status: 403, headers: JSON_HEADERS }
+        );
+      }
     }
 
     const companyId = session.user.companyId || COMPANY_ID;

@@ -301,6 +301,47 @@ describe("fetchPlaceAutocomplete", () => {
     expect(result.predictions).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it("normalizes Spain country names before calling Google components", async () => {
+    const fetchMock = jest.fn(async (url, init) => {
+      if (String(url).includes("places.googleapis.com")) {
+        const body = JSON.parse(String(init?.body || "{}"));
+        expect(body.includedRegionCodes).toEqual(["es"]);
+        return {
+          ok: false,
+          json: async () => ({
+            error: { code: 400, status: "INVALID_ARGUMENT", message: "fail new" },
+          }),
+        };
+      }
+      const href = String(url);
+      expect(href).toContain("components=country%3Aes");
+      expect(href).not.toMatch(/country%3Aspain/i);
+      return {
+        ok: true,
+        json: async () => ({
+          status: "OK",
+          predictions: [
+            {
+              place_id: "p1",
+              description: "Calle Mayor, Madrid, Spain",
+              structured_formatting: {
+                main_text: "Calle Mayor",
+                secondary_text: "Madrid, Spain",
+              },
+            },
+          ],
+        }),
+      };
+    });
+    global.fetch = fetchMock;
+    process.env.GOOGLE_MAPS_API_KEY = "AIzaTestKey";
+    const result = await fetchPlaceAutocomplete({
+      input: "Calle Mayor",
+      country: "Spain",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.predictions).toHaveLength(1);
+  });
 });
 
 describe("placeCountryCode", () => {

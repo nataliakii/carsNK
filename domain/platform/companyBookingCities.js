@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import PlatformCity from "@models/platformCity";
-import { fallbackBookingLocationNames } from "@/domain/platform/bookingLocations";
+import { resolveCompanyBookingCoverage } from "@/domain/orders/companyBookingCoverage";
 import {
   haversineKm,
   isWithinOrderRadius,
@@ -26,10 +26,6 @@ export function toPublicCity(city) {
         ? { lat: String(city.coords.lat), lon: String(city.coords.lon) }
         : null,
   };
-}
-
-function cityHasUsableCoords(city) {
-  return Boolean(parseLatLon(city?.coords));
 }
 
 /**
@@ -74,81 +70,38 @@ export async function listActiveCitiesForCountry(country) {
 }
 
 export async function loadCompanyBookingCities(company) {
-  if (!company) {
-    return fallbackBookingLocationNames().map((name) => ({
-      name,
-      requiresAddressDetail: name.toLowerCase() === "thessaloniki",
-    }));
-  }
-
-  const base = parseLatLon(company.coords);
-  const radius = company.orderRadiusKm;
-
-  const attachDistance = (place) => {
-    const point = parseLatLon(place.coords);
-    const distanceKm =
-      base && point ? haversineKm(base, point) : place.distanceKm ?? null;
-    return { ...place, distanceKm };
-  };
+  if (!company) return [];
 
   const ids = (company.cityIds || []).filter((id) =>
     mongoose.Types.ObjectId.isValid(String(id))
   );
-  if (ids.length) {
-    const cities = await PlatformCity.find({
-      _id: { $in: ids },
-      isActive: { $ne: false },
-    })
-      .sort({ sort: 1, name: 1 })
-      .lean();
-    if (cities.length) {
-      const mapped = cities.map(mapCityToBookingPlace).map(attachDistance);
-      return filterPlacesByOrderRadius(mapped, company);
-    }
-  }
+  const catalogCities = ids.length
+    ? await PlatformCity.find({
+        _id: { $in: ids },
+        isActive: { $ne: false },
+      })
+        .sort({ sort: 1, name: 1 })
+        .lean()
+    : [];
 
-  // No explicit cityIds: if radius set, offer catalog cities within radius
-  if (
-    radius != null &&
-    radius !== "" &&
-    Number.isFinite(Number(radius)) &&
-    Number(radius) >= 0 &&
-    base &&
-    company.country
-  ) {
-    const catalog = await PlatformCity.find({
-      country: String(company.country).toUpperCase(),
-      isActive: { $ne: false },
-    })
-      .sort({ sort: 1, name: 1 })
-      .lean();
-    const within = catalog
-      .map(mapCityToBookingPlace)
-      .map(attachDistance)
-      .filter((place) => {
-        if (!cityHasUsableCoords(place)) return false;
-        return isWithinOrderRadius(radius, place.distanceKm);
-      });
-    if (within.length) return within;
-  }
-
-  const embedded = (company.locations || [])
-    .map((loc) => ({
-      name: String(loc?.name || "").trim(),
-      requiresAddressDetail:
-        String(loc?.name || "").trim().toLowerCase() === "thessaloniki",
-      coords: parseLatLon(loc?.coords),
-    }))
-    .filter((loc) => loc.name)
-    .map(attachDistance);
-  if (embedded.length) {
-    return filterPlacesByOrderRadius(embedded, company);
-  }
-
-  return fallbackBookingLocationNames().map((name) => ({
-    name,
-    requiresAddressDetail: name.toLowerCase() === "thessaloniki",
-  }));
+  const coverage = resolveCompanyBookingCoverage({
+    company,
+    catalogCities,
+  });
+  const base = parseLatLon(company.coords);
+  return coverage.deliveryAreas.map((area) => {
+    const coords = parseLatLon(area.coords);
+    const distanceKm = base && coords ? haversineKm(base, coords) : null;
+    return {
+      _id: area.id,
+      name: area.name,
+      country: area.countryCode,
+      kind: area.kind || "city",
+      requiresAddressDetail: area.kind !== "airport",
+      coords,
+      distanceKm,
+    };
+  });
 }
 
 export function toPublicCompanyStorefront(company, cities = []) {

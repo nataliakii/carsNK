@@ -176,6 +176,11 @@ body {
 
 .admin-shell a {
   font-size: inherit;
+  margin: 0;
+}
+
+.admin-shell a:hover {
+  margin: 0;
 }
 
 /* Admin top bar sits outside .admin-shell — same readable tracking as cards. */

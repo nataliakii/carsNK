@@ -12,6 +12,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 
@@ -19,6 +20,8 @@ import {
   COMPANY_TERMS_PUBLICATION,
   explicitSignerRole,
 } from "@/domain/legal/companyLegalPage";
+import { COMPANY_SETTINGS_FORM_GRID } from "@/domain/admin/companySettingsLayout";
+import { adminFieldSx } from "@/app/admin/shared/components/AdminSettingsSection";
 
 /**
  * Company-facing Terms tab.
@@ -121,7 +124,7 @@ export default function CompanyTermsPanel({
 
   if (!termsAvailable || !data) {
     return (
-      <Box sx={{ maxWidth: 720, pt: 2, px: { xs: 1, md: 2 } }}>
+      <Box sx={{ pt: 0 }}>
         {error ? (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
             {error}
@@ -144,7 +147,7 @@ export default function CompanyTermsPanel({
   }[view.message];
 
   return (
-    <Box sx={{ maxWidth: 720, pt: 2, px: { xs: 1, md: 2 } }}>
+    <Box sx={{ pt: 0 }}>
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
@@ -167,7 +170,7 @@ export default function CompanyTermsPanel({
         </Typography>
       ) : null}
 
-      <Stack spacing={0.5} sx={{ mb: 2 }}>
+      <Stack spacing={1} sx={{ mb: 3 }}>
         {(data.documents || [])
           .filter((doc) => doc.documentType !== "custom-agreement")
           .map((doc) => {
@@ -178,33 +181,75 @@ export default function CompanyTermsPanel({
               `partnerLegal.companyPage.documentTypes.${doc.documentType}`,
               { defaultValue: doc.title || doc.documentType }
             );
-            return link ? (
-              <Typography
+            const viewLabel = t("partnerLegal.review.doc.view", {
+              defaultValue: "View document",
+            });
+            return (
+              <Button
                 key={doc.documentType}
-                component={Link}
-                href={link.href}
-                variant="body2"
+                component={link ? Link : "button"}
+                href={link?.href}
+                target={link ? "_blank" : undefined}
+                rel={link ? "noopener noreferrer" : undefined}
+                disabled={!link}
+                variant="outlined"
+                color="inherit"
+                data-testid={`company-terms-doc-${doc.documentType}`}
+                aria-label={`${label} — ${viewLabel}`}
+                sx={{
+                  justifyContent: "space-between",
+                  textAlign: "left",
+                  display: "flex",
+                  textTransform: "none",
+                  width: "100%",
+                  px: 2,
+                  py: 1.5,
+                  fontSize: "inherit",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  color: "text.primary",
+                  bgcolor: "#fff",
+                  "&:hover": {
+                    borderColor: "text.primary",
+                    bgcolor: "action.hover",
+                    margin: 0,
+                    color: "text.primary",
+                  },
+                  "&:focus-visible": {
+                    outline: "2px solid",
+                    outlineColor: "primary.main",
+                    outlineOffset: 2,
+                  },
+                  "&.Mui-disabled": { opacity: 0.55 },
+                }}
+                endIcon={<OpenInNewIcon fontSize="small" aria-hidden />}
               >
-                {label}
-              </Typography>
-            ) : (
-              <Typography key={doc.documentType} variant="body2">
-                {label}
-              </Typography>
+                <Box sx={{ textAlign: "left" }}>
+                  <Typography sx={{ fontWeight: 700 }}>{label}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {viewLabel}
+                  </Typography>
+                </Box>
+              </Button>
             );
           })}
       </Stack>
 
       {view.canAccept ? (
         <Stack spacing={1.5}>
+          <Box sx={COMPANY_SETTINGS_FORM_GRID}>
           <TextField
             size="small"
+            fullWidth
+            sx={adminFieldSx}
             label={t("partnerLegal.companyPage.signerName")}
             value={signerName}
             onChange={(event) => setSignerName(event.target.value)}
           />
           <TextField
             size="small"
+            fullWidth
+            sx={adminFieldSx}
             label={t("partnerLegal.companyPage.signerRole")}
             value={signerRole}
             placeholder={t("partnerLegal.companyPage.rolePlaceholder")}
@@ -212,11 +257,19 @@ export default function CompanyTermsPanel({
           />
           <TextField
             size="small"
+            fullWidth
+            sx={{ ...adminFieldSx, gridColumn: { xs: "auto", md: "1 / -1" } }}
             label={t("partnerLegal.companyPage.signerEmail")}
             value={email}
             disabled
           />
+          </Box>
           <FormControlLabel
+            sx={{
+              alignItems: "flex-start",
+              ml: 0,
+              "& .MuiFormControlLabel-label": { pt: 1 },
+            }}
             control={
               <Checkbox
                 checked={accepted}

@@ -1,71 +1,65 @@
 import { resolveAllowedCustomerPlaceNames } from "../customerBookingPlaces";
 
 describe("resolveAllowedCustomerPlaceNames", () => {
-  test("Spain catalog includes Barcelona even when owner list is Greek", () => {
-    const names = resolveAllowedCustomerPlaceNames({
-      countryCode: "ES",
-      company: { country: "ES" },
-      car: { offices: [] },
-      ownerBookingCityNames: ["Airport", "Nea Kallikratia"],
-    });
-    expect(names).toContain("Barcelona");
-    expect(names).toContain("Airport");
-  });
-
-  test("Spain allows car offices that are not in the owner list", () => {
-    const names = resolveAllowedCustomerPlaceNames({
-      countryCode: "ES",
-      company: { country: "ES", address: "Carrer Office 1" },
-      car: { offices: [{ name: "Rovaro Office", address: "Carrer Office 1" }] },
-      ownerBookingCityNames: ["Airport"],
-    });
-    expect(names).toContain("Rovaro Office");
-    expect(names).toContain("Barcelona");
-  });
-
-  test("Greece keeps owner booking locations and offices", () => {
-    const names = resolveAllowedCustomerPlaceNames({
-      countryCode: "GR",
-      company: { country: "GR" },
-      car: { offices: ["Airport"] },
-      ownerBookingCityNames: ["Airport", "Nea Kallikratia"],
-    });
-    expect(names).toEqual(["Airport", "Nea Kallikratia"]);
-    expect(names).not.toContain("Barcelona");
-  });
-
-  test("Spain does not treat leftover Greek HQ as an office", () => {
+  test("Spain company with Barcelona coverage does not receive the Spain catalog or Greek list", () => {
     const names = resolveAllowedCustomerPlaceNames({
       countryCode: "ES",
       company: {
-        country: "GR",
-        name: "Natali Cars",
-        address: "Leoforos Nikisis, Kato Galini, Nea Kallikratia 63080, Greece",
-        locations: [{ name: "Nea Kallikratia" }],
+        _id: "es-bcn",
+        country: "ES",
         deliveryPricing: { operatingCities: ["Barcelona"] },
+        locations: [{ name: "Olympiada" }],
       },
       car: { offices: [] },
+      ownerBookingCityNames: ["Airport", "Nea Kallikratia", "Madrid"],
+    });
+    expect(names).toEqual(["Barcelona"]);
+  });
+
+  test("car office remains bookable without becoming a delivery city from the catalog", () => {
+    const names = resolveAllowedCustomerPlaceNames({
+      countryCode: "ES",
+      company: {
+        _id: "es-office",
+        country: "ES",
+        deliveryPricing: { operatingCities: ["Barcelona"] },
+        offices: [
+          {
+            _id: "desk-1",
+            name: "Rovaro Office",
+            address: "Carrer Office 1",
+            country: "ES",
+            status: "active",
+          },
+        ],
+      },
+      car: { ownerId: "es-office", officeScope: "all" },
       ownerBookingCityNames: ["Airport"],
     });
     expect(names).toContain("Barcelona");
-    expect(names.filter((n) => /kallikratia/i.test(n))).toEqual([]);
+    expect(names).toContain("Rovaro Office");
+    expect(names).not.toContain("Madrid");
   });
 
-  test("cities strategy allows operating cities plus offices", () => {
+  test("Greece keeps saved coverage and drops Spanish catalog names", () => {
     const names = resolveAllowedCustomerPlaceNames({
       countryCode: "GR",
       company: {
+        _id: "gr-1",
         country: "GR",
-        deliveryPricing: {
-          strategy: "cities",
-          operatingCities: ["Thessaloniki"],
-        },
+        deliveryPricing: { operatingCities: ["Olympiada", "Kriopigi"] },
+        offices: [
+          {
+            _id: "gr-desk",
+            name: "Airport",
+            country: "GR",
+            status: "active",
+          },
+        ],
       },
-      car: { offices: ["Airport"] },
-      ownerBookingCityNames: ["Nea Kallikratia"],
+      car: { ownerId: "gr-1", officeScope: "all" },
+      ownerBookingCityNames: ["Nea Kallikratia", "Barcelona"],
     });
-    expect(names).toContain("Thessaloniki");
-    expect(names).toContain("Airport");
-    expect(names).toContain("Nea Kallikratia");
+    expect(names).toEqual(["Kriopigi", "Olympiada", "Airport"]);
   });
 });

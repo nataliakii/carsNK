@@ -18,6 +18,14 @@ import {
   recordAttempt,
   ensureOrderAttemptsIndexes,
 } from "@/services/orderAbuseService";
+import {
+  ORDER_CREATE_CODE,
+  attemptOutcome,
+  createCorrelationId,
+  customerMessageForCode,
+  isPlatformMaintenanceLock,
+  shouldHardBlockBan,
+} from "@/domain/orders/orderCreateContract";
 
 const JSON_CONTENT_TYPE = "application/json";
 
@@ -93,6 +101,8 @@ export function orderGuard(handler) {
     // DB connection must be established by the route before calling this guard.
     await ensureOrderAttemptsIndexes();
 
+    const correlationId =
+      request.headers.get("x-correlation-id") || createCorrelationId();
     const { ip, fingerprint, userAgent } = extractClientContext(request);
     const rateLimitKey =
       fingerprint && fingerprint.length > 0
@@ -110,6 +120,7 @@ export function orderGuard(handler) {
       if (session?.user?.isAdmin) {
         const newHeaders = new Headers(request.headers);
         newHeaders.set("content-type", JSON_CONTENT_TYPE);
+        newHeaders.set("x-correlation-id", correlationId);
         const newRequest = new Request(request.url, {
           method: request.method,
           headers: newHeaders,
@@ -129,12 +140,29 @@ export function orderGuard(handler) {
     });
 
     if (banResult.banned && banResult.ban) {
-      return jsonResponse(403, {
-        code: "ORDER_BANNED",
-        message: "Order creation is temporarily blocked",
-        reason: banResult.ban.reason,
-        until: banResult.ban.expiresAt,
+      console.error("[ORDER-ADD] ban guard", {
+        correlationId,
+        failingGuard: "checkBan",
+        code: isPlatformMaintenanceLock(banResult.ban)
+          ? ORDER_CREATE_CODE.PLATFORM_MAINTENANCE
+          : "ORDER_BANNED",
+        banType: banResult.ban.type || "",
+        banReason: banResult.ban.reason || "",
+        expiresAt: banResult.ban.expiresAt || null,
       });
+      if (shouldHardBlockBan(banResult.ban)) {
+        const maintenance = isPlatformMaintenanceLock(banResult.ban);
+        return jsonResponse(maintenance ? 503 : 403, {
+          code: maintenance
+            ? ORDER_CREATE_CODE.PLATFORM_MAINTENANCE
+            : "ORDER_BANNED",
+          message: maintenance
+            ? customerMessageForCode(ORDER_CREATE_CODE.PLATFORM_MAINTENANCE)
+            : "This booking request was blocked.",
+          correlationId,
+          until: banResult.ban.expiresAt,
+        });
+      }
     }
 
     // 2) Rate limit
@@ -180,6 +208,7 @@ export function orderGuard(handler) {
     // Headers must be a new Headers instance so the one-off body stream is safe; set content-type and length.
     const newHeaders = new Headers(request.headers);
     newHeaders.set("content-type", JSON_CONTENT_TYPE);
+    newHeaders.set("x-correlation-id", correlationId);
     const newRequest = new Request(request.url, {
       method: request.method,
       headers: newHeaders,
@@ -203,12 +232,7 @@ export function orderGuard(handler) {
     }
 
     const status = response?.status ?? 500;
-    const outcome =
-      status === 201 || status === 202
-        ? "success"
-        : status === 409
-          ? "conflict"
-          : "error";
+    const outcome = attemptOutcome(status);
 
     await recordAttempt(ip, fingerprint, payloadHashValue, outcome).catch(
       () => {}

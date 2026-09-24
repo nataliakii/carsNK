@@ -984,5 +984,23 @@
     "errorRateLimit": "Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
     "supportNote": "Fragen zu diesem Angebot? Melden Sie sich vor Ablauf der Frist bei uns, wir helfen gern.",
     "bookingTermsLink": "Buchungsbedingungen"
+  },
+  "table": {
+    "supplierResponse": "Antwort des Anbieters",
+    "platformStatus": "Plattformstatus",
+    "vehicleAvailable": "Fahrzeug verfügbar",
+    "cannotProvide": "Kann nicht bereitgestellt werden",
+    "awaitingSupplier": "Antwort ausstehend",
+    "confirmedByAdmin": "Bestätigt von {{name}}",
+    "supplierReason": "Grund",
+    "sentAt": "Gesendet {{when}}",
+    "changeResponse": "Antwort ändern",
+    "changeResponseConfirm": "Anbieterantwort für diese Buchung ändern?",
+    "bookingConfirmedByRovaro": "Buchung von Rovaro bestätigt",
+    "confirmBooking": "Buchung bestätigen",
+    "cancelConfirmation": "Bestätigung aufheben",
+    "platformPending": "Ausstehend",
+    "platformConfirmed": "Bestätigt",
+    "platformCancelled": "Storniert"
   }
 }

@@ -822,6 +822,33 @@ export const updateOrderConfirmation = async (orderId) => {
   throw new Error(data.message || "Unexpected response from server");
 };
 
+export const updateOrderSupplierResponse = async (orderId, { response, reason } = {}) => {
+  const res = await fetch(
+    getApiUrl(API_PATHS.ADMIN_ORDER_SUPPLIER_RESPONSE(orderId)),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      credentials: "include",
+      body: JSON.stringify({ response, reason }),
+    }
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return {
+      success: false,
+      message: data.message || "Failed to save supplier response",
+      data: null,
+    };
+  }
+  return {
+    success: true,
+    message: data.message,
+    data: data.data,
+    idempotent: Boolean(data.idempotent),
+  };
+};
+
 export const addCar = async (formData) => {
   try {
     const response = await fetch(API_PATHS.CAR_ADD_ONE, {
@@ -1131,10 +1158,12 @@ export async function calculateTotalPrice(
     }
 
     const data = await response.json();
-    return {
+      return {
       totalPrice: data.totalPrice || 0,
       days: data.days || 0,
+      available: data.available,
       breakdown: data.breakdown || null,
+      authoritativePrice: data.authoritativePrice || null,
       ok: true,
     };
   } catch (error) {

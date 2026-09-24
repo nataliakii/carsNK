@@ -177,7 +177,7 @@ describe("authoritative location quote", () => {
         pickup: { kind: "delivery", placeId: "ChIJparis" },
         dropoff: { sameAsPickup: true },
       })
-    ).rejects.toMatchObject({ code: "UNSUPPORTED_AREA" });
+    ).rejects.toMatchObject({ code: "LOCATION_COUNTRY_MISMATCH" });
   });
 
   test("pickup and return fees are calculated separately", async () => {
@@ -236,7 +236,7 @@ describe("authoritative location quote", () => {
       })
     ).rejects.toMatchObject({
       code: "PLACES_UNAVAILABLE",
-      message: expect.stringMatching(/temporarily unavailable/i),
+      message: expect.stringMatching(/could not verify this address automatically/i),
     });
   });
 
@@ -257,7 +257,7 @@ describe("authoritative location quote", () => {
       })
     ).rejects.toMatchObject({
       code: "PLACES_UNAVAILABLE",
-      message: expect.stringMatching(/company office/i),
+      message: expect.stringMatching(/try again or choose an office/i),
     });
   });
 

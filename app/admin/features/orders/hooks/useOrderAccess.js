@@ -31,6 +31,7 @@ import {
 } from "@/domain/orders/orderAccessPolicy";
 import { isOrderPaidAndClosed } from "@/domain/orders/orderStatus";
 import { getTimeBucket, athensNow } from "@/domain/time/athensTime";
+import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
 
 // Extend dayjs
 dayjs.extend(utc);
@@ -78,7 +79,7 @@ function createContext(order, session) {
     };
   }
 
-  const isSuperAdmin = session.user.role === ROLE.SUPERADMIN;
+  const isSuperAdmin = policyRoleFromUser(session.user) === ROLE.SUPERADMIN;
   const isPast = isOrderPast(order);
   const timeBucket = getTimeBucket(order); // from athensTime — single source for PAST/CURRENT/FUTURE
 

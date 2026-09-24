@@ -12,7 +12,11 @@ function command(name, value) {
 /**
  * Content-editable legal editor. The saved value is markdown sections, not raw HTML.
  */
-export default function LegalRichTextEditor({ value, onChange }) {
+export default function LegalRichTextEditor({
+  value,
+  onChange,
+  constrainHeight = true,
+}) {
   const ref = useRef(null);
   const text = sectionsToPlain(value?.sections || []);
 
@@ -30,7 +34,19 @@ export default function LegalRichTextEditor({ value, onChange }) {
 
   return (
     <Box>
-      <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: "wrap" }}>
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{
+          mb: 1,
+          flexWrap: "wrap",
+          position: "sticky",
+          top: 0,
+          zIndex: 1,
+          bgcolor: "background.paper",
+          py: 0.5,
+        }}
+      >
         <Button size="small" onClick={() => command("bold")}>Bold</Button>
         <Button size="small" onClick={() => command("italic")}>Italic</Button>
         <Button size="small" onClick={() => command("insertUnorderedList")}>Bullets</Button>
@@ -66,7 +82,10 @@ export default function LegalRichTextEditor({ value, onChange }) {
         aria-label="Legal document editor"
         onInput={emit}
         sx={{
-          minHeight: 220,
+          minHeight: constrainHeight ? 500 : 240,
+          maxHeight: constrainHeight ? "70vh" : "none",
+          overflowY: constrainHeight ? "auto" : "visible",
+          overflowX: "visible",
           p: 1.5,
           border: "1px solid",
           borderColor: "divider",

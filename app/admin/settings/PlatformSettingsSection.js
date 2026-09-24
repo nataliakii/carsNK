@@ -349,7 +349,7 @@ function SettingsTabsInner({ voucherHub }) {
               })}
               description={t("settings.legalDescription", {
                 defaultValue:
-                  "Platform agreements, customer terms, and privacy documents.",
+                  "Review and publish the documents used by customers and partner companies.",
               })}
             />
             <LegalHubSection embedded />

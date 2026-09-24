@@ -531,5 +531,23 @@
     "source": "Source: {{source}}",
     "close": "Close",
     "save": "Save"
+  },
+  "table": {
+    "supplierResponse": "Răspunsul furnizorului",
+    "platformStatus": "Status platformă",
+    "vehicleAvailable": "Vehicul disponibil",
+    "cannotProvide": "Nu poate fi asigurat",
+    "awaitingSupplier": "Se așteaptă răspuns",
+    "confirmedByAdmin": "Confirmat de {{name}}",
+    "supplierReason": "Motiv",
+    "sentAt": "Trimis {{when}}",
+    "changeResponse": "Schimbă răspunsul",
+    "changeResponseConfirm": "Schimbați răspunsul furnizorului pentru această rezervare?",
+    "bookingConfirmedByRovaro": "Rezervare confirmată de Rovaro",
+    "confirmBooking": "Confirmă rezervarea",
+    "cancelConfirmation": "Anulează confirmarea",
+    "platformPending": "În așteptare",
+    "platformConfirmed": "Confirmată",
+    "platformCancelled": "Anulată"
   }
 }

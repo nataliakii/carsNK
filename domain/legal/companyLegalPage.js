@@ -29,7 +29,7 @@ export const COMPANY_LEGAL_TABS = Object.freeze([
 ]);
 
 const PUBLIC_TERM_HREFS = Object.freeze({
-  "partner-agreement": "/partner-terms",
+  "partner-agreement": "/partner-agreement",
   "partner-operating-rules": "/partner-operating-rules",
   "data-protection-schedule": "/data-protection-schedule",
 });
@@ -319,6 +319,7 @@ export function buildTermsAcceptance({
     documents: (documents || []).map((doc) => ({
       documentId: doc.ref || doc.pk || doc.documentId || doc.documentType,
       documentType: doc.documentType,
+      language: doc.language,
       version: doc.version,
       checksum: doc.checksum,
     })),

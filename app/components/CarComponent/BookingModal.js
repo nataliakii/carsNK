@@ -12,8 +12,6 @@ import {
   CircularProgress,
   IconButton,
   Grow,
-  FormControlLabel,
-  Checkbox,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import {
@@ -22,8 +20,6 @@ import {
   BookingDateField,
   BookingTimeField,
   BookingTextField,
-  BookingLocationAutocomplete,
-  BookingAddressPlacesField,
   BookingFlightField,
 } from "../ui";
 import BookingContactSection from "@/app/components/orders/BookingContactSection";
@@ -48,23 +44,20 @@ import {
 import { createBusinessDateTime } from "@/domain/time/businessInstant";
 import { resolveBusinessTimezone } from "@/domain/time/resolveBusinessTimezone";
 import {
-  DEFAULT_BOOKING_LOCATION,
   LOCATION_DIVIDER_BEFORE,
   SELECTED_LOCATION_STORAGE_KEY,
   SELECTED_RETURN_LOCATION_STORAGE_KEY,
   normalizeBookingTimeHm,
 } from "@/domain/orders/locationOptions";
-import {
-  isAllowedBookingLocation,
-  canonicalizeBookingLocation,
-  resolveBookingLocationOrDefault,
-} from "@/domain/platform/bookingLocations";
 import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
+import {
+  canonicalOfficeId,
+  resolveSelectedOfficeId,
+  validateCustomerBookingLocation,
+} from "@/domain/orders/bookingLocationSelection";
 import { getSiteCountryCode } from "@config/siteCountry";
 import {
   isSpainBookingSite,
-  resolveCatalogDefaultPlace,
-  resolveCatalogPlaceOptions,
   resolvePlaceRequiresAddressDetail,
 } from "@/domain/orders/catalogPlaceOptions";
 import { normalizeDeliveryPricingLocation } from "@/domain/orders/bookingPricingOptions";
@@ -73,24 +66,21 @@ import {
   buildBookingPriceSummary,
   createEmptyBookingPriceSummary,
 } from "@/domain/orders/bookingPriceSummary";
-import { buildDeliveryHelperText } from "@/domain/orders/bookingDeliveryPresentation";
 import {
-  buildBookingPlaceOptionsWithOffices,
   findCarOfficeForPlace,
   isPlaceMatchingCarOffice,
   resolveBookingDisplayOffices,
   resolveOfficeFormAddress,
 } from "@/domain/orders/carOffices";
-import BookingOfficeDeliveryChoice from "./BookingOfficeDeliveryChoice";
+import BookingLocationSelector from "./BookingLocationSelector";
+import BookingPriceDetails from "./BookingPriceDetails";
 import BookingContractsBlock from "./BookingContractsBlock";
+import { placeCountryCode } from "@/domain/geo/googlePlaces";
 import { isValidInternationalPhone } from "@/domain/validation/internationalPhone";
 import { parseRequiredCustomerEmail } from "@/domain/validation/customerEmail";
 import { reportGoogleAdsPurchaseFromOrder } from "@/domain/analytics/googleAdsConversion";
 import {
-  formatMarketplaceEuro,
-  marketplaceFeeNotice,
   marketplaceFinancialSplitFromMajor,
-  marketplaceSplitLabels,
 } from "@/domain/orders/marketplaceFinancialSplit";
 import { resolveMarketplaceBookingFeeBps } from "@/domain/orders/marketplaceBookingFee";
 import "@/styles/animations.css";
@@ -140,6 +130,7 @@ const BookingModal = ({
   const [daysAndTotal, setDaysAndTotal] = useState(() =>
     createEmptyBookingPriceSummary()
   );
+  const [priceParts, setPriceParts] = useState(null);
   const [calcLoading, setCalcLoading] = useState(false);
   const { t, i18n } = useTranslation();
   const secondDriverPriceLabelValue = getSecondDriverPriceLabelValue();
@@ -159,11 +150,23 @@ const BookingModal = ({
     forNewOrder: true,
   });
   const {
-    names: companyPlaceOptions,
-    defaultName: companyDefaultBookingLocation,
+    coverage,
+    coverageReady,
     requiresDetail: companyRequiresDetail,
     isAirport,
   } = useCompanyBookingLocations(car?.ownerId || company?._id);
+  const bookingCompanyId = String(car?.ownerId || company?._id || "");
+  const deliveryAreaNames = useMemo(
+    () =>
+      (coverage?.deliveryAreas || [])
+        .map((area) => area.name)
+        .filter(Boolean),
+    [coverage]
+  );
+  const deliveryUnavailable =
+    coverageReady && String(coverage?.companyId || "") === bookingCompanyId
+      ? !coverage.deliveryAvailable
+      : false;
   const siteCountry = getSiteCountryCode();
   const spainSite = isSpainBookingSite(siteCountry);
   const marketplaceFee = useMemo(
@@ -182,16 +185,8 @@ const BookingModal = ({
       { feeBps: marketplaceFee.bps }
     );
   }, [spainSite, daysAndTotal.totalPrice, marketplaceFee.bps]);
-  const marketplaceLabels = marketplaceSplitLabels(i18n?.language);
-  const catalogPlaceNames = useMemo(
-    () => resolveCatalogPlaceOptions(companyPlaceOptions, siteCountry),
-    [companyPlaceOptions, siteCountry]
-  );
-  const officeFreeNote = t("order.officeDeliveryFreeShort");
-  const defaultBookingLocation = resolveCatalogDefaultPlace(
-    companyDefaultBookingLocation,
-    siteCountry
-  );
+  const defaultBookingLocation =
+    deliveryAreaNames.length === 1 ? deliveryAreaNames[0] : "";
   const displayOffices = useMemo(
     () =>
       resolveBookingDisplayOffices(car, company, {
@@ -200,15 +195,17 @@ const BookingModal = ({
       }),
     [car, company, siteCountry, defaultBookingLocation]
   );
+  const placesCountry =
+    placeCountryCode(coverage?.countryCode || company?.country || siteCountry) ||
+    "";
   const placeOptions = useMemo(
     () =>
-      buildBookingPlaceOptionsWithOffices({
-        cityNames: catalogPlaceNames,
-        carOffices: displayOffices,
-        company,
-        freeNote: officeFreeNote,
-      }),
-    [catalogPlaceNames, displayOffices, company, officeFreeNote]
+      deliveryAreaNames.map((name) => ({
+        value: name,
+        label: name,
+        kind: "city",
+      })),
+    [deliveryAreaNames]
   );
   const placeOptionNames = useMemo(
     () =>
@@ -226,27 +223,6 @@ const BookingModal = ({
       ),
     [companyRequiresDetail, siteCountry]
   );
-  const locationOutsideMsg =
-    t(
-      spainSite
-        ? "order.spainLocationOutsideServiceArea"
-        : "order.locationOutsideServiceArea"
-    ) ||
-    (spainSite
-      ? "Choose a city from the list"
-      : "Choose pickup and return from the list");
-  const addressDetailRequiredMsg =
-    t(
-      spainSite
-        ? "order.spainDetailRequired"
-        : "order.thessalonikiDetailRequired"
-    ) || "Enter hotel or full address (min. 3 characters).";
-  const hotelOrAddressLabel =
-    t(
-      spainSite
-        ? "order.spainHotelOrAddress"
-        : "order.thessalonikiHotelOrAddress"
-    ) || "Hotel or address";
   const locationDividerBefore = spainSite
     ? undefined
     : LOCATION_DIVIDER_BEFORE;
@@ -315,6 +291,38 @@ const BookingModal = ({
   const placeOutIsOffice =
     returnMethod === "office" ||
     isPlaceMatchingCarOffice(placeOut, displayOffices);
+  const sameReturnSummary = (() => {
+    if (pickupMethod === "office") {
+      const office = displayOffices.find(
+        (row) => canonicalOfficeId(row) === canonicalOfficeId(pickupOfficeId)
+      );
+      return office
+        ? `Pick-up office: ${office.name}${
+            office.address ? ` — ${office.address}` : ""
+          }`
+        : "Same as pick-up office";
+    }
+    const address = String(placeInDetail || placeIn || "").trim();
+    return address ? `Delivery: ${address}` : "Same as pick-up";
+  })();
+
+  useEffect(() => {
+    if (!sameReturnLocation) return;
+    setReturnMethod(pickupMethod);
+    setReturnOfficeId(pickupOfficeId);
+    setReturnPlaceId(pickupPlaceId);
+    setPlaceOut(placeIn);
+    setPlaceOutDetail(placeInDetail);
+    setPlaceOutGeo(placeInGeo);
+  }, [
+    sameReturnLocation,
+    pickupMethod,
+    pickupOfficeId,
+    pickupPlaceId,
+    placeIn,
+    placeInDetail,
+    placeInGeo,
+  ]);
 
   const applyPlaceSelection = useCallback(
     (rawValue, which) => {
@@ -351,15 +359,73 @@ const BookingModal = ({
       const setMethod = which === "in" ? setPickupMethod : setReturnMethod;
       setMethod(nextMethod);
       if (nextMethod === "office") {
-        const target = office || displayOffices[0];
+        const currentId = which === "in" ? pickupOfficeId : returnOfficeId;
+        const target =
+          office ||
+          displayOffices.find(
+            (row) => canonicalOfficeId(row) === canonicalOfficeId(currentId)
+          ) ||
+          (displayOffices.length === 1 ? displayOffices[0] : null);
         if (target) {
           applyPlaceSelection(
             { value: target.name, kind: "office", address: target.address },
             which
           );
-          const id = String(target.id || target._id || "");
-          if (which === "in") setPickupOfficeId(id);
-          else setReturnOfficeId(id);
+          const id = canonicalOfficeId(target);
+          if (which === "in") {
+            setPickupOfficeId(id);
+            setPickupPlaceId("");
+            setPlaceInDetail("");
+            setPlaceInGeo(null);
+          } else {
+            setReturnOfficeId(id);
+            setReturnPlaceId("");
+            setPlaceOutDetail("");
+            setPlaceOutGeo(null);
+          }
+          setErrors((prev) => {
+            const next = { ...prev };
+            delete next.placeIn;
+            delete next.placeOut;
+            delete next.placeInDetail;
+            delete next.placeOutDetail;
+            delete next.submit;
+            return next;
+          });
+          setDaysAndTotal((prev) => {
+            const clearPickup = which === "in";
+            const clearReturn = which === "out" || sameReturnLocation;
+            const removed =
+              (clearPickup ? Number(prev.pickupDeliveryCost || 0) : 0) +
+              (clearReturn ? Number(prev.returnDeliveryCost || 0) : 0);
+            return {
+              ...prev,
+              pickupDeliveryCost: clearPickup ? 0 : prev.pickupDeliveryCost,
+              returnDeliveryCost: clearReturn ? 0 : prev.returnDeliveryCost,
+              totalPrice: Math.max(0, Number(prev.totalPrice || 0) - removed),
+            };
+          });
+        } else if (which === "in") {
+          setPickupOfficeId("");
+          setPickupPlaceId("");
+          setPlaceInDetail("");
+          setPlaceInGeo(null);
+          setDaysAndTotal((prev) => ({
+            ...prev,
+            pickupDeliveryCost: 0,
+            returnDeliveryCost: sameReturnLocation ? 0 : prev.returnDeliveryCost,
+            totalPrice: Math.max(
+              0,
+              Number(prev.totalPrice || 0) -
+                Number(prev.pickupDeliveryCost || 0) -
+                (sameReturnLocation ? Number(prev.returnDeliveryCost || 0) : 0)
+            ),
+          }));
+        } else {
+          setReturnOfficeId("");
+          setReturnPlaceId("");
+          setPlaceOutDetail("");
+          setPlaceOutGeo(null);
         }
         return;
       }
@@ -370,9 +436,7 @@ const BookingModal = ({
         setReturnOfficeId("");
         setReturnPlaceId("");
       }
-      const fallback =
-        defaultBookingLocation ||
-        (spainSite ? "Barcelona" : DEFAULT_BOOKING_LOCATION);
+      const fallback = defaultBookingLocation || deliveryAreaNames[0] || "";
       if (which === "in") {
         setPlaceIn(fallback);
         setPlaceInDetail("");
@@ -383,35 +447,7 @@ const BookingModal = ({
         setPlaceOutGeo(null);
       }
     },
-    [applyPlaceSelection, defaultBookingLocation, displayOffices, spainSite]
-  );
-
-  const formatOutsideHelper = useCallback(
-    (geo) => {
-      if (!geo) return "";
-      if (geo.deliveryBlocked) {
-        return t("order.addressBeyondServiceArea");
-      }
-      if (geo.explanation && geo.explanation.km > 0) {
-        return t("order.addressOutsideCityBreakdown", {
-          km: formatEuroAmount(geo.explanation.km, lang),
-          city: geo.explanation.city || "",
-          rate: formatEuroAmount(geo.explanation.perKm, lang),
-          fee: formatEuroAmount(geo.deliveryFeeEstimate, lang),
-        });
-      }
-      if (geo.outsideCity === true) {
-        const fee = Number(geo.deliveryFeeEstimate);
-        if (Number.isFinite(fee) && fee > 0) {
-          return t("order.addressOutsideCityWithFee", {
-            fee: formatEuroAmount(fee, lang),
-          });
-        }
-        return t("order.addressOutsideCity");
-      }
-      return "";
-    },
-    [t, lang]
+    [applyPlaceSelection, defaultBookingLocation, deliveryAreaNames, displayOffices, pickupOfficeId, returnOfficeId, sameReturnLocation]
   );
 
   // Получение стоимости с сервера при изменении дат
@@ -484,6 +520,7 @@ const BookingModal = ({
         );
         if (signal?.aborted) return;
         let summary = buildBookingPriceSummary(result);
+        setPriceParts(result?.authoritativePrice || null);
         try {
           const quoteRes = await fetch("/api/public/delivery/quote", {
             method: "POST",
@@ -494,13 +531,27 @@ const BookingModal = ({
               language: lang,
               pickup: {
                 kind: pickupMethod,
-                officeId: pickupOfficeId,
-                placeId: pickupPlaceId,
+                method: pickupMethod,
+                officeId: pickupMethod === "office" ? pickupOfficeId : null,
+                placeId: pickupMethod === "delivery" ? pickupPlaceId : null,
               },
               return: {
                 kind: sameReturnLocation ? pickupMethod : returnMethod,
-                officeId: sameReturnLocation ? pickupOfficeId : returnOfficeId,
-                placeId: sameReturnLocation ? pickupPlaceId : returnPlaceId,
+                method: sameReturnLocation ? pickupMethod : returnMethod,
+                officeId: sameReturnLocation
+                  ? pickupMethod === "office"
+                    ? pickupOfficeId
+                    : null
+                  : returnMethod === "office"
+                    ? returnOfficeId
+                    : null,
+                placeId: sameReturnLocation
+                  ? pickupMethod === "delivery"
+                    ? pickupPlaceId
+                    : null
+                  : returnMethod === "delivery"
+                    ? returnPlaceId
+                    : null,
                 sameAsPickup: sameReturnLocation,
               },
             }),
@@ -801,6 +852,12 @@ const BookingModal = ({
   // Email is required on submit (parseRequiredCustomerEmail).
 
   const bookButtonRef = useRef(null);
+  const pickupOfficeRef = useRef(null);
+  const returnOfficeRef = useRef(null);
+  const pickupAddressRef = useRef(null);
+  const returnAddressRef = useRef(null);
+  const locationInitKeyRef = useRef("");
+  const returnDraftRef = useRef(null);
 
   useEffect(() => {
     if (
@@ -855,51 +912,90 @@ const BookingModal = ({
   }, [open, car, TIME_ZONE]);
 
   useEffect(() => {
-    if (!open || !placeOptions.length) return;
+    if (!open) {
+      locationInitKeyRef.current = "";
+      return;
+    }
+    if (!coverageReady) return;
+    if (String(coverage?.companyId || "") !== bookingCompanyId) return;
+    const initKey = `${bookingCompanyId}`;
+    if (locationInitKeyRef.current === initKey) return;
+    locationInitKeyRef.current = initKey;
+    const storageKey = bookingCompanyId
+      ? `booking-location:${bookingCompanyId}`
+      : "";
     const savedPickup =
-      typeof window !== "undefined"
-        ? localStorage.getItem(SELECTED_LOCATION_STORAGE_KEY)
-        : null;
-    const savedReturn =
-      typeof window !== "undefined"
-        ? localStorage.getItem(SELECTED_RETURN_LOCATION_STORAGE_KEY)
-        : null;
-    const fallback =
-      defaultBookingLocation ||
-      (spainSite ? "" : DEFAULT_BOOKING_LOCATION);
-    const nextPickup = resolveBookingLocationOrDefault(
-      savedPickup || fallback,
-      placeOptionNames,
-      fallback
-    );
-    const nextReturn = resolveBookingLocationOrDefault(
-      savedReturn || savedPickup || fallback,
-      placeOptionNames,
-      fallback
-    );
+      typeof window !== "undefined" && storageKey
+        ? localStorage.getItem(storageKey)
+        : "";
+    if (typeof window !== "undefined") {
+      const stale = localStorage.getItem(SELECTED_LOCATION_STORAGE_KEY);
+      if (
+        stale &&
+        !deliveryAreaNames.some(
+          (name) => name.toLowerCase() === String(stale).toLowerCase()
+        )
+      ) {
+        localStorage.removeItem(SELECTED_LOCATION_STORAGE_KEY);
+        localStorage.removeItem(SELECTED_RETURN_LOCATION_STORAGE_KEY);
+      }
+    }
+    const allowedPickup = deliveryAreaNames.some(
+      (name) => name.toLowerCase() === String(savedPickup || "").toLowerCase()
+    )
+      ? savedPickup
+      : defaultBookingLocation;
     if (displayOffices.length) {
-      const office = displayOffices[0];
-      const officeId = String(office.id || office._id || "");
+      const officeId = resolveSelectedOfficeId(displayOffices, "");
+      const office = displayOffices.find(
+        (row) => canonicalOfficeId(row) === officeId
+      );
       setPickupMethod("office");
       setReturnMethod("office");
       setPickupOfficeId(officeId);
       setReturnOfficeId(officeId);
       setSameReturnLocation(true);
-      applyPlaceSelection(
-        { value: office.name, kind: "office", address: office.address },
-        "in"
-      );
-      applyPlaceSelection(
-        { value: office.name, kind: "office", address: office.address },
-        "out"
-      );
+      setPickupPlaceId("");
+      setReturnPlaceId("");
+      if (office) {
+        applyPlaceSelection(
+          { value: office.name, kind: "office", address: office.address },
+          "in"
+        );
+        applyPlaceSelection(
+          { value: office.name, kind: "office", address: office.address },
+          "out"
+        );
+      }
       return;
     }
+    if (!deliveryAreaNames.length) {
+      setPickupMethod("office");
+      setReturnMethod("office");
+      setPlaceIn("");
+      setPlaceOut("");
+      setPickupPlaceId("");
+      setReturnPlaceId("");
+      return;
+    }
+    const nextPickup = allowedPickup || "";
     setPickupMethod("delivery");
     setReturnMethod("delivery");
     setPlaceIn(nextPickup);
-    setPlaceOut(nextReturn);
-  }, [open, placeOptionNames, defaultBookingLocation, spainSite, displayOffices, applyPlaceSelection]);
+    setPlaceOut(nextPickup);
+    if (storageKey && nextPickup && typeof window !== "undefined") {
+      localStorage.setItem(storageKey, nextPickup);
+    }
+  }, [
+    open,
+    coverageReady,
+    coverage?.companyId,
+    bookingCompanyId,
+    deliveryAreaNames,
+    defaultBookingLocation,
+    displayOffices,
+    applyPlaceSelection,
+  ]);
 
   // Prefill office address when place matches a car office
   useEffect(() => {
@@ -950,46 +1046,32 @@ const BookingModal = ({
       newErrors.time = t("order.requiredValidTimes") || "Valid pickup/return times";
     }
     if (timeErrors) newErrors.time = timeErrors;
-    const pin = String(placeIn || "").trim();
-    const pout = String(placeOut || "").trim();
-    if (!isAllowedBookingLocation(pin, placeOptionNames)) {
-      newErrors.placeIn = locationOutsideMsg;
+    const locationCheck = validateCustomerBookingLocation({
+      pickupMethod,
+      pickupOfficeId,
+      pickupPlaceId,
+      sameReturnLocation,
+      returnMethod,
+      returnOfficeId,
+      returnPlaceId,
+    });
+    if (!locationCheck.ok) {
+      Object.assign(newErrors, locationCheck.errors);
     }
-    if (!isAllowedBookingLocation(pout, placeOptionNames)) {
-      newErrors.placeOut = locationOutsideMsg;
-    }
-    const canonIn = canonicalizeBookingLocation(pin, placeOptionNames);
-    const canonOut = canonicalizeBookingLocation(pout, placeOptionNames);
-    if (
-      pickupMethod === "delivery" &&
-      canonIn &&
-      requiresDetail(canonIn) &&
-      !placeInIsOffice &&
-      String(placeInDetail || "").trim().length < 3
-    ) {
-      newErrors.placeInDetail = addressDetailRequiredMsg;
-    }
-    if (
-      returnMethod === "delivery" &&
-      canonOut &&
-      requiresDetail(canonOut) &&
-      !placeOutIsOffice &&
-      String(placeOutDetail || "").trim().length < 3
-    ) {
-      newErrors.placeOutDetail = addressDetailRequiredMsg;
-    }
-    if (pickupMethod === "delivery" && !String(pickupPlaceId || "").trim()) {
-      newErrors.placeInDetail = t("order.unverifiedAddress") || addressDetailRequiredMsg;
-    }
-    if (
-      !sameReturnLocation &&
-      returnMethod === "delivery" &&
-      !String(returnPlaceId || "").trim()
-    ) {
-      newErrors.placeOutDetail = t("order.unverifiedAddress") || addressDetailRequiredMsg;
-    }
+    const effective = locationCheck.location;
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      const focus =
+        (newErrors.placeIn && pickupOfficeRef.current) ||
+        (newErrors.placeInDetail && pickupAddressRef.current) ||
+        (newErrors.placeOut && returnOfficeRef.current) ||
+        (newErrors.placeOutDetail && returnAddressRef.current) ||
+        null;
+      if (focus) {
+        focus.scrollIntoView({ behavior: "smooth", block: "center" });
+        const field = focus.querySelector?.("input, textarea, [tabindex]");
+        field?.focus?.();
+      }
       return;
     }
 
@@ -1038,23 +1120,26 @@ const BookingModal = ({
         totalPrice: Number(daysAndTotal.totalPrice) || 0,
         franchiseOrder: Number(franchiseOrder) || 0,
         orderNumber: orderNumber,
-        placeIn: canonIn || placeIn,
-        placeOut: canonOut || placeOut,
-        placeInDetail: String(placeInDetail || "").trim(),
-        placeOutDetail: String(placeOutDetail || "").trim(),
-        pickupMethod,
-        returnMethod,
+        placeIn: placeIn,
+        placeOut: sameReturnLocation ? placeIn : placeOut,
+        placeInDetail: effective.pickupMethod === "office" ? "" : String(placeInDetail || "").trim(),
+        placeOutDetail: effective.returnMethod === "office" ? "" : String(placeOutDetail || "").trim(),
+        pickupMethod: effective.pickupMethod,
+        returnMethod: effective.returnMethod,
+        sameReturnLocation: effective.sameReturnLocation,
         location: {
           pickup: {
-            kind: pickupMethod,
-            officeId: pickupOfficeId,
-            placeId: pickupPlaceId,
+            method: effective.pickupMethod,
+            kind: effective.pickupMethod,
+            officeId: effective.pickupOfficeId || null,
+            placeId: effective.pickupPlaceId || null,
           },
           return: {
-            kind: sameReturnLocation ? pickupMethod : returnMethod,
-            officeId: sameReturnLocation ? pickupOfficeId : returnOfficeId,
-            placeId: sameReturnLocation ? pickupPlaceId : returnPlaceId,
-            sameAsPickup: sameReturnLocation,
+            method: effective.returnMethod,
+            kind: effective.returnMethod,
+            officeId: effective.returnOfficeId || null,
+            placeId: effective.returnPlaceId || null,
+            sameAsPickup: effective.sameReturnLocation,
           },
         },
         flightNumber: flightNumber,
@@ -1162,74 +1247,13 @@ const BookingModal = ({
     }
   };
 
-  const pickupDeliveryHelperText = (() => {
-    const priced = buildDeliveryHelperText({
-      locationValue: placeIn,
-      deliveryCost: daysAndTotal.pickupDeliveryCost,
-      locale: lang,
-      deliveryLabel: t("order.delivery"),
-      isLoading: calcLoading,
-      hideWhenZero: true,
-    });
-    if (priced) return priced;
-    if (
-      String(placeIn || "").trim() &&
-      !calcLoading &&
-      daysAndTotal.pickupDeliveryCost === 0 &&
-      placeInIsOffice
-    ) {
-      return t("order.officeDeliveryFree");
-    }
-    const outsideNote = formatOutsideHelper(placeInGeo);
-    if (outsideNote) return outsideNote;
-    if (
-      spainSite &&
-      String(placeIn || "").trim() &&
-      !calcLoading &&
-      daysAndTotal.pickupDeliveryCost === 0
-    ) {
-      return t("order.deliveryQuotedWithOrder");
-    }
-    return "";
-  })();
-  const returnDeliveryHelperText = (() => {
-    const priced = buildDeliveryHelperText({
-      locationValue: placeOut,
-      deliveryCost: daysAndTotal.returnDeliveryCost,
-      locale: lang,
-      deliveryLabel: t("order.delivery"),
-      isLoading: calcLoading,
-      hideWhenZero: true,
-    });
-    if (priced) return priced;
-    if (
-      String(placeOut || "").trim() &&
-      !calcLoading &&
-      daysAndTotal.returnDeliveryCost === 0 &&
-      placeOutIsOffice
-    ) {
-      return t("order.officeDeliveryFree");
-    }
-    const outsideNote = formatOutsideHelper(placeOutGeo);
-    if (outsideNote) return outsideNote;
-    if (
-      spainSite &&
-      String(placeOut || "").trim() &&
-      !calcLoading &&
-      daysAndTotal.returnDeliveryCost === 0
-    ) {
-      return t("order.deliveryQuotedWithOrder");
-    }
-    return "";
-  })();
-
   return (
     <Dialog
       open={open}
       onClose={handleDialogClose}
       disableEscapeKeyDown={true}
       fullWidth
-      maxWidth="sm"
+      maxWidth="md"
       TransitionComponent={BookingDialogTransition}
       transitionDuration={BOOKING_DIALOG_TRANSITION}
       TransitionProps={{
@@ -1438,461 +1462,320 @@ const BookingModal = ({
                   component="form"
                   sx={{ "& .MuiTextField-root": { my: { xs: 0.5, sm: 1 } } }}
                 >
-                  {/* Дата над временем, нередактируемые поля с видом выпадающих */}
-                  <Box sx={{ display: "flex", gap: 2, mb: { xs: 1, sm: 1 } }}>
-                    {/* Колонка получения */}
-                    <Box
-                      sx={{
-                        flex: 1,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 1,
-                      }}
-                    >
-                      <BookingDateField
-                        label={t("order.pickupDate") || "Дата получения"}
-                        value={formatValidBookingDate(
-                          presetDates?.startDate,
-                          "DD.MM.YYYY",
-                          ""
-                        )}
-                        error={Boolean(errors.dates)}
-                        helperText={errors.dates || ""}
-                      />
-                      <BookingTimeField
-                        label={t("order.pickupTime")}
-                        value={
-                          startTime && dayjs(startTime).isValid()
-                            ? startTime.format("HH:mm")
-                            : ""
-                        }
-                        inputProps={
-                          timeLimits.minStart
-                            ? { min: timeLimits.minStart }
-                            : {}
-                        }
-                        onChange={(e) => handleStartTimeChange(e.target.value)}
-                        error={Boolean(timeErrors || errors.time)}
-                        helperText={
-                          errors.time || timeErrors
-                            ? errors.time || timeErrors
-                            : timeLimits.minStart
-                            ? `${t("order.minAllowed", {
-                                defaultValue: "Не раньше: ",
-                              })}${timeLimits.minStart}`
-                            : ""
-                        }
-                        FormHelperTextProps={{
-                          sx: { color: "error.main", fontWeight: 600 },
-                        }}
-                      />
-                    </Box>
-                    {/* Колонка возврата */}
-                    <Box
-                      sx={{
-                        flex: 1,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 1,
-                      }}
-                    >
-                      <BookingDateField
-                        label={t("order.returnDate") || "Дата возврата"}
-                        value={formatValidBookingDate(
-                          presetDates?.endDate,
-                          "DD.MM.YYYY",
-                          ""
-                        )}
-                        error={Boolean(errors.dates)}
-                      />
-                      <BookingTimeField
-                        label={t("order.returnTime")}
-                        value={
-                          endTime && dayjs(endTime).isValid()
-                            ? endTime.format("HH:mm")
-                            : ""
-                        }
-                        inputProps={
-                          timeLimits.maxEnd ? { max: timeLimits.maxEnd } : {}
-                        }
-                        onChange={(e) => handleEndTimeChange(e.target.value)}
-                        error={Boolean(timeErrors)}
-                        helperText={
-                          timeErrors
-                            ? timeErrors
-                            : timeLimits.maxEnd
-                            ? `${t("order.maxAllowed", {
-                                defaultValue: "Не позже: ",
-                              })}${timeLimits.maxEnd}`
-                            : ""
-                        }
-                        FormHelperTextProps={{
-                          sx: { color: "error.main", fontWeight: 600 },
-                        }}
-                      />
-                    </Box>
-                  </Box>
-                  {/* Locations: stack below md; city + detail/flight always stacked full-width */}
                   <Box
                     sx={{
-                      display: "flex",
-                      flexDirection: { xs: "column", md: "row" },
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
                       gap: 2,
-                      mb: { xs: 1, sm: 2 },
-                      mt: 0,
+                      alignItems: "start",
                       width: "100%",
-                      alignItems: "stretch",
+                      mb: { xs: 1, sm: 2 },
+                      overflowX: "hidden",
                     }}
                   >
-                    {/* Pickup column */}
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        width: { xs: "100%", md: "50%" },
-                        minWidth: 0,
-                        gap: 1,
-                        alignItems: "stretch",
-                      }}
-                    >
-                      <BookingOfficeDeliveryChoice
-                        method={pickupMethod}
-                        onMethodChange={(next) => switchLegMethod("in", next)}
-                        offices={displayOffices}
-                        selectedOfficeName={placeIn}
-                        selectedOfficeId={pickupOfficeId}
-                        onSelectOffice={(office) =>
-                          switchLegMethod("in", "office", office)
-                        }
-                        officeLabel={t("order.pickupAtOffice")}
-                        deliveryLabel={t("order.deliveryToAddress")}
-                      />
-                      {pickupMethod === "delivery" || !displayOffices.length ? (
-                        <BookingLocationAutocomplete
-                          label={t("order.pickupLocation") || "Место получения"}
-                          options={placeOptions}
-                          freeSolo={!spainSite}
-                          dividerBeforeOption={locationDividerBefore}
-                          value={placeIn}
-                          onChange={(e, newValue) => {
-                            applyPlaceSelection(newValue, "in");
-                            if (errors.placeIn) {
-                              setErrors((prev) => {
-                                const { placeIn: _p, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          onInputChange={(event, newInputValue, reason) => {
-                            if (reason === "reset") return;
-                            if (event?.type === "change" || reason === "clear") {
-                              setPlaceIn(newInputValue);
-                              setPlaceInGeo(null);
-                            }
-                            if (errors.placeIn) {
-                              setErrors((prev) => {
-                                const { placeIn: _p, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          error={Boolean(errors.placeIn)}
-                          helperText={errors.placeIn || pickupDeliveryHelperText}
-                          FormHelperTextProps={{
-                            sx: {
-                              fontSize: "0.72rem",
-                              color: errors.placeIn
-                                ? "error.main"
-                                : placeInIsOffice
-                                  ? "success.main"
-                                  : "text.secondary",
-                              lineHeight: 1.3,
-                              mt: 0.5,
-                              whiteSpace: "normal",
-                            },
-                          }}
-                          sx={{ width: "100%", minWidth: 0 }}
-                        />
-                      ) : null}
-                      {placeIn &&
-                      pickupMethod === "delivery" &&
-                      isAirportLocation(placeIn) ? (
-                        <BookingFlightField
-                          label={t("order.flightNumber") || "Номер рейса"}
-                          value={flightNumber}
-                          onChange={(e) => setFlightNumber(e.target.value)}
-                          sx={{
-                            width: "100%",
-                            minWidth: 0,
-                            alignSelf: "stretch",
-                          }}
-                        />
-                      ) : null}
-                      {pickupMethod === "delivery" &&
-                      placeIn &&
-                      requiresDetail(placeIn) &&
-                      !placeInIsOffice &&
-                      !isAirportLocation(placeIn) ? (
-                        <BookingAddressPlacesField
-                          label={hotelOrAddressLabel}
-                          value={placeInDetail}
-                          country={siteCountry}
-                          language={lang}
-                          cityBias={placeIn}
-                          companyId={car?.ownerId || company?._id}
-                          carId={car?._id}
-                          requireVerifiedPlace={spainSite}
-                          onChange={(next) => {
-                            setPlaceInDetail(next);
-                            setPlaceInGeo(null);
-                            if (errors.placeInDetail) {
-                              setErrors((prev) => {
-                                const { placeInDetail: _d, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          onResolved={(geo) => {
-                            setPlaceInGeo(geo);
-                            setPickupPlaceId(geo?.placeId || "");
-                          }}
-                          error={Boolean(errors.placeInDetail)}
-                          helperText={
-                            errors.placeInDetail ||
-                            formatOutsideHelper(placeInGeo) ||
+                    <BookingLocationSelector
+                      mode="pickup"
+                      fieldRef={pickupOfficeRef}
+                      heading="Where would you like to pick up the car?"
+                      dateField={
+                        <BookingDateField
+                          label={t("order.pickupDate") || "Дата получения"}
+                          value={formatValidBookingDate(
+                            presetDates?.startDate,
+                            "DD.MM.YYYY",
                             ""
-                          }
-                          FormHelperTextProps={{
-                            sx: {
-                              color: errors.placeInDetail
-                                ? "error.main"
-                                : placeInGeo?.outsideCity
-                                  ? "warning.main"
-                                  : "text.secondary",
-                              fontSize: "0.72rem",
-                              whiteSpace: "normal",
-                            },
-                          }}
-                          sx={{
-                            width: "100%",
-                            minWidth: 0,
-                            alignSelf: "stretch",
-                          }}
-                        />
-                      ) : null}
-                    </Box>
-
-                    {/* Return column */}
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        width: { xs: "100%", md: "50%" },
-                        minWidth: 0,
-                        gap: 1,
-                        alignItems: "stretch",
-                      }}
-                    >
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            size="small"
-                            checked={sameReturnLocation}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setSameReturnLocation(checked);
-                              if (checked) {
-                                setReturnMethod(pickupMethod);
-                                setReturnOfficeId(pickupOfficeId);
-                                setReturnPlaceId(pickupPlaceId);
-                                setPlaceOut(placeIn);
-                                setPlaceOutDetail(placeInDetail);
-                              }
-                            }}
-                          />
-                        }
-                        label={
-                          <Typography sx={{ fontSize: "0.8rem", fontWeight: 600 }}>
-                            {t("order.sameReturnLocation")}
-                          </Typography>
-                        }
-                        sx={{ m: 0 }}
-                      />
-                      {sameReturnLocation ? null : (
-                      <BookingOfficeDeliveryChoice
-                        method={returnMethod}
-                        onMethodChange={(next) => switchLegMethod("out", next)}
-                        offices={displayOffices}
-                        selectedOfficeName={placeOut}
-                        selectedOfficeId={returnOfficeId}
-                        onSelectOffice={(office) =>
-                          switchLegMethod("out", "office", office)
-                        }
-                        officeLabel={t("order.returnAtOffice")}
-                        deliveryLabel={t("order.returnDeliveryToAddress")}
-                      />
-                      )}
-                      {sameReturnLocation ? null : (returnMethod === "delivery" || !displayOffices.length) ? (
-                        <BookingLocationAutocomplete
-                          label={t("order.returnLocation") || "Место возврата"}
-                          options={placeOptions}
-                          freeSolo={!spainSite}
-                          dividerBeforeOption={locationDividerBefore}
-                          value={placeOut}
-                          onChange={(e, newValue) => {
-                            applyPlaceSelection(newValue, "out");
-                            if (errors.placeOut) {
-                              setErrors((prev) => {
-                                const { placeOut: _p, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          onInputChange={(event, newInputValue, reason) => {
-                            if (reason === "reset") return;
-                            if (event?.type === "change" || reason === "clear") {
-                              setPlaceOut(newInputValue);
-                              setPlaceOutGeo(null);
-                            }
-                            if (errors.placeOut) {
-                              setErrors((prev) => {
-                                const { placeOut: _p, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          error={Boolean(errors.placeOut)}
-                          helperText={errors.placeOut || returnDeliveryHelperText}
-                          FormHelperTextProps={{
-                            sx: {
-                              fontSize: "0.72rem",
-                              color: errors.placeOut
-                                ? "error.main"
-                                : placeOutIsOffice
-                                  ? "success.main"
-                                  : "text.secondary",
-                              lineHeight: 1.3,
-                              mt: 0.5,
-                              whiteSpace: "normal",
-                            },
-                          }}
-                          sx={{ width: "100%", minWidth: 0 }}
-                        />
-                      ) : null}
-                      {!sameReturnLocation &&
-                      returnMethod === "delivery" &&
-                      placeOut &&
-                      requiresDetail(placeOut) &&
-                      !placeOutIsOffice ? (
-                        <BookingAddressPlacesField
-                          label={hotelOrAddressLabel}
-                          value={placeOutDetail}
-                          country={siteCountry}
-                          language={lang}
-                          cityBias={placeOut}
-                          companyId={car?.ownerId || company?._id}
-                          carId={car?._id}
-                          requireVerifiedPlace={spainSite}
-                          onChange={(next) => {
-                            setPlaceOutDetail(next);
-                            setPlaceOutGeo(null);
-                            if (errors.placeOutDetail) {
-                              setErrors((prev) => {
-                                const { placeOutDetail: _d, ...rest } = prev;
-                                return rest;
-                              });
-                            }
-                          }}
-                          onResolved={(geo) => {
-                            setPlaceOutGeo(geo);
-                            setReturnPlaceId(geo?.placeId || "");
-                          }}
-                          error={Boolean(errors.placeOutDetail)}
-                          helperText={
-                            errors.placeOutDetail ||
-                            formatOutsideHelper(placeOutGeo) ||
-                            ""
-                          }
-                          FormHelperTextProps={{
-                            sx: {
-                              color: errors.placeOutDetail
-                                ? "error.main"
-                                : placeOutGeo?.outsideCity
-                                  ? "warning.main"
-                                  : "text.secondary",
-                              fontSize: "0.72rem",
-                              whiteSpace: "normal",
-                            },
-                          }}
-                          sx={{
-                            width: "100%",
-                            minWidth: 0,
-                            alignSelf: "stretch",
-                          }}
-                        />
-                      ) : null}
-                      {locationQuote?.success === false && locationQuote.message ? (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                          {locationQuote.message}
-                        </Typography>
-                      ) : null}
-                    </Box>
-                  </Box>
-                  <Box
-                    sx={{
-                      border: "1px solid",
-                      borderColor: "divider",
-                      borderRadius: 1.5,
-                      px: 1.5,
-                      py: 1.25,
-                      mb: 1,
-                    }}
-                  >
-                    <Typography sx={{ fontSize: "0.8rem", fontWeight: 700, mb: 0.5 }}>
-                      {t("order.locationPriceSummary")}
-                    </Typography>
-                    <Typography variant="caption" sx={{ display: "block" }}>
-                      {t("order.baseRental")}: €{Number(daysAndTotal.rentalPrice || 0).toFixed(2)}
-                    </Typography>
-                    <Typography variant="caption" sx={{ display: "block" }}>
-                      {t("order.pickupDeliveryFee")}:{" "}
-                      {pickupMethod === "office" ||
-                      Number(daysAndTotal.pickupDeliveryCost || 0) === 0
-                        ? `${t("order.officeFreeBadge") || "Free"} / EUR 0`
-                        : `€${Number(daysAndTotal.pickupDeliveryCost || 0).toFixed(2)}`}
-                    </Typography>
-                    <Typography variant="caption" sx={{ display: "block" }}>
-                      {t("order.returnDeliveryFee")}:{" "}
-                      {(sameReturnLocation ? pickupMethod : returnMethod) ===
-                        "office" ||
-                      Number(daysAndTotal.returnDeliveryCost || 0) === 0
-                        ? `${t("order.officeFreeBadge") || "Free"} / EUR 0`
-                        : `€${Number(daysAndTotal.returnDeliveryCost || 0).toFixed(2)}`}
-                    </Typography>
-                    {spainSite && marketplaceSplit ? (
-                      <>
-                        <Typography variant="caption" sx={{ display: "block", fontWeight: 700 }}>
-                          {marketplaceLabels.total}: {formatMarketplaceEuro(marketplaceSplit.grossMinor)}
-                        </Typography>
-                        <Typography variant="caption" sx={{ display: "block" }}>
-                          {marketplaceLabels.payNow}: {formatMarketplaceEuro(marketplaceSplit.platformAmountMinor)}
-                        </Typography>
-                        <Typography variant="caption" sx={{ display: "block" }}>
-                          {marketplaceLabels.payAtPickup}: {formatMarketplaceEuro(marketplaceSplit.supplierBalanceMinor)}
-                        </Typography>
-                        <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mt: 0.5 }}>
-                          {marketplaceFeeNotice(
-                            i18n?.language,
-                            marketplaceSplit.platformAmountMinor
                           )}
-                        </Typography>
-                      </>
-                    ) : (
-                      <Typography variant="caption" sx={{ display: "block", fontWeight: 700 }}>
-                        {t("order.totalRental")}: €{Number(daysAndTotal.totalPrice || 0).toFixed(2)}
-                      </Typography>
-                    )}
+                          error={Boolean(errors.dates)}
+                          helperText={errors.dates || ""}
+                        />
+                      }
+                      timeField={
+                        <BookingTimeField
+                          label={t("order.pickupTime")}
+                          value={
+                            startTime && dayjs(startTime).isValid()
+                              ? startTime.format("HH:mm")
+                              : ""
+                          }
+                          inputProps={
+                            timeLimits.minStart
+                              ? { min: timeLimits.minStart }
+                              : {}
+                          }
+                          onChange={(e) => handleStartTimeChange(e.target.value)}
+                          error={Boolean(timeErrors || errors.time)}
+                          helperText={
+                            errors.time || timeErrors
+                              ? errors.time || timeErrors
+                              : timeLimits.minStart
+                              ? `${t("order.minAllowed", {
+                                  defaultValue: "Не раньше: ",
+                                })}${timeLimits.minStart}`
+                              : ""
+                          }
+                          FormHelperTextProps={{
+                            sx: { color: "error.main", fontWeight: 600 },
+                          }}
+                        />
+                      }
+                      method={pickupMethod}
+                      onMethodChange={(next) => {
+                        if (next === "delivery" && deliveryUnavailable) return;
+                        switchLegMethod("in", next);
+                      }}
+                      offices={displayOffices}
+                      selectedOfficeId={pickupOfficeId}
+                      onSelectOffice={(office) =>
+                        switchLegMethod("in", "office", office)
+                      }
+                      deliveryUnavailable={deliveryUnavailable}
+                      deliveryUnavailableMessage="Delivery is not available for this vehicle. Please choose an office."
+                      cityOptions={placeOptions}
+                      cityValue={placeIn}
+                      onCityChange={(newValue) => {
+                        applyPlaceSelection(newValue, "in");
+                        if (errors.placeIn) {
+                          setErrors((prev) => {
+                            const { placeIn: _p, ...rest } = prev;
+                            return rest;
+                          });
+                        }
+                      }}
+                      cityReadOnly={deliveryAreaNames.length === 1}
+                      locationDividerBefore={locationDividerBefore}
+                      addressValue={placeInDetail}
+                      onAddressChange={(next) => {
+                        setPlaceInDetail(next);
+                        setPlaceInGeo(null);
+                        setPickupPlaceId("");
+                        if (errors.placeInDetail) {
+                          setErrors((prev) => {
+                            const { placeInDetail: _d, ...rest } = prev;
+                            return rest;
+                          });
+                        }
+                      }}
+                      onAddressResolved={(geo) => {
+                        if (geo?.clearedWhileTyping) {
+                          setPlaceInGeo(null);
+                          setPickupPlaceId("");
+                          return;
+                        }
+                        if (geo?.selectable === false || geo?.success === false) {
+                          setPlaceInGeo(null);
+                          setPickupPlaceId("");
+                          if (geo?.message && !geo?.clearedWhileTyping) {
+                            setErrors((prev) => ({
+                              ...prev,
+                              placeInDetail: geo.message,
+                            }));
+                          }
+                          return;
+                        }
+                        setPlaceInGeo(geo);
+                        setPickupPlaceId(geo?.placeId || "");
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.placeInDetail;
+                          return next;
+                        });
+                      }}
+                      addressCountry={placesCountry}
+                      addressLanguage={lang}
+                      companyId={car?.ownerId || company?._id}
+                      carId={car?._id}
+                      requireVerifiedPlace={spainSite}
+                      officeError={pickupMethod === "office" ? errors.placeIn || "" : ""}
+                      cityError={pickupMethod === "delivery" ? errors.placeIn || "" : ""}
+                      addressError={
+                        pickupMethod === "delivery" ? errors.placeInDetail || "" : ""
+                      }
+                      extraDeliveryFields={
+                        placeIn && pickupMethod === "delivery" && isAirportLocation(placeIn) ? (
+                          <BookingFlightField
+                            label={t("order.flightNumber") || "Номер рейса"}
+                            value={flightNumber}
+                            onChange={(e) => setFlightNumber(e.target.value)}
+                            sx={{ width: "100%", minWidth: 0 }}
+                          />
+                        ) : null
+                      }
+                    />
+                    <BookingLocationSelector
+                      mode="return"
+                      fieldRef={returnOfficeRef}
+                      showSameReturnCheckbox
+                      sameReturnLocation={sameReturnLocation}
+                      onSameReturnChange={(checked) => {
+                        if (checked) {
+                          returnDraftRef.current = {
+                            returnMethod,
+                            returnOfficeId,
+                            returnPlaceId,
+                            placeOut,
+                            placeOutDetail,
+                            placeOutGeo,
+                          };
+                          setSameReturnLocation(true);
+                          setReturnMethod(pickupMethod);
+                          setReturnOfficeId(pickupOfficeId);
+                          setReturnPlaceId(pickupPlaceId);
+                          setPlaceOut(placeIn);
+                          setPlaceOutDetail(placeInDetail);
+                          setPlaceOutGeo(placeInGeo);
+                          return;
+                        }
+                        setSameReturnLocation(false);
+                        const draft = returnDraftRef.current;
+                        if (draft) {
+                          setReturnMethod(draft.returnMethod || "office");
+                          setReturnOfficeId(draft.returnOfficeId || "");
+                          setReturnPlaceId(draft.returnPlaceId || "");
+                          setPlaceOut(draft.placeOut || "");
+                          setPlaceOutDetail(draft.placeOutDetail || "");
+                          setPlaceOutGeo(draft.placeOutGeo || null);
+                        } else {
+                          setReturnMethod(pickupMethod);
+                          setReturnOfficeId(pickupOfficeId);
+                          setReturnPlaceId("");
+                          setPlaceOut(placeIn);
+                          setPlaceOutDetail("");
+                          setPlaceOutGeo(null);
+                        }
+                      }}
+                      sameReturnSummary={sameReturnSummary}
+                      dateField={
+                        <BookingDateField
+                          label={t("order.returnDate") || "Дата возврата"}
+                          value={formatValidBookingDate(
+                            presetDates?.endDate,
+                            "DD.MM.YYYY",
+                            ""
+                          )}
+                          error={Boolean(errors.dates)}
+                        />
+                      }
+                      timeField={
+                        <BookingTimeField
+                          label={t("order.returnTime")}
+                          value={
+                            endTime && dayjs(endTime).isValid()
+                              ? endTime.format("HH:mm")
+                              : ""
+                          }
+                          inputProps={
+                            timeLimits.maxEnd ? { max: timeLimits.maxEnd } : {}
+                          }
+                          onChange={(e) => handleEndTimeChange(e.target.value)}
+                          error={Boolean(timeErrors)}
+                          helperText={
+                            timeErrors
+                              ? timeErrors
+                              : timeLimits.maxEnd
+                              ? `${t("order.maxAllowed", {
+                                  defaultValue: "Не позже: ",
+                                })}${timeLimits.maxEnd}`
+                              : ""
+                          }
+                          FormHelperTextProps={{
+                            sx: { color: "error.main", fontWeight: 600 },
+                          }}
+                        />
+                      }
+                      method={returnMethod}
+                      onMethodChange={(next) => {
+                        if (next === "delivery" && deliveryUnavailable) return;
+                        switchLegMethod("out", next);
+                      }}
+                      offices={displayOffices}
+                      selectedOfficeId={returnOfficeId}
+                      onSelectOffice={(office) =>
+                        switchLegMethod("out", "office", office)
+                      }
+                      deliveryUnavailable={deliveryUnavailable}
+                      deliveryUnavailableMessage="Delivery is not available for this vehicle. Please choose an office."
+                      cityOptions={placeOptions}
+                      cityValue={placeOut}
+                      onCityChange={(newValue) => {
+                        applyPlaceSelection(newValue, "out");
+                        if (errors.placeOut) {
+                          setErrors((prev) => {
+                            const { placeOut: _p, ...rest } = prev;
+                            return rest;
+                          });
+                        }
+                      }}
+                      cityReadOnly={deliveryAreaNames.length === 1}
+                      locationDividerBefore={locationDividerBefore}
+                      addressValue={placeOutDetail}
+                      onAddressChange={(next) => {
+                        setPlaceOutDetail(next);
+                        setPlaceOutGeo(null);
+                        setReturnPlaceId("");
+                        if (errors.placeOutDetail) {
+                          setErrors((prev) => {
+                            const { placeOutDetail: _d, ...rest } = prev;
+                            return rest;
+                          });
+                        }
+                      }}
+                      onAddressResolved={(geo) => {
+                        if (geo?.clearedWhileTyping) {
+                          setPlaceOutGeo(null);
+                          setReturnPlaceId("");
+                          return;
+                        }
+                        if (geo?.selectable === false || geo?.success === false) {
+                          setPlaceOutGeo(null);
+                          setReturnPlaceId("");
+                          if (geo?.message && !geo?.clearedWhileTyping) {
+                            setErrors((prev) => ({
+                              ...prev,
+                              placeOutDetail: geo.message,
+                            }));
+                          }
+                          return;
+                        }
+                        setPlaceOutGeo(geo);
+                        setReturnPlaceId(geo?.placeId || "");
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.placeOutDetail;
+                          return next;
+                        });
+                      }}
+                      addressCountry={placesCountry}
+                      addressLanguage={lang}
+                      companyId={car?.ownerId || company?._id}
+                      carId={car?._id}
+                      requireVerifiedPlace={spainSite}
+                      officeError={returnMethod === "office" ? errors.placeOut || "" : ""}
+                      cityError={returnMethod === "delivery" ? errors.placeOut || "" : ""}
+                      addressError={
+                        returnMethod === "delivery" ? errors.placeOutDetail || "" : ""
+                      }
+                    />
                   </Box>
+                  {locationQuote?.success === false && locationQuote.message ? (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                      {locationQuote.message}
+                    </Typography>
+                  ) : null}
+                  <BookingPriceDetails
+                    summary={daysAndTotal}
+                    parts={priceParts}
+                    split={spainSite ? marketplaceSplit : null}
+                    pickupMethod={pickupMethod}
+                    returnMethod={sameReturnLocation ? pickupMethod : returnMethod}
+                    pickupVerified={
+                      pickupMethod === "office" || Boolean(pickupPlaceId)
+                    }
+                    returnVerified={
+                      (sameReturnLocation ? pickupMethod : returnMethod) ===
+                        "office" ||
+                      Boolean(sameReturnLocation ? pickupPlaceId : returnPlaceId)
+                    }
+                  />
                   {/* <TextField
                     label={t("order.name")}
                     variant="outlined"

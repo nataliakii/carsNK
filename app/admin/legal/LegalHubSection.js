@@ -4,9 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -18,17 +15,8 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
-import { platformDocumentsNeedPublish } from "@/domain/legal/platformPublish";
-import { LEGAL_LANGUAGES } from "@/domain/legal/documentTypes";
-import { formatLegalLanguageStatus } from "@/domain/legal/languageStatus";
-import LegalDocumentCards from "./LegalDocumentCards";
-import LegalDocumentWorkspace from "./LegalDocumentWorkspace";
-import LegalPublishConfirmDialog from "./LegalPublishConfirmDialog";
-import LiveTestContentBanner from "./LiveTestContentBanner";
-import BookingFeeOutcomesTable from "@app/components/Legal/BookingFeeOutcomesTable";
-import { PLATFORM_DOCUMENT_CATALOG } from "@/domain/legal/platformCatalog";
+import LegalDocumentsPanel from "./LegalDocumentsPanel";
 
 /**
  * Superadmin legal hub: partner document review + platform publish.
@@ -41,13 +29,6 @@ const TAB_LABEL_KEYS = {
   settings: "admin.legalHub.tabSettings",
   audit: "admin.legalHub.tabAudit",
 };
-
-function documentsNeedSeed(documents) {
-  if (!Array.isArray(documents) || documents.length === 0) return true;
-  return documents.every((entry) =>
-    ["en", "es"].every((lang) => !entry.languages?.[lang]?.latestVersion)
-  );
-}
 
 function StatusChip({ status }) {
   const ok = status === "ok";
@@ -77,395 +58,7 @@ function Row({ label, children }) {
 }
 
 function DocumentsTab() {
-  const { t } = useTranslation();
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [workspace, setWorkspace] = useState({ open: false, mode: "preview", doc: null });
-  const [publishConfirm, setPublishConfirm] = useState(null);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/legal/config", { cache: "no-store" });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message || "Failed to load");
-      setData(json);
-      setError("");
-    } catch (err) {
-      setError(err.message);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function documentAction(payload) {
-    setSaving(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/legal/documents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (!res.ok || json.success === false) {
-        throw new Error(json.message || t("admin.legalHub.actionFailed"));
-      }
-      await load();
-      return json;
-    } catch (err) {
-      setError(err.message || t("admin.legalHub.actionFailed"));
-      throw err;
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!data && !error) return <CircularProgress size={22} />;
-  if (error && !data) return <Alert severity="error">{error}</Alert>;
-
-  const empty = documentsNeedSeed(data.documents);
-
-  if (empty) {
-    return (
-      <Box
-        sx={{
-          textAlign: "center",
-          py: { xs: 6, md: 8 },
-          px: 2,
-          border: "1px dashed",
-          borderColor: "divider",
-          borderRadius: 2,
-        }}
-      >
-        {error ? (
-          <Alert severity="error" sx={{ mb: 2, textAlign: "left" }}>
-            {error}
-          </Alert>
-        ) : null}
-        <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>
-          {t("admin.legalHub.emptyTitle")}
-        </Typography>
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{ mb: 3, maxWidth: 520, mx: "auto" }}
-        >
-          {t("admin.legalHub.emptyBody")}
-        </Typography>
-        <Button
-          variant="contained"
-          size="large"
-          disabled={saving}
-          onClick={() => documentAction({ action: "seed" })}
-          sx={{ py: 1.5, px: 4, fontSize: "1.1rem", fontWeight: 800 }}
-        >
-          {saving
-            ? t("admin.legalHub.saving")
-            : t("admin.legalHub.loadDrafts")}
-        </Button>
-      </Box>
-    );
-  }
-
-  const needsPublish = platformDocumentsNeedPublish(data?.documents);
-
-  return (
-    <Stack spacing={3}>
-      {error ? <Alert severity="error">{error}</Alert> : null}
-      <LiveTestContentBanner
-        items={data?.liveTestContent || []}
-        busy={saving}
-        onRestore={(target) =>
-          documentAction({
-            action: "restorePrevious",
-            documentType: target.documentType,
-            language: target.language,
-            jurisdiction: target.jurisdiction,
-          })
-        }
-      />
-      {needsPublish ? (
-        <Alert severity="warning">{t("admin.legalHub.publishHint")}</Alert>
-      ) : null}
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1.5}
-        alignItems={{ sm: "center" }}
-        flexWrap="wrap"
-      >
-        <Button
-          variant="outlined"
-          size="large"
-          onClick={() => documentAction({ action: "seed" })}
-          disabled={saving}
-          sx={{ fontWeight: 700 }}
-        >
-          {t("admin.legalHub.loadDrafts")}
-        </Button>
-        <Button
-          variant="contained"
-          size="large"
-          disabled={saving || !needsPublish}
-          onClick={() => {
-            if (
-              !window.confirm(
-                t("admin.legalHub.publishAllConfirm", {
-                  defaultValue:
-                    "Publish all required documents (EN and ES), including Cookie Policy?",
-                })
-              )
-            ) {
-              return;
-            }
-            documentAction({ action: "publishAll", changeClass: "material" });
-          }}
-          sx={{ fontWeight: 800 }}
-        >
-          {saving
-            ? t("admin.legalHub.saving")
-            : t("admin.legalHub.publishAll", {
-                defaultValue: "Publish all required documents",
-              })}
-        </Button>
-        <Typography variant="body2" color="text.secondary">
-          {t("admin.legalHub.publishHint")}
-        </Typography>
-      </Stack>
-
-      <LegalDocumentCards
-        overview={data.documents}
-        busy={saving}
-        onEdit={(doc, mode) => setWorkspace({ open: true, mode, doc })}
-        onPublish={(documentType, language, version) => {
-          const entry = (data.documents || []).find(
-            (row) => row.documentType === documentType
-          );
-          const langInfo = entry?.languages?.[language];
-          const catalogName =
-            PLATFORM_DOCUMENT_CATALOG.find((row) => row.documentType === documentType)
-              ?.name || documentType;
-          setPublishConfirm({
-            documentType,
-            language,
-            version,
-            documentName: catalogName,
-            previousLiveVersion: langInfo?.published?.version ?? null,
-            content: {
-              title: langInfo?.draft?.title || "",
-              sections: [],
-            },
-          });
-        }}
-        onDeleteDraft={(documentType, language, version) => {
-          if (
-            !window.confirm(
-              `Delete draft ${documentType} (${String(language).toUpperCase()}) v${version}? The live published version is not affected.`
-            )
-          ) {
-            return;
-          }
-          documentAction({
-            action: "archive",
-            documentType,
-            language,
-            version,
-            reason: "Draft deleted from admin card",
-          });
-        }}
-      />
-
-      <LegalPublishConfirmDialog
-        open={Boolean(publishConfirm)}
-        busy={saving}
-        documentName={publishConfirm?.documentName}
-        language={publishConfirm?.language}
-        draftVersion={publishConfirm?.version}
-        content={publishConfirm?.content}
-        previousLiveVersion={publishConfirm?.previousLiveVersion}
-        requireTypedConfirm
-        onClose={() => setPublishConfirm(null)}
-        onConfirm={() => {
-          if (!publishConfirm) return;
-          documentAction({
-            action: "publish",
-            documentType: publishConfirm.documentType,
-            language: publishConfirm.language,
-            version: publishConfirm.version,
-            changeClass: "material",
-            publishConfirm: "PUBLISH",
-          }).then(() => setPublishConfirm(null));
-        }}
-      />
-
-      <LegalDocumentWorkspace
-        open={workspace.open}
-        mode={workspace.mode}
-        documentMeta={workspace.doc}
-        overviewEntry={
-          (data.documents || []).find(
-            (row) => row.documentType === workspace.doc?.documentType
-          ) || null
-        }
-        busy={saving}
-        onClose={() => setWorkspace({ open: false, mode: "preview", doc: null })}
-        onAction={async (payload) => {
-          if (payload?.action === "importPreview") {
-            const res = await fetch("/api/admin/legal/documents", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            const json = await res.json();
-            if (!res.ok || json.success === false) {
-              throw Object.assign(new Error(json.message || "Request failed"), {
-                code: json.code,
-                status: res.status,
-              });
-            }
-            return json;
-          }
-          return documentAction({
-            ...payload,
-            ...(payload?.action === "publish"
-              ? { publishConfirm: payload.publishConfirm || "PUBLISH" }
-              : {}),
-          });
-        }}
-        onImported={() => load()}
-      />
-
-      <BookingFeeOutcomesTable language="en" compact />
-
-      <Accordion disableGutters elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, "&:before": { display: "none" } }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Box>
-            <Typography sx={{ fontWeight: 800 }}>
-              {t("admin.legalHub.advancedTitle", {
-                defaultValue: "Advanced",
-              })}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t("admin.legalHub.advancedBody", {
-                defaultValue:
-                  "Publish or archive individual languages. Day-to-day setup uses Publish all required documents above.",
-              })}
-            </Typography>
-          </Box>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Stack spacing={2}>
-            {data.documents.map((entry) => (
-              <Box
-                key={entry.documentType}
-                sx={{
-                  p: 2,
-                  border: "1px solid",
-                  borderColor: "divider",
-                  borderRadius: 2,
-                }}
-              >
-                <Typography sx={{ fontSize: "1.05rem", fontWeight: 800, mb: 1.5 }}>
-                  {t(`admin.legalHub.documentTypes.${entry.documentType}`, {
-                    defaultValue: entry.documentType,
-                  })}
-                </Typography>
-                <Stack spacing={1.25}>
-                  {LEGAL_LANGUAGES.map((lang) => {
-                    const info = entry.languages[lang];
-                    const published = Boolean(info?.published);
-                    const hasNewerDraft =
-                      info?.latestStatus === "draft" &&
-                      info?.latestVersion &&
-                      (!published ||
-                        Number(info.latestVersion) >
-                          Number(info.published.version));
-                    return (
-                      <Stack
-                        key={lang}
-                        direction={{ xs: "column", sm: "row" }}
-                        spacing={1.5}
-                        alignItems={{ sm: "center" }}
-                        justifyContent="space-between"
-                      >
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Chip size="small" label={lang.toUpperCase()} />
-                          <Typography variant="body2">
-                            {formatLegalLanguageStatus(info, lang)}
-                          </Typography>
-                        </Stack>
-                        {hasNewerDraft ? (
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <Button
-                              variant="contained"
-                              size="small"
-                              disabled={saving}
-                              onClick={() => {
-                                const changeClass = window.confirm(
-                                  "Is this a material change that requires partner re-acceptance?\n\nOK = Material\nCancel = Editorial (no new acceptance)"
-                                )
-                                  ? "material"
-                                  : "editorial";
-                                if (
-                                  !window.confirm(
-                                    `Publish ${entry.documentType} (${lang.toUpperCase()}) v${info.latestVersion} as ${changeClass}?`
-                                  )
-                                ) {
-                                  return;
-                                }
-                                documentAction({
-                                  action: "publish",
-                                  documentType: entry.documentType,
-                                  language: lang,
-                                  version: info.latestVersion,
-                                  changeClass,
-                                });
-                              }}
-                              sx={{ fontWeight: 700, minWidth: 140 }}
-                            >
-                              {t("admin.legalHub.publishLang", {
-                                lang: lang.toUpperCase(),
-                              })}
-                            </Button>
-                          </Stack>
-                        ) : null}
-                        {published ? (
-                          <Button
-                            size="small"
-                            color="warning"
-                            disabled={saving}
-                            onClick={() => {
-                              if (
-                                !window.confirm(
-                                  `Archive published ${entry.documentType} (${lang.toUpperCase()}) v${info.published.version}?`
-                                )
-                              ) {
-                                return;
-                              }
-                              documentAction({
-                                action: "archive",
-                                documentType: entry.documentType,
-                                language: lang,
-                                version: info.published.version,
-                              });
-                            }}
-                          >
-                            {t("admin.legalHub.archive")}
-                          </Button>
-                        ) : null}
-                      </Stack>
-                    );
-                  })}
-                </Stack>
-              </Box>
-            ))}
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
-    </Stack>
-  );
+  return <LegalDocumentsPanel />;
 }
 
 function ConfigTab() {
@@ -838,22 +431,27 @@ export default function LegalHubSection({ embedded = false } = {}) {
         </>
       )}
 
-      <Tabs
-        value={tab}
-        onChange={(_e, value) => setTab(value)}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        sx={{ mb: 3, borderBottom: "1px solid #eceff1" }}
-      >
-        {TAB_KEYS.map((key) => (
-          <Tab key={key} value={key} label={t(TAB_LABEL_KEYS[key])} />
-        ))}
-      </Tabs>
-
-      {tab === "documents" ? <DocumentsTab /> : null}
-      {tab === "settings" ? <ConfigTab /> : null}
-      {tab === "audit" ? <AuditTab /> : null}
+      {embedded ? (
+        <DocumentsTab />
+      ) : (
+        <>
+          <Tabs
+            value={tab}
+            onChange={(_e, value) => setTab(value)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            sx={{ mb: 3, borderBottom: "1px solid #eceff1" }}
+          >
+            {TAB_KEYS.map((key) => (
+              <Tab key={key} value={key} label={t(TAB_LABEL_KEYS[key])} />
+            ))}
+          </Tabs>
+          {tab === "documents" ? <DocumentsTab /> : null}
+          {tab === "settings" ? <ConfigTab /> : null}
+          {tab === "audit" ? <AuditTab /> : null}
+        </>
+      )}
     </Box>
   );
 }

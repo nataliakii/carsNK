@@ -210,24 +210,24 @@ export default function PartnerLegalProfileSection({
 
   return (
     <Box
-      sx={{
-        px: { xs: 1, md: 2 },
-        pb: 6,
-        pt: { xs: 2, md: 2 },
-        maxWidth: { xs: "100%", md: 960 },
-        mx: "auto",
-        overflowX: "hidden",
-      }}
+      sx={
+        companyView
+          ? { width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box", overflow: "visible" }
+          : {
+              px: { xs: 1, md: 2 },
+              pb: 6,
+              pt: { xs: 2, md: 2 },
+              maxWidth: { xs: "100%", md: 960 },
+              mx: "auto",
+              overflowX: "hidden",
+            }
+      }
     >
+      {companyView ? null : (
       <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>
-        {companyView
-          ? t(
-              `partnerLegal.companyPage.${
-                panel === "documents" ? "documents" : "details"
-              }`
-            )
-          : t("partnerLegal.title")}
+        {t("partnerLegal.title")}
       </Typography>
+      )}
       {companyView ? (
         <Typography variant="body2" sx={{ mb: 2, fontWeight: 700 }}>
           {profile?.rejectionDecision === "changes_requested"

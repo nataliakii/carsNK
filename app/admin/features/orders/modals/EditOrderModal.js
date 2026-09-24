@@ -38,6 +38,7 @@ import { useEditOrderPermissions } from "../hooks/useEditOrderPermissions";
 import { useEditOrderState } from "../hooks/useEditOrderState";
 import { useOrderAccess } from "../hooks/useOrderAccess";
 import { useSession } from "next-auth/react";
+import { isPlatformAdminUser } from "@/domain/admin/adminViewMode";
 // 🎯 Athens timezone utilities — ЕДИНСТВЕННЫЙ источник правды для времени
 import {
   ATHENS_TZ,
@@ -215,29 +216,8 @@ const EditOrderModal = ({
     };
   }, [session]);
   const isCurrentUserSuperAdmin = useMemo(() => {
-    if (!currentUser?.isAdmin) return false;
-
-    const rawRole =
-      currentUser?.role ??
-      currentUser?.roleId ??
-      session?.user?.role ??
-      session?.user?.roleId;
-
-    if (rawRole === null || rawRole === undefined) return false;
-
-    const normalizedRole = String(rawRole).trim().toUpperCase();
-    return (
-      normalizedRole === "2" ||
-      normalizedRole === "SUPERADMIN" ||
-      normalizedRole === "SUPER_ADMIN"
-    );
-  }, [
-    currentUser?.isAdmin,
-    currentUser?.role,
-    currentUser?.roleId,
-    session?.user?.role,
-    session?.user?.roleId,
-  ]);
+    return isPlatformAdminUser(session?.user);
+  }, [session?.user]);
 
   // 🎯 LAYER 1.5: Access Policy (Single Source of Truth)
   // orderForAccess: order on open, updated on refetch so access (canSeeClientPII etc.) stays correct
@@ -1774,6 +1754,7 @@ const EditOrderModal = ({
                     flexDirection: { xs: "column", sm: "row" },
                   }}
                 >
+                  {(isCurrentUserSuperAdmin || !isClientOrder) && (
                   <ActionButton
                     fullWidth
                     onClick={handleConfirmationToggle}
@@ -1806,6 +1787,7 @@ const EditOrderModal = ({
                       ...formMetrics.compactActionButtonSx,
                     }}
                   />
+                  )}
                   {isCurrentUserSuperAdmin && (
                     <ActionButton
                       fullWidth

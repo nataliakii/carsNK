@@ -33,6 +33,8 @@ export const API_PATHS = {
   COMPANY_BUFFER: (id) => `/api/company/buffer/${id}`,
 
   ADMIN_ORDERS: "/api/admin/orders",
+  ADMIN_ORDER_SUPPLIER_RESPONSE: (orderId) =>
+    `/api/admin/orders/${orderId}/supplier-response`,
   ADMIN_ORDERS_SEND_CONFIRMATION: "/api/admin/orders/send-confirmation",
   ADMIN_INBOX_PENDING: "/api/admin/inbox/pending",
 

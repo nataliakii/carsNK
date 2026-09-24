@@ -104,11 +104,12 @@ export default function CompanySettingsLayout({
         width: COMPANY_SETTINGS_SHELL.width,
         maxWidth: COMPANY_SETTINGS_SHELL.maxWidth,
         mx: "auto",
+        marginInline: "auto",
         px: COMPANY_SETTINGS_SHELL.paddingInline,
         pb: 6,
         pt: { xs: 2, md: 2 },
-        overflowX: "hidden",
         boxSizing: "border-box",
+        textAlign: "left",
       }}
     >
       <Box data-testid="company-settings-header" sx={{ mb: 2 }}>
@@ -175,6 +176,7 @@ export default function CompanySettingsLayout({
           borderRadius: COMPANY_SETTINGS_TAB_CONTENT.borderRadius,
           bgcolor: COMPANY_SETTINGS_TAB_CONTENT.background,
           boxSizing: "border-box",
+          overflow: "visible",
           ...adminReadableTextSx,
         }}
       >

@@ -24,6 +24,7 @@
  */
 
 import { ROLE } from "@models/user";
+import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import { isOrderPaidAndClosed } from "@/domain/orders/orderStatus";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 
@@ -372,7 +373,7 @@ export function createOrderContext(order, user, isPastFn, timeBucket) {
     );
   }
 
-  const isSuperAdmin = user.role === ROLE.SUPERADMIN;
+  const isSuperAdmin = policyRoleFromUser(user) === ROLE.SUPERADMIN;
   const isPast = isPastFn ? isPastFn(order) : false;
 
   return {

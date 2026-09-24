@@ -1,13 +1,18 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Autocomplete, TextField, CircularProgress } from "@mui/material";
+import {
+  Autocomplete,
+  Box,
+  Button,
+  CircularProgress,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useTranslation } from "react-i18next";
 
 const MIN_QUERY_LENGTH = 3;
 const CLIENT_FETCH_TIMEOUT_MS = 12000;
-/** Keep in sync with PLACES_DENIED_COOLDOWN_MS on the server. */
-const PLACES_RETRY_MS = 15 * 1000;
 
 function newSessionToken() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -18,13 +23,7 @@ function newSessionToken() {
 
 /**
  * Hotel/street address field with Google Places Autocomplete (server proxy).
- *
- * Spain marketplace (`requireVerifiedPlace`): typed free-text is never enough.
- * When Places is missing or unavailable, show a clear recoverable message and
- * do not present a manual address path that looks bookable.
- *
- * Legacy Greece / admin flows may keep `allowManualFallback` (default true when
- * `requireVerifiedPlace` is false) for plain-text entry if the key is absent.
+ * Typing never disables the field. Only a selected suggestion is verified.
  */
 export default function BookingAddressPlacesField({
   label,
@@ -43,18 +42,18 @@ export default function BookingAddressPlacesField({
   sx,
   requireVerifiedPlace = false,
   allowManualFallback,
+  onBlur,
 }) {
   const { t, i18n } = useTranslation();
   const [inputValue, setInputValue] = useState(String(value || ""));
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [placesConfigured, setPlacesConfigured] = useState(true);
   const [searchUnavailable, setSearchUnavailable] = useState(false);
-  const [failReason, setFailReason] = useState("");
+  const [touched, setTouched] = useState(false);
   const sessionTokenRef = useRef(newSessionToken());
   const debounceRef = useRef(null);
   const abortRef = useRef(null);
-  const retryRef = useRef(null);
+  const lastQueryRef = useRef("");
   const fetchPredictionsRef = useRef(null);
 
   const manualFallbackAllowed =
@@ -73,10 +72,6 @@ export default function BookingAddressPlacesField({
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    if (retryRef.current) {
-      clearTimeout(retryRef.current);
-      retryRef.current = null;
-    }
     if (abortRef.current) {
       abortRef.current.abort();
       abortRef.current = null;
@@ -87,14 +82,11 @@ export default function BookingAddressPlacesField({
   const fetchPredictions = useCallback(
     async (text) => {
       const q = String(text || "").trim();
-      if (q.length < MIN_QUERY_LENGTH || !placesConfigured) {
+      lastQueryRef.current = q;
+      if (q.length < MIN_QUERY_LENGTH) {
         stopInFlight();
         setOptions([]);
         return;
-      }
-      if (retryRef.current) {
-        clearTimeout(retryRef.current);
-        retryRef.current = null;
       }
       if (abortRef.current) abortRef.current.abort();
       const abort = new AbortController();
@@ -108,40 +100,28 @@ export default function BookingAddressPlacesField({
           body: JSON.stringify({
             input: q,
             country: country || undefined,
+            city: cityBias || undefined,
             language: lang,
             sessionToken: sessionTokenRef.current,
           }),
           signal: abort.signal,
         });
         const body = await res.json().catch(() => ({}));
-        // Missing key → optional plain text only for legacy/manual flows.
-        if (body.configured === false) {
-          setPlacesConfigured(false);
+        if (body.configured === false || body.unavailable || body.success === false) {
+          console.warn("[places-ui] autocomplete unavailable", {
+            reason: body.reason || null,
+            configured: body.configured,
+          });
           setSearchUnavailable(true);
-          setFailReason(body.reason || "not_configured");
           setOptions([]);
-          return;
-        }
-        if (body.unavailable || body.success === false) {
-          setSearchUnavailable(true);
-          setFailReason(String(body.reason || ""));
-          setOptions([]);
-          if (retryRef.current) clearTimeout(retryRef.current);
-          retryRef.current = setTimeout(() => {
-            retryRef.current = null;
-            fetchPredictionsRef.current?.(q);
-          }, PLACES_RETRY_MS);
           return;
         }
         setSearchUnavailable(false);
-        setFailReason("");
-        if (retryRef.current) {
-          clearTimeout(retryRef.current);
-          retryRef.current = null;
-        }
         setOptions(Array.isArray(body.predictions) ? body.predictions : []);
       } catch (err) {
         if (err?.name === "AbortError") return;
+        console.warn("[places-ui] autocomplete network error");
+        setSearchUnavailable(true);
         setOptions([]);
       } finally {
         clearTimeout(timeoutId);
@@ -151,7 +131,7 @@ export default function BookingAddressPlacesField({
         }
       }
     },
-    [country, lang, placesConfigured, stopInFlight]
+    [country, cityBias, lang, stopInFlight]
   );
   fetchPredictionsRef.current = fetchPredictions;
 
@@ -162,6 +142,7 @@ export default function BookingAddressPlacesField({
       if (q.length < MIN_QUERY_LENGTH) {
         stopInFlight();
         setOptions([]);
+        setSearchUnavailable(false);
         return;
       }
       debounceRef.current = setTimeout(() => fetchPredictions(text), 280);
@@ -169,11 +150,20 @@ export default function BookingAddressPlacesField({
     [fetchPredictions, stopInFlight]
   );
 
-  useEffect(() => {
-    return () => {
-      stopInFlight();
-    };
-  }, [stopInFlight]);
+  useEffect(() => () => stopInFlight(), [stopInFlight]);
+
+  const clearVerifiedQuietly = useCallback(
+    (address) => {
+      if (!requireVerifiedPlace || !onResolved) return;
+      onResolved({
+        success: false,
+        placeId: "",
+        address: address || "",
+        clearedWhileTyping: true,
+      });
+    },
+    [onResolved, requireVerifiedPlace]
+  );
 
   const resolvePlace = useCallback(
     async (prediction) => {
@@ -194,20 +184,27 @@ export default function BookingAddressPlacesField({
         });
         const body = await res.json().catch(() => ({}));
         sessionTokenRef.current = newSessionToken();
-        if (body?.success && body.address) {
+        if (body?.success && body.selectable !== false && body.address) {
           setInputValue(body.address);
+          setSearchUnavailable(false);
           if (onChange) onChange(body.address);
           if (onResolved) onResolved(body);
-        } else if (prediction.description && !requireVerifiedPlace) {
-          setInputValue(prediction.description);
-          if (onChange) onChange(prediction.description);
+          return;
+        }
+        if (body?.code && body?.message) {
           if (onResolved) {
             onResolved({
               success: false,
-              address: prediction.description,
-              outsideCity: null,
+              selectable: false,
+              code: body.code,
+              message: body.message,
             });
           }
+          return;
+        }
+        if (prediction.description && !requireVerifiedPlace) {
+          setInputValue(prediction.description);
+          if (onChange) onChange(prediction.description);
         }
       } catch {
         if (prediction.description && !requireVerifiedPlace) {
@@ -228,165 +225,97 @@ export default function BookingAddressPlacesField({
     ]
   );
 
-  const unavailableMessage = useMemo(() => {
-    if (
-      process.env.NODE_ENV === "development" &&
-      failReason === "referer_restricted"
-    ) {
-      return t("order.placesSearchRefererHint", {
-        defaultValue:
-          "Google blocked the server key (HTTP referrer restrictions do not work here). Use a server key with no referrer restriction, Places API enabled, and billing on.",
-      });
-    }
-    return t("order.placesSearchUnavailable", {
-      defaultValue:
-        "Address search is temporarily unavailable. Please choose a company office or try again later.",
-    });
-  }, [failReason, t]);
+  const retrySearch = () => {
+    setSearchUnavailable(false);
+    const q = lastQueryRef.current || inputValue;
+    fetchPredictionsRef.current?.(q);
+  };
 
-  const fallbackHelper = useMemo(() => {
-    if (helperText) return helperText;
-    if (!placesConfigured || searchUnavailable) {
-      if (requireVerifiedPlace || !manualFallbackAllowed) {
-        return unavailableMessage;
-      }
-      if (
-        process.env.NODE_ENV === "development" &&
-        failReason === "referer_restricted"
-      ) {
-        return unavailableMessage;
-      }
-      return t("order.placesSearchUnavailable", {
-        defaultValue: t("order.placesFallbackManual"),
-      });
-    }
-    return "";
-  }, [
-    helperText,
-    placesConfigured,
-    searchUnavailable,
-    requireVerifiedPlace,
-    manualFallbackAllowed,
-    unavailableMessage,
-    failReason,
-    t,
-  ]);
+  const calmUnavailable =
+    "We could not verify this address automatically. You can try again or choose an office.";
 
-  const blockedField = (
-    <TextField
-      label={label}
-      value={inputValue}
-      onChange={() => {}}
-      error={error || requireVerifiedPlace}
-      helperText={fallbackHelper}
-      FormHelperTextProps={FormHelperTextProps}
-      disabled
-      fullWidth
-      size="small"
-      variant="outlined"
-      InputLabelProps={{ shrink: true }}
-      sx={sx}
-    />
-  );
-
-  const manualField = (
-    <TextField
-      label={label}
-      value={inputValue}
-      onChange={(e) => {
-        setInputValue(e.target.value);
-        if (onChange) onChange(e.target.value);
-      }}
-      error={error}
-      helperText={fallbackHelper}
-      FormHelperTextProps={FormHelperTextProps}
-      disabled={disabled}
-      fullWidth
-      size="small"
-      variant="outlined"
-      InputLabelProps={{ shrink: true }}
-      sx={sx}
-    />
-  );
-
-  if (!placesConfigured) {
-    if (requireVerifiedPlace || !manualFallbackAllowed) {
-      return blockedField;
-    }
-    return manualField;
-  }
-
-  if (requireVerifiedPlace && searchUnavailable) {
-    return blockedField;
-  }
+  const showUnavailableNotice = searchUnavailable && String(inputValue || "").trim().length >= MIN_QUERY_LENGTH;
+  const fieldError = Boolean(error) && (touched || Boolean(helperText));
+  const shownHelper = helperText || "";
 
   return (
-    <Autocomplete
-      freeSolo={!requireVerifiedPlace}
-      options={options}
-      filterOptions={(x) => x}
-      getOptionLabel={(opt) =>
-        typeof opt === "string" ? opt : opt?.description || ""
-      }
-      inputValue={inputValue}
-      value={null}
-      loading={loading}
-      disabled={disabled}
-      onInputChange={(_, newInput, reason) => {
-        if (reason === "reset") return;
-        setInputValue(newInput);
-        if (onChange) onChange(newInput);
-        // Typing without selecting a suggestion clears verified place binding.
-        if (requireVerifiedPlace && onResolved) {
-          onResolved({ success: false, placeId: "", address: newInput });
+    <Box sx={{ width: "100%", minWidth: 0, ...sx }}>
+      <Autocomplete
+        freeSolo={!requireVerifiedPlace && manualFallbackAllowed}
+        options={options}
+        filterOptions={(x) => x}
+        getOptionLabel={(opt) =>
+          typeof opt === "string" ? opt : opt?.description || ""
         }
-        scheduleFetch(newInput);
-      }}
-      onChange={(_, newValue) => {
-        if (newValue && typeof newValue === "object" && newValue.placeId) {
-          resolvePlace(newValue);
-        } else if (typeof newValue === "string" && !requireVerifiedPlace) {
-          setInputValue(newValue);
-          if (onChange) onChange(newValue);
+        inputValue={inputValue}
+        value={null}
+        loading={loading}
+        disabled={disabled}
+        clearOnBlur={false}
+        onInputChange={(_, newInput, reason) => {
+          if (reason === "reset") return;
+          setInputValue(newInput);
+          if (onChange) onChange(newInput);
+          clearVerifiedQuietly(newInput);
+          scheduleFetch(newInput);
+        }}
+        onChange={(_, newValue) => {
+          if (newValue && typeof newValue === "object" && newValue.placeId) {
+            resolvePlace(newValue);
+          } else if (typeof newValue === "string" && !requireVerifiedPlace) {
+            setInputValue(newValue);
+            if (onChange) onChange(newValue);
+          }
+        }}
+        onBlur={() => {
+          setTouched(true);
+          onBlur?.();
+        }}
+        loadingText={t("order.placesSearching", { defaultValue: "Searching…" })}
+        noOptionsText={
+          showUnavailableNotice
+            ? calmUnavailable
+            : String(inputValue || "").trim().length < MIN_QUERY_LENGTH
+              ? t("order.placesKeepTyping", {
+                  defaultValue: "Type at least 3 characters.",
+                })
+              : t("order.placesNoMatches", {
+                  defaultValue: "No suggestions — try another address.",
+                })
         }
-      }}
-      loadingText={t("order.placesSearching", { defaultValue: "Searching…" })}
-      noOptionsText={
-        String(inputValue || "").trim().length < MIN_QUERY_LENGTH
-          ? t("order.placesKeepTyping", {
-              defaultValue: "Type at least 3 characters.",
-            })
-          : t("order.placesNoMatches", {
-              defaultValue: requireVerifiedPlace
-                ? "No suggestions — choose a company office or try another address."
-                : "No suggestions — type the address.",
-            })
-      }
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={label}
-          error={error}
-          helperText={fallbackHelper}
-          FormHelperTextProps={FormHelperTextProps}
-          InputLabelProps={{ shrink: true }}
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <>
-                {loading ? (
-                  <CircularProgress color="inherit" size={16} />
-                ) : null}
-                {params.InputProps.endAdornment}
-              </>
-            ),
-          }}
-        />
-      )}
-      sx={sx}
-      slotProps={{
-        popper: { style: { zIndex: 1400 } },
-      }}
-    />
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={label}
+            error={fieldError}
+            helperText={shownHelper}
+            FormHelperTextProps={FormHelperTextProps}
+            InputLabelProps={{ shrink: true }}
+            InputProps={{
+              ...params.InputProps,
+              endAdornment: (
+                <>
+                  {loading ? <CircularProgress color="inherit" size={16} /> : null}
+                  {params.InputProps.endAdornment}
+                </>
+              ),
+            }}
+          />
+        )}
+        slotProps={{
+          popper: { style: { zIndex: 1400 } },
+        }}
+      />
+      {showUnavailableNotice ? (
+        <Box sx={{ mt: 0.5, display: "flex", alignItems: "flex-start", gap: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ flex: 1, lineHeight: 1.4 }}>
+            {calmUnavailable}
+          </Typography>
+          <Button size="small" onClick={retrySearch} sx={{ mt: 0, flexShrink: 0, fontSize: "0.75rem" }}>
+            Try again
+          </Button>
+        </Box>
+      ) : null}
+    </Box>
   );
 }

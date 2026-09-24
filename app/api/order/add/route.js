@@ -18,6 +18,14 @@ import {
 } from "@/domain/orders/numberOfDays";
 import { connectToDB } from "@lib/database";
 import { orderGuard } from "@/middleware/orderGuard";
+import { assertCustomerLocationMethods } from "@/domain/orders/bookingLocationSelection";
+import {
+  ORDER_CREATE_CODE,
+  createCorrelationId,
+  customerMessageForCode,
+  mapLocationQuoteCode,
+  mapTermsErrorCode,
+} from "@/domain/orders/orderCreateContract";
 import { normalizeLocale } from "@domain/locationSeo/locationSeoService";
 import { generateOrderNumber } from "@/domain/time/athensTime";
 import { isOrderBookingRequestFromLocalhost } from "@/lib/http/orderRequestLocalhost";
@@ -442,6 +450,11 @@ async function getGeoFromIpApi(ip) {
 }
 
 async function postOrderAddHandler(request) {
+  const correlationId =
+    request.headers.get("x-correlation-id") || createCorrelationId();
+  let savedOrderId = "";
+  let existingCarId = "";
+  let ownerCompanyId = "";
   try {
     await connectToDB();
 
@@ -651,12 +664,22 @@ async function postOrderAddHandler(request) {
         purpose: PARTNER_OPERATION_PURPOSE.BOOKING,
       });
       if (!bookingGate.allowed) {
+        console.error("[ORDER-ADD] company not ready", {
+          correlationId,
+          code: ORDER_CREATE_CODE.COMPANY_NOT_READY,
+          failingGuard: "assertPartnerCanOperate",
+          companyId: String(ownerCompany?._id || ""),
+          carId: String(existingCar?._id || ""),
+          reason: bookingGate.reason || bookingGate.code || "",
+        });
         return new Response(
           JSON.stringify({
-            message: "Car is not found",
+            error: ORDER_CREATE_CODE.COMPANY_NOT_READY,
+            message: customerMessageForCode(ORDER_CREATE_CODE.COMPANY_NOT_READY),
+            correlationId,
           }),
           {
-            status: 404,
+            status: 403,
             headers: { "Content-Type": "application/json" },
           }
         );
@@ -691,11 +714,21 @@ async function postOrderAddHandler(request) {
         company: companyTerms,
       });
       if (!termsCheck.ok) {
+        const termsCode = mapTermsErrorCode(termsCheck.code);
+        console.error("[ORDER-ADD] terms rejected", {
+          correlationId,
+          code: termsCode,
+          failingGuard: "evaluateBookingTermsAcceptance",
+          termsCode: termsCheck.code,
+          companyId: String(ownerCompany?._id || ""),
+          carId: String(existingCar?._id || ""),
+        });
         return new Response(
           JSON.stringify({
-            message: termsCheck.message,
+            message: customerMessageForCode(termsCode),
             messageKey: `order.${termsCheck.code}`,
-            error: termsCheck.code,
+            error: termsCode,
+            correlationId,
           }),
           {
             status: 400,
@@ -804,24 +837,13 @@ async function postOrderAddHandler(request) {
       );
 
       if (spainMarketplace) {
-        const pickupOk =
-          (pickupMethodToSave === "office" &&
-            Boolean(locationInput.pickup.officeId)) ||
-          (pickupMethodToSave === "delivery" &&
-            Boolean(locationInput.pickup.placeId));
-        const returnOk =
-          locationInput.dropoff.sameAsPickup ||
-          (returnMethodToSave === "office" &&
-            Boolean(locationInput.dropoff.officeId)) ||
-          (returnMethodToSave === "delivery" &&
-            Boolean(locationInput.dropoff.placeId));
-        if (!pickupOk || !returnOk) {
+        const methodCheck = assertCustomerLocationMethods(locationInput);
+        if (!methodCheck.ok) {
           return new Response(
             JSON.stringify({
-              message:
-                "Choose office pickup/return or a verified address from suggestions.",
-              messageKey: "order.spainLocationRequired",
-              error: "LOCATION_METHOD_REQUIRED",
+              message: methodCheck.message,
+              error: methodCheck.code,
+              correlationId,
             }),
             {
               status: 400,
@@ -872,11 +894,26 @@ async function postOrderAddHandler(request) {
             quotedFields.placeOutDetail || placeOutDetailToSave;
         } catch (err) {
           if (err instanceof LocationQuoteError) {
+            const locationCode = mapLocationQuoteCode(err.code);
+            const officeFailure =
+              locationCode === ORDER_CREATE_CODE.OFFICE_NOT_AVAILABLE;
+            console.error("[ORDER-ADD] location rejected", {
+              correlationId,
+              code: locationCode,
+              failingGuard: "quoteAuthoritativeLocations",
+              quoteCode: err.code,
+              companyId: String(ownerCompany?._id || ""),
+              carId: String(existingCar?._id || ""),
+              officeId: locationInput.pickup.officeId || "",
+            });
             return new Response(
               JSON.stringify({
-                message: err.message,
+                message: officeFailure
+                  ? customerMessageForCode(ORDER_CREATE_CODE.OFFICE_NOT_AVAILABLE)
+                  : err.message,
                 messageKey: `order.${err.code}`,
-                error: err.code,
+                error: locationCode,
+                correlationId,
               }),
               {
                 status: err.code === "PLACES_UNAVAILABLE" ? 503 : 400,
@@ -992,7 +1029,11 @@ async function postOrderAddHandler(request) {
     if (availability.hardConflict) {
       return new Response(
         JSON.stringify({
-          message: availability.userSafeReason,
+          message:
+            availability.userSafeReason ||
+            customerMessageForCode(ORDER_CREATE_CODE.CAR_NOT_AVAILABLE),
+          error: ORDER_CREATE_CODE.CAR_NOT_AVAILABLE,
+          correlationId,
           conflictType: availability.conflictType,
           reasonCodes: availability.reasonCodes,
         }),
@@ -1213,6 +1254,22 @@ async function postOrderAddHandler(request) {
     const clientRegion = geo.region || "";
     const clientCity = geo.city || "";
 
+    existingCarId = String(existingCar._id || "");
+    ownerCompanyId = String(ownerCompany?._id || "");
+    const idempotentOrder = orderNumber
+      ? await Order.findOne({
+          orderNumber: String(orderNumber).trim(),
+          car: existingCar._id,
+          email: safeEmail,
+        }).lean()
+      : null;
+    if (idempotentOrder) {
+      return new Response(JSON.stringify(idempotentOrder), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const resolvedOrderNumber = await resolveUniqueOrderNumber(
       orderNumber,
       timezone
@@ -1313,6 +1370,7 @@ async function postOrderAddHandler(request) {
       ];
 
       await newOrder.save();
+      savedOrderId = String(newOrder._id || "");
       await attachOrderToActiveDiscount(newOrder);
       // Keep Car.orders in sync for pending orders too.
       if (!existingCar.orders.some((id) => String(id) === String(newOrder._id))) {
@@ -1359,6 +1417,7 @@ async function postOrderAddHandler(request) {
 
     // Save the new order
     await newOrder.save();
+    savedOrderId = String(newOrder._id || "");
     await attachOrderToActiveDiscount(newOrder);
     // Add the new order to the car's orders array
     if (!existingCar.orders.some((id) => String(id) === String(newOrder._id))) {
@@ -1396,12 +1455,37 @@ async function postOrderAddHandler(request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    // Логгирование ошибки с деталями запроса
-    console.error("API: Ошибка при обработке заказа:", error);
+    console.error("[ORDER-ADD] create failed", {
+      correlationId,
+      code: ORDER_CREATE_CODE.ORDER_CREATE_FAILED,
+      failingGuard: "postOrderAddHandler",
+      orderId: savedOrderId || "",
+      carId: existingCarId,
+      companyId: ownerCompanyId,
+      errorName: error?.name || "Error",
+      errorMessage: error?.message || "",
+    });
+    if (savedOrderId) {
+      const saved = await Order.findById(savedOrderId).lean().catch(() => null);
+      if (saved) {
+        return new Response(
+          JSON.stringify({
+            ...saved,
+            notificationError: "Notifications or follow-up steps failed after the order was saved.",
+            correlationId,
+          }),
+          {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
     return new Response(
       JSON.stringify({
-        error: `Failed to add new order: ${error.message}`,
-        details: error.stack,
+        error: ORDER_CREATE_CODE.ORDER_CREATE_FAILED,
+        message: customerMessageForCode(ORDER_CREATE_CODE.ORDER_CREATE_FAILED),
+        correlationId,
       }),
       {
         status: 500,

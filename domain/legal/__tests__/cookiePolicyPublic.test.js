@@ -129,18 +129,16 @@ describe("Cookie Policy public publishing workflow", () => {
     expect(retry).not.toContain("Failed to fetch");
   });
 
-  it("keeps language publish controls inside Advanced only", () => {
+  it("publishes each document language from the simple editor", () => {
     const hub = read("app/admin/legal/LegalHubSection.js");
-    expect(hub).toContain('action: "publishAll"');
-    expect(hub).toContain("Publish all required documents");
-    expect(hub).toContain("Advanced");
-    expect(hub).toContain("Accordion");
-    expect(hub).toContain("platformDocumentsNeedPublish");
-    // Card-level Publish update is allowed; Advanced keeps per-language Publish EN/ES.
-    expect(hub).toContain("onPublish");
-    expect(hub.slice(hub.indexOf("<Accordion"))).toContain(
-      't("admin.legalHub.publishLang"'
-    );
+    expect(hub).toContain("LegalDocumentsPanel");
+    expect(hub).not.toContain('action: "publishAll"');
+    expect(hub).not.toContain("Advanced");
+    const panel = read("app/admin/legal/LegalDocumentsPanel.js");
+    expect(panel).toContain('action: "publish"');
+    expect(panel).toContain("English");
+    expect(panel).toContain("Español");
+    expect(panel).not.toContain("Create missing translations");
   });
 
   it("public legal API serves published Cookie Policy without a session", () => {

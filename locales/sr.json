@@ -531,5 +531,23 @@
     "source": "Source: {{source}}",
     "close": "Close",
     "save": "Save"
+  },
+  "table": {
+    "supplierResponse": "Odgovor dobavljača",
+    "platformStatus": "Status platforme",
+    "vehicleAvailable": "Vozilo je dostupno",
+    "cannotProvide": "Ne može se obezbediti",
+    "awaitingSupplier": "Čeka se odgovor",
+    "confirmedByAdmin": "Potvrdio/la {{name}}",
+    "supplierReason": "Razlog",
+    "sentAt": "Poslato {{when}}",
+    "changeResponse": "Promeni odgovor",
+    "changeResponseConfirm": "Promeniti odgovor dobavljača za ovu rezervaciju?",
+    "bookingConfirmedByRovaro": "Rezervaciju je potvrdio Rovaro",
+    "confirmBooking": "Potvrdi rezervaciju",
+    "cancelConfirmation": "Otkaži potvrdu",
+    "platformPending": "Na čekanju",
+    "platformConfirmed": "Potvrđeno",
+    "platformCancelled": "Otkazano"
   }
 }

@@ -173,7 +173,7 @@ async function recordAttempt(ip, fingerprint, payloadHashValue, outcome) {
   };
   await col.insertOne(doc);
 
-  const isFailure = outcome === "conflict" || outcome === "error";
+  const isFailure = outcome === "error";
   if (!isFailure) {
     return;
   }

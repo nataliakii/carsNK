@@ -31,8 +31,8 @@ export const COMPANY_SETTINGS_TAB_BAR = Object.freeze({
   borderBottom: "1px solid",
   /** Magenta active indicator + text (brand primary). */
   indicatorColor: "#E9004F",
-  /** 24px horizontal padding on the tab row */
-  paddingInline: 3,
+  /** Tabs share the shell’s left/right edge with the title and content card. */
+  paddingInline: 0,
   /** 12px gap between tabs */
   gap: 1.5,
   tabWhiteSpace: "nowrap",
@@ -41,6 +41,9 @@ export const COMPANY_SETTINGS_TAB_BAR = Object.freeze({
   tabMinWidth: "auto",
   tabHorizontalPadding: 1.5,
 });
+
+/** Readable form column inside the full-width tab card. */
+export const COMPANY_SETTINGS_FORM_MAX_WIDTH = 1100;
 
 /** Responsive form grid shared by company hub forms. */
 export const COMPANY_SETTINGS_FORM_GRID = Object.freeze({

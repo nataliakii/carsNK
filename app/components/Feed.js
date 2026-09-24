@@ -125,13 +125,15 @@ function Feed({ children, ...props }) {
             companyData={contextProps.companyData}
             initialPickup={contextProps.initialPickup}
           >
-            <Box className={props.isAdmin ? "admin-shell" : undefined}>
+            <Box className={props.isAdmin ? "admin-shell" : undefined} sx={{ width: "100%" }}>
             <Navbar isMain={props.isMain} isAdmin={props.isAdmin} />
             {/* main paddingTop keeps content below fixed Navbar + filters; responsive values */}
             <Box
               component="main"
               sx={{
                 pt: mainPt,
+                width: "100%",
+                boxSizing: "border-box",
                 ...(fillViewport
                   ? {
                       height: "100dvh",

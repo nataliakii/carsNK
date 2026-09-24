@@ -17,7 +17,9 @@
 
 import { Order } from "@models/order";
 import { ROLE } from "@models/user";
+import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
+import { canPlatformConfirmBooking } from "@/domain/orders/supplierResponseStatus";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { notifyOrderAction } from "@/domain/orders/orderNotificationDispatcher";
 import { orderMessages } from "@/domain/messages";
@@ -62,7 +64,7 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
   const ctx = !order || !sessionUser
     ? { role: "ADMIN", isClientOrder: false, confirmed: false, isPast: false, timeBucket: "FUTURE" }
     : {
-        role: sessionUser.role === ROLE.SUPERADMIN ? "SUPERADMIN" : "ADMIN",
+        role: policyRoleFromUser(sessionUser) === ROLE.SUPERADMIN ? "SUPERADMIN" : "ADMIN",
         isClientOrder: order.my_order === true,
         confirmed: order.confirmed === true,
         timeBucket,
@@ -93,6 +95,26 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
     };
     console.log(`[switchConfirm] 403 PERMISSION_DENIED orderId=${orderId} canConfirm=false`);
     return { status: 403, body: normalized };
+  }
+
+  if (
+    isConfirming &&
+    order.my_order === true &&
+    policyRoleFromUser(sessionUser) === ROLE.SUPERADMIN &&
+    !canPlatformConfirmBooking(order)
+  ) {
+    return {
+      status: 409,
+      body: {
+        success: false,
+        data: null,
+        message: orderMessages.SUPPLIER_RESPONSE_REQUIRED,
+        level: "block",
+        conflicts: [],
+        affectedOrders: [],
+        bufferHours,
+      },
+    };
   }
 
   // Если пытаемся подтвердить (переключить с false на true)

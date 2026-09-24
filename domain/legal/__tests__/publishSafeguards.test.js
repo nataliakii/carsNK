@@ -156,10 +156,12 @@ describe("legal publish safeguards", () => {
     expect(banner).toContain("View live");
 
     const hub = read("app/admin/legal/LegalHubSection.js");
-    expect(hub).toContain("LegalPublishConfirmDialog");
-    expect(hub).toContain("LiveTestContentBanner");
-    expect(hub).toContain('publishConfirm: "PUBLISH"');
-    expect(hub).toContain("restorePrevious");
+    expect(hub).toContain("LegalDocumentsPanel");
+
+    const panel = read("app/admin/legal/LegalDocumentsPanel.js");
+    expect(panel).toContain("legal-publish-confirm-dialog");
+    expect(panel).toContain('publishConfirm: "PUBLISH"');
+    expect(panel).toContain("View live page");
 
     const workspace = read("app/admin/legal/LegalDocumentWorkspace.js");
     expect(workspace).toContain("LegalPublishConfirmDialog");

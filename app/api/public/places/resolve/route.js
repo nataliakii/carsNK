@@ -3,7 +3,11 @@ import mongoose from "mongoose";
 import { connectToDB } from "@lib/database";
 import Company from "@models/company";
 import { Car } from "@models/car";
-import { COMPANY_ID } from "@config/company";
+import {
+  assertDeliveryInCompanyCoverage,
+  resolveCompanyBookingCoverage,
+} from "@/domain/orders/companyBookingCoverage";
+import { placeCountryCode } from "@/domain/geo/googlePlaces";
 import {
   consumePublicPostOrError,
   rentalQuoteRateLimitOptions,
@@ -89,7 +93,7 @@ export async function POST(request) {
   const companyId =
     companyIdRaw && mongoose.Types.ObjectId.isValid(companyIdRaw)
       ? companyIdRaw
-      : COMPANY_ID;
+      : "";
 
   let company = null;
   let carOffices = [];
@@ -98,10 +102,31 @@ export async function POST(request) {
     await connectToDB();
     company = await Company.findById(companyId)
       .select(
-        "coords address orderRadiusKm deliveryPricing deliveryPricePerKm country cityIds locations name offices"
+        "coords address orderRadiusKm deliveryPricing deliveryPricePerKm country cityIds locations name offices serviceAreas"
       )
       .lean();
     const cityName = String(body.cityName || "").trim();
+    if (company) {
+      const coverage = resolveCompanyBookingCoverage({ company });
+      const coverageCheck = assertDeliveryInCompanyCoverage(coverage, {
+        name: cityName || details.locality,
+        countryCode: placeCountryCode(details.country),
+        locality: details.locality,
+        address: details.address,
+      });
+      if (!coverageCheck.ok) {
+        return NextResponse.json({
+          success: false,
+          configured: true,
+          code: coverageCheck.code,
+          message: coverageCheck.message,
+          placeId: details.placeId,
+          address: details.address,
+          locality: details.locality || "",
+          selectable: false,
+        });
+      }
+    }
     if (company && cityName) {
       const cities = await loadCompanyBookingCities(company);
       const match = cities.find(

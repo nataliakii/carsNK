@@ -34,6 +34,7 @@ const COL_MIN_WIDTH = 160;
 export default function BookingFeeOutcomesTable({
   language = "en",
   compact = false,
+  embedded = false,
   viewport,
 }) {
   const theme = useTheme();
@@ -47,7 +48,7 @@ export default function BookingFeeOutcomesTable({
   const table = bookingFeeTable(language);
   const rendered = renderBookingFeeTable(language);
   const layout = legalDocumentLayout(resolvedViewport);
-  const stacked = compact && layout.tableDisplay === "stacked";
+  const stacked = (embedded || compact) && layout.tableDisplay === "stacked";
   // Public (non-compact) always uses a real table with internal overflow so
   // the page never grows horizontally past MainContainer.
   const needsHorizontalScroll = !stacked;
@@ -117,10 +118,11 @@ export default function BookingFeeOutcomesTable({
     <Box
       data-testid="booking-fee-outcomes-table"
       sx={{
-        my: compact ? 1.5 : 3,
+        my: embedded ? 0 : compact ? 1.5 : 3,
         width: "100%",
         maxWidth: "100%",
         boxSizing: "border-box",
+        overflow: "visible",
         ...(compact
           ? null
           : {
@@ -132,6 +134,7 @@ export default function BookingFeeOutcomesTable({
             }),
       }}
     >
+      {embedded ? null : (
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
         <Typography
           variant={compact ? "subtitle2" : "h6"}
@@ -150,7 +153,8 @@ export default function BookingFeeOutcomesTable({
           </IconButton>
         ) : null}
       </Box>
-      <Collapse in={open}>
+      )}
+      <Collapse in={embedded || open}>
         <Box
           sx={{
             overflowX: needsHorizontalScroll ? "auto" : "visible",

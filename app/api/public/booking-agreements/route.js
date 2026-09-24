@@ -35,7 +35,7 @@ export async function GET(request) {
   ).trim();
 
   try {
-    const [{ doc, fellBackToEnglish }, { tokens }] = await Promise.all([
+    const [{ doc, source, fellBackToEnglish }, { tokens }] = await Promise.all([
       resolveDocumentForDisplay({
         documentType: LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS,
         language,
@@ -43,22 +43,27 @@ export async function GET(request) {
       loadLegalSettingsWithTokens({ language }),
     ]);
 
-    const platform = doc
+    const published = Boolean(doc) && source === "published";
+    const platform = published
       ? {
           available: true,
+          source: "published",
           documentType: doc.documentType,
           language: doc.language,
           version: doc.version,
           checksum: doc.checksum,
+          effectiveFrom: doc.effectiveFrom || doc.publishedAt || null,
           fellBackToEnglish,
           content: renderLegalDocument(doc, { settings: tokens, language }),
         }
       : {
           available: false,
+          source: source || "none",
           documentType: LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS,
           language,
           version: 0,
           checksum: "",
+          effectiveFrom: null,
           fellBackToEnglish: false,
           content: { title: "", sections: [] },
         };

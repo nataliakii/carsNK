@@ -4,6 +4,7 @@
  */
 
 import { foldCityText } from "@/domain/geo/cityLookupOptions";
+import { SPAIN_CITY_OPTIONS } from "@/domain/orders/spainCityOptions";
 import {
   communityByCode,
   coveredProvinceCodes,
@@ -210,5 +211,13 @@ export function locationInServiceAreas(location, areas) {
 export function hasStructuredServiceAreas(areas) {
   return Boolean(
     (areas?.communityCodes || []).length || (areas?.provinceCodes || []).length
+  );
+}
+
+/** Known Spanish catalog names that sit inside the saved community/province codes. */
+export function spainCitiesInServiceAreas(areas) {
+  if (!hasStructuredServiceAreas(areas)) return [];
+  return SPAIN_CITY_OPTIONS.filter((name) =>
+    locationInServiceAreas({ city: name, placeName: name }, areas)
   );
 }

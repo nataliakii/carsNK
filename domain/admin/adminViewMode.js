@@ -24,3 +24,18 @@ export function resolveAdminViewMode(user) {
 export function platformReviewMutationAllowed(user) {
   return resolveAdminViewMode(user) === ADMIN_VIEW_MODE.PLATFORM_ADMIN;
 }
+
+/**
+ * Role the order-access policy should use. Superadmin in company view
+ * is treated as ADMIN so platform-only actions cannot leak.
+ */
+export function policyRoleFromUser(user) {
+  if (resolveAdminViewMode(user) === ADMIN_VIEW_MODE.PLATFORM_ADMIN) {
+    return ROLE.SUPERADMIN;
+  }
+  return ROLE.ADMIN;
+}
+
+export function isPlatformAdminUser(user) {
+  return resolveAdminViewMode(user) === ADMIN_VIEW_MODE.PLATFORM_ADMIN;
+}

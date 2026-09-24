@@ -15,6 +15,7 @@
  */
 
 import { ROLE } from "./admin-rbac";
+import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
 
 export const CLIENT_PRIVATE_FIELDS = [
   "customerName",
@@ -56,7 +57,7 @@ export function applyVisibilityToOrder(order, user) {
   if (!order) return order;
 
   // SUPERADMIN → всё видно
-  if (user?.isAdmin && user.role === ROLE.SUPERADMIN) {
+  if (user?.isAdmin && policyRoleFromUser(user) === ROLE.SUPERADMIN) {
     return order;
   }
 
@@ -91,7 +92,7 @@ export function applyVisibilityToOrders(orders, user) {
  * Получает информацию о visibility для UI.
  */
 export function getOrderVisibility(order, user) {
-  if (user?.isAdmin && user.role === ROLE.SUPERADMIN) {
+  if (user?.isAdmin && policyRoleFromUser(user) === ROLE.SUPERADMIN) {
     return { hideClientContacts: false, reason: null };
   }
 

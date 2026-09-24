@@ -60,7 +60,7 @@ import {
 import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getOrderNumberOfDaysOrZero } from "@/domain/orders/numberOfDays";
 import { getTimeBucket } from "@/domain/time/athensTime";
-import { updateOrderInline, updateOrderConfirmation, calculateTotalPrice } from "@/utils/action";
+import { updateOrderInline, updateOrderConfirmation, calculateTotalPrice, updateOrderSupplierResponse } from "@/utils/action";
 import { useSession } from "next-auth/react";
 import { palette } from "@/theme";
 import { useSnackbar } from "notistack";
@@ -77,7 +77,9 @@ import EditOrderModal from "@/app/admin/features/orders/modals/EditOrderModal";
 import OrderUnsavedCloseDialog from "@/app/admin/features/orders/components/OrderUnsavedCloseDialog";
 import { isPast } from "@utils/businessTime";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
-import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
+import { isPlatformAdminUser, policyRoleFromUser } from "@/domain/admin/adminViewMode";
+import SupplierResponseCell from "@/app/admin/features/orders/components/SupplierResponseCell";
+import PlatformStatusCell from "@/app/admin/features/orders/components/PlatformStatusCell";
 
 // Dayjs plugins
 dayjs.extend(utc);
@@ -128,9 +130,8 @@ export default function OrdersTableSection() {
     conflictHighlightById,
   } = useMainContext();
   const { data: session } = useSession();
-  const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
-  const { active: viewAsActive } = useAdminViewAs();
-  const showSuperAdminFilters = isSuperAdmin && !viewAsActive;
+  const isPlatformAdmin = isPlatformAdminUser(session?.user);
+  const showSuperAdminFilters = isPlatformAdmin;
   const { country: adminCountry } = useAdminCountryFilter();
   
   // ─────────────────────────────────────────────────────────────
@@ -145,6 +146,7 @@ export default function OrdersTableSection() {
   // ─────────────────────────────────────────────────────────────
   const [isSaving, setIsSaving] = useState({}); // Track saving per field: { orderId_field: true }
   const [isTogglingConfirm, setIsTogglingConfirm] = useState({});
+  const [isTogglingSupplier, setIsTogglingSupplier] = useState({});
   /** Live auto-price preview only — never writes to DB. { [orderId]: { loading, live, error } } */
   const [autoPricePreviewById, setAutoPricePreviewById] = useState({});
   /** Price history popover: { orderId, anchorEl, loading, items, error } */
@@ -287,6 +289,8 @@ export default function OrdersTableSection() {
       id: session.user.id,
       name: session.user.name,
       email: session.user.email,
+      ownerId: session.user.ownerId,
+      viewAsCompanyId: session.user.viewAsCompanyId,
     };
     
     // Dev-only: Log role source once (not spammy)
@@ -305,7 +309,7 @@ export default function OrdersTableSection() {
     const timeBucket = getTimeBucket(order);
     const isPast = timeBucket === "PAST";
     return getOrderAccess({
-      role: currentUser.role === ROLE.SUPERADMIN ? "SUPERADMIN" : "ADMIN",
+      role: policyRoleFromUser(currentUser) === ROLE.SUPERADMIN ? "SUPERADMIN" : "ADMIN",
       isClientOrder: order.my_order === true,
       confirmed: order.confirmed === true,
       isPast,
@@ -1069,6 +1073,55 @@ export default function OrdersTableSection() {
     setAllOrders,
   ]);
 
+  const handleSupplierResponse = useCallback(
+    async (orderId, response, reason) => {
+      setIsTogglingSupplier((prev) => ({ ...prev, [orderId]: true }));
+      try {
+        const result = await updateOrderSupplierResponse(orderId, {
+          response,
+          reason,
+        });
+        if (!result?.success) {
+          enqueueSnackbar(result?.message || t("table.updateFailed"), {
+            variant: "error",
+          });
+          return;
+        }
+        if (result.data) {
+          setAllOrders((prev) =>
+            prev.map((order) =>
+              order._id === orderId
+                ? {
+                    ...order,
+                    confirmed: result.data.confirmed,
+                    companyEmailDecision: result.data.companyEmailDecision,
+                    partnerConfirmedAt: result.data.partnerConfirmedAt,
+                    declineReason: result.data.supplierDeclineReason,
+                    companyEmailDecisionAt: result.data.supplierRespondedAt,
+                    partnerConfirmMeta: {
+                      ...(order.partnerConfirmMeta || {}),
+                      actor: {
+                        name: result.data.supplierRespondedByName,
+                        email: result.data.supplierRespondedByEmail,
+                      },
+                    },
+                  }
+                : order
+            )
+          );
+        }
+        enqueueSnackbar(result.message, { variant: "success" });
+      } catch (error) {
+        enqueueSnackbar(error.message || t("table.updateFailed"), {
+          variant: "error",
+        });
+      } finally {
+        setIsTogglingSupplier((prev) => ({ ...prev, [orderId]: false }));
+      }
+    },
+    [enqueueSnackbar, setAllOrders, t]
+  );
+
   // ─────────────────────────────────────────────────────────────
   // FORMAT HELPERS
   // ─────────────────────────────────────────────────────────────
@@ -1106,7 +1159,8 @@ export default function OrdersTableSection() {
         t("table.email"),
         t("table.price"),
         t("table.days"),
-        t("table.confirm"),
+        t("table.supplierResponse"),
+        t("table.platformStatus"),
         t("table.origin"),
       ];
       const rows = filteredOrders.map((order) => [
@@ -1120,10 +1174,15 @@ export default function OrdersTableSection() {
         order.email || "",
         getEffectivePrice(order),
         getOrderNumberOfDaysOrZero(order),
-        order.confirmed ? t("table.confirmed") : t("table.pending"),
+        order.companyEmailDecision === "accepted" || order.partnerConfirmedAt
+          ? t("table.vehicleAvailable")
+          : order.companyEmailDecision === "rejected"
+            ? t("table.cannotProvide")
+            : t("table.awaitingSupplier"),
+        order.confirmed ? t("table.platformConfirmed") : t("table.platformPending"),
         order.my_order ? t("table.clientOrder") : t("table.adminOrder"),
       ]);
-      const totalRow = Array(12).fill("");
+      const totalRow = Array(13).fill("");
       totalRow[0] = t("table.sumTotal");
       totalRow[8] = filteredSum;
       const aoa = [headers, ...rows, totalRow];
@@ -1425,15 +1484,20 @@ export default function OrdersTableSection() {
                 <TableCell sx={{ fontWeight: 700, minWidth: 80, textAlign: "right" }}>
                   {t("table.price")}
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 100, textAlign: "center" }}>
-                  {t("table.confirmed")}
+                <TableCell sx={{ fontWeight: 700, minWidth: 160, textAlign: "center" }}>
+                  {t("table.supplierResponse")}
                 </TableCell>
+                {isPlatformAdmin ? (
+                  <TableCell sx={{ fontWeight: 700, minWidth: 120, textAlign: "center" }}>
+                    {t("table.platformStatus")}
+                  </TableCell>
+                ) : null}
               </TableRow>
             </TableHead>
             <TableBody>
               {showTableSkeleton ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={isPlatformAdmin ? 10 : 9} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={32} />
                     <Typography variant="body2" sx={{ mt: 1 }}>
                       {t("table.loadingOrders")}
@@ -1442,7 +1506,7 @@ export default function OrdersTableSection() {
                 </TableRow>
               ) : paginatedOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={isPlatformAdmin ? 10 : 9} align="center" sx={{ py: 4 }}>
                     <Typography variant="body2" color="text.secondary">
                       {t("table.noOrders")}
                     </Typography>
@@ -1878,34 +1942,84 @@ export default function OrdersTableSection() {
                         })()}
                       </TableCell>
 
-                      {/* Confirmed - Switch Toggle */}
+                      {/* Supplier response (never the platform Confirmed switch for client orders) */}
                       <TableCell align="center">
-                        <Tooltip
-                          title={
-                            isTogglingConfirm[order._id]
-                              ? t("table.loading")
-                              : order.confirmed
-                              ? t("table.unconfirm")
-                              : t("table.confirm")
-                          }
-                        >
-                          <span>
-                            <Switch
-                              checked={order.confirmed || false}
-                              onChange={() => handleToggleConfirm(order._id)}
-                              disabled={isTogglingConfirm[order._id]}
-                              size="small"
-                              color="primary"
-                            />
-                          </span>
-                        </Tooltip>
+                        {isPlatformAdmin ? (
+                          <Stack spacing={0.25} alignItems="center">
+                            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                              {order.companyEmailDecision === "accepted" ||
+                              order.partnerConfirmedAt
+                                ? t("table.vehicleAvailable")
+                                : order.companyEmailDecision === "rejected" ||
+                                    order.declineReason
+                                  ? t("table.cannotProvide")
+                                  : t("table.awaitingSupplier")}
+                            </Typography>
+                            {order.partnerConfirmMeta?.actor?.name ? (
+                              <Typography variant="caption" color="text.secondary">
+                                {order.partnerConfirmMeta.actor.name}
+                              </Typography>
+                            ) : null}
+                            {order.companyEmailDecisionAt || order.partnerConfirmedAt || order.declinedAt ? (
+                              <Typography variant="caption" color="text.secondary">
+                                {dayjs(
+                                  order.companyEmailDecisionAt ||
+                                    order.partnerConfirmedAt ||
+                                    order.declinedAt
+                                ).format("DD.MM.YYYY HH:mm")}
+                              </Typography>
+                            ) : null}
+                            {order.declineReason ? (
+                              <Typography variant="caption" color="text.secondary">
+                                {t("table.supplierReason")}: {order.declineReason}
+                              </Typography>
+                            ) : null}
+                          </Stack>
+                        ) : isClient ? (
+                          <SupplierResponseCell
+                            order={order}
+                            isClient={isClient}
+                            busy={Boolean(isTogglingSupplier[order._id])}
+                            onRespond={(response, reason) =>
+                              handleSupplierResponse(order._id, response, reason)
+                            }
+                          />
+                        ) : (
+                          <Tooltip
+                            title={
+                              order.confirmed
+                                ? t("table.unconfirm")
+                                : t("table.confirm")
+                            }
+                          >
+                            <span>
+                              <Switch
+                                checked={order.confirmed || false}
+                                onChange={() => handleToggleConfirm(order._id)}
+                                disabled={isTogglingConfirm[order._id]}
+                                size="small"
+                                color="primary"
+                              />
+                            </span>
+                          </Tooltip>
+                        )}
                       </TableCell>
+                      {isPlatformAdmin ? (
+                        <TableCell align="center">
+                          <PlatformStatusCell
+                            order={order}
+                            isClient={isClient}
+                            busy={Boolean(isTogglingConfirm[order._id])}
+                            onToggleConfirm={() => handleToggleConfirm(order._id)}
+                          />
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                     
                     {/* Persistent Conflict Panel - only for source order */}
                     {isConflictSource && orderConflict && (
                       <TableRow>
-                        <TableCell colSpan={9} sx={{ py: 1.5, px: 2, backgroundColor: alpha(palette.status.error, 0.08) }}>
+                        <TableCell colSpan={isPlatformAdmin ? 10 : 9} sx={{ py: 1.5, px: 2, backgroundColor: alpha(palette.status.error, 0.08) }}>
                           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" justifyContent="space-between">
                             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                               <BlockIcon sx={{ color: palette.status.error, fontSize: 18 }} />
@@ -1978,7 +2092,7 @@ export default function OrdersTableSection() {
                     {/* Conflict indicator for conflicting orders (not source) */}
                     {isConflictingOrder && !isConflictSource && (
                       <TableRow>
-                        <TableCell colSpan={9} sx={{ py: 0.5, px: 2, backgroundColor: alpha(palette.status.warning, 0.05) }}>
+                        <TableCell colSpan={isPlatformAdmin ? 10 : 9} sx={{ py: 0.5, px: 2, backgroundColor: alpha(palette.status.warning, 0.05) }}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             <BlockIcon sx={{ color: palette.status.warning, fontSize: 16 }} />
                             <Typography variant="caption" sx={{ color: palette.status.warning, fontStyle: "italic" }}>

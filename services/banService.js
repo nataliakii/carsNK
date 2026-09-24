@@ -56,6 +56,7 @@ async function checkBan(ip, fingerprint) {
     banned: true,
     ban: {
       reason: ban.reason || "Banned",
+      type: ban.type || "",
       expiresAt: ban.expiresAt || null,
     },
   };

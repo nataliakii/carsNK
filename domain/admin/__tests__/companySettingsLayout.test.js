@@ -6,6 +6,7 @@ const {
   COMPANY_SETTINGS_TAB_BAR,
   COMPANY_SETTINGS_TAB_CONTENT,
   COMPANY_SETTINGS_FORM_GRID,
+  COMPANY_SETTINGS_FORM_MAX_WIDTH,
   COMPANY_SETTINGS_NAVBAR_HEIGHT_PX,
 } = require("../companySettingsLayout");
 
@@ -38,7 +39,7 @@ describe("company settings layout", () => {
     expect(COMPANY_SETTINGS_NAVBAR_HEIGHT_PX).toBe(64);
     expect(COMPANY_SETTINGS_TAB_BAR.indicatorColor).toBe("#E9004F");
     expect(COMPANY_SETTINGS_TAB_BAR.gap).toBe(1.5);
-    expect(COMPANY_SETTINGS_TAB_BAR.paddingInline).toBe(3);
+    expect(COMPANY_SETTINGS_TAB_BAR.paddingInline).toBe(0);
     expect(COMPANY_SETTINGS_TAB_BAR.tabWhiteSpace).toBe("nowrap");
     expect(COMPANY_SETTINGS_TAB_BAR.tabMinWidth).toBe("auto");
   });
@@ -49,6 +50,7 @@ describe("company settings layout", () => {
       md: "1fr 1fr",
     });
     expect(COMPANY_SETTINGS_FORM_GRID.gap).toEqual({ xs: 2.5, md: 3 });
+    expect(COMPANY_SETTINGS_FORM_MAX_WIDTH).toBe(1100);
   });
 
   it("wires CompanySettingsLayout into the company hub shell", () => {

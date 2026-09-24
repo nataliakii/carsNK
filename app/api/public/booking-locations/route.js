@@ -2,22 +2,33 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDB } from "@lib/database";
 import Company from "@models/company";
-import { loadCompanyBookingCities } from "@/domain/platform/companyBookingCities";
-import { COMPANY_ID } from "@config/company";
+import { resolveCompanyBookingCoverage } from "@/domain/orders/companyBookingCoverage";
+import PlatformCity from "@models/platformCity";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {
   const companyId = new URL(request.url).searchParams.get("companyId") || "";
-  const id =
-    companyId && mongoose.Types.ObjectId.isValid(companyId)
-      ? companyId
-      : COMPANY_ID;
+  if (!companyId || !mongoose.Types.ObjectId.isValid(companyId)) {
+    return NextResponse.json(
+      {
+        success: true,
+        companyId: "",
+        names: [],
+        cities: [],
+        coverage: null,
+        queryKey: ["booking-coverage", ""],
+      },
+      { status: 200 }
+    );
+  }
 
   try {
     await connectToDB();
-    const company = await Company.findById(id)
-      .select("name cityIds locations coords orderRadiusKm country")
+    const company = await Company.findById(companyId)
+      .select(
+        "name cityIds locations coords orderRadiusKm country offices deliveryPricing serviceAreas updatedAt"
+      )
       .lean();
     if (!company) {
       return NextResponse.json(
@@ -25,7 +36,28 @@ export async function GET(request) {
         { status: 404 }
       );
     }
-    const cities = await loadCompanyBookingCities(company);
+    const ids = (company.cityIds || []).filter((id) =>
+      mongoose.Types.ObjectId.isValid(String(id))
+    );
+    const catalogCities = ids.length
+      ? await PlatformCity.find({
+          _id: { $in: ids },
+          isActive: { $ne: false },
+        }).lean()
+      : [];
+    const coverage = resolveCompanyBookingCoverage({
+      company,
+      catalogCities,
+    });
+    const cities = coverage.deliveryAreas.map((area) => ({
+      _id: area.id,
+      name: area.name,
+      country: area.countryCode,
+      kind: area.kind || "city",
+      requiresAddressDetail: area.kind !== "airport",
+      coords: area.coords,
+      provinceCode: area.provinceCode || "",
+    }));
     return NextResponse.json({
       success: true,
       companyId: String(company._id),
@@ -34,8 +66,10 @@ export async function GET(request) {
           ? null
           : Number(company.orderRadiusKm),
       coords: company.coords || null,
-      names: cities.map((city) => city.name),
+      names: coverage.deliveryAreas.map((area) => area.name),
       cities,
+      coverage,
+      queryKey: coverage.queryKey,
     });
   } catch (error) {
     return NextResponse.json(

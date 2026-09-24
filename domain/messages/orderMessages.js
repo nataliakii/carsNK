@@ -60,5 +60,10 @@ export const orderMessages = {
   CONFIRM_SUCCESS: "Заказ успешно подтверждён",
   UNCONFIRM_SUCCESS: "Подтверждение заказа снято",
   CONFIRM_TOGGLE_ERROR: "Failed to toggle order confirmation",
+  SUPPLIER_RESPONSE_REQUIRED:
+    "Supplier has not confirmed vehicle availability yet.",
+  SUPPLIER_ACCEPTED:
+    "Vehicle availability confirmed. Rovaro will complete the booking process.",
+  SUPPLIER_DECLINED: "Your response has been sent to Rovaro.",
 };
 

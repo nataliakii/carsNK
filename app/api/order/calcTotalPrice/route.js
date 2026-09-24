@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import { connectToDB } from "@lib/database";
 import { Car } from "@models/car";
+import { Order } from "@models/order";
 import Company from "@models/company";
+import { isCarAvailableForSearchDates } from "@utils/carDateSearch";
 import { COMPANY_ID } from "@config/company";
 import { toBusinessDateTime } from "@/domain/orders/numberOfDays";
 import { toBooleanField } from "@/domain/orders/fieldUtils";
@@ -267,10 +269,24 @@ export async function POST(request) {
       quotedReturnFeeMinor,
     });
 
+    const blockingOrders = await Order.find({ car: car._id })
+      .select(
+        "rentalStartDate rentalEndDate timeIn timeOut confirmed offline bookingStatus status"
+      )
+      .lean();
+    const available = isCarAvailableForSearchDates({
+      orders: blockingOrders,
+      start: startDate.toDate(),
+      end: endDate.toDate(),
+      company,
+      platform: { country: company?.country || getSiteCountryCode() },
+    });
+
     return new Response(
       JSON.stringify({
         totalPrice: quote.compatibility.totalPrice,
         days: quote.rentalDays,
+        available,
         currency: quote.currency,
         timezone: rentalContext.timezone,
         bookingMode: rentalContext.bookingMode,

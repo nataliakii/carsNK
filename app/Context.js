@@ -29,7 +29,9 @@ import { resolveBookingLocationFromPickupParam } from "@/domain/orders/bookingLo
 import {
   normalizeSearchDates,
   readStoredSearchDates,
+  readUrlSearchDates,
   writeStoredSearchDates,
+  writeUrlSearchDates,
 } from "@utils/carDateSearch";
 
 const MainContext = createContext({
@@ -316,19 +318,25 @@ export const MainContextProvider = ({
     const normalized = normalizeSearchDates(next);
     setSearchDatesState(normalized);
     writeStoredSearchDates(normalized);
+    writeUrlSearchDates(normalized);
   }, []);
 
   const clearSearchDates = useCallback(() => {
     setSearchDatesState({ start: null, end: null });
     writeStoredSearchDates({ start: null, end: null });
+    writeUrlSearchDates({ start: null, end: null });
   }, []);
 
   // Restore catalog search dates + pickup/return from storage / ?pickup= CTA.
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const urlDates = readUrlSearchDates();
     const storedDates = readStoredSearchDates();
-    if (storedDates.start && storedDates.end) {
-      setSearchDatesState(storedDates);
+    const restored =
+      urlDates.start && urlDates.end ? urlDates : storedDates;
+    if (restored.start && restored.end) {
+      setSearchDatesState(restored);
+      writeStoredSearchDates(restored);
     }
 
     const storedPickupTime = normalizeBookingTimeHm(

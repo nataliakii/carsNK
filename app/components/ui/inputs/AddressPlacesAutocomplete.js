@@ -25,6 +25,8 @@ export default function AddressPlacesAutocomplete({
   label,
   placeholder,
   helperText,
+  id,
+  name,
 }) {
   const { t, i18n } = useTranslation();
   const [inputValue, setInputValue] = useState(value || "");
@@ -169,6 +171,8 @@ export default function AddressPlacesAutocomplete({
       renderInput={(params) => (
         <TextField
           {...params}
+          id={id || params.id}
+          name={name || params.inputProps?.name}
           label={label}
           placeholder={placeholder}
           helperText={

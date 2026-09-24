@@ -62,6 +62,40 @@ export function writeStoredSearchDates(dates) {
   );
 }
 
+/** Dates from the page URL (`?start=&end=`), normalised once. */
+export function readUrlSearchDates(search) {
+  const raw =
+    typeof search === "string"
+      ? search
+      : typeof window !== "undefined"
+        ? window.location.search
+        : "";
+  const params = new URLSearchParams(raw.startsWith("?") ? raw.slice(1) : raw);
+  return normalizeSearchDates({
+    start: params.get("start"),
+    end: params.get("end"),
+  });
+}
+
+/** Keep the address bar aligned with the canonical search dates. */
+export function writeUrlSearchDates(dates) {
+  if (typeof window === "undefined") return;
+  const normalized = normalizeSearchDates(dates);
+  const url = new URL(window.location.href);
+  if (normalized.start && normalized.end) {
+    url.searchParams.set("start", normalized.start);
+    url.searchParams.set("end", normalized.end);
+  } else {
+    url.searchParams.delete("start");
+    url.searchParams.delete("end");
+  }
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (next !== current) {
+    window.history.replaceState(window.history.state, "", next);
+  }
+}
+
 /**
  * Whether a car is hard-available for the given pickup/return calendar days.
  * Uses company default times + availability engine (same as booking create).

@@ -60,10 +60,10 @@ describe("legal document publishing transparency", () => {
       "/terms"
     );
     expect(livePathForDocument(LEGAL_DOCUMENT_TYPE.PRIVACY_POLICY)).toBe(
-      "/privacy"
+      "/privacy-policy"
     );
     expect(livePathForDocument(LEGAL_DOCUMENT_TYPE.COOKIE_POLICY)).toBe(
-      "/cookies"
+      "/cookie-policy"
     );
   });
 
@@ -101,7 +101,7 @@ describe("legal document publishing transparency", () => {
       "app/[locale]/terms/page.js",
       "app/[locale]/privacy-policy/page.js",
       "app/[locale]/cookie-policy/page.js",
-      "app/[locale]/partner-terms/page.js",
+      "app/[locale]/partner-agreement/page.js",
       "app/[locale]/partner-operating-rules/page.js",
       "app/[locale]/data-protection-schedule/page.js",
     ]) {

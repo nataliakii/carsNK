@@ -1,4 +1,11 @@
 import { fetchPlaceDetails, placeCountryCode } from "@/domain/geo/googlePlaces";
+import {
+  COVERAGE_ERROR,
+  CUSTOMER_LOCATION_UNAVAILABLE,
+  assertDeliveryInCompanyCoverage,
+  assertOfficeInCompanyCoverage,
+  resolveCompanyBookingCoverage,
+} from "@/domain/orders/companyBookingCoverage";
 import { calculateDeliveryPrice } from "@/domain/delivery/calculateDeliveryPrice";
 import {
   findEligibleOffice,
@@ -43,7 +50,7 @@ async function resolveDeliveryPlace({ placeId, language, sessionToken, country }
   if (!details.configured || details.unavailable) {
     throw new LocationQuoteError(
       "PLACES_UNAVAILABLE",
-      "Address search is temporarily unavailable. Please choose a company office or try again later."
+      "We could not verify this address automatically. Try again or choose an office."
     );
   }
   if (!details.ok) {
@@ -60,8 +67,8 @@ async function resolveDeliveryPlace({ placeId, language, sessionToken, country }
     expectedCountry !== placeCountry
   ) {
     throw new LocationQuoteError(
-      "UNSUPPORTED_AREA",
-      "That address is outside the supported country."
+      COVERAGE_ERROR.LOCATION_COUNTRY_MISMATCH,
+      CUSTOMER_LOCATION_UNAVAILABLE
     );
   }
   return {
@@ -79,7 +86,10 @@ function assertOfficeAllowed(office, companyId) {
     throw new LocationQuoteError("UNKNOWN_OFFICE", "That office is not available for this car.");
   }
   if (office.companyId && String(office.companyId) !== String(companyId)) {
-    throw new LocationQuoteError("OFFICE_FORBIDDEN", "That office belongs to another company.");
+    throw new LocationQuoteError(
+      COVERAGE_ERROR.OFFICE_NOT_OWNED_BY_COMPANY,
+      CUSTOMER_LOCATION_UNAVAILABLE
+    );
   }
 }
 
@@ -100,23 +110,38 @@ export async function quoteAuthoritativeLocations({
   }
   const companyId = String(car.ownerId || company._id);
   if (String(company._id) !== companyId) {
-    throw new LocationQuoteError("OFFICE_FORBIDDEN", "Car does not belong to this company.");
+    throw new LocationQuoteError(
+      COVERAGE_ERROR.OFFICE_NOT_OWNED_BY_COMPANY,
+      CUSTOMER_LOCATION_UNAVAILABLE
+    );
   }
+
+  let catalogCities = [];
+  const cityIds = Array.isArray(company.cityIds) ? company.cityIds : [];
+  if (cityIds.length) {
+    const PlatformCity = (await import("@models/platformCity")).default;
+    catalogCities = await PlatformCity.find({
+      _id: { $in: cityIds },
+      isActive: { $ne: false },
+    }).lean();
+  }
+  const coverage = resolveCompanyBookingCoverage({
+    company,
+    car,
+    catalogCities,
+  });
 
   const eligible = resolveEligibleOffices({ car, company });
   ignoreClientGeo(pickup);
   ignoreClientGeo(dropoff);
 
   const sameReturn = Boolean(dropoff?.sameAsPickup);
-  const pickupKind =
-    String(pickup?.kind || "").toLowerCase() === LOCATION_KIND.OFFICE
+  const legKind = (leg) =>
+    String(leg?.kind || leg?.method || "").trim().toLowerCase() === LOCATION_KIND.OFFICE
       ? LOCATION_KIND.OFFICE
       : LOCATION_KIND.DELIVERY;
-  const returnKind = sameReturn
-    ? pickupKind
-    : String(dropoff?.kind || "").toLowerCase() === LOCATION_KIND.OFFICE
-      ? LOCATION_KIND.OFFICE
-      : LOCATION_KIND.DELIVERY;
+  const pickupKind = legKind(pickup);
+  const returnKind = sameReturn ? pickupKind : legKind(dropoff);
 
   let pickupOffice = null;
   let returnOffice = null;
@@ -126,15 +151,37 @@ export async function quoteAuthoritativeLocations({
   if (pickupKind === LOCATION_KIND.OFFICE) {
     pickupOffice = pickup?.officeId
       ? findEligibleOffice(eligible, pickup.officeId)
-      : eligible[0] || null;
+      : null;
     assertOfficeAllowed(pickupOffice, companyId);
+    const officeCheck = assertOfficeInCompanyCoverage(
+      coverage,
+      pickupOffice?._id || pickupOffice?.id || pickup?.officeId
+    );
+    if (!officeCheck.ok) {
+      throw new LocationQuoteError(officeCheck.code, officeCheck.message);
+    }
   } else {
+    if (!coverage.deliveryAvailable) {
+      throw new LocationQuoteError(
+        COVERAGE_ERROR.DELIVERY_NOT_AVAILABLE,
+        CUSTOMER_LOCATION_UNAVAILABLE
+      );
+    }
     pickupPlace = await resolveDeliveryPlace({
       placeId: pickup?.placeId,
       language,
       sessionToken,
       country: company.country,
     });
+    const deliveryCheck = assertDeliveryInCompanyCoverage(coverage, {
+      name: pickup?.cityName || pickupPlace.locality,
+      countryCode: placeCountryCode(pickupPlace.country),
+      locality: pickupPlace.locality,
+      address: pickupPlace.address,
+    });
+    if (!deliveryCheck.ok) {
+      throw new LocationQuoteError(deliveryCheck.code, deliveryCheck.message);
+    }
   }
 
   if (returnKind === LOCATION_KIND.OFFICE) {
@@ -142,17 +189,39 @@ export async function quoteAuthoritativeLocations({
       ? pickupOffice
       : dropoff?.officeId
         ? findEligibleOffice(eligible, dropoff.officeId)
-        : eligible[0] || null;
+        : null;
     assertOfficeAllowed(returnOffice, companyId);
+    const returnOfficeCheck = assertOfficeInCompanyCoverage(
+      coverage,
+      returnOffice?._id || returnOffice?.id || dropoff?.officeId
+    );
+    if (!returnOfficeCheck.ok) {
+      throw new LocationQuoteError(returnOfficeCheck.code, returnOfficeCheck.message);
+    }
   } else if (sameReturn) {
     returnPlace = pickupPlace;
   } else {
+    if (!coverage.deliveryAvailable) {
+      throw new LocationQuoteError(
+        COVERAGE_ERROR.DELIVERY_NOT_AVAILABLE,
+        CUSTOMER_LOCATION_UNAVAILABLE
+      );
+    }
     returnPlace = await resolveDeliveryPlace({
       placeId: dropoff?.placeId,
       language,
       sessionToken,
       country: company.country,
     });
+    const returnCheck = assertDeliveryInCompanyCoverage(coverage, {
+      name: dropoff?.cityName || returnPlace.locality,
+      countryCode: placeCountryCode(returnPlace.country),
+      locality: returnPlace.locality,
+      address: returnPlace.address,
+    });
+    if (!returnCheck.ok) {
+      throw new LocationQuoteError(returnCheck.code, returnCheck.message);
+    }
   }
 
   const delivery = await calculateDeliveryPrice({

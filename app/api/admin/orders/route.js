@@ -69,6 +69,18 @@ async function handler(request) {
       timeIn: order.timeIn,
       timeOut: order.timeOut,
       confirmed: order.confirmed,
+      companyEmailDecision: order.companyEmailDecision || null,
+      companyEmailDecisionAt: order.companyEmailDecisionAt || null,
+      partnerConfirmedAt: order.partnerConfirmedAt || null,
+      partnerConfirmedByEmail: order.partnerConfirmedByEmail || "",
+      partnerConfirmMeta: order.partnerConfirmMeta || null,
+      declineReason: order.declineReason || "",
+      declinedAt: order.declinedAt || null,
+      declinedByEmail: order.declinedByEmail || "",
+      bookingStatus: order.bookingStatus || "",
+      payment: order.payment
+        ? { status: order.payment.status || "" }
+        : null,
       status: order.status,
       my_order: order.my_order,
       createdByRole: order.createdByRole ?? 0,

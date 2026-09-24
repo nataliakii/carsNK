@@ -1,13 +1,14 @@
 "use client";
 
 import { Suspense, useCallback, useMemo } from "react";
-import { Box, CircularProgress, Tab, Tabs, Typography } from "@mui/material";
+import { Box, CircularProgress, Divider, Stack } from "@mui/material";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 
+import CompanySettingsLayout from "@/app/admin/company/CompanySettingsLayout";
+import { COMPANY_SETTINGS_FORM_MAX_WIDTH } from "@/domain/admin/companySettingsLayout";
 import PartnerLegalProfileSection from "@/app/admin/legal-profile/PartnerLegalProfileSection";
 import usePartnerLegalStatus from "@/app/admin/legal-profile/_components/usePartnerLegalStatus";
-import { adminSectionTabsSx } from "@app/admin/shared/components/AdminSectionTabs";
 import { COMPANY_LEGAL_TABS } from "@/domain/legal/companyLegalPage";
 
 import CompanyTermsPanel from "./CompanyTermsPanel";
@@ -48,20 +49,22 @@ function CompanyLegalInner({ viewMode }) {
     [tab]
   );
 
+  const tabs = useMemo(
+    () =>
+      COMPANY_LEGAL_TABS.map((id) => ({
+        id,
+        label: t(`partnerLegal.companyPage.${id}`),
+      })),
+    [t]
+  );
+
   return (
-    <Box>
-      <Typography component="h1" variant="h5" sx={{ fontWeight: 800, mb: 1, px: { xs: 1, md: 2 }, pt: 2 }}>
-        {t("partnerLegal.companyPage.title")}
-      </Typography>
-      <Tabs
-        value={value}
-        onChange={(_, next) => setTab(COMPANY_LEGAL_TABS[next] || "details")}
-        sx={adminSectionTabsSx}
-      >
-        <Tab label={t("partnerLegal.companyPage.details")} />
-        <Tab label={t("partnerLegal.companyPage.documents")} />
-        <Tab label={t("partnerLegal.companyPage.terms")} />
-      </Tabs>
+    <CompanySettingsLayout
+      title={t("partnerLegal.companyPage.title")}
+      tabs={tabs}
+      tabValue={value}
+      onTabChange={(_, next) => setTab(COMPANY_LEGAL_TABS[next] || "details")}
+    >
       {tab === "documents" ? (
         <PartnerLegalProfileSection
           variant="company"
@@ -70,15 +73,37 @@ function CompanyLegalInner({ viewMode }) {
           termsPublication={publication}
         />
       ) : tab === "terms" ? (
-        <>
-          <CompanyTermsPanel
-            termsPublication={publication}
-            terms={terms}
-            onAccepted={reload}
-          />
-          <BookingFeeOutcomesTable language="en" compact />
+        <Stack
+          data-testid="company-legal-terms"
+          spacing={0}
+          divider={<Divider sx={{ my: 3 }} />}
+          sx={{
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
+            boxSizing: "border-box",
+            overflow: "visible",
+          }}
+        >
+          <Box
+            data-testid="company-legal-terms-form"
+            sx={{
+              width: "100%",
+              maxWidth: COMPANY_SETTINGS_FORM_MAX_WIDTH,
+              minWidth: 0,
+            }}
+          >
+            <CompanyTermsPanel
+              termsPublication={publication}
+              terms={terms}
+              onAccepted={reload}
+            />
+          </Box>
+          <Box sx={{ width: "100%", maxWidth: "100%", minWidth: 0, overflow: "visible" }}>
+            <BookingFeeOutcomesTable language="en" compact />
+          </Box>
           <CompanyRentalTermsPanel />
-        </>
+        </Stack>
       ) : (
         <PartnerLegalProfileSection
           variant="company"
@@ -87,7 +112,7 @@ function CompanyLegalInner({ viewMode }) {
           termsPublication={publication}
         />
       )}
-    </Box>
+    </CompanySettingsLayout>
   );
 }
 
