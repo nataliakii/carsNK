@@ -13,11 +13,11 @@ import CarSpecSection, { CarSpecGrid } from "./CarSpecList";
  * the remaining groups follow as captioned two-column blocks. All rows come
  * from buildCarSpecGroups so this and CarDetailsModal stay in sync.
  *
- * `sections` lets the card render the summary and the detail groups
- * separately, so it can put an expand/collapse control between them:
- *   "highlights" → at-a-glance panel only (always visible)
- *   "details"    → vehicle + insurance groups (inside the card's Collapse)
- *   "all"        → both, for consumers that don't collapse anything
+ * `sections` lets the card render the summary alone under the photo
+ * while the full list lives in CarDetailsModal:
+ *   "highlights" → at-a-glance panel only (always visible on the card)
+ *   "details"    → vehicle + insurance groups
+ *   "all"        → both
  */
 const CarDetails = ({ car, sections = "all" }) => {
   const { t } = useTranslation();

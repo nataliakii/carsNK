@@ -124,6 +124,25 @@ describe("office pickup booking selection", () => {
     expect(resolveSelectedOfficeId([{ _id: OFFICE_A }], "")).toBe(OFFICE_A);
   });
 
+  test("manual address text is enough when Places is unavailable", () => {
+    const missing = validateCustomerBookingLocation({
+      pickupMethod: "delivery",
+      pickupPlaceId: "",
+      pickupManualAddress: true,
+      pickupAddressText: "abc",
+      sameReturnLocation: true,
+    });
+    expect(missing.ok).toBe(false);
+    const ok = validateCustomerBookingLocation({
+      pickupMethod: "delivery",
+      pickupPlaceId: "",
+      pickupManualAddress: true,
+      pickupAddressText: "Carrer Pintor Sabater, 20",
+      sameReturnLocation: true,
+    });
+    expect(ok.ok).toBe(true);
+  });
+
   test("server asks for a return office only when same return is off", () => {
     const check = assertCustomerLocationMethods({
       pickup: { kind: "office", officeId: OFFICE_A },

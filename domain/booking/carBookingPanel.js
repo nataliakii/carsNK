@@ -1,7 +1,6 @@
 /**
  * View model for the public car booking panel.
- * Dates are already normalised YYYY-MM-DD strings. Display text is derived here
- * so the search bar, summary, and continue action cannot drift apart.
+ * Calendar stays visible; the CTA is a breathing price plate (Approx → Book on hover).
  */
 
 import dayjs from "dayjs";
@@ -33,7 +32,16 @@ export function formatRentalDayCount(days) {
   return whole === 1 ? "1 day" : `${whole} days`;
 }
 
-/** Always `€105.00`. */
+/** Compact plate amount: `105€`. */
+export function formatPlatePrice(amount) {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return "";
+  const rounded = Math.round(value * 100) / 100;
+  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+  return `${text}€`;
+}
+
+/** Always `€105.00` when a precise caption is needed. */
 export function formatEuroTotal(amount) {
   const value = Number(amount);
   if (!Number.isFinite(value)) return "";
@@ -51,29 +59,31 @@ export function buildCarBookingPanelView(input) {
   const start = input?.start || null;
   const end = input?.end || null;
   const hasDates = hasValidBookingRange(start, end);
-  const editing = Boolean(input?.editing);
   const quote = input?.quote || {};
-  const status = !hasDates
-    ? "empty"
-    : quote.status || "checking";
+  const status = !hasDates ? "empty" : quote.status || "checking";
   const showPrice =
     hasDates &&
     (status === "available" || status === "priceChanged") &&
     quote.totalPrice != null;
+  const showApprox = Boolean(showPrice && quote.priceKind === "estimated");
 
   return {
     state: hasDates ? "selected" : "empty",
     hasDates,
-    calendarOpen: !hasDates || editing,
+    // Keep the mini calendar on the search card at all times.
+    calendarOpen: true,
     showChooseDates: !hasDates,
     showPrice,
-    showPriceBadge: false,
+    showBookPlate: showPrice || (hasDates && (status === "checking" || status === "unavailable" || status === "error" || status === "priceChanged")),
+    showApprox,
     status,
     statusText: statusText(status, quote.message),
     dateRangeLabel: hasDates ? formatBookingDateRange(start, end) : "",
     durationLabel: showPrice ? formatRentalDayCount(quote.days) : "",
     priceCaption: priceCaption(quote.priceKind),
     priceText: showPrice ? formatEuroTotal(quote.totalPrice) : "",
+    platePriceText: showPrice ? formatPlatePrice(quote.totalPrice) : "",
+    bookHoverLabel: "Book",
     continueDisabled:
       !hasDates ||
       status === "checking" ||
@@ -82,22 +92,22 @@ export function buildCarBookingPanelView(input) {
       status === "empty",
     canonicalStart: hasDates ? start : null,
     canonicalEnd: hasDates ? end : null,
-    continueLabel: "Continue booking",
+    continueLabel: "Book",
   };
 }
 
 function statusText(status, message) {
   if (message && status === "unavailable") return message;
   if (status === "checking") return "Checking availability…";
-  if (status === "available") return "Available";
+  if (status === "available") return "";
   if (status === "unavailable") return "Not available for these dates";
-  if (status === "priceChanged") return "Price changed — updated total shown";
+  if (status === "priceChanged") return "";
   if (status === "error") return message || "Could not check availability";
   return "";
 }
 
 /**
- * Calendar is an editor. These transitions keep one date range.
+ * Calendar is always the editor. These transitions keep one date range.
  */
 export function reduceBookingPanel(state, action) {
   const current = {

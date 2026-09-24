@@ -14,8 +14,8 @@ jest.mock("@app/Context", () => ({
   useMainContext: () => ({
     searchDates,
     setSearchDates,
-    bookingPlaceIn: "",
-    bookingPlaceOut: "",
+    bookingPlaceIn: "Barcelona",
+    bookingPlaceOut: "Barcelona",
   }),
 }));
 
@@ -24,16 +24,47 @@ jest.mock("@utils/action", () => ({
 }));
 
 jest.mock("@config/siteCountry", () => ({
-  getSiteCountryCode: () => "GR",
+  getSiteCountryCode: () => "ES",
 }));
 
 jest.mock("@/domain/orders/catalogPlaceOptions", () => ({
-  isSpainBookingSite: () => false,
+  isSpainBookingSite: () => true,
 }));
 
 jest.mock("@/domain/orders/defaultInsurance", () => ({
   resolveDefaultInsurance: () => "TPL",
 }));
+
+jest.mock("@/app/components/ui/buttons/GradientBookButton", () => {
+  return function MockBookButton({
+    children,
+    onClick,
+    disabled,
+    onMouseEnter,
+    onMouseLeave,
+    onFocus,
+    onBlur,
+    ...rest
+  }) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        {...rest}
+      >
+        {children}
+        <button type="button" data-testid="force-hover" onClick={onMouseEnter}>
+          hover
+        </button>
+      </button>
+    );
+  };
+});
 
 jest.mock("../CalendarPicker", () => {
   return function MockCalendar(props) {
@@ -96,39 +127,26 @@ describe("CarBookingPanel", () => {
     });
   });
 
-  test("shows one summary, one price, and a collapsed calendar when dates exist", async () => {
+  test("keeps the calendar open and shows an Approx price plate that books on click", async () => {
     const view = renderPanel();
     await flush();
 
     const html = view.container.innerHTML;
     expect(html).not.toContain("Choose your dates");
-    expect(html).not.toContain("Choose your dates for booking");
-    expect(html).not.toContain("approx.");
-    expect(view.container.querySelectorAll('[data-testid="booking-dates"]')).toHaveLength(1);
-    expect(view.container.querySelectorAll('[data-testid="booking-price"]')).toHaveLength(1);
-    expect(view.container.querySelector('[data-testid="booking-calendar"]')).toBeNull();
-    expect(view.container.querySelector('[data-testid="booking-duration"]').textContent).toBe("1 day");
-    expect(view.container.querySelector('[data-testid="booking-price"]').textContent).toContain("€105.00");
-    expect(view.container.querySelector('[data-testid="booking-price"]').textContent).toContain("Rental total");
-    expect(html).not.toContain("105€");
-    expect(html).not.toContain("1 days");
-    const panel = view.container.querySelector('[data-testid="car-booking-panel"]');
-    expect(panel.style.overflowX).toBe("hidden");
-    expect(panel.style.maxWidth).toBe("100%");
-    expect(calculateTotalPrice).toHaveBeenCalledWith(
-      "car-1",
-      "2026-09-29",
-      "2026-09-30",
-      "TPL",
-      0,
-      expect.any(Object)
-    );
+    expect(html).not.toContain("Continue booking");
+    expect(html).not.toContain("Change dates");
+    expect(html).not.toContain("Estimated total");
+    expect(html).not.toContain("29 Sep – 30 Sep 2026");
+    expect(view.container.querySelector('[data-testid="booking-calendar"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-testid="booking-price"]').textContent).toContain("105€");
+    expect(view.container.querySelector('[data-testid="price-approx"]').textContent).toBe("approx.");
 
     const button = view.container.querySelector('[data-testid="continue-booking"]');
     expect(button.disabled).toBe(false);
-    expect(button.getAttribute("data-start")).toBe("2026-09-29");
-    expect(button.getAttribute("data-end")).toBe("2026-09-30");
-    expect(button.textContent).toBe("Continue booking");
+    act(() => {
+      view.container.querySelector('[data-testid="force-hover"]').click();
+    });
+    expect(view.container.querySelector('[data-testid="book-hover-label"]').textContent).toBe("Book");
     act(() => button.click());
     expect(view.onContinue).toHaveBeenCalledWith({
       start: "2026-09-29",
@@ -137,14 +155,9 @@ describe("CarBookingPanel", () => {
     view.unmount();
   });
 
-  test("change dates opens the calendar, a new range updates search dates, and clear returns to empty", async () => {
+  test("picking a new range updates search dates and keeps the calendar", async () => {
     const view = renderPanel();
     await flush();
-
-    act(() => {
-      view.container.querySelector('[data-testid="change-dates"]').click();
-    });
-    expect(view.container.querySelector('[data-testid="booking-calendar"]')).not.toBeNull();
 
     calculateTotalPrice.mockResolvedValue({
       ok: true,
@@ -160,13 +173,11 @@ describe("CarBookingPanel", () => {
       start: "2026-10-01",
       end: "2026-10-03",
     });
-    expect(view.container.querySelector('[data-testid="booking-calendar"]')).toBeNull();
+    expect(view.container.querySelector('[data-testid="booking-calendar"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-testid="booking-price"]').textContent).toContain("210€");
 
     act(() => {
-      view.container.querySelector('[data-testid="change-dates"]').click();
-    });
-    act(() => {
-      view.container.querySelector('[data-testid="clear-dates"]').click();
+      view.container.querySelector('[data-testid="calendar-clear"]').click();
     });
     expect(setSearchDates).toHaveBeenCalledWith({ start: null, end: null });
     expect(view.container.textContent).toContain("Choose your dates");
@@ -174,7 +185,7 @@ describe("CarBookingPanel", () => {
     view.unmount();
   });
 
-  test("continue stays disabled until the server quote succeeds", async () => {
+  test("booking stays disabled until the server quote succeeds", async () => {
     let resolveQuote;
     calculateTotalPrice.mockReturnValue(
       new Promise((resolve) => {
@@ -183,14 +194,14 @@ describe("CarBookingPanel", () => {
     );
     const view = renderPanel();
     expect(view.container.textContent).toContain("Checking availability…");
-    expect(view.container.querySelector('[data-testid="continue-booking"]').disabled).toBe(true);
+    expect(view.container.querySelector('[data-testid="continue-booking"]')).toBeNull();
 
     await act(async () => {
       resolveQuote({ ok: true, available: false, totalPrice: 105, days: 1 });
     });
     await flush();
     expect(view.container.textContent).toContain("Not available for these dates");
-    expect(view.container.querySelector('[data-testid="continue-booking"]').disabled).toBe(true);
+    expect(view.container.querySelector('[data-testid="continue-booking"]')).toBeNull();
     expect(view.container.querySelector('[data-testid="booking-calendar"]')).not.toBeNull();
     view.unmount();
   });

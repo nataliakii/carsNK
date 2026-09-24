@@ -8,6 +8,30 @@ export const PICKUP_OFFICE_REQUIRED = "Choose an office.";
 export const RETURN_OFFICE_REQUIRED = "Choose an office.";
 export const ADDRESS_REQUIRED = "Choose an address from the suggestions.";
 export const DELIVERY_AREA_REQUIRED = "Choose a delivery area.";
+export const MANUAL_ADDRESS_MIN_LENGTH = 5;
+
+const MANUAL_PLACE_PREFIX = "manual:";
+
+export function isManualPlaceId(placeId) {
+  return String(placeId || "").startsWith(MANUAL_PLACE_PREFIX);
+}
+
+/** Stable client/server id for a typed address when Places cannot verify it. */
+export function buildManualPlaceId(address) {
+  const text = String(address || "").trim();
+  if (text.length < MANUAL_ADDRESS_MIN_LENGTH) return "";
+  return `${MANUAL_PLACE_PREFIX}${encodeURIComponent(text.slice(0, 200))}`;
+}
+
+export function addressFromManualPlaceId(placeId) {
+  const raw = String(placeId || "");
+  if (!raw.startsWith(MANUAL_PLACE_PREFIX)) return "";
+  try {
+    return decodeURIComponent(raw.slice(MANUAL_PLACE_PREFIX.length));
+  } catch {
+    return raw.slice(MANUAL_PLACE_PREFIX.length);
+  }
+}
 
 export function canonicalOfficeId(officeOrId) {
   if (officeOrId && typeof officeOrId === "object") {
@@ -79,14 +103,30 @@ export function validateCustomerBookingLocation(state) {
   if (location.pickupMethod === "office" && !location.pickupOfficeId) {
     errors.placeIn = PICKUP_OFFICE_REQUIRED;
   }
-  if (location.pickupMethod === "delivery" && !location.pickupPlaceId) {
-    errors.placeInDetail = ADDRESS_REQUIRED;
+  if (location.pickupMethod === "delivery") {
+    const placeId = String(location.pickupPlaceId || "").trim();
+    const manualText = String(state.pickupAddressText || "").trim();
+    const ok =
+      Boolean(placeId) ||
+      (Boolean(state.pickupManualAddress) &&
+        manualText.length >= MANUAL_ADDRESS_MIN_LENGTH);
+    if (!ok) errors.placeInDetail = ADDRESS_REQUIRED;
   }
-  if (!location.sameReturnLocation && location.returnMethod === "office" && !location.returnOfficeId) {
+  if (
+    !location.sameReturnLocation &&
+    location.returnMethod === "office" &&
+    !location.returnOfficeId
+  ) {
     errors.placeOut = RETURN_OFFICE_REQUIRED;
   }
-  if (!location.sameReturnLocation && location.returnMethod === "delivery" && !location.returnPlaceId) {
-    errors.placeOutDetail = ADDRESS_REQUIRED;
+  if (!location.sameReturnLocation && location.returnMethod === "delivery") {
+    const placeId = String(location.returnPlaceId || "").trim();
+    const manualText = String(state.returnAddressText || "").trim();
+    const ok =
+      Boolean(placeId) ||
+      (Boolean(state.returnManualAddress) &&
+        manualText.length >= MANUAL_ADDRESS_MIN_LENGTH);
+    if (!ok) errors.placeOutDetail = ADDRESS_REQUIRED;
   }
   return { ok: Object.keys(errors).length === 0, errors, location };
 }

@@ -9,6 +9,7 @@ import {
   resolveCarOperatingZones,
 } from "@/domain/cars/carOperatingZones";
 import { googleMapsSearchUrl } from "@/domain/orders/carOffices";
+import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
 import { CarSpecCaption } from "./CarSpecList";
 
 /**
@@ -26,6 +27,10 @@ export default function CarDeliveryInfo({
   const { t } = useTranslation();
   const [zonesExpanded, setZonesExpanded] = useState(false);
 
+  const ownerCompanyId = car?.ownerId || company?._id;
+  const { names: coverageCityNames, coverageReady } =
+    useCompanyBookingLocations(ownerCompanyId);
+
   const offices = useMemo(
     () => resolveCarOffices(car, company),
     [car, company]
@@ -33,10 +38,15 @@ export default function CarDeliveryInfo({
 
   const rule = useMemo(() => buildDeliveryRuleSummary(company), [company]);
 
-  const zones = useMemo(
-    () => resolveCarOperatingZones({ car, company }),
-    [car, company]
-  );
+  const zones = useMemo(() => {
+    if (coverageReady) {
+      return resolveCarOperatingZones({ deliveryAreaNames: coverageCityNames });
+    }
+    if (String(company?._id || "") === String(ownerCompanyId || "")) {
+      return resolveCarOperatingZones({ car, company });
+    }
+    return [];
+  }, [car, company, ownerCompanyId, coverageReady, coverageCityNames]);
 
   const officeLine = offices.length
     ? offices

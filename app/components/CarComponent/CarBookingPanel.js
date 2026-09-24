@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Button, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { useMainContext } from "@app/Context";
 import { calculateTotalPrice } from "@utils/action";
 import { normalizeSearchDates } from "@utils/carDateSearch";
@@ -12,6 +12,7 @@ import {
   buildCarBookingPanelView,
   reduceBookingPanel,
 } from "@/domain/booking/carBookingPanel";
+import GradientBookButton from "@/app/components/ui/buttons/GradientBookButton";
 import CalendarPicker from "./CalendarPicker";
 
 function quoteStatusFromResult(result, previousTotal) {
@@ -45,8 +46,8 @@ function quoteStatusFromResult(result, previousTotal) {
 }
 
 /**
- * One booking summary for a car. Reads pickup/return dates from the shared
- * search state (search bar, URL, and this panel all write the same values).
+ * Search-card booking column: mini calendar always visible + breathing
+ * Approx/price plate that becomes Book on hover.
  */
 export default function CarBookingPanel({ car, orders = [], onContinue }) {
   const {
@@ -64,6 +65,7 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
     )
   );
   const [quote, setQuote] = useState({ status: "idle" });
+  const [hovered, setHovered] = useState(false);
   const previousTotalRef = useRef(null);
   const [rangeMessage, setRangeMessage] = useState("");
   const panelRef = useRef(panel);
@@ -118,17 +120,17 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
       }
     )
       .then((result) => {
-      if (!current) return;
-      const next = quoteStatusFromResult(result, previousTotal);
-      next.priceKind = priceKind;
-      if (next.status === "available" || next.status === "priceChanged") {
-        previousTotalRef.current = { key: dateKey, total: next.totalPrice };
-      }
-      if (next.status === "unavailable") {
-        setPanel((prev) => reduceBookingPanel(prev, { type: "unavailable" }));
-      }
-      setQuote(next);
-    })
+        if (!current) return;
+        const next = quoteStatusFromResult(result, previousTotal);
+        next.priceKind = priceKind;
+        if (next.status === "available" || next.status === "priceChanged") {
+          previousTotalRef.current = { key: dateKey, total: next.totalPrice };
+        }
+        if (next.status === "unavailable") {
+          setPanel((prev) => reduceBookingPanel(prev, { type: "unavailable" }));
+        }
+        setQuote(next);
+      })
       .catch(() => {
         if (!current) return;
         setQuote({
@@ -177,21 +179,6 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
     setSearchDates({ start: null, end: null });
   }, [setSearchDates]);
 
-  const cancelEdit = useCallback(() => {
-    const next = reduceBookingPanel(panelRef.current, { type: "cancel" });
-    setPanel(next);
-    setSearchDates({ start: next.start, end: next.end });
-  }, [setSearchDates]);
-
-  useEffect(() => {
-    if (!view.calendarOpen || !view.hasDates) return undefined;
-    const onKey = (event) => {
-      if (event.key === "Escape") cancelEdit();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [view.calendarOpen, view.hasDates, cancelEdit]);
-
   return (
     <Box
       data-testid="car-booking-panel"
@@ -212,41 +199,15 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
         <Typography
           component="h2"
           data-testid="choose-dates"
-          sx={{ fontWeight: 700, textAlign: "center" }}
+          sx={{ fontWeight: 700, textAlign: "center", fontSize: "0.95rem" }}
         >
           Choose your dates
         </Typography>
-      ) : (
-        <Box data-testid="booking-summary" sx={{ textAlign: "center" }}>
-          <Typography
-            data-testid="availability-status"
-            sx={{ fontWeight: 700, color: view.status === "unavailable" ? "error.main" : "success.main" }}
-          >
-            {view.statusText}
-          </Typography>
-          {view.dateRangeLabel ? (
-            <Typography data-testid="booking-dates" sx={{ fontWeight: 700, mt: 0.5 }}>
-              {view.dateRangeLabel}
-            </Typography>
-          ) : null}
-          {view.durationLabel ? (
-            <Typography data-testid="booking-duration" color="text.secondary">
-              {view.durationLabel}
-            </Typography>
-          ) : null}
-          {view.showPrice ? (
-            <Box data-testid="booking-price" sx={{ mt: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                {view.priceCaption}
-              </Typography>
-              <Typography sx={{ fontWeight: 800, fontSize: "1.35rem" }}>
-                {view.priceText}
-              </Typography>
-            </Box>
-          ) : null}
-          <Button
-            variant="contained"
-            fullWidth
+      ) : null}
+
+      {view.showPrice ? (
+        <Box sx={{ display: "flex", justifyContent: "center", px: 0.5 }}>
+          <GradientBookButton
             data-testid="continue-booking"
             data-start={view.canonicalStart || ""}
             data-end={view.canonicalEnd || ""}
@@ -257,67 +218,102 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
                 end: view.canonicalEnd,
               })
             }
-            sx={{ mt: 1.5 }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onFocus={() => setHovered(true)}
+            onBlur={() => setHovered(false)}
+            aria-label={hovered ? view.bookHoverLabel : view.platePriceText}
+            sx={{
+              minWidth: { xs: "160px", sm: "200px" },
+              fontSize: "1.05rem",
+              py: 1.1,
+            }}
           >
-            {view.continueLabel}
-          </Button>
-          <Button
-            variant="text"
-            data-testid="change-dates"
-            onClick={() =>
-              setPanel((prev) => reduceBookingPanel(prev, { type: "changeDates" }))
-            }
-          >
-            Change dates
-          </Button>
-        </Box>
-      )}
-
-      {view.calendarOpen ? (
-        <Box data-testid="booking-calendar" sx={{ width: "100%", minWidth: 0, overflowX: "hidden" }}>
-          <CalendarPicker
-            carId={car?._id}
-            car={car}
-            orders={orders}
-            embedded
-            presetSearchDates={
-              view.hasDates ? { start: panel.start, end: panel.end } : null
-            }
-            setBookedDates={() => {}}
-            onRangeCommitted={({ start, end }) => {
-              setRangeMessage("");
-              commitDates(start, end);
-            }}
-            onSelectionCleared={() => {
-              setRangeMessage("");
-              clearDates();
-            }}
-            onUnavailableRange={() => {
-              setRangeMessage("Not available for these dates");
-              setPanel((prev) => reduceBookingPanel(prev, { type: "unavailable" }));
-            }}
-          />
-          {rangeMessage ? (
-            <Typography data-testid="range-error" color="error" sx={{ textAlign: "center" }}>
-              {rangeMessage}
-            </Typography>
-          ) : null}
-          {view.hasDates ? (
-            <Button
-              variant="text"
-              data-testid="cancel-date-change"
-              onClick={cancelEdit}
-            >
-              Cancel date change
-            </Button>
-          ) : null}
-          {view.hasDates ? (
-            <Button variant="text" data-testid="clear-dates" onClick={clearDates}>
-              Clear dates
-            </Button>
-          ) : null}
+            {hovered ? (
+              <Box component="span" data-testid="book-hover-label">
+                {view.bookHoverLabel}
+              </Box>
+            ) : (
+              <Box
+                data-testid="booking-price"
+                sx={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  justifyContent: "center",
+                  gap: 0.55,
+                  lineHeight: 1.15,
+                }}
+              >
+                {view.showApprox ? (
+                  <Box
+                    component="span"
+                    data-testid="price-approx"
+                    sx={{
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.02em",
+                      textTransform: "uppercase",
+                      opacity: 0.9,
+                    }}
+                  >
+                    approx.
+                  </Box>
+                ) : null}
+                <Box component="span" sx={{ fontWeight: 800, fontSize: "1.15rem" }}>
+                  {view.platePriceText}
+                </Box>
+              </Box>
+            )}
+          </GradientBookButton>
         </Box>
       ) : null}
+
+      {view.statusText ? (
+        <Typography
+          data-testid="availability-status"
+          sx={{
+            textAlign: "center",
+            fontWeight: 600,
+            fontSize: "0.85rem",
+            color:
+              view.status === "unavailable" || view.status === "error"
+                ? "error.main"
+                : "text.secondary",
+          }}
+        >
+          {view.statusText}
+        </Typography>
+      ) : null}
+
+      <Box data-testid="booking-calendar" sx={{ width: "100%", minWidth: 0, overflowX: "hidden" }}>
+        <CalendarPicker
+          carId={car?._id}
+          car={car}
+          orders={orders}
+          embedded
+          presetSearchDates={
+            view.hasDates ? { start: panel.start, end: panel.end } : null
+          }
+          setBookedDates={() => {}}
+          onRangeCommitted={({ start, end }) => {
+            setRangeMessage("");
+            commitDates(start, end);
+          }}
+          onSelectionCleared={() => {
+            setRangeMessage("");
+            clearDates();
+          }}
+          onUnavailableRange={() => {
+            setRangeMessage("Not available for these dates");
+            setPanel((prev) => reduceBookingPanel(prev, { type: "unavailable" }));
+          }}
+        />
+        {rangeMessage ? (
+          <Typography data-testid="range-error" color="error" sx={{ textAlign: "center" }}>
+            {rangeMessage}
+          </Typography>
+        ) : null}
+      </Box>
     </Box>
   );
 }

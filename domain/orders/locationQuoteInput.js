@@ -48,6 +48,9 @@ export function parseLocationQuoteInput(body = {}) {
         pickup.placeId || body.pickupPlaceId || body.placeInId || ""
       ).trim(),
       cityName: String(pickup.cityName || body.placeIn || "").trim(),
+      address: String(
+        pickup.address || body.placeInDetail || body.pickupAddress || ""
+      ).trim(),
     },
     dropoff: {
       kind: dropoffKind,
@@ -60,6 +63,12 @@ export function parseLocationQuoteInput(body = {}) {
       cityName: String(
         (sameAsPickup ? pickup.cityName : dropoff.cityName) ||
           (sameAsPickup ? body.placeIn : body.placeOut) ||
+          ""
+      ).trim(),
+      address: String(
+        (sameAsPickup ? pickup.address : dropoff.address) ||
+          (sameAsPickup ? body.placeInDetail : body.placeOutDetail) ||
+          (sameAsPickup ? body.pickupAddress : body.returnAddress) ||
           ""
       ).trim(),
       sameAsPickup,

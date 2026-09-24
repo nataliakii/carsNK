@@ -7,19 +7,11 @@ import {
   CircularProgress,
   FormControlLabel,
   Typography,
-  useMediaQuery,
 } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
-import BookingFeeOutcomesTable from "@app/components/Legal/BookingFeeOutcomesTable";
 import LegalDocumentModal from "@app/components/Legal/LegalDocumentModal";
 import { CUSTOMER_TERMS_SEGMENT } from "@/domain/legal/customerTermsRoute";
 import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
-
-function euroFromMinor(minor) {
-  const amount = (Number(minor) || 0) / 100;
-  return `€${amount.toFixed(2)}`;
-}
 
 function formatPublishedDate(value) {
   if (!value) return "";
@@ -65,11 +57,17 @@ function ContractSections({ content }) {
       {sections.map((section) => (
         <Box key={section.id} sx={{ mb: 2.5 }}>
           {section.heading ? (
-            <Typography component="h2" sx={{ fontSize: "1.05rem", fontWeight: 700, mb: 0.75 }}>
+            <Typography
+              component="h2"
+              sx={{ fontSize: "1.05rem", fontWeight: 700, mb: 0.75 }}
+            >
               {section.heading}
             </Typography>
           ) : null}
-          <Typography component="div" sx={{ whiteSpace: "pre-wrap", fontSize: "1rem", lineHeight: 1.6 }}>
+          <Typography
+            component="div"
+            sx={{ whiteSpace: "pre-wrap", fontSize: "1rem", lineHeight: 1.6 }}
+          >
             {section.text}
           </Typography>
         </Box>
@@ -78,6 +76,10 @@ function ContractSections({ content }) {
   );
 }
 
+/**
+ * Compact checkout legal: one checkbox (+ supplier if needed).
+ * Full terms / privacy text only inside the document modal.
+ */
 export default function BookingContractsBlock({
   companyId,
   lang,
@@ -86,9 +88,8 @@ export default function BookingContractsBlock({
   onChange,
   feeAmountMinor = 0,
 }) {
+  void feeAmountMinor;
   const { t } = useTranslation();
-  const theme = useTheme();
-  const narrow = useMediaQuery(theme.breakpoints.down("sm"), { defaultMatches: false, noSsr: true });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [platform, setPlatform] = useState(null);
@@ -100,7 +101,6 @@ export default function BookingContractsBlock({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const locale = String(lang || "en").slice(0, 2);
-  const feeAmount = euroFromMinor(feeAmountMinor);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,14 +113,17 @@ export default function BookingContractsBlock({
         const params = new URLSearchParams();
         if (lang) params.set("lang", lang);
         if (companyId) params.set("companyId", String(companyId));
-        const res = await fetch(`/api/public/booking-agreements?${params.toString()}`, {
-          cache: "no-store",
-        });
+        const res = await fetch(
+          `/api/public/booking-agreements?${params.toString()}`,
+          { cache: "no-store" }
+        );
         const json = await res.json();
         if (!json?.success) throw new Error(json?.message || "Failed to load agreements");
         if (cancelled) return;
         const nextPlatform =
-          json.platform?.available && json.platform?.source !== "draft" ? json.platform : null;
+          json.platform?.available && json.platform?.source !== "draft"
+            ? json.platform
+            : null;
         setPlatform(nextPlatform);
         setCompany(json.company?.available ? json.company : null);
       } catch (err) {
@@ -193,9 +196,7 @@ export default function BookingContractsBlock({
       ? "Privacy Policy"
       : openKind === "company"
         ? `${company?.companyName || companyName || "Supplier"} Rental Terms`
-        : openKind === "fee"
-          ? "Booking Fee"
-          : platform?.content?.title || "Rovaro Booking Terms";
+        : platform?.content?.title || "Rovaro Booking Terms";
   const publicHref =
     openKind === "platform"
       ? `/${locale}${CUSTOMER_TERMS_SEGMENT}`
@@ -205,7 +206,7 @@ export default function BookingContractsBlock({
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, my: 1.5 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, my: 1 }}>
         <CircularProgress size={18} />
         <Typography variant="body2" color="text.secondary">
           {t("order.contractsLoading")}
@@ -216,7 +217,7 @@ export default function BookingContractsBlock({
 
   if (loadError || !platform?.available) {
     return (
-      <Typography color="error" variant="body2" sx={{ my: 1.5 }}>
+      <Typography color="error" variant="body2" sx={{ my: 1 }}>
         {loadError || t("order.platformTermsUnavailable")}
       </Typography>
     );
@@ -225,61 +226,62 @@ export default function BookingContractsBlock({
   const companyLabel = company?.companyName || companyName || "";
 
   return (
-    <Box data-testid="terms-and-privacy" sx={{ my: 2 }}>
-      <Typography component="h2" sx={{ fontSize: "1rem", fontWeight: 700, mb: 1 }}>
-        Terms and privacy
-      </Typography>
+    <Box data-testid="terms-and-privacy" sx={{ my: 1.25 }}>
       <FormControlLabel
-        sx={{ alignItems: "flex-start", m: 0, "& .MuiFormControlLabel-label": { fontSize: "0.9rem", lineHeight: 1.45 } }}
+        sx={{
+          alignItems: "flex-start",
+          m: 0,
+          "& .MuiFormControlLabel-label": { fontSize: "0.88rem", lineHeight: 1.4 },
+        }}
         control={
           <Checkbox
             size="small"
             checked={platformAccepted}
             onChange={(event) => setPlatformAccepted(event.target.checked)}
             inputProps={{ "aria-label": "Accept Rovaro Booking Terms" }}
+            sx={{ pt: 0.15 }}
           />
         }
         label={
-          <Typography component="span" sx={{ fontSize: "0.9rem", lineHeight: 1.45 }}>
+          <Typography component="span" sx={{ fontSize: "0.88rem", lineHeight: 1.4 }}>
             I accept the{" "}
-            <InlineLink onClick={() => setOpenKind("platform")}>Rovaro Booking Terms</InlineLink>{" "}
-            and understand that the {feeAmount} Booking Fee may be non-refundable in the
-            circumstances described in the terms.
+            <InlineLink onClick={() => setOpenKind("platform")}>
+              Rovaro Booking Terms
+            </InlineLink>{" "}
+            and{" "}
+            <InlineLink onClick={openPrivacy}>Privacy Policy</InlineLink>
           </Typography>
         }
       />
       {company ? (
         <FormControlLabel
-          sx={{ alignItems: "flex-start", m: 0, mt: 0.75, "& .MuiFormControlLabel-label": { fontSize: "0.9rem" } }}
+          sx={{
+            alignItems: "flex-start",
+            m: 0,
+            mt: 0.5,
+            "& .MuiFormControlLabel-label": { fontSize: "0.88rem" },
+          }}
           control={
             <Checkbox
               size="small"
               checked={companyAccepted}
               onChange={(event) => setCompanyAccepted(event.target.checked)}
               inputProps={{ "aria-label": "Accept supplier rental terms" }}
+              sx={{ pt: 0.15 }}
             />
           }
           label={
-            <Typography component="span" sx={{ fontSize: "0.9rem", lineHeight: 1.45 }}>
+            <Typography component="span" sx={{ fontSize: "0.88rem", lineHeight: 1.4 }}>
               I accept{" "}
-              <InlineLink onClick={() => setOpenKind("company")}>{companyLabel} Rental Terms</InlineLink>.
+              <InlineLink onClick={() => setOpenKind("company")}>
+                {companyLabel} Rental Terms
+              </InlineLink>
             </Typography>
           }
         />
-      ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ display: "block", mt: 0.75, fontSize: "0.9rem" }}>
-          Rovaro standard rental terms apply.
-        </Typography>
-      )}
-      <Typography component="p" sx={{ mt: 1, mb: 0, fontSize: "0.9rem", lineHeight: 1.45, color: "text.secondary" }}>
-        We use your details to manage this booking and share the necessary information with the rental supplier. Read our{" "}
-        <InlineLink onClick={openPrivacy}>Privacy Policy</InlineLink>.
-      </Typography>
-      <Box sx={{ mt: 0.5 }}>
-        <InlineLink onClick={() => setOpenKind("fee")}>See when the Booking Fee is refunded</InlineLink>
-      </Box>
+      ) : null}
       {error ? (
-        <Typography color="error" variant="caption" sx={{ display: "block", mt: 0.75 }}>
+        <Typography color="error" variant="caption" sx={{ display: "block", mt: 0.5 }}>
           {error}
         </Typography>
       ) : null}
@@ -289,19 +291,16 @@ export default function BookingContractsBlock({
         title={modalTitle}
         version={active?.version || ""}
         publishedAt={formatPublishedDate(active?.effectiveFrom || active?.publishedAt)}
-        language={active?.language || (openKind === "fee" ? "" : locale)}
+        language={active?.language || locale}
         publicHref={publicHref}
         closeLabel={t("order.closeContract")}
         openInNewTabLabel="Open in new tab"
       >
-        {openKind === "fee" ? (
-          <BookingFeeOutcomesTable
-            language={locale}
-            embedded
-            viewport={narrow ? "mobile" : "desktop"}
-          />
-        ) : openKind === "company" ? (
-          <Typography component="div" sx={{ whiteSpace: "pre-wrap", fontSize: "1rem", lineHeight: 1.6 }}>
+        {openKind === "company" ? (
+          <Typography
+            component="div"
+            sx={{ whiteSpace: "pre-wrap", fontSize: "1rem", lineHeight: 1.6 }}
+          >
             {company?.body || ""}
           </Typography>
         ) : openKind === "privacy" ? (

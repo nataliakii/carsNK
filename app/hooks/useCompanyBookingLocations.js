@@ -17,12 +17,33 @@ const EMPTY_COVERAGE = {
   queryKey: bookingCoverageQueryKey(""),
 };
 
+/** Share one coverage fetch across catalog cards for the same company. */
+const coverageCache = new Map();
+
+function readCachedCoverage(companyId) {
+  return coverageCache.get(String(companyId || "")) || null;
+}
+
+function writeCachedCoverage(companyId, payload) {
+  const id = String(companyId || "");
+  if (!id || !payload) return;
+  coverageCache.set(id, payload);
+}
+
 export function useCompanyBookingLocations(companyId) {
-  const [cities, setCities] = useState([]);
-  const [names, setNames] = useState([]);
-  const [coverage, setCoverage] = useState(EMPTY_COVERAGE);
-  const [orderRadiusKm, setOrderRadiusKm] = useState(null);
-  const [loadedCompanyId, setLoadedCompanyId] = useState("");
+  const id = companyId ? String(companyId) : "";
+  const cached = id ? readCachedCoverage(id) : null;
+  const [cities, setCities] = useState(() => cached?.cities || []);
+  const [names, setNames] = useState(() => cached?.names || []);
+  const [coverage, setCoverage] = useState(
+    () => cached?.coverage || { ...EMPTY_COVERAGE, queryKey: bookingCoverageQueryKey(id) }
+  );
+  const [orderRadiusKm, setOrderRadiusKm] = useState(
+    () => cached?.orderRadiusKm ?? null
+  );
+  const [loadedCompanyId, setLoadedCompanyId] = useState(
+    () => (cached ? id : "")
+  );
 
   const queryKey = bookingCoverageQueryKey(
     companyId,
@@ -32,12 +53,30 @@ export function useCompanyBookingLocations(companyId) {
   );
 
   useEffect(() => {
-    const id = companyId ? String(companyId) : "";
+    if (!id) {
+      setCities([]);
+      setNames([]);
+      setCoverage({ ...EMPTY_COVERAGE, queryKey: bookingCoverageQueryKey("") });
+      setOrderRadiusKm(null);
+      setLoadedCompanyId("");
+      return undefined;
+    }
+
+    const hit = readCachedCoverage(id);
+    if (hit) {
+      setCities(hit.cities);
+      setNames(hit.names);
+      setCoverage(hit.coverage);
+      setOrderRadiusKm(hit.orderRadiusKm);
+      setLoadedCompanyId(id);
+      return undefined;
+    }
+
     setCities([]);
     setNames([]);
     setCoverage({ ...EMPTY_COVERAGE, queryKey: bookingCoverageQueryKey(id) });
     setLoadedCompanyId("");
-    if (!id) return undefined;
+    setOrderRadiusKm(null);
 
     const url = `/api/public/booking-locations?companyId=${encodeURIComponent(id)}`;
     let cancelled = false;
@@ -63,21 +102,27 @@ export function useCompanyBookingLocations(companyId) {
         const nextNames = (nextCoverage.deliveryAreas || [])
           .map((area) => area.name)
           .filter(Boolean);
-        setCities(nextCities);
-        setNames(nextNames.length ? nextNames : []);
-        setCoverage(nextCoverage);
+        const payload = {
+          cities: nextCities,
+          names: nextNames,
+          coverage: nextCoverage,
+          orderRadiusKm:
+            body.orderRadiusKm == null || body.orderRadiusKm === ""
+              ? null
+              : Number(body.orderRadiusKm),
+        };
+        writeCachedCoverage(id, payload);
+        setCities(payload.cities);
+        setNames(payload.names);
+        setCoverage(payload.coverage);
         setLoadedCompanyId(id);
-        setOrderRadiusKm(
-          body.orderRadiusKm == null || body.orderRadiusKm === ""
-            ? null
-            : Number(body.orderRadiusKm)
-        );
+        setOrderRadiusKm(payload.orderRadiusKm);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [companyId]);
+  }, [id]);
 
   const defaultName = names[0] || "";
   const coverageReady =

@@ -160,6 +160,17 @@ export function parseLocationSnapshot(raw) {
         message: `${label}.placeId is required for delivery legs`,
       };
     }
+    if (
+      kind === LOCATION_KIND.DELIVERY &&
+      String(leg.placeId || "").startsWith("manual:") &&
+      String(leg.address || "").trim().length < 5
+    ) {
+      return {
+        ok: false,
+        code: "INVALID_LOCATION_SNAPSHOT",
+        message: `${label}.address is required for manual delivery legs`,
+      };
+    }
   }
   const currency = String(raw.currency || "EUR").trim().toUpperCase();
   if (currency !== "EUR") {

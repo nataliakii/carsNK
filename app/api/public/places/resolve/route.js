@@ -10,7 +10,7 @@ import {
 import { placeCountryCode } from "@/domain/geo/googlePlaces";
 import {
   consumePublicPostOrError,
-  rentalQuoteRateLimitOptions,
+  placesAutocompleteRateLimitOptions,
 } from "@/services/publicPostRateLimit";
 import { fetchPlaceDetails } from "@/domain/geo/googlePlaces";
 import {
@@ -32,7 +32,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request) {
   const limited = await consumePublicPostOrError(
     request,
-    rentalQuoteRateLimitOptions()
+    placesAutocompleteRateLimitOptions()
   );
   if (limited) {
     return NextResponse.json(limited.body, { status: limited.status });

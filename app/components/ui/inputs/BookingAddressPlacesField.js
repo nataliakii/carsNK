@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -10,6 +10,10 @@ import {
   Typography,
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
+import {
+  MANUAL_ADDRESS_MIN_LENGTH,
+  buildManualPlaceId,
+} from "@/domain/orders/bookingLocationSelection";
 
 const MIN_QUERY_LENGTH = 3;
 const CLIENT_FETCH_TIMEOUT_MS = 12000;
@@ -23,7 +27,8 @@ function newSessionToken() {
 
 /**
  * Hotel/street address field with Google Places Autocomplete (server proxy).
- * Typing never disables the field. Only a selected suggestion is verified.
+ * When suggestions fail (rate limit / Places down), the customer can confirm
+ * a typed address manually and continue booking.
  */
 export default function BookingAddressPlacesField({
   label,
@@ -41,7 +46,7 @@ export default function BookingAddressPlacesField({
   disabled = false,
   sx,
   requireVerifiedPlace = false,
-  allowManualFallback,
+  allowManualFallback = true,
   onBlur,
 }) {
   const { t, i18n } = useTranslation();
@@ -50,16 +55,16 @@ export default function BookingAddressPlacesField({
   const [loading, setLoading] = useState(false);
   const [searchUnavailable, setSearchUnavailable] = useState(false);
   const [touched, setTouched] = useState(false);
+  const [manualAccepted, setManualAccepted] = useState(false);
   const sessionTokenRef = useRef(newSessionToken());
   const debounceRef = useRef(null);
   const abortRef = useRef(null);
   const lastQueryRef = useRef("");
   const fetchPredictionsRef = useRef(null);
 
-  const manualFallbackAllowed =
-    allowManualFallback !== undefined
-      ? Boolean(allowManualFallback)
-      : !requireVerifiedPlace;
+  const canUseManual =
+    Boolean(allowManualFallback) || searchUnavailable || !requireVerifiedPlace;
+  const freeSolo = canUseManual;
 
   useEffect(() => {
     setInputValue(String(value || ""));
@@ -107,11 +112,13 @@ export default function BookingAddressPlacesField({
           signal: abort.signal,
         });
         const body = await res.json().catch(() => ({}));
-        if (body.configured === false || body.unavailable || body.success === false) {
-          console.warn("[places-ui] autocomplete unavailable", {
-            reason: body.reason || null,
-            configured: body.configured,
-          });
+        if (
+          res.status === 429 ||
+          body?.code === "RATE_LIMIT" ||
+          body.configured === false ||
+          body.unavailable ||
+          body.success === false
+        ) {
           setSearchUnavailable(true);
           setOptions([]);
           return;
@@ -120,7 +127,6 @@ export default function BookingAddressPlacesField({
         setOptions(Array.isArray(body.predictions) ? body.predictions : []);
       } catch (err) {
         if (err?.name === "AbortError") return;
-        console.warn("[places-ui] autocomplete network error");
         setSearchUnavailable(true);
         setOptions([]);
       } finally {
@@ -154,7 +160,8 @@ export default function BookingAddressPlacesField({
 
   const clearVerifiedQuietly = useCallback(
     (address) => {
-      if (!requireVerifiedPlace || !onResolved) return;
+      setManualAccepted(false);
+      if (!onResolved) return;
       onResolved({
         success: false,
         placeId: "",
@@ -162,7 +169,34 @@ export default function BookingAddressPlacesField({
         clearedWhileTyping: true,
       });
     },
-    [onResolved, requireVerifiedPlace]
+    [onResolved]
+  );
+
+  const acceptManualAddress = useCallback(
+    (raw) => {
+      const address = String(raw || inputValue || "").trim();
+      if (address.length < MANUAL_ADDRESS_MIN_LENGTH) return;
+      const placeId = buildManualPlaceId(address);
+      setInputValue(address);
+      setManualAccepted(true);
+      setSearchUnavailable(false);
+      if (onChange) onChange(address);
+      if (onResolved) {
+        onResolved({
+          success: true,
+          manual: true,
+          pendingConfirmation: true,
+          selectable: true,
+          placeId,
+          address,
+          lat: null,
+          lon: null,
+          locality: cityBias || "",
+          country: country || "",
+        });
+      }
+    },
+    [inputValue, onChange, onResolved, cityBias, country]
   );
 
   const resolvePlace = useCallback(
@@ -184,9 +218,17 @@ export default function BookingAddressPlacesField({
         });
         const body = await res.json().catch(() => ({}));
         sessionTokenRef.current = newSessionToken();
+        if (res.status === 429 || body?.code === "RATE_LIMIT") {
+          setSearchUnavailable(true);
+          if (prediction.description && canUseManual) {
+            acceptManualAddress(prediction.description);
+          }
+          return;
+        }
         if (body?.success && body.selectable !== false && body.address) {
           setInputValue(body.address);
           setSearchUnavailable(false);
+          setManualAccepted(false);
           if (onChange) onChange(body.address);
           if (onResolved) onResolved(body);
           return;
@@ -200,16 +242,18 @@ export default function BookingAddressPlacesField({
               message: body.message,
             });
           }
+          if (canUseManual && prediction.description) {
+            setSearchUnavailable(true);
+          }
           return;
         }
-        if (prediction.description && !requireVerifiedPlace) {
-          setInputValue(prediction.description);
-          if (onChange) onChange(prediction.description);
+        if (prediction.description && canUseManual) {
+          acceptManualAddress(prediction.description);
         }
       } catch {
-        if (prediction.description && !requireVerifiedPlace) {
-          setInputValue(prediction.description);
-          if (onChange) onChange(prediction.description);
+        setSearchUnavailable(true);
+        if (prediction.description && canUseManual) {
+          acceptManualAddress(prediction.description);
         }
       }
     },
@@ -221,7 +265,8 @@ export default function BookingAddressPlacesField({
       carId,
       onChange,
       onResolved,
-      requireVerifiedPlace,
+      canUseManual,
+      acceptManualAddress,
     ]
   );
 
@@ -231,17 +276,22 @@ export default function BookingAddressPlacesField({
     fetchPredictionsRef.current?.(q);
   };
 
+  const typedReady =
+    String(inputValue || "").trim().length >= MANUAL_ADDRESS_MIN_LENGTH;
+  const showManualConfirm =
+    canUseManual && typedReady && !manualAccepted && (searchUnavailable || requireVerifiedPlace);
   const calmUnavailable =
-    "We could not verify this address automatically. You can try again or choose an office.";
+    "We could not verify this address automatically. You can enter it manually, try again, or choose an office.";
 
-  const showUnavailableNotice = searchUnavailable && String(inputValue || "").trim().length >= MIN_QUERY_LENGTH;
+  const showUnavailableNotice =
+    searchUnavailable && String(inputValue || "").trim().length >= MIN_QUERY_LENGTH;
   const fieldError = Boolean(error) && (touched || Boolean(helperText));
   const shownHelper = helperText || "";
 
   return (
     <Box sx={{ width: "100%", minWidth: 0, ...sx }}>
       <Autocomplete
-        freeSolo={!requireVerifiedPlace && manualFallbackAllowed}
+        freeSolo={freeSolo}
         options={options}
         filterOptions={(x) => x}
         getOptionLabel={(opt) =>
@@ -262,9 +312,8 @@ export default function BookingAddressPlacesField({
         onChange={(_, newValue) => {
           if (newValue && typeof newValue === "object" && newValue.placeId) {
             resolvePlace(newValue);
-          } else if (typeof newValue === "string" && !requireVerifiedPlace) {
-            setInputValue(newValue);
-            if (onChange) onChange(newValue);
+          } else if (typeof newValue === "string" && canUseManual) {
+            acceptManualAddress(newValue);
           }
         }}
         onBlur={() => {
@@ -306,15 +355,54 @@ export default function BookingAddressPlacesField({
           popper: { style: { zIndex: 1400 } },
         }}
       />
-      {showUnavailableNotice ? (
-        <Box sx={{ mt: 0.5, display: "flex", alignItems: "flex-start", gap: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ flex: 1, lineHeight: 1.4 }}>
-            {calmUnavailable}
+      {showUnavailableNotice || showManualConfirm ? (
+        <Box
+          sx={{
+            mt: 0.5,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 1,
+            flexWrap: "wrap",
+          }}
+        >
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ flex: "1 1 180px", lineHeight: 1.4 }}
+          >
+            {showUnavailableNotice
+              ? calmUnavailable
+              : "Address suggestions are optional — confirm the typed address to continue."}
           </Typography>
-          <Button size="small" onClick={retrySearch} sx={{ mt: 0, flexShrink: 0, fontSize: "0.75rem" }}>
-            Try again
-          </Button>
+          {showManualConfirm ? (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => acceptManualAddress(inputValue)}
+              sx={{ flexShrink: 0, fontSize: "0.75rem" }}
+            >
+              Use this address
+            </Button>
+          ) : null}
+          {showUnavailableNotice ? (
+            <Button
+              size="small"
+              onClick={retrySearch}
+              sx={{ flexShrink: 0, fontSize: "0.75rem" }}
+            >
+              Try again
+            </Button>
+          ) : null}
         </Box>
+      ) : null}
+      {manualAccepted ? (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "block", mt: 0.35, lineHeight: 1.35 }}
+        >
+          Address saved. Delivery fee may be confirmed by the supplier.
+        </Typography>
       ) : null}
     </Box>
   );

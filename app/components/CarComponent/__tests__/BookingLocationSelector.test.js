@@ -14,7 +14,12 @@ jest.mock("@/domain/orders/carOffices", () => ({
 }));
 
 jest.mock("@/domain/orders/bookingLocationSelection", () => ({
-  canonicalOfficeId: (office) => String(office?._id || office?.id || ""),
+  canonicalOfficeId: (office) => {
+    if (office && typeof office === "object") {
+      return String(office._id || office.id || "");
+    }
+    return String(office || "").trim();
+  },
 }));
 
 jest.mock("@/app/components/ui/inputs", () => ({

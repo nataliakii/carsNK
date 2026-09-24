@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { styled } from "@mui/system";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -18,11 +18,9 @@ import {
   ListItemText,
   IconButton,
   Popover,
-  Menu,
   MenuItem,
   TextField,
   Chip,
-  Divider,
   Slider,
   InputAdornment,
   Tooltip,
@@ -52,8 +50,6 @@ import {
 import { ALL_UI_LOCALES } from "@/domain/platform/uiLocales";
 import { translateCarEnumValue } from "@/domain/cars/translateCarEnum";
 import { getSiteCountryCode, getSiteCountryConfig } from "@config/siteCountry";
-import { useNavLocations } from "@app/context/NavLocationsContext";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { resolveBookingLocationFromPathname } from "@/domain/orders/bookingLocationPathResolver";
 import { CUSTOMER_TERMS_SEGMENT } from "@domain/legal/customerTermsRoute";
 import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
@@ -78,8 +74,6 @@ const AdminPendingInboxBell = dynamic(
   () => import("@app/admin/shared/components/AdminPendingInboxBell"),
   { ssr: false }
 );
-
-const NAVBAR_LOCATIONS_DIVIDER_INDEX = 4;
 
 const LANG_LABELS = {
   en: "English",
@@ -306,11 +300,8 @@ export default function NavBar({
   const headerRef = useRef(null);
   const filterBarRef = useRef(null);
   const [languageAnchor, setLanguageAnchor] = useState(null);
-  const [locationsAnchor, setLocationsAnchor] = useState(null);
-  const locationsButtonRef = useRef(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
-  const { locationGroups } = useNavLocations();
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
   const [selectedDiscount, setSelectedDiscount] = useState(0);
   const [discountStartDate, setDiscountStartDate] = useState(null);
@@ -704,14 +695,6 @@ export default function NavBar({
     setLanguageAnchor(null);
   };
 
-  const handleLocationsOpen = (event) => {
-    setLocationsAnchor(locationsButtonRef.current || event?.currentTarget);
-  };
-
-  const handleLocationsClose = () => {
-    setLocationsAnchor(null);
-  };
-
   const handleLanguageSelect = (selectedLanguage) => {
     changeLanguage(selectedLanguage); // Используем новую функцию, которая автоматически сохраняет в localStorage
     if (typeof document !== "undefined") {
@@ -1085,38 +1068,6 @@ export default function NavBar({
                 <Link href={homeHref} style={{ textDecoration: "none" }}>
                   <NavLinkText>{t("header.main")}</NavLinkText>
                 </Link>
-                <Button
-                  ref={locationsButtonRef}
-                  type="button"
-                  aria-haspopup="true"
-                  aria-expanded={Boolean(locationsAnchor)}
-                  aria-label={t("header.locations") || "Locations"}
-                  aria-controls={
-                    locationsAnchor ? "locations-menu" : undefined
-                  }
-                  id={locationsAnchor ? "locations-button" : undefined}
-                  onClick={
-                    locationGroups?.length ? handleLocationsOpen : undefined
-                  }
-                  endIcon={
-                    <KeyboardArrowDownIcon sx={{ fontSize: 18, ml: -0.5 }} />
-                  }
-                  sx={{
-                    minWidth: 0,
-                    px: { md: 1, lg: 1.25 },
-                    color: "rgba(255,255,255,0.88)",
-                    textTransform: "uppercase",
-                    fontSize: "0.82rem",
-                    fontWeight: 600,
-                    letterSpacing: "0.04em",
-                    "&:hover": {
-                      backgroundColor: "transparent",
-                      color: "#fff",
-                    },
-                  }}
-                >
-                  {t("header.locations") || "Locations"}
-                </Button>
                 <Link href={termsHref} style={{ textDecoration: "none" }}>
                   <NavLinkText>{t("header.terms")}</NavLinkText>
                 </Link>
@@ -1310,64 +1261,6 @@ export default function NavBar({
             ) : null}
           </Stack>
         </Toolbar>
-
-        <Menu
-          id="locations-menu"
-          anchorEl={locationsAnchor}
-          open={Boolean(locationsAnchor)}
-          onClose={handleLocationsClose}
-          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-          transformOrigin={{ vertical: "top", horizontal: "left" }}
-          slotProps={{
-            paper: {
-              sx: {
-                mt: 1.5,
-                minWidth: 320,
-                maxWidth: 420,
-                maxHeight: "70vh",
-                borderRadius: 2,
-                overflowX: "hidden",
-                overflowY: "auto",
-              },
-            },
-          }}
-          MenuListProps={{
-            "aria-labelledby": "locations-button",
-            disablePadding: true,
-          }}
-        >
-          <Box sx={{ py: 1.5, px: 1 }}>
-            <List dense disablePadding>
-              {locationGroups?.map((group, index) => (
-                <Fragment key={group.href}>
-                  {index === NAVBAR_LOCATIONS_DIVIDER_INDEX && (
-                    <Divider sx={{ my: 0.75, borderColor: "common.black" }} />
-                  )}
-                  <ListItem disablePadding>
-                    <Link
-                      href={group.href}
-                      onClick={handleLocationsClose}
-                      style={{
-                        textDecoration: "none",
-                        color: "inherit",
-                        width: "100%",
-                        padding: "6px 12px",
-                      }}
-                    >
-                      <ListItemText
-                        primary={group.label}
-                        primaryTypographyProps={{
-                          variant: "body2",
-                          fontWeight: 500,
-                        }}
-                      />
-                    </Link>
-                  </ListItem>
-                </Fragment>
-              ))}
-            </List>
-          </Box>
-        </Menu>
 
         <LanguagePopover
           open={Boolean(languageAnchor)}
@@ -1770,25 +1663,6 @@ export default function NavBar({
                 <ListItem button component={Link} href={homeHref}>
                   <ListItemText primary={t("header.main")} />
                 </ListItem>
-                {locationGroups?.length > 0 && (
-                  <>
-                    {locationGroups.map((group, index) => (
-                      <Fragment key={group.href}>
-                        {index === NAVBAR_LOCATIONS_DIVIDER_INDEX && (
-                          <Divider sx={{ my: 0.5, borderColor: "common.black" }} />
-                        )}
-                        <ListItem
-                          button
-                          component={Link}
-                          href={group.href}
-                          onClick={() => setDrawerOpen(false)}
-                        >
-                          <ListItemText primary={group.label} inset />
-                        </ListItem>
-                      </Fragment>
-                    ))}
-                  </>
-                )}
                 <ListItem button component={Link} href={termsHref}>
                   <ListItemText primary={t("header.terms")} />
                 </ListItem>

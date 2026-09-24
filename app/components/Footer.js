@@ -18,6 +18,7 @@ import {
   getBusinessAddressLine,
   getPublicLegalEntity,
 } from "@config/legalEntity";
+import { useNavLocations } from "@app/context/NavLocationsContext";
 
 const CallIcon = dynamic(() => import("@mui/icons-material/Call"), {
   ssr: false,
@@ -122,6 +123,7 @@ const CreditLink = styled(MuiLink)({
 
 function Footer() {
   const { company, lang } = useMainContext();
+  const { locationGroups = [] } = useNavLocations();
   const currentYear = new Date().getFullYear();
   const { t } = useTranslation();
 
@@ -142,6 +144,7 @@ function Footer() {
 
   const localeLink = (path) => withLocalePrefix(lang || "en", path);
   const guideHref = `https://kalikratia.bbqr.site/${lang || "en"}`;
+  const hasLocations = Array.isArray(locationGroups) && locationGroups.length > 0;
 
   // Rovaro customer footer: Terms / Privacy / Cookies only (no supplier package docs).
   const legalLinks = greece
@@ -164,6 +167,14 @@ function Footer() {
     { href: "/login", label: t("footer.adminLogin") },
   ];
 
+  const mdColumns = greece
+    ? hasLocations
+      ? "1.1fr 0.85fr 0.95fr 1fr 0.8fr 1.1fr"
+      : "1.15fr 0.85fr 1fr 0.8fr 1.15fr"
+    : hasLocations
+      ? "1.2fr 0.85fr 1fr 1.05fr 0.8fr"
+      : "1.3fr 0.9fr 1.05fr 0.85fr";
+
   return (
     <FooterRoot>
       <BrandBar />
@@ -175,9 +186,7 @@ function Footer() {
             gridTemplateColumns: {
               xs: "1fr",
               sm: "1fr 1fr",
-              md: greece
-                ? "1.15fr 0.85fr 1fr 0.8fr 1.15fr"
-                : "1.3fr 0.9fr 1.05fr 0.85fr",
+              md: mdColumns,
             },
             alignItems: "start",
           }}
@@ -224,6 +233,26 @@ function Footer() {
               </ContactAnchor>
             </Stack>
           </Box>
+
+          {hasLocations ? (
+            <Box sx={{ textAlign: { xs: "center", sm: "left" } }}>
+              <SectionTitle>
+                {t("footer.locations", { defaultValue: "Locations" })}
+              </SectionTitle>
+              <Stack
+                component="nav"
+                aria-label={t("footer.locations", { defaultValue: "Locations" })}
+                spacing={0.85}
+                alignItems={{ xs: "center", sm: "flex-start" }}
+              >
+                {locationGroups.map((group) => (
+                  <FooterLink key={group.href} href={group.href}>
+                    {group.label}
+                  </FooterLink>
+                ))}
+              </Stack>
+            </Box>
+          ) : null}
 
           <Box sx={{ textAlign: { xs: "center", sm: "left" } }}>
             <SectionTitle>{t("footer.legal")}</SectionTitle>

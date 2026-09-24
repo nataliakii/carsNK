@@ -26,23 +26,69 @@ function escapeText(value) {
     .replace(/>/g, "&gt;");
 }
 
+function decodeEntities(value) {
+  return String(value || "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+}
+
+function styleLooksBold(style) {
+  return /font-weight\s*:\s*(bold|[5-9]00)/i.test(String(style || ""));
+}
+
+function styleLooksItalic(style) {
+  return /font-style\s*:\s*italic/i.test(String(style || ""));
+}
+
+/**
+ * Convert inline HTML (from contentEditable) to markdown markers.
+ * Handles <b>/<strong>/<i>/<em> with attributes and style-based spans
+ * that Chromium often emits instead of semantic tags.
+ */
 export function inlineToMarkdown(html) {
-  return String(html || "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<strong>|<b>/gi, "**")
-    .replace(/<\/strong>|<\/b>/gi, "**")
-    .replace(/<em>|<i>/gi, "*")
-    .replace(/<\/em>|<\/i>/gi, "*")
-    .replace(/<a [^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, href, label) => {
-      const url = String(href || "").trim();
-      if (!/^https?:\/\//i.test(url)) return label.replace(/<[^>]+>/g, "");
-      return `[${label.replace(/<[^>]+>/g, "")}](${url})`;
-    })
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+  let out = String(html || "");
+
+  out = out.replace(/<br\s*\/?>/gi, "\n");
+
+  // Style-based spans first (Chrome bold/italic without <b>/<i>).
+  out = out.replace(
+    /<span\b([^>]*)>([\s\S]*?)<\/span>/gi,
+    (full, attrs, inner) => {
+      const style = /style\s*=\s*("([^"]*)"|'([^']*)')/i.exec(attrs || "");
+      const styleValue = style ? style[2] || style[3] || "" : "";
+      let text = inlineToMarkdown(inner);
+      if (styleLooksBold(styleValue)) text = `**${text}**`;
+      if (styleLooksItalic(styleValue)) text = `*${text}*`;
+      return text;
+    }
+  );
+
+  out = out
+    .replace(/<(strong|b)\b[^>]*>/gi, "**")
+    .replace(/<\/(strong|b)>/gi, "**")
+    .replace(/<(em|i)\b[^>]*>/gi, "*")
+    .replace(/<\/(em|i)>/gi, "*")
+    .replace(
+      /<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+      (_, href, label) => {
+        const url = String(href || "").trim();
+        const text = inlineToMarkdown(label).replace(/\n+/g, " ").trim();
+        if (!/^https?:\/\//i.test(url)) return text;
+        return `[${text}](${url})`;
+      }
+    )
+    .replace(/<[^>]+>/g, "");
+
+  out = decodeEntities(out);
+
+  // Drop empty bold markers left by vacant tags.
+  out = out.replace(/\*\*\s*\*\*/g, "");
+
+  return out;
 }
 
 export function htmlToSections(html, title = "Document") {
@@ -114,9 +160,16 @@ export function plainTextToSections(text, title = "Document") {
   return { title, sections: [{ id: "1", heading: title, body }] };
 }
 
+/** Flatten sections to markdown for the rich-text editor (keeps ## headings). */
 export function sectionsToPlain(sections) {
   return (sections || [])
-    .map((section) => `${section.heading || ""}\n${section.body || ""}`.trim())
+    .map((section) => {
+      const heading = String(section.heading || "").trim();
+      const body = String(section.body || "").trim();
+      if (heading && body) return `## ${heading}\n\n${body}`;
+      if (heading) return `## ${heading}`;
+      return body;
+    })
     .filter(Boolean)
     .join("\n\n");
 }
@@ -142,26 +195,52 @@ export function sameStructure(sourceSections, translatedSections) {
   return left.every((node, index) => node.type === right[index]?.type && node.id === right[index]?.id);
 }
 
-export function markdownToHtml(markdown) {
-  const escaped = escapeText(markdown);
-  const withInline = escaped
+function applyInlineMarkdown(escaped) {
+  return String(escaped || "")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" rel="noopener noreferrer">$1</a>');
+    .replace(
+      /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+      '<a href="$2" rel="noopener noreferrer">$1</a>'
+    );
+}
+
+export function markdownToHtml(markdown) {
+  const withInline = applyInlineMarkdown(escapeText(markdown));
   return withInline
     .split(/\n{2,}/)
     .map((block) => {
+      const trimmed = block.trim();
+      const heading = /^(#{1,3})\s+(.+)$/s.exec(trimmed);
+      if (heading) {
+        const level = Math.min(3, heading[1].length);
+        return `<h${level}>${heading[2].trim()}</h${level}>`;
+      }
       if (/^\| /m.test(block) || block.includes("|")) {
-        const rows = block.split("\n").filter((row) => row.includes("|") && !/^\|?\s*-+/.test(row));
+        const rows = block
+          .split("\n")
+          .filter((row) => row.includes("|") && !/^\|?\s*-+/.test(row));
         if (rows.length > 1) {
-          const cells = rows.map((row) => row.split("|").map((cell) => cell.trim()).filter(Boolean));
+          const cells = rows.map((row) =>
+            row
+              .split("|")
+              .map((cell) => cell.trim())
+              .filter(Boolean)
+          );
           const head = cells[0].map((cell) => `<th>${cell}</th>`).join("");
-          const body = cells.slice(1).map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("");
+          const body = cells
+            .slice(1)
+            .map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`)
+            .join("");
           return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
         }
       }
       if (/^(?:- |\d+\. )/m.test(block)) {
-        const items = block.split("\n").filter(Boolean).map((line) => `<li>${line.replace(/^(- |\d+\. )/, "")}</li>`).join("");
+        const items = block
+          .split("\n")
+          .filter(Boolean)
+          .map((line) => `<li>${line.replace(/^(- |\d+\. )/, "")}</li>`)
+          .join("");
         return /^\d+\. /.test(block) ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
       }
       return `<p>${block.replace(/\n/g, "<br/>")}</p>`;

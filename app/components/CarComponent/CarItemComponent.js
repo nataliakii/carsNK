@@ -1,13 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, lazy, Suspense } from "react";
 import { styled, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import {
   Paper,
   Box,
   Typography,
-  Divider,
-  IconButton,
-  Collapse,
   Button,
 } from "@mui/material";
 import { styled as muiStyled } from "@mui/material/styles";
@@ -37,10 +34,6 @@ import { usePathname } from "next/navigation";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import AcUnitIcon from "@mui/icons-material/AcUnit";
 import SpeedIcon from "@mui/icons-material/Speed";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { lazy, Suspense } from "react";
-import { fetchCar } from "@utils/action";
-import { fetchOrdersByCar } from "@utils/action";
 import TimeToLeaveIcon from "@mui/icons-material/TimeToLeave";
 import { useMainContext } from "@app/Context";
 import { normalizeBookingDateSelection } from "@/domain/calendar";
@@ -50,13 +43,13 @@ const BookingModal = lazy(() => import("./BookingModal"));
 const PricingTiers = lazy(() => import("@app/components/CarComponent/PricingTiers"));
 const CarDetails = lazy(() => import("./CarDetails"));
 const CarDetailsModal = lazy(() => import("./CarDetailsModal"));
-const CarDeliveryInfo = lazy(() => import("./CarDeliveryInfo"));
 
 import { useTranslation } from "react-i18next";
 import CarPhotoCarousel from "./CarPhotoCarousel";
 import CarBookingPanel from "./CarBookingPanel";
 import CarCitiesSummary from "./CarCitiesSummary";
 import { resolveCarOperatingZones } from "@/domain/cars/carOperatingZones";
+import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
 import { listCarPhotos } from "@/domain/cars/carPhotos";
 import { useSnackbar } from "notistack";
 import dayjs from "dayjs";
@@ -247,8 +240,6 @@ const CarItemComponent = React.memo(function CarItemComponent({
   // Keep BookingModal mounted until exit transition finishes
   const [bookingModalMounted, setBookingModalMounted] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
-  const detailsPanelId = `car-details-${car._id}`;
   const [selectedTimes, setSelectedTimes] = useState({
     start: null,
     end: null,
@@ -264,12 +255,20 @@ const CarItemComponent = React.memo(function CarItemComponent({
   const { fetchAndUpdateActiveOrders, isLoading, ordersByCarId, allOrders, company } =
     useMainContext();
 
-  // Same list the expanded delivery block renders, so the compact summary
-  // above can preview the first few places without a second source of truth.
-  const operatingZones = React.useMemo(
-    () => resolveCarOperatingZones({ car, company }),
-    [car, company]
-  );
+  const ownerCompanyId = car?.ownerId || company?._id;
+  const { names: coverageCityNames, coverageReady } =
+    useCompanyBookingLocations(ownerCompanyId);
+
+  // Same company delivery cities/communes the booking flow uses — never offices.
+  const operatingZones = React.useMemo(() => {
+    if (coverageReady) {
+      return resolveCarOperatingZones({ deliveryAreaNames: coverageCityNames });
+    }
+    if (String(company?._id || "") === String(ownerCompanyId || "")) {
+      return resolveCarOperatingZones({ car, company });
+    }
+    return [];
+  }, [car, company, ownerCompanyId, coverageReady, coverageCityNames]);
   
   // Мемоизируем carOrders вместо useState + useEffect для снижения TBT
   const carOrders = React.useMemo(() => {
@@ -372,34 +371,16 @@ const CarItemComponent = React.memo(function CarItemComponent({
               <CarDetails car={car} sections="highlights" />
             </Suspense>
 
-            {detailsExpanded ? null : (
-              <CarCitiesSummary
-                zones={operatingZones}
-                onShowAll={() => setDetailsExpanded(true)}
-              />
-            )}
+            <CarCitiesSummary
+              zones={operatingZones}
+              onShowAll={() => setDetailsModalOpen(true)}
+            />
 
-            {/* Collapsed by default: the card stays short until asked. */}
             <Button
-              onClick={() => setDetailsExpanded((prev) => !prev)}
-              aria-expanded={detailsExpanded}
-              aria-controls={detailsPanelId}
+              onClick={() => setDetailsModalOpen(true)}
               fullWidth
               variant="text"
               size="small"
-              endIcon={
-                <ExpandMoreIcon
-                  sx={{
-                    transform: detailsExpanded
-                      ? "rotate(180deg)"
-                      : "rotate(0deg)",
-                    transition: (t) =>
-                      t.transitions.create("transform", {
-                        duration: t.transitions.duration.shortest,
-                      }),
-                  }}
-                />
-              }
               sx={{
                 justifyContent: "center",
                 py: 0.5,
@@ -417,56 +398,8 @@ const CarItemComponent = React.memo(function CarItemComponent({
                 },
               }}
             >
-              {detailsExpanded ? t("car.hideDetails") : t("car.showDetails")}
+              {t("car.showDetails")}
             </Button>
-
-            <Collapse in={detailsExpanded} unmountOnExit>
-              <Box
-                id={detailsPanelId}
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: { xs: 1, sm: 1.5 },
-                  minWidth: 0,
-                }}
-              >
-                <Suspense fallback={null}>
-                  <CarDetails car={car} sections="details" />
-                </Suspense>
-
-                <Divider sx={{ borderStyle: "dashed" }} />
-
-                <Suspense fallback={null}>
-                  <CarDeliveryInfo
-                    car={car}
-                    company={company}
-                  />
-                </Suspense>
-
-                <Button
-                  onClick={() => setDetailsModalOpen(true)}
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    alignSelf: "flex-start",
-                    mt: 0.5,
-                    px: 1.5,
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    textTransform: "none",
-                    borderColor: "divider",
-                    color: "text.primary",
-                    "&:hover": {
-                      borderColor: "primary.main",
-                      color: "primary.main",
-                      backgroundColor: "transparent",
-                    },
-                  }}
-                >
-                  {t("car.viewDetails")}
-                </Button>
-              </Box>
-            </Collapse>
           </Box>
           <Box className="calendar-wrapper" sx={{ width: "100%", maxWidth: "100%", minWidth: 0, overflowX: "hidden" }}>
             <CarBookingPanel
@@ -580,6 +513,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
             open={detailsModalOpen}
             onClose={() => setDetailsModalOpen(false)}
             car={car}
+            company={company}
           />
         </Suspense>
       )}

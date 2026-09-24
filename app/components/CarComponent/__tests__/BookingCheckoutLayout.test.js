@@ -58,7 +58,13 @@ describe("booking checkout legal and price", () => {
     const onChange = jest.fn();
     global.fetch = jest.fn(async (url) => {
       if (String(url).includes("booking-agreements")) {
-        return { json: async () => ({ success: true, platform: publishedPlatform, company: { available: false } }) };
+        return {
+          json: async () => ({
+            success: true,
+            platform: publishedPlatform,
+            company: { available: false },
+          }),
+        };
       }
       return { json: async () => ({ success: false }) };
     });
@@ -66,7 +72,9 @@ describe("booking checkout legal and price", () => {
       <BookingContractsBlock companyId="c1" lang="en" feeAmountMinor={2640} onChange={onChange} />
     );
     await flush();
-    expect(view.container.textContent).toContain("Rovaro standard rental terms apply.");
+    expect(view.container.textContent).not.toContain("Rovaro standard rental terms apply.");
+    expect(view.container.textContent).not.toContain("We use your details");
+    expect(view.container.textContent).not.toContain("See when the Booking Fee is refunded");
     const terms = [...view.container.querySelectorAll("button")].find((node) =>
       node.textContent.includes("Rovaro Booking Terms")
     );
@@ -115,7 +123,12 @@ describe("booking checkout legal and price", () => {
     global.fetch = jest.fn(async () => ({
       json: async () => ({
         success: true,
-        platform: { ...publishedPlatform, available: false, source: "draft", content: { sections: [] } },
+        platform: {
+          ...publishedPlatform,
+          available: false,
+          source: "draft",
+          content: { sections: [] },
+        },
         company: { available: false },
       }),
     }));
@@ -136,16 +149,25 @@ describe("booking checkout legal and price", () => {
             version: 3,
             language: "en",
             checksum: "priv",
-            content: { title: "Privacy Policy", sections: [{ id: "p", heading: "Data", text: "Privacy body" }] },
+            content: {
+              title: "Privacy Policy",
+              sections: [{ id: "p", heading: "Data", text: "Privacy body" }],
+            },
           }),
         };
       }
-      return { json: async () => ({ success: true, platform: publishedPlatform, company: { available: false } }) };
+      return {
+        json: async () => ({
+          success: true,
+          platform: publishedPlatform,
+          company: { available: false },
+        }),
+      };
     });
     const view = mount(<BookingContractsBlock companyId="c1" lang="en" />);
     await flush();
-    const links = [...view.container.querySelectorAll("button")].filter((node) =>
-      node.textContent.trim() === "Privacy Policy"
+    const links = [...view.container.querySelectorAll("button")].filter(
+      (node) => node.textContent.trim() === "Privacy Policy"
     );
     expect(links).toHaveLength(1);
     expect(links[0].tagName).toBe("BUTTON");
@@ -158,26 +180,13 @@ describe("booking checkout legal and price", () => {
     view.unmount();
   });
 
-  test("booking fee outcomes open in a modal and the fee is not always non-refundable", async () => {
-    global.fetch = jest.fn(async () => ({
-      json: async () => ({ success: true, platform: publishedPlatform, company: { available: false } }),
-    }));
-    const view = mount(<BookingContractsBlock companyId="c1" lang="en" feeAmountMinor={2640} />);
-    await flush();
-    expect(view.container.textContent).toContain("may be non-refundable");
-    expect(view.container.textContent).not.toContain("is non-refundable");
-    const fee = [...view.container.querySelectorAll("button")].find((node) =>
-      node.textContent.includes("See when the Booking Fee is refunded")
-    );
-    act(() => fee.click());
-    expect(document.body.textContent).toContain("Booking Fee");
-    expect(document.querySelector('[data-testid="booking-fee-outcomes-table"]')).not.toBeNull();
-    view.unmount();
-  });
-
   test("opening a legal modal does not clear an accepted checkbox", async () => {
     global.fetch = jest.fn(async () => ({
-      json: async () => ({ success: true, platform: publishedPlatform, company: { available: false } }),
+      json: async () => ({
+        success: true,
+        platform: publishedPlatform,
+        company: { available: false },
+      }),
     }));
     const view = mount(<BookingContractsBlock companyId="c1" lang="en" />);
     await flush();
@@ -190,16 +199,32 @@ describe("booking checkout legal and price", () => {
     act(() => terms.click());
     const close = document.body.querySelector('[aria-label="order.closeContract"]');
     act(() => close.click());
-    expect(view.container.querySelector('[aria-label="Accept Rovaro Booking Terms"]').checked).toBe(true);
+    expect(
+      view.container.querySelector('[aria-label="Accept Rovaro Booking Terms"]').checked
+    ).toBe(true);
     view.unmount();
   });
 
-  test("collapsed price details keep Total and Pay now, and zero delivery is Free", () => {
+  test("collapsed price details keep Total and Pay now once, without Booking Fee line", () => {
     const view = mount(
       <BookingPriceDetails
-        summary={{ totalPrice: 240, rentalPrice: 200, pickupDeliveryCost: 0, returnDeliveryCost: 0 }}
-        parts={{ baseRentalMinor: 20000, insuranceMinor: 0, extrasMinor: 0, discountMinor: 0 }}
-        split={{ platformAmountMinor: 2640, supplierBalanceMinor: 21360, grossMinor: 24000 }}
+        summary={{
+          totalPrice: 240,
+          rentalPrice: 200,
+          pickupDeliveryCost: 0,
+          returnDeliveryCost: 0,
+        }}
+        parts={{
+          baseRentalMinor: 20000,
+          insuranceMinor: 0,
+          extrasMinor: 0,
+          discountMinor: 0,
+        }}
+        split={{
+          platformAmountMinor: 2640,
+          supplierBalanceMinor: 21360,
+          grossMinor: 24000,
+        }}
       />
     );
     const text = view.container.textContent;
@@ -209,6 +234,10 @@ describe("booking checkout legal and price", () => {
     expect(text).toContain("Pay now");
     expect(text).toContain("€26.40");
     expect(text).not.toContain("Base rental");
+    expect(text).not.toContain("Rovaro Booking Fee");
+    expect(text).not.toContain("See when the Booking Fee is refunded");
+    expect((text.match(/Pay now/g) || []).length).toBe(1);
+    expect((text.match(/Total/g) || []).length).toBe(1);
     const toggle = view.container.querySelector('[aria-expanded="false"]');
     expect(toggle).not.toBeNull();
     act(() => toggle.click());
@@ -220,9 +249,9 @@ describe("booking checkout legal and price", () => {
     expect(open).toContain("Return collection");
     expect(open).toContain("Pay at pickup");
     expect(open).toContain("€213.60");
-    expect(open).toContain("Rovaro Booking Fee — €26.40");
-    expect(open).not.toContain("Non-refundable");
-    expect(open).not.toContain("EUR 0");
+    expect(open).not.toContain("Rovaro Booking Fee");
+    expect((open.match(/Pay now/g) || []).length).toBe(1);
+    expect((open.match(/Total/g) || []).length).toBe(1);
     expect(view.container.querySelector('[aria-expanded="true"]')).not.toBeNull();
     view.unmount();
   });

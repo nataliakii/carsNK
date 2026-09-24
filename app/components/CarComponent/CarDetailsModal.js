@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { Suspense, lazy, useMemo } from "react";
 import { Modal, Box, Typography, Button, Divider } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { buildCarSpecGroups } from "@/domain/cars/carSpecs";
@@ -8,17 +8,18 @@ import CarSpecSection from "./CarSpecList";
 import CarPhotoCarousel from "./CarPhotoCarousel";
 import { listCarPhotos } from "@/domain/cars/carPhotos";
 
+const CarDeliveryInfo = lazy(() => import("./CarDeliveryInfo"));
+
 /**
- * Enlarged detail sheet: photo + the same specification rows the card shows.
- * Spec rows come from buildCarSpecGroups, so labels/formatting cannot drift
- * away from the catalog card.
+ * Detail sheet: photo, full specs, and delivery / available-in cities.
+ * Spec rows come from buildCarSpecGroups so labels stay in sync with the card.
  */
-const CarDetailsModal = ({ open, onClose, car }) => {
+const CarDetailsModal = ({ open, onClose, car, company }) => {
   const { t } = useTranslation();
   const groups = useMemo(() => buildCarSpecGroups(car, t), [car, t]);
 
   return (
-    <Modal open={open} onClose={onClose}>
+    <Modal open={open} onClose={onClose} aria-labelledby="car-details-title">
       <Box
         sx={{
           position: "absolute",
@@ -47,6 +48,7 @@ const CarDetailsModal = ({ open, onClose, car }) => {
           }}
         >
           <Typography
+            id="car-details-title"
             variant="h6"
             component="h2"
             sx={{
@@ -82,7 +84,6 @@ const CarDetailsModal = ({ open, onClose, car }) => {
           {groups.map((group, index) => (
             <React.Fragment key={group.id}>
               {index > 0 ? <Divider sx={{ my: 1.75 }} /> : null}
-              {/* Single column: the sheet is only ~480px wide. */}
               <CarSpecSection
                 title={group.title}
                 items={group.items}
@@ -90,6 +91,12 @@ const CarDetailsModal = ({ open, onClose, car }) => {
               />
             </React.Fragment>
           ))}
+
+          <Divider sx={{ my: 2, borderStyle: "dashed" }} />
+
+          <Suspense fallback={null}>
+            <CarDeliveryInfo car={car} company={company} />
+          </Suspense>
 
           <Button
             onClick={onClose}

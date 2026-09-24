@@ -159,6 +159,7 @@ export default function BookingLocationSelector({
   companyId,
   carId,
   requireVerifiedPlace = false,
+  allowManualFallback = true,
   addressError = "",
   officeError = "",
   cityError = "",
@@ -177,7 +178,7 @@ export default function BookingLocationSelector({
   const deliveryTitle = isPickup
     ? "Deliver to an address"
     : "Collect from an address";
-  const selectedId = String(selectedOfficeId || "");
+  const selectedId = canonicalOfficeId(selectedOfficeId);
   const hideLocationControls = showSameReturnCheckbox && sameReturnLocation;
 
   return (
@@ -261,7 +262,7 @@ export default function BookingLocationSelector({
                   <OfficeCard
                     key={officeId || office.name}
                     office={office}
-                    selected={Boolean(selectedId) && officeId === selectedId}
+                    selected={Boolean(officeId) && officeId === selectedId}
                     onSelect={() => onSelectOffice?.(office)}
                     freeLabel="Free"
                   />
@@ -298,6 +299,7 @@ export default function BookingLocationSelector({
                   companyId={companyId}
                   carId={carId}
                   requireVerifiedPlace={requireVerifiedPlace}
+                  allowManualFallback={allowManualFallback}
                   onChange={onAddressChange}
                   onResolved={onAddressResolved}
                   error={Boolean(addressError)}

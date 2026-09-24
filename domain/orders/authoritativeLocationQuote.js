@@ -16,6 +16,12 @@ import {
   buildLocationLeg,
   buildLocationSnapshot,
 } from "@/domain/orders/locationSnapshot";
+import {
+  addressFromManualPlaceId,
+  buildManualPlaceId,
+  isManualPlaceId,
+  MANUAL_ADDRESS_MIN_LENGTH,
+} from "@/domain/orders/bookingLocationSelection";
 
 export class LocationQuoteError extends Error {
   constructor(code, message) {
@@ -34,8 +40,35 @@ function ignoreClientGeo(client) {
   };
 }
 
-async function resolveDeliveryPlace({ placeId, language, sessionToken, country }) {
+async function resolveDeliveryPlace({
+  placeId,
+  address,
+  cityName,
+  language,
+  sessionToken,
+  country,
+}) {
   const id = String(placeId || "").trim();
+  const typed = String(address || "").trim() || addressFromManualPlaceId(id);
+
+  if (isManualPlaceId(id) || (!id && typed.length >= MANUAL_ADDRESS_MIN_LENGTH)) {
+    if (typed.length < MANUAL_ADDRESS_MIN_LENGTH) {
+      throw new LocationQuoteError(
+        "UNVERIFIED_ADDRESS",
+        "Enter a full street address, or choose an office."
+      );
+    }
+    return {
+      placeId: id || buildManualPlaceId(typed),
+      address: typed,
+      lat: null,
+      lon: null,
+      locality: String(cityName || "").trim(),
+      country: placeCountryCode(country) || "",
+      manual: true,
+    };
+  }
+
   if (!id) {
     throw new LocationQuoteError(
       "UNVERIFIED_ADDRESS",
@@ -169,13 +202,15 @@ export async function quoteAuthoritativeLocations({
     }
     pickupPlace = await resolveDeliveryPlace({
       placeId: pickup?.placeId,
+      address: pickup?.address,
+      cityName: pickup?.cityName,
       language,
       sessionToken,
       country: company.country,
     });
     const deliveryCheck = assertDeliveryInCompanyCoverage(coverage, {
       name: pickup?.cityName || pickupPlace.locality,
-      countryCode: placeCountryCode(pickupPlace.country),
+      countryCode: placeCountryCode(pickupPlace.country) || placeCountryCode(company.country),
       locality: pickupPlace.locality,
       address: pickupPlace.address,
     });
@@ -209,13 +244,15 @@ export async function quoteAuthoritativeLocations({
     }
     returnPlace = await resolveDeliveryPlace({
       placeId: dropoff?.placeId,
+      address: dropoff?.address,
+      cityName: dropoff?.cityName,
       language,
       sessionToken,
       country: company.country,
     });
     const returnCheck = assertDeliveryInCompanyCoverage(coverage, {
       name: dropoff?.cityName || returnPlace.locality,
-      countryCode: placeCountryCode(returnPlace.country),
+      countryCode: placeCountryCode(returnPlace.country) || placeCountryCode(company.country),
       locality: returnPlace.locality,
       address: returnPlace.address,
     });

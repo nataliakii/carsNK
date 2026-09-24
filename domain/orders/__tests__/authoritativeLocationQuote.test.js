@@ -130,6 +130,24 @@ describe("authoritative location quote", () => {
     expect(calculateDeliveryPrice).not.toHaveBeenCalled();
   });
 
+  test("manual typed address is accepted when Places cannot verify", async () => {
+    const quote = await quoteAuthoritativeLocations({
+      car,
+      company,
+      pickup: {
+        kind: "delivery",
+        placeId: "manual:" + encodeURIComponent("Carrer de Provença 100, Barcelona"),
+        address: "Carrer de Provença 100, Barcelona",
+        cityName: "Barcelona",
+      },
+      dropoff: { sameAsPickup: true },
+    });
+    expect(fetchPlaceDetails).not.toHaveBeenCalled();
+    expect(quote.snapshot.pickup.address).toContain("Provença");
+    expect(quote.snapshot.pickup.placeId.startsWith("manual:")).toBe(true);
+    expect(calculateDeliveryPrice).toHaveBeenCalled();
+  });
+
   test("client-supplied coordinates, distance and price are ignored", async () => {
     fetchPlaceDetails.mockResolvedValue({
       ok: true,

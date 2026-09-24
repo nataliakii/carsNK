@@ -54,6 +54,7 @@ import {
   canonicalOfficeId,
   resolveSelectedOfficeId,
   validateCustomerBookingLocation,
+  isManualPlaceId,
 } from "@/domain/orders/bookingLocationSelection";
 import { getSiteCountryCode } from "@config/siteCountry";
 import {
@@ -187,14 +188,47 @@ const BookingModal = ({
   }, [spainSite, daysAndTotal.totalPrice, marketplaceFee.bps]);
   const defaultBookingLocation =
     deliveryAreaNames.length === 1 ? deliveryAreaNames[0] : "";
-  const displayOffices = useMemo(
-    () =>
-      resolveBookingDisplayOffices(car, company, {
-        countryCode: siteCountry,
-        selectedCity: defaultBookingLocation,
-      }),
-    [car, company, siteCountry, defaultBookingLocation]
-  );
+  // Prefer coverage offices (car owner) — Context `company` is often the
+  // platform company and would strip real office ids via resolveEligibleOffices.
+  const displayOffices = useMemo(() => {
+    if (
+      coverageReady &&
+      String(coverage?.companyId || "") === bookingCompanyId &&
+      Array.isArray(coverage?.offices) &&
+      coverage.offices.length
+    ) {
+      return coverage.offices.map((office) => ({
+        id: office.id,
+        _id: office.id,
+        name: office.name,
+        address: office.address || "",
+        lat: office.lat || "",
+        lon: office.lon || "",
+        city: office.city || "",
+        country: office.countryCode || "",
+        locationType: office.locationType || "office",
+        collectionInstructions: office.collectionInstructions || "",
+        returnInstructions: office.returnInstructions || "",
+        freePickup: office.freePickup !== false,
+        freeReturn: office.freeReturn !== false,
+      }));
+    }
+    const ownerMatches =
+      String(company?._id || "") === bookingCompanyId || !car?.ownerId;
+    return resolveBookingDisplayOffices(car, ownerMatches ? company : null, {
+      countryCode: siteCountry,
+      selectedCity: defaultBookingLocation,
+    });
+  }, [
+    coverageReady,
+    coverage?.companyId,
+    coverage?.offices,
+    bookingCompanyId,
+    car,
+    company,
+    siteCountry,
+    defaultBookingLocation,
+  ]);
   const placesCountry =
     placeCountryCode(coverage?.countryCode || company?.country || siteCountry) ||
     "";
@@ -293,9 +327,12 @@ const BookingModal = ({
     isPlaceMatchingCarOffice(placeOut, displayOffices);
   const sameReturnSummary = (() => {
     if (pickupMethod === "office") {
-      const office = displayOffices.find(
-        (row) => canonicalOfficeId(row) === canonicalOfficeId(pickupOfficeId)
-      );
+      const selectedId = canonicalOfficeId(pickupOfficeId);
+      const office = selectedId
+        ? displayOffices.find(
+            (row) => canonicalOfficeId(row) === selectedId
+          )
+        : null;
       return office
         ? `Pick-up office: ${office.name}${
             office.address ? ` — ${office.address}` : ""
@@ -521,56 +558,97 @@ const BookingModal = ({
         if (signal?.aborted) return;
         let summary = buildBookingPriceSummary(result);
         setPriceParts(result?.authoritativePrice || null);
+        const pickupOfficeReady =
+          pickupMethod === "office"
+            ? Boolean(canonicalOfficeId(pickupOfficeId))
+            : Boolean(String(pickupPlaceId || "").trim());
+        const returnOfficeReady = sameReturnLocation
+          ? pickupOfficeReady
+          : returnMethod === "office"
+            ? Boolean(canonicalOfficeId(returnOfficeId))
+            : Boolean(String(returnPlaceId || "").trim());
+        const quoteReady =
+          (pickupMethod === "office" || pickupMethod === "delivery") &&
+          pickupOfficeReady &&
+          returnOfficeReady;
         try {
-          const quoteRes = await fetch("/api/public/delivery/quote", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal,
-            body: JSON.stringify({
-              carId: car?._id,
-              language: lang,
-              pickup: {
-                kind: pickupMethod,
-                method: pickupMethod,
-                officeId: pickupMethod === "office" ? pickupOfficeId : null,
-                placeId: pickupMethod === "delivery" ? pickupPlaceId : null,
-              },
-              return: {
-                kind: sameReturnLocation ? pickupMethod : returnMethod,
-                method: sameReturnLocation ? pickupMethod : returnMethod,
-                officeId: sameReturnLocation
-                  ? pickupMethod === "office"
-                    ? pickupOfficeId
-                    : null
-                  : returnMethod === "office"
-                    ? returnOfficeId
-                    : null,
-                placeId: sameReturnLocation
-                  ? pickupMethod === "delivery"
-                    ? pickupPlaceId
-                    : null
-                  : returnMethod === "delivery"
-                    ? returnPlaceId
-                    : null,
-                sameAsPickup: sameReturnLocation,
-              },
-            }),
-          });
-          const quoteBody = await quoteRes.json().catch(() => ({}));
-          if (quoteBody?.success && quoteBody.snapshot) {
-            setLocationQuote(quoteBody);
-            summary = {
-              ...summary,
-              pickupDeliveryCost: Number(quoteBody.deliveryIn) || 0,
-              returnDeliveryCost: Number(quoteBody.deliveryOut) || 0,
-              deliveryCost: Number(quoteBody.deliveryTotal) || 0,
-              totalPrice:
-                Number(summary.rentalPrice || 0) +
-                (Number(quoteBody.deliveryTotal) || 0),
-              deliveryStatus: "ready",
-            };
+          if (!quoteReady) {
+            setLocationQuote(null);
           } else {
-            setLocationQuote(quoteBody?.success === false ? quoteBody : null);
+            const quoteRes = await fetch("/api/public/delivery/quote", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal,
+              body: JSON.stringify({
+                carId: car?._id,
+                language: lang,
+                pickup: {
+                  kind: pickupMethod,
+                  method: pickupMethod,
+                  officeId: pickupMethod === "office" ? pickupOfficeId : null,
+                  placeId: pickupMethod === "delivery" ? pickupPlaceId : null,
+                  address:
+                    pickupMethod === "delivery"
+                      ? String(placeInDetail || "").trim()
+                      : undefined,
+                  cityName:
+                    pickupMethod === "delivery"
+                      ? String(placeIn || "").trim()
+                      : undefined,
+                },
+                return: {
+                  kind: sameReturnLocation ? pickupMethod : returnMethod,
+                  method: sameReturnLocation ? pickupMethod : returnMethod,
+                  officeId: sameReturnLocation
+                    ? pickupMethod === "office"
+                      ? pickupOfficeId
+                      : null
+                    : returnMethod === "office"
+                      ? returnOfficeId
+                      : null,
+                  placeId: sameReturnLocation
+                    ? pickupMethod === "delivery"
+                      ? pickupPlaceId
+                      : null
+                    : returnMethod === "delivery"
+                      ? returnPlaceId
+                      : null,
+                  address: sameReturnLocation
+                    ? pickupMethod === "delivery"
+                      ? String(placeInDetail || "").trim()
+                      : undefined
+                    : returnMethod === "delivery"
+                      ? String(placeOutDetail || "").trim()
+                      : undefined,
+                  cityName: sameReturnLocation
+                    ? pickupMethod === "delivery"
+                      ? String(placeIn || "").trim()
+                      : undefined
+                    : returnMethod === "delivery"
+                      ? String(placeOut || "").trim()
+                      : undefined,
+                  sameAsPickup: sameReturnLocation,
+                },
+              }),
+            });
+            const quoteBody = await quoteRes.json().catch(() => ({}));
+            if (quoteBody?.success && quoteBody.snapshot) {
+              setLocationQuote(quoteBody);
+              summary = {
+                ...summary,
+                pickupDeliveryCost: Number(quoteBody.deliveryIn) || 0,
+                returnDeliveryCost: Number(quoteBody.deliveryOut) || 0,
+                deliveryCost: Number(quoteBody.deliveryTotal) || 0,
+                totalPrice:
+                  Number(summary.rentalPrice || 0) +
+                  (Number(quoteBody.deliveryTotal) || 0),
+                deliveryStatus: "ready",
+              };
+            } else if (quoteBody?.code === "RATE_LIMIT") {
+              setLocationQuote(null);
+            } else {
+              setLocationQuote(quoteBody?.success === false ? quoteBody : null);
+            }
           }
         } catch (quoteErr) {
           if (quoteErr?.name === "AbortError" || signal?.aborted) return;
@@ -918,7 +996,11 @@ const BookingModal = ({
     }
     if (!coverageReady) return;
     if (String(coverage?.companyId || "") !== bookingCompanyId) return;
-    const initKey = `${bookingCompanyId}`;
+    const officeKey = displayOffices
+      .map((office) => canonicalOfficeId(office))
+      .filter(Boolean)
+      .join(",");
+    const initKey = `${bookingCompanyId}:${officeKey || "no-office"}:${deliveryAreaNames.join("|")}`;
     if (locationInitKeyRef.current === initKey) return;
     locationInitKeyRef.current = initKey;
     const storageKey = bookingCompanyId
@@ -1054,6 +1136,12 @@ const BookingModal = ({
       returnMethod,
       returnOfficeId,
       returnPlaceId,
+      pickupManualAddress:
+        Boolean(placeInGeo?.manual) || isManualPlaceId(pickupPlaceId),
+      pickupAddressText: placeInDetail,
+      returnManualAddress:
+        Boolean(placeOutGeo?.manual) || isManualPlaceId(returnPlaceId),
+      returnAddressText: placeOutDetail,
     });
     if (!locationCheck.ok) {
       Object.assign(newErrors, locationCheck.errors);
@@ -1574,9 +1662,11 @@ const BookingModal = ({
                         }
                         setPlaceInGeo(geo);
                         setPickupPlaceId(geo?.placeId || "");
+                        if (geo?.address) setPlaceInDetail(geo.address);
                         setErrors((prev) => {
                           const next = { ...prev };
                           delete next.placeInDetail;
+                          delete next.submit;
                           return next;
                         });
                       }}
@@ -1585,6 +1675,7 @@ const BookingModal = ({
                       companyId={car?.ownerId || company?._id}
                       carId={car?._id}
                       requireVerifiedPlace={spainSite}
+                      allowManualFallback
                       officeError={pickupMethod === "office" ? errors.placeIn || "" : ""}
                       cityError={pickupMethod === "delivery" ? errors.placeIn || "" : ""}
                       addressError={
@@ -1738,9 +1829,11 @@ const BookingModal = ({
                         }
                         setPlaceOutGeo(geo);
                         setReturnPlaceId(geo?.placeId || "");
+                        if (geo?.address) setPlaceOutDetail(geo.address);
                         setErrors((prev) => {
                           const next = { ...prev };
                           delete next.placeOutDetail;
+                          delete next.submit;
                           return next;
                         });
                       }}
@@ -1749,6 +1842,7 @@ const BookingModal = ({
                       companyId={car?.ownerId || company?._id}
                       carId={car?._id}
                       requireVerifiedPlace={spainSite}
+                      allowManualFallback
                       officeError={returnMethod === "office" ? errors.placeOut || "" : ""}
                       cityError={returnMethod === "delivery" ? errors.placeOut || "" : ""}
                       addressError={

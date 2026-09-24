@@ -872,6 +872,8 @@ async function postOrderAddHandler(request) {
                   : "delivery"),
               officeId: locationInput.pickup.officeId,
               placeId: locationInput.pickup.placeId,
+              address: locationInput.pickup.address || placeInDetailToSave,
+              cityName: locationInput.pickup.cityName || placeInToSave,
             },
             dropoff: {
               kind:
@@ -881,6 +883,8 @@ async function postOrderAddHandler(request) {
                   : "delivery"),
               officeId: locationInput.dropoff.officeId,
               placeId: locationInput.dropoff.placeId,
+              address: locationInput.dropoff.address || placeOutDetailToSave,
+              cityName: locationInput.dropoff.cityName || placeOutToSave,
               sameAsPickup: locationInput.dropoff.sameAsPickup,
             },
             language: clientLocale,
