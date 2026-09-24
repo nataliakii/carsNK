@@ -37,28 +37,37 @@ describe("simplified Legal documents admin", () => {
       LEGAL_DOCUMENT_TYPE.PARTNER_OPERATING_RULES,
       LEGAL_DOCUMENT_TYPE.DATA_PROTECTION_SCHEDULE,
     ]);
-    expect(ADMIN_LEGAL_LANGUAGES).toEqual(["en", "es"]);
+    expect(ADMIN_LEGAL_LANGUAGES).toEqual([
+      "en",
+      "es",
+      "ru",
+      "uk",
+      "ca",
+      "fr",
+      "de",
+      "pt",
+    ]);
   });
 
-  it("canonical public links use EN/ES routes", () => {
+  it("canonical public links use language routes", () => {
     expect(canonicalPublicPath(LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS, "en")).toBe(
       "/en/terms"
     );
     expect(canonicalPublicPath(LEGAL_DOCUMENT_TYPE.PRIVACY_POLICY, "es")).toBe(
       "/es/privacy-policy"
     );
-    expect(canonicalPublicPath(LEGAL_DOCUMENT_TYPE.COOKIE_POLICY, "en")).toBe(
-      "/en/cookie-policy"
+    expect(canonicalPublicPath(LEGAL_DOCUMENT_TYPE.COOKIE_POLICY, "ru")).toBe(
+      "/ru/cookie-policy"
     );
-    expect(canonicalPublicPath(LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT, "en")).toBe(
-      "/en/partner-agreement"
+    expect(canonicalPublicPath(LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT, "fr")).toBe(
+      "/fr/partner-agreement"
     );
     expect(
-      canonicalPublicPath(LEGAL_DOCUMENT_TYPE.PARTNER_OPERATING_RULES, "es")
-    ).toBe("/es/partner-operating-rules");
+      canonicalPublicPath(LEGAL_DOCUMENT_TYPE.PARTNER_OPERATING_RULES, "pt")
+    ).toBe("/pt/partner-operating-rules");
     expect(
-      canonicalPublicPath(LEGAL_DOCUMENT_TYPE.DATA_PROTECTION_SCHEDULE, "en")
-    ).toBe("/en/data-protection-schedule");
+      canonicalPublicPath(LEGAL_DOCUMENT_TYPE.DATA_PROTECTION_SCHEDULE, "uk")
+    ).toBe("/uk/data-protection-schedule");
   });
 
   it("marks unpublished changes vs published vs not published", () => {
@@ -79,7 +88,7 @@ describe("simplified Legal documents admin", () => {
     expect(compactLanguageBadge(null, "en")).toBe("EN · Draft");
   });
 
-  it("summarises twelve language versions", () => {
+  it("summarises language versions across all admin languages", () => {
     const overview = orderedAdminDocuments().map((row, index) => ({
       documentType: row.documentType,
       languages: {
@@ -91,13 +100,17 @@ describe("simplified Legal documents admin", () => {
       },
     }));
     const summary = summarizeAdminLanguages(overview);
-    expect(summary.total).toBe(12);
+    const total = ADMIN_LEGAL_LANGUAGES.length * orderedAdminDocuments().length;
+    expect(summary.total).toBe(total);
+    // 6 EN published + 5 ES published; remaining languages unpublished
     expect(summary.published).toBe(11);
-    expect(summary.notPublished).toBe(1);
-    expect(attentionMessage(summary)).toBe("1 language version is not published.");
+    expect(summary.notPublished).toBe(total - 11);
+    expect(attentionMessage(summary)).toBe(
+      `${total - 11} language versions are not published.`
+    );
   });
 
-  it("hides extra languages and advanced tooling from the main panel", () => {
+  it("keeps the main panel focused on save/publish without advanced tooling", () => {
     const panel = read("app/admin/legal/LegalDocumentsPanel.js");
     expect(panel).toContain("Customer documents");
     expect(panel).toContain("Partner documents");
@@ -106,8 +119,8 @@ describe("simplified Legal documents admin", () => {
     expect(panel).toContain("No unpublished changes.");
     expect(panel).toContain("This will replace the version currently shown on the website.");
     expect(panel).toContain("expanded={expanded}");
-    expect(panel).not.toContain('value="ru"');
-    expect(panel).not.toContain('value="uk"');
+    expect(panel).toContain("ADMIN_LANGUAGE_LABELS");
+    expect(panel).toContain("variant=\"scrollable\"");
     expect(panel).not.toContain("Translations");
     expect(panel).not.toContain("Advanced");
     expect(panel).not.toContain("Archive");

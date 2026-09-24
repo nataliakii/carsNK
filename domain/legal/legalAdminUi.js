@@ -1,7 +1,6 @@
 /**
- * Superadmin Legal documents UI: six platform documents, English and Spanish.
- * Version history and extra languages stay in the database; this module only
- * shapes the main admin surface.
+ * Superadmin Legal documents UI: six platform documents across market languages.
+ * Version history stays in the database; this module shapes the main admin surface.
  */
 
 import {
@@ -10,11 +9,26 @@ import {
   platformDocumentMeta,
 } from "./platformCatalog";
 
-export const ADMIN_LEGAL_LANGUAGES = Object.freeze(["en", "es"]);
+export const ADMIN_LEGAL_LANGUAGES = Object.freeze([
+  "en",
+  "es",
+  "ru",
+  "uk",
+  "ca",
+  "fr",
+  "de",
+  "pt",
+]);
 
 export const ADMIN_LANGUAGE_LABELS = Object.freeze({
   en: "English",
   es: "Español",
+  ru: "Русский",
+  uk: "Українська",
+  ca: "Català",
+  fr: "Français",
+  de: "Deutsch",
+  pt: "Português",
 });
 
 const MONTHS = [

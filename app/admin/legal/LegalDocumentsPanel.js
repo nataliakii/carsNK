@@ -27,6 +27,7 @@ import { getSeedDocument } from "@/domain/legal/documentRegistry";
 import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
 import {
   ADMIN_LEGAL_LANGUAGES,
+  ADMIN_LANGUAGE_LABELS,
   attentionMessage,
   canonicalPublicPath,
   compactLanguageBadge,
@@ -59,7 +60,7 @@ function pickWorkingContent(rows, seed) {
 }
 
 function languageName(lang) {
-  return lang === "es" ? "Spanish" : "English";
+  return ADMIN_LANGUAGE_LABELS[lang] || String(lang || "").toUpperCase();
 }
 
 export default function LegalDocumentsPanel() {
@@ -316,13 +317,16 @@ export default function LegalDocumentsPanel() {
                       <Tabs
                         value={language}
                         onChange={(_e, value) => switchLanguage(value)}
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        allowScrollButtonsMobile
                         sx={{ borderBottom: "1px solid", borderColor: "divider" }}
                       >
                         {ADMIN_LEGAL_LANGUAGES.map((lang) => (
                           <Tab
                             key={lang}
                             value={lang}
-                            label={lang === "es" ? "Español" : "English"}
+                            label={ADMIN_LANGUAGE_LABELS[lang] || lang}
                           />
                         ))}
                       </Tabs>

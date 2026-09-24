@@ -9,6 +9,10 @@
 
 import { useState, useEffect } from "react";
 import { getLegalDoc } from "@utils/action";
+import {
+  markdownInlineToHtml,
+  markdownToHtml,
+} from "@/domain/legal/documentMarkup";
 
 export default function LegalPageContent({ docType, jur = null, forcedLang = null }) {
   const [lang, setLang] = useState(null); // null = not yet determined
@@ -203,7 +207,7 @@ export default function LegalPageContent({ docType, jur = null, forcedLang = nul
       </h1>
 
       {sections.map((section, index) => {
-        if (!section || !section.text) {
+        if (!section || (!section.text && !section.heading)) {
           return null;
         }
 
@@ -213,11 +217,29 @@ export default function LegalPageContent({ docType, jur = null, forcedLang = nul
             style={{
               marginBottom: "24px",
               lineHeight: "1.7",
-              whiteSpace: "pre-line",
               color: "#37474f",
             }}
           >
-            {section.text}
+            {section.heading ? (
+              <h2
+                style={{
+                  fontSize: 17,
+                  fontWeight: 600,
+                  marginBottom: 8,
+                  color: "#263238",
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: markdownInlineToHtml(section.heading),
+                }}
+              />
+            ) : null}
+            {section.text ? (
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: markdownToHtml(section.text),
+                }}
+              />
+            ) : null}
           </section>
         );
       })}

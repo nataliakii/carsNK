@@ -12,6 +12,10 @@ import { useTranslation } from "react-i18next";
 import LegalDocumentModal from "@app/components/Legal/LegalDocumentModal";
 import { CUSTOMER_TERMS_SEGMENT } from "@/domain/legal/customerTermsRoute";
 import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
+import {
+  markdownInlineToHtml,
+  markdownToHtml,
+} from "@/domain/legal/documentMarkup";
 
 function formatPublishedDate(value) {
   if (!value) return "";
@@ -60,16 +64,25 @@ function ContractSections({ content }) {
             <Typography
               component="h2"
               sx={{ fontSize: "1.05rem", fontWeight: 700, mb: 0.75 }}
-            >
-              {section.heading}
-            </Typography>
+              dangerouslySetInnerHTML={{
+                __html: markdownInlineToHtml(section.heading),
+              }}
+            />
           ) : null}
-          <Typography
-            component="div"
-            sx={{ whiteSpace: "pre-wrap", fontSize: "1rem", lineHeight: 1.6 }}
-          >
-            {section.text}
-          </Typography>
+          {section.text ? (
+            <Typography
+              component="div"
+              sx={{
+                fontSize: "1rem",
+                lineHeight: 1.6,
+                "& p": { m: 0, mb: 1 },
+                "& p:last-child": { mb: 0 },
+              }}
+              dangerouslySetInnerHTML={{
+                __html: markdownToHtml(section.text),
+              }}
+            />
+          ) : null}
         </Box>
       ))}
     </Box>
@@ -299,10 +312,16 @@ export default function BookingContractsBlock({
         {openKind === "company" ? (
           <Typography
             component="div"
-            sx={{ whiteSpace: "pre-wrap", fontSize: "1rem", lineHeight: 1.6 }}
-          >
-            {company?.body || ""}
-          </Typography>
+            sx={{
+              fontSize: "1rem",
+              lineHeight: 1.6,
+              "& p": { m: 0, mb: 1 },
+              "& p:last-child": { mb: 0 },
+            }}
+            dangerouslySetInnerHTML={{
+              __html: markdownToHtml(company?.body || ""),
+            }}
+          />
         ) : openKind === "privacy" ? (
           <ContractSections content={privacy?.content} />
         ) : (

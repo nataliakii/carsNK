@@ -4,6 +4,10 @@ import React from "react";
 import { Container, Typography, Box, Alert } from "@mui/material";
 import { getLegalDoc } from "@utils/action";
 import Preloader from "@app/components/Loader/Preloader";
+import {
+  markdownInlineToHtml,
+  markdownToHtml,
+} from "@/domain/legal/documentMarkup";
 
 /**
  * Component to render a legal document fetched from API
@@ -99,20 +103,38 @@ function LegalDoc({ docType, lang = "en", jur }) {
       </Typography>
 
       {sections.map((section, index) => {
-        if (!section || !section.text) {
+        if (!section || (!section.text && !section.heading)) {
           return null;
         }
 
         return (
           <Box key={section.id || index} sx={{ mb: 3 }}>
-            <Typography
-              variant="bodyLarge"
-              paragraph
-              color="secondary.main"
-              style={{ whiteSpace: "pre-line" }}
-            >
-              {section.text}
-            </Typography>
+            {section.heading ? (
+              <Typography
+                component="h2"
+                variant="h6"
+                color="secondary.main"
+                sx={{ mb: 1, fontWeight: 600 }}
+                dangerouslySetInnerHTML={{
+                  __html: markdownInlineToHtml(section.heading),
+                }}
+              />
+            ) : null}
+            {section.text ? (
+              <Typography
+                component="div"
+                variant="bodyLarge"
+                color="secondary.main"
+                sx={{
+                  lineHeight: 1.7,
+                  "& p": { m: 0, mb: 1.5 },
+                  "& p:last-child": { mb: 0 },
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: markdownToHtml(section.text),
+                }}
+              />
+            ) : null}
           </Box>
         );
       })}

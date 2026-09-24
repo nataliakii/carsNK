@@ -123,6 +123,9 @@ const resources = {
       PARTNER_LEGAL_NAV.en
     ),
   },
+  pt: {
+    translation: withPartnerLegal(translationsEn, partnerLegalEn, PARTNER_LEGAL_NAV.en),
+  },
 };
 
 // Функция для определения языка браузера

@@ -48,9 +48,11 @@ export async function getTransferDistance({ from, to }) {
   }
 
   const apiKey = String(process.env.GOOGLE_MAPS_API_KEY || "").trim();
+  let lastGoogleMessage = "";
   if (apiKey) {
     const google = await fetchGoogleDistance(originName, destName, apiKey);
     if (google.ok) return google;
+    lastGoogleMessage = google.message || "";
   }
 
   const estimate = estimateTransferDistanceFromCatalog(originName, destName);
@@ -75,7 +77,8 @@ export async function getTransferDistance({ from, to }) {
   return {
     ok: false,
     message:
-      "Distance unavailable. Use a server Google Maps key (Distance Matrix API, IP restriction — not HTTP referrer).",
+      lastGoogleMessage ||
+      "Distance unavailable for these places. Try clearer addresses or set fixed transfer routes.",
   };
 }
 
@@ -218,10 +221,20 @@ async function fetchGoogleDistanceMatrix(origins, destinations, apiKey) {
   }
 
   if (payload?.status && payload.status !== "OK") {
-    console.error("[google distance] status", payload.status);
+    console.error(
+      "[google distance] status",
+      payload.status,
+      sanitizeProviderErrorMessage(payload.error_message)
+    );
+    const denied =
+      payload.status === "REQUEST_DENIED" ||
+      payload.status === "OVER_QUERY_LIMIT";
     return {
       ok: false,
-      message: "Distance provider unavailable",
+      message: denied
+        ? "Distance unavailable. Check GOOGLE_MAPS_API_KEY (Distance Matrix enabled; Application restrictions None or IP — not HTTP referrers)."
+        : `Distance provider unavailable (${payload.status})`,
+      providerStatus: payload.status,
     };
   }
 

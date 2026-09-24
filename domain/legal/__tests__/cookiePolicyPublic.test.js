@@ -136,8 +136,8 @@ describe("Cookie Policy public publishing workflow", () => {
     expect(hub).not.toContain("Advanced");
     const panel = read("app/admin/legal/LegalDocumentsPanel.js");
     expect(panel).toContain('action: "publish"');
-    expect(panel).toContain("English");
-    expect(panel).toContain("Español");
+    expect(panel).toContain("ADMIN_LANGUAGE_LABELS");
+    expect(panel).toContain("ADMIN_LEGAL_LANGUAGES");
     expect(panel).not.toContain("Create missing translations");
   });
 

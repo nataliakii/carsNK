@@ -3,6 +3,10 @@ import {
   resolveDocumentForDisplay,
 } from "@/domain/legal/documentService";
 import { renderLegalDocument } from "@/domain/legal/tokens";
+import {
+  markdownInlineToHtml,
+  markdownToHtml,
+} from "@/domain/legal/documentMarkup";
 import { loadLegalSettingsWithTokens } from "@/domain/legal/legalSettingsService";
 import {
   getOperatorLine,
@@ -147,19 +151,22 @@ export default async function RovaroLegalDocument({
                     marginBottom: 8,
                     color: "#263238",
                   }}
-                >
-                  {section.heading}
-                </h2>
+                  dangerouslySetInnerHTML={{
+                    __html: markdownInlineToHtml(section.heading),
+                  }}
+                />
               ) : null}
-              <div
-                style={{
-                  lineHeight: 1.7,
-                  whiteSpace: "pre-line",
-                  color: "#37474f",
-                }}
-              >
-                {section.text}
-              </div>
+              {section.text ? (
+                <div
+                  style={{
+                    lineHeight: 1.7,
+                    color: "#37474f",
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: markdownToHtml(section.text),
+                  }}
+                />
+              ) : null}
             </section>
           ))}
 

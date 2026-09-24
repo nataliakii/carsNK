@@ -205,6 +205,11 @@ function applyInlineMarkdown(escaped) {
     );
 }
 
+/** Safe HTML for a heading or short inline string (no block wrappers). */
+export function markdownInlineToHtml(text) {
+  return applyInlineMarkdown(escapeText(text));
+}
+
 export function markdownToHtml(markdown) {
   const withInline = applyInlineMarkdown(escapeText(markdown));
   return withInline

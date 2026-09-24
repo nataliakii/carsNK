@@ -46,4 +46,15 @@ describe("legal document markup formatting", () => {
     expect(back).toContain("<strong>Who we are</strong>");
     expect(back).toContain("Next line without marks.");
   });
+
+  test("published body markdown renders bold and italic instead of raw asterisks", () => {
+    const html = markdownToHtml(
+      "**Legal review status:** Pending legal counsel review. *(Remove this note once review is complete.)*"
+    );
+    expect(html).toContain("<strong>Legal review status:</strong>");
+    expect(html).toContain(
+      "<em>(Remove this note once review is complete.)</em>"
+    );
+    expect(html).not.toContain("**");
+  });
 });

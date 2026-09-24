@@ -51,7 +51,6 @@ import { ALL_UI_LOCALES } from "@/domain/platform/uiLocales";
 import { translateCarEnumValue } from "@/domain/cars/translateCarEnum";
 import { getSiteCountryCode, getSiteCountryConfig } from "@config/siteCountry";
 import { resolveBookingLocationFromPathname } from "@/domain/orders/bookingLocationPathResolver";
-import { CUSTOMER_TERMS_SEGMENT } from "@domain/legal/customerTermsRoute";
 import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
 import {
   isSpainBookingSite,
@@ -588,7 +587,6 @@ export default function NavBar({
     isAdmin ? path : withLocalePrefix(effectiveLocale, path);
   // Admin logo must not send staff to the public rental homepage.
   const homeHref = isAdmin ? "/admin/orders-calendar" : localeLink("/");
-  const termsHref = localeLink(CUSTOMER_TERMS_SEGMENT);
 
   const handleCarClassChange = (event) => {
     const selectedValue = event.target.value;
@@ -1067,9 +1065,6 @@ export default function NavBar({
               <>
                 <Link href={homeHref} style={{ textDecoration: "none" }}>
                   <NavLinkText>{t("header.main")}</NavLinkText>
-                </Link>
-                <Link href={termsHref} style={{ textDecoration: "none" }}>
-                  <NavLinkText>{t("header.terms")}</NavLinkText>
                 </Link>
                 <Button
                   type="button"
@@ -1662,9 +1657,6 @@ export default function NavBar({
               <>
                 <ListItem button component={Link} href={homeHref}>
                   <ListItemText primary={t("header.main")} />
-                </ListItem>
-                <ListItem button component={Link} href={termsHref}>
-                  <ListItemText primary={t("header.terms")} />
                 </ListItem>
                 <ListItem
                   button

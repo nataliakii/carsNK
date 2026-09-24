@@ -13,7 +13,7 @@ export const SUPPORTED_LOCALES = [
 ] as const;
 
 /** Extra UI locales (Spain SEO + general UI). URL prefix is kept. */
-export const EXTRA_UI_LOCALES = ["es", "ca", "fr", "it", "sv", "no"] as const;
+export const EXTRA_UI_LOCALES = ["es", "ca", "fr", "pt", "it", "sv", "no"] as const;
 
 export const ROUTABLE_LOCALES = [
   ...SUPPORTED_LOCALES,
