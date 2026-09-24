@@ -105,7 +105,9 @@ describe("legal document publishing transparency", () => {
       "app/[locale]/partner-operating-rules/page.js",
       "app/[locale]/data-protection-schedule/page.js",
     ]) {
-      expect(read(file)).toContain("publishedOnly");
+      const src = read(file);
+      expect(src).toContain("publishedOnly");
+      expect(src).toContain("PublicLegalPageLayout");
     }
     const api = read("app/api/public/legal/[docType]/route.js");
     expect(api).toContain("getPublishedDocument");

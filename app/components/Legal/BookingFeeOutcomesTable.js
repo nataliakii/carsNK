@@ -27,8 +27,8 @@ const COL_MIN_WIDTH = 160;
 /**
  * One Booking Fee outcomes table.
  *
- * Public Terms page: width is 100% of MainContainer only (never 100vw /
- * negative margins). Mobile scrolls horizontally inside the table wrapper.
+ * Public Terms page: width is 100% of MainContainer only (never viewport-based
+ * widths or negative margins). Mobile scrolls horizontally inside the table wrapper.
  * `compact` collapses it before payment (booking / admin).
  */
 export default function BookingFeeOutcomesTable({

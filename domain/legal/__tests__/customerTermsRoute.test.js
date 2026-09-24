@@ -43,9 +43,14 @@ describe("canonical customer Terms route", () => {
 
   it("renders the customer terms in exactly one page", () => {
     const canonical = read("app/[locale]/terms/page.js");
+    expect(canonical).toContain("PublicLegalPageLayout");
     expect(canonical).toContain("RovaroLegalDocument");
     expect(canonical).toContain("BookingFeeOutcomesTable");
     expect(canonical).toContain("/${normalized}/terms");
+    // Fee table is a child of RovaroLegalDocument so unpublished hides it.
+    expect(canonical).toMatch(
+      /RovaroLegalDocument[\s\S]*BookingFeeOutcomesTable[\s\S]*<\/RovaroLegalDocument>/
+    );
 
     for (const alias of ["app/[locale]/booking-terms/page.js", "app/[locale]/rental-terms/page.js"]) {
       const src = read(alias);

@@ -92,6 +92,7 @@ describe("Cookie Policy public publishing workflow", () => {
 
   it("renders the Cookie Policy page from published Rovaro documents only", () => {
     const page = read("app/[locale]/cookie-policy/page.js");
+    expect(page).toContain("PublicLegalPageLayout");
     expect(page).toContain("RovaroLegalDocument");
     expect(page).toContain("LEGAL_DOCUMENT_TYPE.COOKIE_POLICY");
     expect(page).toContain("publishedOnly");
