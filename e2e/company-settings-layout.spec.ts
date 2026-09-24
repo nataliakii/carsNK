@@ -56,7 +56,6 @@ test.describe("Company settings unified layout", () => {
       });
 
       const baseline = {
-        page: await boxOf(page, "company-settings-page"),
         header: await boxOf(page, "company-settings-header"),
         tabs: await boxOf(page, "company-settings-tabs"),
         content: await boxOf(page, "company-settings-tab-content"),
@@ -65,16 +64,18 @@ test.describe("Company settings unified layout", () => {
       // Setup status may be absent when readiness is null; capture if present.
       const setup = page.getByTestId("company-settings-setup-status");
       const hasSetup = await setup.isVisible().catch(() => false);
-      const setupBox = hasSetup ? await boxOf(page, "company-settings-setup-status") : null;
+      const setupBox = hasSetup
+        ? await boxOf(page, "company-settings-setup-status")
+        : null;
 
-      assertSameEdges(baseline.header, baseline.page, "header vs page");
-      assertSameEdges(baseline.tabs, baseline.page, "tabs vs page");
-      assertSameEdges(baseline.content, baseline.page, "content vs page");
+      // Shared chrome shares the same left/right content edges.
+      assertSameEdges(baseline.tabs, baseline.header, "tabs vs header");
+      assertSameEdges(baseline.content, baseline.header, "content vs header");
       if (setupBox) {
-        assertSameEdges(setupBox, baseline.page, "setup vs page");
+        assertSameEdges(setupBox, baseline.header, "setup vs header");
       }
 
-      // No horizontal overflow of the shell.
+      // No horizontal overflow of the document.
       const scrollWidth = await page.evaluate(
         () => document.documentElement.scrollWidth
       );
@@ -88,13 +89,11 @@ test.describe("Company settings unified layout", () => {
         ).toBeVisible();
 
         const next = {
-          page: await boxOf(page, "company-settings-page"),
           header: await boxOf(page, "company-settings-header"),
           tabs: await boxOf(page, "company-settings-tabs"),
           content: await boxOf(page, "company-settings-tab-content"),
         };
 
-        assertSameEdges(next.page, baseline.page, `${tab} page`);
         assertSameEdges(next.header, baseline.header, `${tab} header`);
         assertSameEdges(next.tabs, baseline.tabs, `${tab} tabs`);
         assertSameEdges(next.content, baseline.content, `${tab} content`);

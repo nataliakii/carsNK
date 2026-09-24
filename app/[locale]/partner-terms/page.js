@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import Feed from "@app/components/Feed";
+import PublicLegalPageLayout from "@app/(legal)/_components/PublicLegalPageLayout";
 import RovaroLegalDocument from "@app/(legal)/_components/RovaroLegalDocument";
 import {
   isRoutableLocale,
@@ -29,13 +29,13 @@ export default async function PartnerTermsPage({ params }) {
   const normalized = normalizeRoutableLocale(locale);
 
   return (
-    <Feed locale={normalized}>
+    <PublicLegalPageLayout locale={normalized}>
       <RovaroLegalDocument
         documentType={LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT}
         locale={normalized}
         publishedOnly
       />
-      <div style={{ maxWidth: 820, margin: "0 auto", padding: "0 20px 48px" }}>
+      <div style={{ padding: "0 0 24px" }}>
         <a
           href={`/${normalized}/partner-operating-rules`}
           style={{ color: "#E9004F", fontSize: 14 }}
@@ -43,6 +43,6 @@ export default async function PartnerTermsPage({ params }) {
           Partner Operating Rules →
         </a>
       </div>
-    </Feed>
+    </PublicLegalPageLayout>
   );
 }
