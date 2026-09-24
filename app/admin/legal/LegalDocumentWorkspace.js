@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 
 import LegalRichTextEditor from "./LegalRichTextEditor";
+import LegalPublishConfirmDialog from "./LegalPublishConfirmDialog";
 import { htmlToSections, markdownToHtml } from "@/domain/legal/documentMarkup";
 import { PLATFORM_DOCUMENT_CATALOG } from "@/domain/legal/platformCatalog";
 import { LEGAL_TRANSLATION_LANGUAGES } from "@/domain/legal/translationAdapter";
@@ -18,6 +19,8 @@ import {
   livePathForDocument,
   nextImportDraftVersion,
 } from "@/domain/legal/documentCardStatus";
+
+const REQUIRE_TYPED_PUBLISH = true;
 
 const IMPORT_STATES = {
   idle: "idle",
@@ -109,6 +112,7 @@ export default function LegalDocumentWorkspace({
   const [reviewMode, setReviewMode] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [confirmPublishOpen, setConfirmPublishOpen] = useState(false);
   const meta = PLATFORM_DOCUMENT_CATALOG.find(
     (row) => row.documentType === active?.documentType
   );
@@ -279,6 +283,7 @@ export default function LegalDocumentWorkspace({
         filename: preview.filename || selectedFile?.name || "",
         createdAt: json.document?.updatedAt || new Date().toISOString(),
         savedBy: json.document?.savedByEmail || "",
+        checksum: json.document?.checksum || "",
         publishedVersion:
           json.publishedVersion ??
           overviewEntry?.languages?.en?.published?.version ??
@@ -299,6 +304,14 @@ export default function LegalDocumentWorkspace({
       setError("Save a draft before publishing.");
       return;
     }
+    setConfirmPublishOpen(true);
+  }
+
+  async function confirmPublishSavedDraft() {
+    if (!savedDraft?.version) {
+      setError("Save a draft before publishing.");
+      return;
+    }
     setError("");
     setMessage("");
     try {
@@ -309,19 +322,28 @@ export default function LegalDocumentWorkspace({
         language: "en",
         version: savedDraft.version,
         changeClass: "material",
+        publishConfirm: "PUBLISH",
+        expectedChecksum: savedDraft.checksum || undefined,
       });
       if (json.published === false && json.success === false) {
         throw new Error(json.message || "Publish failed");
       }
+      if (json.verified === null && json.code === "publish_verify_failed") {
+        throw new Error(json.message || "Publish verification failed");
+      }
       setPublishedLive({
         version: json.document?.version || savedDraft.version,
         href: livePath ? `/en${livePath}` : null,
+        verified: Boolean(json.verified),
       });
       setImportStatus(IMPORT_STATES.published);
       setMessage(
-        `Published v${json.document?.version || savedDraft.version}. The previous published version remains in Version history.`
+        `Published v${json.document?.version || savedDraft.version}. Verification ${
+          json.verified ? "passed" : "completed"
+        }. The previous published version remains in Version history.`
       );
       setSavedDraft(null);
+      setConfirmPublishOpen(false);
       onImported?.();
     } catch (err) {
       setError(err.message || "Could not publish update");
@@ -720,6 +742,23 @@ export default function LegalDocumentWorkspace({
             : "Open a saved draft from the card list to preview desktop and mobile rendering before you publish."}
         </Typography>
       ) : null}
+
+      <LegalPublishConfirmDialog
+        open={confirmPublishOpen}
+        busy={busy}
+        documentName={meta?.name || active?.documentType}
+        language="en"
+        draftVersion={savedDraft?.version}
+        content={savedDraft?.content}
+        previousLiveVersion={savedDraft?.publishedVersion}
+        requireTypedConfirm={REQUIRE_TYPED_PUBLISH}
+        onClose={() => setConfirmPublishOpen(false)}
+        onConfirm={() =>
+          confirmPublishSavedDraft().catch((err) =>
+            setError(err.message || "Could not publish update")
+          )
+        }
+      />
     </Box>
   );
 }

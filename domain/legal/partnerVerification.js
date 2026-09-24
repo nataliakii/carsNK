@@ -123,13 +123,39 @@ export function evaluateProfileCompleteness(profile) {
 }
 
 /**
+ * REJECTED carries either a hard reject or a changes-requested decision.
+ * Both reuse the same status enum so the state machine stays compatible.
+ */
+export const REJECTION_DECISION = Object.freeze({
+  CHANGES_REQUESTED: "changes_requested",
+  REJECTED: "rejected",
+});
+
+/**
  * Apply a status change with validation and an appended history entry.
  * Mutates and returns the given profile document.
  *
  * @param {object} profile mongoose document
- * @param {{ to: string, byEmail?: string, reason?: string }} params
+ * @param {{
+ *   to: string,
+ *   byEmail?: string,
+ *   reason?: string,
+ *   rejectionDecision?: string,
+ *   requestedChanges?: Array<{type?: string, key?: string, label?: string}>,
+ *   internalNote?: string,
+ * }} params
  */
-export function applyVerificationTransition(profile, { to, byEmail = "", reason = "" }) {
+export function applyVerificationTransition(
+  profile,
+  {
+    to,
+    byEmail = "",
+    reason = "",
+    rejectionDecision = "",
+    requestedChanges = null,
+    internalNote = "",
+  } = {}
+) {
   const from = profile.verificationStatus || S.DRAFT;
   if (!ALL_PARTNER_VERIFICATION_STATUSES.includes(to)) {
     return { ok: false, code: "unknown_status", message: `Unknown status ${to}` };
@@ -153,13 +179,48 @@ export function applyVerificationTransition(profile, { to, byEmail = "", reason 
     profile.verifiedByEmail = byEmail;
     profile.suspensionReason = "";
     profile.rejectionReason = "";
+    profile.rejectionDecision = "";
+    profile.requestedChanges = [];
+    profile.verificationNote = "";
   }
   if (to === S.SUSPENDED) profile.suspensionReason = reason;
-  if (to === S.REJECTED) profile.rejectionReason = reason;
+  if (to === S.REJECTED) {
+    const decision =
+      rejectionDecision === REJECTION_DECISION.CHANGES_REQUESTED
+        ? REJECTION_DECISION.CHANGES_REQUESTED
+        : REJECTION_DECISION.REJECTED;
+    profile.rejectionReason = reason;
+    profile.rejectionDecision = decision;
+    profile.requestedChanges = Array.isArray(requestedChanges)
+      ? requestedChanges
+          .map((item) => ({
+            type: String(item?.type || "other"),
+            key: String(item?.key || ""),
+            label: String(item?.label || item?.key || "").trim(),
+          }))
+          .filter((item) => item.label)
+      : [];
+    if (internalNote) profile.verificationNote = String(internalNote).trim();
+  }
+  if (to === S.DRAFT || to === S.PENDING_VERIFICATION) {
+    // Resubmit / reopen clears the previous refusal payload.
+    if (from === S.REJECTED) {
+      profile.rejectionDecision = "";
+      profile.requestedChanges = [];
+    }
+  }
 
   profile.statusHistory = [
     ...(profile.statusHistory || []),
-    { from, to, at: new Date(), byEmail, reason },
+    {
+      from,
+      to,
+      at: new Date(),
+      byEmail,
+      reason,
+      rejectionDecision:
+        to === S.REJECTED ? profile.rejectionDecision || "" : "",
+    },
   ];
 
   return { ok: true, unchanged: false, from, to, profile };

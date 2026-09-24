@@ -220,19 +220,9 @@ function SettingsTabsInner({ voucherHub }) {
         <Typography
           variant="h4"
           fontWeight={700}
-          sx={{ mb: 0.5, ...adminReadableTextSx }}
-        >
-          {t("header.settings", { defaultValue: "Settings" })}
-        </Typography>
-        <Typography
-          variant="body2"
-          color="text.secondary"
           sx={{ ...adminReadableTextSx }}
         >
-          {t("settings.subtitle", {
-            defaultValue:
-              "Platform configuration for Rovaro: locations, pricing, delivery, vouchers, legal documents and access.",
-          })}
+          {t("header.settings", { defaultValue: "Settings" })}
         </Typography>
       </Box>
 

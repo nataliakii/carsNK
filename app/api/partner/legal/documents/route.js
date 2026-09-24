@@ -285,9 +285,12 @@ export async function POST(request) {
       resourceType: partnerDocumentResourceType(mime),
       uploadedAt: new Date(),
       uploadedByUserId: String(session.user?.id || ""),
+      uploadedByEmail: String(session.user?.email || ""),
       reviewedAt: null,
       reviewedByEmail: "",
       accepted: false,
+      reviewState: "not_checked",
+      problemReason: "",
       note: "",
     };
 

@@ -19,9 +19,8 @@ import {
   PARTNER_OPERATION_PURPOSE,
 } from "@/domain/legal/partnerOperatingPolicy";
 
-// Кеширование для статических данных (company меняется очень редко)
-// Revalidate каждый час (3600 секунд)
-export const revalidate = 3600;
+// Admin PATCH + pricing editors need fresh reads; do not cache company JSON.
+export const dynamic = "force-dynamic";
 
 function parseCompanyId(params) {
   const raw = params?.id;
@@ -74,7 +73,7 @@ export const GET = async (request, { params }) => {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=1800",
+        "Cache-Control": "no-store",
       },
     });
   } catch (error) {

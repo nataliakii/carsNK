@@ -7,6 +7,9 @@
  */
 
 import { evaluatePartnerOperatingGate } from "./partnerGate";
+import { REJECTION_DECISION } from "./partnerVerification";
+
+export { REJECTION_DECISION };
 
 export const PARTNER_REVIEW_FILTER = Object.freeze({
   PENDING: "pending",
@@ -28,21 +31,78 @@ export function filterForVerificationStatus(status) {
 /**
  * Which operator buttons belong on the review card.
  * Draft is not a review decision: no approve and no reject.
+ * Pending: Approve / Request changes / Reject. Verified: Suspend only.
  */
 export function reviewControlsForStatus(status) {
   const none = {
     moveToReview: false,
     approve: false,
+    requestChanges: false,
     reject: false,
     suspend: false,
     reopenDraft: false,
   };
   if (status === "DRAFT") return { ...none, moveToReview: true };
-  if (status === PENDING) return { ...none, approve: true, reject: true };
+  if (status === PENDING) {
+    return { ...none, approve: true, requestChanges: true, reject: true };
+  }
   if (status === "VERIFIED") return { ...none, suspend: true };
-  if (status === "SUSPENDED") return { ...none, approve: true, reject: true };
+  if (status === "SUSPENDED") {
+    return { ...none, approve: true, requestChanges: true, reject: true };
+  }
   if (status === "REJECTED") return { ...none, reopenDraft: true };
   return none;
+}
+
+/**
+ * Plain-language application status for the review header badge.
+ * REJECTED + changes_requested → "Changes requested"; otherwise "Rejected".
+ * Never returns raw enum strings like PENDING_VERIFICATION.
+ */
+export const REVIEW_DISPLAY_STATUS = Object.freeze({
+  DRAFT: "draft",
+  AWAITING_REVIEW: "awaiting_review",
+  APPROVED: "approved",
+  CHANGES_REQUESTED: "changes_requested",
+  REJECTED: "rejected",
+  SUSPENDED: "suspended",
+  NONE: "none",
+});
+
+export const REVIEW_DISPLAY_STATUS_LABEL = Object.freeze({
+  [REVIEW_DISPLAY_STATUS.DRAFT]: "Draft",
+  [REVIEW_DISPLAY_STATUS.AWAITING_REVIEW]: "Awaiting review",
+  [REVIEW_DISPLAY_STATUS.APPROVED]: "Approved",
+  [REVIEW_DISPLAY_STATUS.CHANGES_REQUESTED]: "Changes requested",
+  [REVIEW_DISPLAY_STATUS.REJECTED]: "Rejected",
+  [REVIEW_DISPLAY_STATUS.SUSPENDED]: "Suspended",
+  [REVIEW_DISPLAY_STATUS.NONE]: "No profile",
+});
+
+/**
+ * @param {{ verificationStatus?: string, rejectionDecision?: string }|null} profile
+ */
+export function reviewDisplayStatus(profile) {
+  const status = profile?.verificationStatus || null;
+  if (!status) return REVIEW_DISPLAY_STATUS.NONE;
+  if (status === PENDING) return REVIEW_DISPLAY_STATUS.AWAITING_REVIEW;
+  if (status === "VERIFIED") return REVIEW_DISPLAY_STATUS.APPROVED;
+  if (status === "SUSPENDED") return REVIEW_DISPLAY_STATUS.SUSPENDED;
+  if (status === "DRAFT") return REVIEW_DISPLAY_STATUS.DRAFT;
+  if (status === "REJECTED") {
+    return profile?.rejectionDecision === REJECTION_DECISION.CHANGES_REQUESTED
+      ? REVIEW_DISPLAY_STATUS.CHANGES_REQUESTED
+      : REVIEW_DISPLAY_STATUS.REJECTED;
+  }
+  return REVIEW_DISPLAY_STATUS.NONE;
+}
+
+export function reviewDisplayStatusLabel(profileOrKey) {
+  const key =
+    typeof profileOrKey === "string"
+      ? profileOrKey
+      : reviewDisplayStatus(profileOrKey);
+  return REVIEW_DISPLAY_STATUS_LABEL[key] || REVIEW_DISPLAY_STATUS_LABEL.none;
 }
 
 /**

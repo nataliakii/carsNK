@@ -12,6 +12,8 @@ import {
   createTranslationDraftVersion,
   saveDocumentDraft,
   getPublishedDocument,
+  listLiveTestContentDocuments,
+  restorePreviousPublishedVersion,
 } from "@/domain/legal/documentService";
 import {
   isKnownDocumentType,
@@ -26,6 +28,11 @@ import { importLegalFile } from "@/domain/legal/documentImport";
 import { buildTranslationDraft, publicationBlockReason } from "@/domain/legal/translationAdapter";
 import { auditLegalAction } from "@/domain/legal/contentSanitizer";
 import { assertTranslationPublishable } from "@/domain/legal/translationWorkflow";
+import {
+  isProductionLegalRuntime,
+  TEST_CONTENT_PRODUCTION_MESSAGE,
+} from "@/domain/legal/testContentGuard";
+import { isAutomatedTestRuntime } from "@/domain/legal/environmentDbGuard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,6 +59,7 @@ export async function GET(request) {
 
   const rows = await listDocuments();
   const overview = await getDocumentStatusOverview();
+  const liveTestContent = await listLiveTestContentDocuments();
   const filtered = rows.filter((doc) => {
     if (filterType && doc.documentType !== filterType) return false;
     if (filterLang && doc.language !== filterLang) return false;
@@ -61,6 +69,7 @@ export async function GET(request) {
   return NextResponse.json({
     success: true,
     overview,
+    liveTestContent,
     documents: filtered.map((doc) => ({
       platform: doc.platform,
       documentType: doc.documentType,
@@ -76,6 +85,7 @@ export async function GET(request) {
       updatedAt: doc.updatedAt,
       sectionCount: doc.content?.sections?.length || 0,
       title: doc.content?.title || "",
+      testOnly: Boolean(doc.testOnly),
       ...(includeContent ? { content: doc.content || { title: "", sections: [] } } : {}),
       /** Sections hidden from public output until config is complete. */
       suppressedSections: findSuppressedSections(doc),
@@ -139,6 +149,31 @@ export async function POST(request) {
   }
 
   if (action === "publishAll") {
+    if (isProductionLegalRuntime()) {
+      const confirmToken = String(body.publishConfirm || "").trim().toUpperCase();
+      if (confirmToken !== "PUBLISH") {
+        return NextResponse.json(
+          {
+            success: false,
+            code: "publish_confirm_required",
+            message:
+              "Type PUBLISH to confirm publishing platform legal documents in production.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+    if (isAutomatedTestRuntime() && process.env.ALLOW_QA_PUBLISH !== "1") {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "qa_publish_blocked",
+          message:
+            "Browser QA / automated tests must stop before real publication unless ALLOW_QA_PUBLISH=1 on an isolated QA database.",
+        },
+        { status: 400 }
+      );
+    }
     const changeClass =
       body.changeClass === PUBLICATION_CHANGE.EDITORIAL
         ? PUBLICATION_CHANGE.EDITORIAL
@@ -209,6 +244,31 @@ export async function POST(request) {
   };
 
   if (action === "publish") {
+    if (isProductionLegalRuntime()) {
+      const confirmToken = String(body.publishConfirm || "").trim().toUpperCase();
+      if (confirmToken !== "PUBLISH") {
+        return NextResponse.json(
+          {
+            success: false,
+            code: "publish_confirm_required",
+            message:
+              "Type PUBLISH to confirm publishing platform legal documents in production.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+    if (isAutomatedTestRuntime() && process.env.ALLOW_QA_PUBLISH !== "1") {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "qa_publish_blocked",
+          message:
+            "Browser QA / automated tests must stop before real publication unless ALLOW_QA_PUBLISH=1 on an isolated QA database.",
+        },
+        { status: 400 }
+      );
+    }
     if (String(body.language || "en") !== "en") {
       const source = await getPublishedDocument({
         documentType: body.documentType,
@@ -229,11 +289,25 @@ export async function POST(request) {
     const result = await publishDocument({
       ...params,
       effectiveFrom: body.effectiveFrom || null,
+      expectedChecksum: body.expectedChecksum || null,
     });
     if (!result.ok) {
+      const status =
+        result.code === "not_found"
+          ? 404
+          : result.code === "test_content_blocked"
+            ? 400
+            : 409;
       return NextResponse.json(
-        { success: false, message: result.message, code: result.code },
-        { status: result.code === "not_found" ? 404 : 409 }
+        {
+          success: false,
+          message:
+            result.code === "test_content_blocked"
+              ? TEST_CONTENT_PRODUCTION_MESSAGE
+              : result.message,
+          code: result.code,
+        },
+        { status }
       );
     }
     await recordAuditEvent({
@@ -248,6 +322,7 @@ export async function POST(request) {
         language: params.language,
         version: params.version,
         checksum: result.doc?.checksum,
+        verified: result.verified || null,
         changeClass: body.changeClass === "editorial" ? "editorial" : "material",
       },
     });
@@ -271,7 +346,45 @@ export async function POST(request) {
         );
       });
     }
-    return NextResponse.json({ success: true, document: result.doc });
+    return NextResponse.json({
+      success: true,
+      document: result.doc,
+      verified: result.verified || null,
+    });
+  }
+
+  if (action === "restorePrevious") {
+    const result = await restorePreviousPublishedVersion({
+      documentType: body.documentType,
+      language: body.language,
+      jurisdiction: body.jurisdiction,
+      byEmail,
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, message: result.message, code: result.code },
+        { status: result.code === "no_restore_candidate" ? 404 : 409 }
+      );
+    }
+    await recordAuditEvent({
+      action: "LEGAL_DOCUMENT_RESTORED",
+      userRole: "superadmin",
+      userEmail: byEmail,
+      severity: "high",
+      ipAddress,
+      userAgent,
+      metadata: {
+        documentType: body.documentType,
+        language: body.language,
+        version: result.doc?.version,
+        checksum: result.doc?.checksum,
+      },
+    });
+    return NextResponse.json({
+      success: true,
+      document: result.doc,
+      verified: result.verified || null,
+    });
   }
 
   if (action === "archive") {

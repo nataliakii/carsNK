@@ -54,6 +54,14 @@ export default function PartnerVerificationBanner({ profile }) {
         ? profile.suspensionReason
         : "";
   const changedAt = formatUtc(profile.verificationStatusAt);
+  const isChangesRequested =
+    status === S.REJECTED && profile.rejectionDecision === "changes_requested";
+  const requestedChanges = Array.isArray(profile.requestedChanges)
+    ? profile.requestedChanges
+    : [];
+  const statusLabelKey = isChangesRequested
+    ? "partnerLegal.status.CHANGES_REQUESTED"
+    : `partnerLegal.status.${status}`;
 
   return (
     <Alert severity={SEVERITY[status] || "info"} sx={{ mb: 2 }}>
@@ -62,14 +70,33 @@ export default function PartnerVerificationBanner({ profile }) {
           <Chip
             size="small"
             color={CHIP_COLOR[status] || "default"}
-            label={t(`partnerLegal.status.${status}.label`)}
+            label={t(`${statusLabelKey}.label`, {
+              defaultValue: isChangesRequested ? "Changes requested" : status,
+            })}
           />
-          <span>{t(`partnerLegal.status.${status}.title`)}</span>
+          <span>
+            {t(`${statusLabelKey}.title`, {
+              defaultValue: isChangesRequested ? "Changes requested" : status,
+            })}
+          </span>
         </Stack>
       </AlertTitle>
       <Typography variant="body2">
-        {t(`partnerLegal.status.${status}.body`)}
+        {t(`${statusLabelKey}.body`, {
+          defaultValue: isChangesRequested
+            ? "Rovaro asked for corrections. Update the listed items and submit again."
+            : "",
+        })}
       </Typography>
+      {requestedChanges.length ? (
+        <Stack component="ul" sx={{ m: 0, pl: 2, mt: 1 }}>
+          {requestedChanges.map((item) => (
+            <Typography component="li" key={`${item.type}-${item.key}`} variant="body2">
+              {item.label || item.key}
+            </Typography>
+          ))}
+        </Stack>
+      ) : null}
       {reason ? (
         <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>
           {t("partnerLegal.status.reason", { reason })}

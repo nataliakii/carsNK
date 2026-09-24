@@ -230,9 +230,13 @@ export default function PartnerLegalProfileSection({
       </Typography>
       {companyView ? (
         <Typography variant="body2" sx={{ mb: 2, fontWeight: 700 }}>
-          {t(
-            `partnerLegal.companyPage.${companyLegalStatusKey(profile)}`
-          )}
+          {profile?.rejectionDecision === "changes_requested"
+            ? t("partnerLegal.status.CHANGES_REQUESTED.label", {
+                defaultValue: "Changes requested",
+              })
+            : t(
+                `partnerLegal.companyPage.${companyLegalStatusKey(profile)}`
+              )}
         </Typography>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -269,7 +273,33 @@ export default function PartnerLegalProfileSection({
 
       {status === S.REJECTED ? (
         <Alert severity="info" sx={{ mb: 2 }}>
-          {t("partnerLegal.form.rejectedReopen")}
+          {profile?.rejectionDecision === "changes_requested"
+            ? t("partnerLegal.status.CHANGES_REQUESTED.body", {
+                defaultValue:
+                  "Rovaro asked for corrections. Update the listed items and submit again.",
+              })
+            : t("partnerLegal.form.rejectedReopen")}
+          {Array.isArray(profile?.requestedChanges) &&
+          profile.requestedChanges.length ? (
+            <Stack component="ul" sx={{ m: 0, pl: 2, mt: 1 }}>
+              {profile.requestedChanges.map((item) => (
+                <Typography
+                  component="li"
+                  key={`${item.type}-${item.key}`}
+                  variant="body2"
+                >
+                  {item.label || item.key}
+                </Typography>
+              ))}
+            </Stack>
+          ) : null}
+          {profile?.rejectionReason ? (
+            <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>
+              {t("partnerLegal.status.reason", {
+                reason: profile.rejectionReason,
+              })}
+            </Typography>
+          ) : null}
         </Alert>
       ) : null}
 

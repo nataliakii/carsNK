@@ -76,7 +76,8 @@ export default function CompanyDeliveryPricingCard({
               mode: outsideMode,
               amount: Number(outsideAmount) || 0,
             },
-            afterHoursSurcharge: existing.afterHoursSurcharge,
+            // Omit afterHoursSurcharge so the API keeps the DB value (stale
+            // company props here would otherwise wipe a saved surcharge to 0).
           },
         }),
       });

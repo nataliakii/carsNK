@@ -146,15 +146,17 @@ describe("partner review actions", () => {
     expect(reviewControlsForStatus("DRAFT")).toEqual({
       moveToReview: true,
       approve: false,
+      requestChanges: false,
       reject: false,
       suspend: false,
       reopenDraft: false,
     });
   });
 
-  it("shows Approve and Reject for a pending profile", () => {
+  it("shows Approve, Request changes and Reject for a pending profile", () => {
     const controls = reviewControlsForStatus(PENDING);
     expect(controls.approve).toBe(true);
+    expect(controls.requestChanges).toBe(true);
     expect(controls.reject).toBe(true);
     expect(controls.moveToReview).toBe(false);
   });
@@ -163,6 +165,7 @@ describe("partner review actions", () => {
     const controls = reviewControlsForStatus("VERIFIED");
     expect(controls.approve).toBe(false);
     expect(controls.reject).toBe(false);
+    expect(controls.requestChanges).toBe(false);
     expect(controls.suspend).toBe(true);
   });
 });

@@ -6,7 +6,10 @@
  * here can read, modify or archive them.
  */
 
+import mongoose from "mongoose";
+
 import LegalDocument from "@models/LegalDocument";
+import LegalDocumentCurrent from "@models/LegalDocumentCurrent";
 import { connectToDB } from "@lib/database";
 
 import {
@@ -24,6 +27,10 @@ import { buildDocumentKey } from "./documentKeys";
 import { sanitizeLegalHtml } from "./contentSanitizer";
 import { buildTranslationDraft } from "./translationAdapter";
 import { collectRequiredPublishTargets } from "./platformPublish";
+import {
+  assertNotTestContentInProduction,
+  detectTestLegalContent,
+} from "./testContentGuard";
 
 /** Scope guard applied to every query. */
 function scope(extra = {}) {
@@ -85,6 +92,36 @@ export async function syncSeedDocuments({ byEmail = "" } = {}) {
  *
  * @param {{ documentType: string, language?: string, jurisdiction?: string }} params
  */
+async function resolveCurrentPublishedRow({ documentType, language, jurisdiction }) {
+  const pointer = await LegalDocumentCurrent.findOne(
+    scope({ documentType, language, jurisdiction })
+  ).lean();
+  if (pointer?.documentId) {
+    const byPointer = await LegalDocument.findOne(
+      scope({
+        _id: pointer.documentId,
+        documentType,
+        language,
+        jurisdiction,
+        status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
+      })
+    ).lean();
+    if (byPointer) return byPointer;
+  }
+
+  // Fallback for rows published before the pointer collection existed.
+  return LegalDocument.findOne(
+    scope({
+      documentType,
+      language,
+      jurisdiction,
+      status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
+    })
+  )
+    .sort({ version: -1 })
+    .lean();
+}
+
 export async function getPublishedDocument({
   documentType,
   language,
@@ -94,23 +131,19 @@ export async function getPublishedDocument({
   const lang = normalizeLegalLanguage(language);
   const jur = normalizeJurisdiction(jurisdiction);
 
-  const find = (l) =>
-    LegalDocument.findOne(
-      scope({
-        documentType,
-        language: l,
-        jurisdiction: jur,
-        status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
-      })
-    )
-      .sort({ version: -1 })
-      .lean();
-
-  const direct = await find(lang);
+  const direct = await resolveCurrentPublishedRow({
+    documentType,
+    language: lang,
+    jurisdiction: jur,
+  });
   if (direct) return { doc: direct, fellBackToEnglish: false };
 
   if (lang !== LEGAL_AUTHORITATIVE_LANGUAGE) {
-    const english = await find(LEGAL_AUTHORITATIVE_LANGUAGE);
+    const english = await resolveCurrentPublishedRow({
+      documentType,
+      language: LEGAL_AUTHORITATIVE_LANGUAGE,
+      jurisdiction: jur,
+    });
     if (english) return { doc: english, fellBackToEnglish: true };
   }
 
@@ -152,6 +185,38 @@ export async function listDocuments() {
  * @param {{ documentType: string, language: string, jurisdiction?: string,
  *           version: number, effectiveFrom?: Date|string|null, byEmail?: string }} params
  */
+async function upsertCurrentPointer({
+  documentType,
+  language,
+  jurisdiction,
+  doc,
+  byEmail,
+  session = null,
+}) {
+  const filter = scope({ documentType, language, jurisdiction });
+  const update = {
+    $set: {
+      documentId: doc._id,
+      version: doc.version,
+      checksum: doc.checksum,
+      publishedAt: doc.publishedAt,
+      publishedByEmail: byEmail || doc.publishedByEmail || "",
+    },
+  };
+  const opts = { upsert: true, new: true };
+  if (session) opts.session = session;
+  return LegalDocumentCurrent.findOneAndUpdate(filter, update, opts);
+}
+
+/**
+ * Publish a specific version and archive the previously published one.
+ * Atomic when the Mongo deployment supports transactions; otherwise falls back
+ * to ordered writes that still maintain a single current pointer.
+ *
+ * @param {{ documentType: string, language: string, jurisdiction?: string,
+ *           version: number, effectiveFrom?: Date|string|null, byEmail?: string,
+ *           expectedChecksum?: string|null }} params
+ */
 export async function publishDocument({
   documentType,
   language,
@@ -159,6 +224,7 @@ export async function publishDocument({
   version,
   effectiveFrom = null,
   byEmail = "",
+  expectedChecksum = null,
 }) {
   await connectToDB();
   const jur = normalizeJurisdiction(jurisdiction);
@@ -171,7 +237,24 @@ export async function publishDocument({
     return { ok: false, code: "not_found", message: "Document version not found" };
   }
   if (doc.status === LEGAL_DOCUMENT_STATUS.PUBLISHED) {
+    await upsertCurrentPointer({
+      documentType,
+      language: lang,
+      jurisdiction: jur,
+      doc,
+      byEmail: doc.publishedByEmail || byEmail,
+    });
     return { ok: true, unchanged: true, doc: doc.toObject() };
+  }
+
+  const blocked = assertNotTestContentInProduction(doc.toObject());
+  if (!blocked.ok) {
+    return {
+      ok: false,
+      code: blocked.code,
+      message: blocked.message,
+      reasons: blocked.reasons,
+    };
   }
 
   const integrity = verifyDocumentChecksum(doc.toObject(), doc.checksum);
@@ -185,54 +268,251 @@ export async function publishDocument({
     };
   }
 
-  const now = new Date();
+  if (
+    expectedChecksum &&
+    String(expectedChecksum).toLowerCase() !== String(doc.checksum).toLowerCase()
+  ) {
+    return {
+      ok: false,
+      code: "expected_checksum_mismatch",
+      message:
+        "Draft checksum no longer matches the version you confirmed for publish",
+    };
+  }
 
-  const currentlyPublished = await LegalDocument.find(
+  const now = new Date();
+  const effective = effectiveFrom ? new Date(effectiveFrom) : now;
+
+  const run = async (session) => {
+    let currentlyPublishedQuery = LegalDocument.find(
+      scope({
+        documentType,
+        language: lang,
+        jurisdiction: jur,
+        status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
+      })
+    );
+    if (session) currentlyPublishedQuery = currentlyPublishedQuery.session(session);
+    const currentlyPublished = await currentlyPublishedQuery;
+
+    for (const previous of currentlyPublished) {
+      previous.status = LEGAL_DOCUMENT_STATUS.ARCHIVED;
+      previous.archivedAt = now;
+      previous.history = [
+        ...(previous.history || []),
+        {
+          version: previous.version,
+          checksum: previous.checksum,
+          status: LEGAL_DOCUMENT_STATUS.ARCHIVED,
+          effectiveFrom: previous.effectiveFrom,
+          archivedAt: now,
+          changedAt: now,
+          changedByEmail: byEmail,
+          note: `Superseded by version ${version}`,
+        },
+      ];
+      await previous.save(session ? { session } : undefined);
+    }
+
+    doc.status = LEGAL_DOCUMENT_STATUS.PUBLISHED;
+    doc.effectiveFrom = effective;
+    doc.publishedAt = now;
+    doc.publishedByEmail = byEmail;
+    doc.history = [
+      ...(doc.history || []),
+      {
+        version: doc.version,
+        checksum: doc.checksum,
+        status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
+        effectiveFrom: doc.effectiveFrom,
+        changedAt: now,
+        changedByEmail: byEmail,
+        note: "Published",
+      },
+    ];
+    await doc.save(session ? { session } : undefined);
+
+    await upsertCurrentPointer({
+      documentType,
+      language: lang,
+      jurisdiction: jur,
+      doc,
+      byEmail,
+      session,
+    });
+
+    return doc.toObject();
+  };
+
+  let publishedDoc;
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    publishedDoc = await run(session);
+    await session.commitTransaction();
+  } catch (err) {
+    try {
+      await session.abortTransaction();
+    } catch {
+      /* ignore */
+    }
+    // Standalone / non-replica-set: transactions unsupported — ordered fallback.
+    if (
+      String(err?.message || "").includes("Transaction numbers") ||
+      String(err?.codeName || "") === "IllegalOperation" ||
+      err?.code === 20
+    ) {
+      publishedDoc = await run(null);
+    } else {
+      session.endSession();
+      throw err;
+    }
+  } finally {
+    session.endSession();
+  }
+
+  // Post-publish verification: re-read current published and confirm id/checksum.
+  const verified = await resolveCurrentPublishedRow({
+    documentType,
+    language: lang,
+    jurisdiction: jur,
+  });
+  if (
+    !verified ||
+    String(verified._id) !== String(publishedDoc._id) ||
+    String(verified.checksum) !== String(publishedDoc.checksum)
+  ) {
+    return {
+      ok: false,
+      code: "publish_verify_failed",
+      message:
+        "Publish wrote but verification against the current pointer failed",
+      doc: publishedDoc,
+      verifiedId: verified?._id ? String(verified._id) : null,
+    };
+  }
+
+  return {
+    ok: true,
+    unchanged: false,
+    doc: publishedDoc,
+    verified: {
+      id: String(verified._id),
+      version: verified.version,
+      checksum: verified.checksum,
+    },
+  };
+}
+
+/**
+ * List published documents that look like QA/test content (admin banner).
+ */
+export async function listLiveTestContentDocuments() {
+  await connectToDB();
+  const published = await LegalDocument.find(
+    scope({ status: LEGAL_DOCUMENT_STATUS.PUBLISHED })
+  ).lean();
+  return published
+    .filter((doc) => detectTestLegalContent(doc).isTest)
+    .map((doc) => ({
+      id: String(doc._id),
+      documentType: doc.documentType,
+      language: doc.language,
+      jurisdiction: doc.jurisdiction,
+      version: doc.version,
+      title: doc.content?.title || "",
+      checksum: doc.checksum,
+      publishedAt: doc.publishedAt,
+      publishedByEmail: doc.publishedByEmail || "",
+      reasons: detectTestLegalContent(doc).reasons,
+    }));
+}
+
+/**
+ * Restore the latest non-test archived version as a new audited published row.
+ * Does not edit or delete history; booking snapshots stay untouched.
+ */
+export async function restorePreviousPublishedVersion({
+  documentType,
+  language,
+  jurisdiction,
+  byEmail = "",
+}) {
+  await connectToDB();
+  const jur = normalizeJurisdiction(jurisdiction);
+  const lang = normalizeLegalLanguage(language);
+
+  const candidates = await LegalDocument.find(
     scope({
       documentType,
       language: lang,
       jurisdiction: jur,
-      status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
-    })
-  );
-  for (const previous of currentlyPublished) {
-    previous.status = LEGAL_DOCUMENT_STATUS.ARCHIVED;
-    previous.archivedAt = now;
-    previous.history = [
-      ...(previous.history || []),
-      {
-        version: previous.version,
-        checksum: previous.checksum,
-        status: LEGAL_DOCUMENT_STATUS.ARCHIVED,
-        effectiveFrom: previous.effectiveFrom,
-        archivedAt: now,
-        changedAt: now,
-        changedByEmail: byEmail,
-        note: `Superseded by version ${version}`,
+      status: {
+        $in: [LEGAL_DOCUMENT_STATUS.ARCHIVED, LEGAL_DOCUMENT_STATUS.DRAFT],
       },
-    ];
-    await previous.save();
+    })
+  )
+    .sort({ version: -1 })
+    .lean();
+
+  const good = candidates.find((row) => !detectTestLegalContent(row).isTest);
+  if (!good) {
+    const seed = getSeedDocument(documentType, lang);
+    if (!seed) {
+      return {
+        ok: false,
+        code: "no_restore_candidate",
+        message: "No prior non-test version available to restore",
+      };
+    }
+    const created = await createDocumentVersion({
+      documentType,
+      language: lang,
+      jurisdiction: jur,
+      content: seed.content,
+      byEmail,
+      note: "Incident restore from built-in seed",
+    });
+    if (!created.ok) return created;
+    return publishDocument({
+      documentType,
+      language: lang,
+      jurisdiction: jur,
+      version: created.doc.version,
+      byEmail,
+      expectedChecksum: created.doc.checksum,
+    });
   }
 
-  doc.status = LEGAL_DOCUMENT_STATUS.PUBLISHED;
-  doc.effectiveFrom = effectiveFrom ? new Date(effectiveFrom) : now;
-  doc.publishedAt = now;
-  doc.publishedByEmail = byEmail;
-  doc.history = [
-    ...(doc.history || []),
-    {
-      version: doc.version,
-      checksum: doc.checksum,
-      status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
-      effectiveFrom: doc.effectiveFrom,
-      changedAt: now,
-      changedByEmail: byEmail,
-      note: "Published",
-    },
-  ];
-  await doc.save();
+  if (good.status === LEGAL_DOCUMENT_STATUS.DRAFT) {
+    return publishDocument({
+      documentType,
+      language: lang,
+      jurisdiction: jur,
+      version: good.version,
+      byEmail,
+      expectedChecksum: good.checksum,
+    });
+  }
 
-  return { ok: true, unchanged: false, doc: doc.toObject() };
+  // Archived: clone into a new draft version, then publish (preserve history).
+  const created = await createDocumentVersion({
+    documentType,
+    language: lang,
+    jurisdiction: jur,
+    content: good.content,
+    byEmail,
+    note: `Restore from archived v${good.version}`,
+  });
+  if (!created.ok) return created;
+  return publishDocument({
+    documentType,
+    language: lang,
+    jurisdiction: jur,
+    version: created.doc.version,
+    byEmail,
+    expectedChecksum: created.doc.checksum,
+  });
 }
 
 /**
@@ -603,12 +883,26 @@ export async function saveDocumentDraft({
   pdfFile = null,
   forceNewVersion = false,
   sourceFilename = "",
+  testOnly = false,
 }) {
   await connectToDB();
   const lang = normalizeLegalLanguage(language);
   const jur = normalizeJurisdiction(jurisdiction);
   const normalized = normalizeContent(content);
   const filename = String(sourceFilename || pdfFile?.filename || "").trim();
+
+  const blocked = assertNotTestContentInProduction({
+    content: normalized,
+    testOnly: Boolean(testOnly),
+  });
+  if (!blocked.ok) {
+    return {
+      ok: false,
+      code: blocked.code,
+      message: blocked.message,
+      reasons: blocked.reasons,
+    };
+  }
 
   const latest = await LegalDocument.findOne(
     scope({ documentType, language: lang, jurisdiction: jur })
@@ -629,6 +923,7 @@ export async function saveDocumentDraft({
     if (pdfFile) latest.pdfFile = pdfFile;
     if (filename) latest.sourceFilename = filename;
     latest.savedByEmail = byEmail || latest.savedByEmail || "";
+    latest.testOnly = Boolean(testOnly);
     latest.checksum = computeDocumentChecksum({
       platform: LEGAL_PLATFORM,
       documentType,
@@ -672,6 +967,7 @@ export async function saveDocumentDraft({
     if (pdfFile) row.pdfFile = pdfFile;
     if (filename) row.sourceFilename = filename;
     row.savedByEmail = byEmail || "";
+    row.testOnly = Boolean(testOnly);
     await row.save();
     return { ok: true, doc: row.toObject(), created: true };
   }

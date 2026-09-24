@@ -58,12 +58,12 @@ export async function ensureAdminSession(page: Page): Promise<void> {
   if (await adminOrdersOk(page)) return;
 
   await page
-    .getByPlaceholder("email")
+    .getByRole("textbox", { name: /email/i })
     .waitFor({ state: "visible", timeout: 20_000 });
 
-  await page.getByPlaceholder("email").fill(ADMIN_EMAIL);
-  await page.getByPlaceholder("password").fill(ADMIN_PASSWORD);
-  await page.getByRole("button", { name: /^login$/i }).click();
+  await page.getByRole("textbox", { name: /email/i }).fill(ADMIN_EMAIL);
+  await page.getByRole("textbox", { name: /password/i }).fill(ADMIN_PASSWORD);
+  await page.getByRole("button", { name: /sign in|login/i }).click();
 
   await page.waitForURL((url) => url.pathname.startsWith("/admin"), {
     timeout: 60_000,

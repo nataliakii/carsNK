@@ -25,7 +25,10 @@ import { LEGAL_LANGUAGES } from "@/domain/legal/documentTypes";
 import { formatLegalLanguageStatus } from "@/domain/legal/languageStatus";
 import LegalDocumentCards from "./LegalDocumentCards";
 import LegalDocumentWorkspace from "./LegalDocumentWorkspace";
+import LegalPublishConfirmDialog from "./LegalPublishConfirmDialog";
+import LiveTestContentBanner from "./LiveTestContentBanner";
 import BookingFeeOutcomesTable from "@app/components/Legal/BookingFeeOutcomesTable";
+import { PLATFORM_DOCUMENT_CATALOG } from "@/domain/legal/platformCatalog";
 
 /**
  * Superadmin legal hub: partner document review + platform publish.
@@ -79,6 +82,7 @@ function DocumentsTab() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [workspace, setWorkspace] = useState({ open: false, mode: "preview", doc: null });
+  const [publishConfirm, setPublishConfirm] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -171,6 +175,18 @@ function DocumentsTab() {
   return (
     <Stack spacing={3}>
       {error ? <Alert severity="error">{error}</Alert> : null}
+      <LiveTestContentBanner
+        items={data?.liveTestContent || []}
+        busy={saving}
+        onRestore={(target) =>
+          documentAction({
+            action: "restorePrevious",
+            documentType: target.documentType,
+            language: target.language,
+            jurisdiction: target.jurisdiction,
+          })
+        }
+      />
       {needsPublish ? (
         <Alert severity="warning">{t("admin.legalHub.publishHint")}</Alert>
       ) : null}
@@ -224,19 +240,23 @@ function DocumentsTab() {
         busy={saving}
         onEdit={(doc, mode) => setWorkspace({ open: true, mode, doc })}
         onPublish={(documentType, language, version) => {
-          if (
-            !window.confirm(
-              `Publish ${documentType} (${String(language).toUpperCase()}) v${version}? This makes the draft public.`
-            )
-          ) {
-            return;
-          }
-          documentAction({
-            action: "publish",
+          const entry = (data.documents || []).find(
+            (row) => row.documentType === documentType
+          );
+          const langInfo = entry?.languages?.[language];
+          const catalogName =
+            PLATFORM_DOCUMENT_CATALOG.find((row) => row.documentType === documentType)
+              ?.name || documentType;
+          setPublishConfirm({
             documentType,
             language,
             version,
-            changeClass: "material",
+            documentName: catalogName,
+            previousLiveVersion: langInfo?.published?.version ?? null,
+            content: {
+              title: langInfo?.draft?.title || "",
+              sections: [],
+            },
           });
         }}
         onDeleteDraft={(documentType, language, version) => {
@@ -254,6 +274,29 @@ function DocumentsTab() {
             version,
             reason: "Draft deleted from admin card",
           });
+        }}
+      />
+
+      <LegalPublishConfirmDialog
+        open={Boolean(publishConfirm)}
+        busy={saving}
+        documentName={publishConfirm?.documentName}
+        language={publishConfirm?.language}
+        draftVersion={publishConfirm?.version}
+        content={publishConfirm?.content}
+        previousLiveVersion={publishConfirm?.previousLiveVersion}
+        requireTypedConfirm
+        onClose={() => setPublishConfirm(null)}
+        onConfirm={() => {
+          if (!publishConfirm) return;
+          documentAction({
+            action: "publish",
+            documentType: publishConfirm.documentType,
+            language: publishConfirm.language,
+            version: publishConfirm.version,
+            changeClass: "material",
+            publishConfirm: "PUBLISH",
+          }).then(() => setPublishConfirm(null));
         }}
       />
 
@@ -284,7 +327,12 @@ function DocumentsTab() {
             }
             return json;
           }
-          return documentAction(payload);
+          return documentAction({
+            ...payload,
+            ...(payload?.action === "publish"
+              ? { publishConfirm: payload.publishConfirm || "PUBLISH" }
+              : {}),
+          });
         }}
         onImported={() => load()}
       />

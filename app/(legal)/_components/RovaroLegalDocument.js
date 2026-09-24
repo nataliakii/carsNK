@@ -41,12 +41,16 @@ function formatDate(value) {
 
 function PreparingMessage({ documentType }) {
   const name = platformDocumentDisplayName(documentType);
+  const message =
+    documentType === "customer-booking-terms"
+      ? "Rovaro Customer Booking Terms are being prepared."
+      : `${name} is being prepared.`;
   return (
     <div
       data-testid="public-legal-unpublished"
       style={PUBLIC_LEGAL_STATUS_PREPARING}
     >
-      {name} is being prepared.
+      {message}
     </div>
   );
 }

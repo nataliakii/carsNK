@@ -41,15 +41,29 @@ describe("partners page", () => {
   });
 
   it("7. Review actions still use the secured existing API", () => {
+    const sticky = read(
+      "app/admin/legal-profile/_components/PartnerLegalReview/StickyReviewActions.js"
+    );
     const actions = read(
       "app/admin/legal-profile/_components/PartnerReviewActions.js"
     );
     const route = read("app/api/admin/legal/partners/[companyId]/route.js");
+    expect(sticky).toContain("/api/admin/legal/partners/");
     expect(actions).toContain("/api/admin/legal/partners/");
     expect(route).toContain("requirePlatformAdmin");
+    expect(route).toContain("action === \"approve\"");
+    expect(route).toContain("action === \"request_changes\"");
     expect(read("lib/adminAuth.js")).toMatch(
       /export async function requirePlatformAdmin[\s\S]*requireSuperAdmin/
     );
+  });
+
+  it("7b. Sticky review actions are platform-admin only", () => {
+    const sticky = read(
+      "app/admin/legal-profile/_components/PartnerLegalReview/StickyReviewActions.js"
+    );
+    expect(sticky).toContain("ADMIN_VIEW_MODE.PLATFORM_ADMIN");
+    expect(sticky).toContain("Approve company");
   });
 
   it("8. Old partner-review URLs redirect to /admin/partners?tab=review", () => {

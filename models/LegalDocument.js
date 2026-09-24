@@ -92,6 +92,11 @@ const legalDocumentSchema = new mongoose.Schema(
     sourceFilename: { type: String, default: "" },
     /** Last person who saved this draft row. */
     savedByEmail: { type: String, default: "" },
+    /**
+     * Fixture / QA-only rows. Production always rejects save and publish when
+     * this is true (and when content matches obvious test markers).
+     */
+    testOnly: { type: Boolean, default: false, index: true },
     /** Append-only status/version trail. */
     history: { type: [versionHistorySchema], default: [] },
     format: { type: String, default: "sections" },

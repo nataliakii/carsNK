@@ -209,7 +209,7 @@ export default function PartnerReviewQueue({ viewMode }) {
       {showEmptyPending ? (
         <Alert severity="success">
           {t("admin.legalHub.queueEmpty", {
-            defaultValue: "No partners are waiting for review.",
+            defaultValue: "No companies are waiting for review.",
           })}
         </Alert>
       ) : (
@@ -249,13 +249,14 @@ export default function PartnerReviewQueue({ viewMode }) {
                     size="small"
                     color={partnerStatusColor(status)}
                     label={
-                      row.verification
+                      row.displayStatusLabel ||
+                      (row.verification
                         ? t(`partnerLegal.status.${status}.label`, {
                             defaultValue: status,
                           })
                         : t("admin.legalHub.queueNoProfile", {
                             defaultValue: "No profile",
-                          })
+                          }))
                     }
                   />
                 </Stack>
@@ -323,7 +324,49 @@ export default function PartnerReviewQueue({ viewMode }) {
               })}
             </Alert>
           ) : (
-            <PartnerReviewDetail row={selected} onChanged={load} viewMode={viewMode} />
+            <PartnerReviewDetail
+              row={selected}
+              onChanged={load}
+              viewMode={viewMode}
+              onLeftQueue={async () => {
+                window.dispatchEvent(new Event("rovaro-inbox-refresh"));
+                const leftId = selected.companyId;
+                try {
+                  const params = new URLSearchParams();
+                  if (adminCountry) params.set("country", adminCountry);
+                  const res = await fetch(`/api/admin/legal/partners?${params}`, {
+                    cache: "no-store",
+                  });
+                  const json = await res.json().catch(() => ({}));
+                  const partners = Array.isArray(json.partners) ? json.partners : [];
+                  setRows(partners);
+                  const remaining = partners.filter(
+                    (item) =>
+                      item.companyId !== leftId &&
+                      item.verification?.status === S_PENDING
+                  );
+                  if (remaining[0]) {
+                    writeUrl(
+                      {
+                        filter: PARTNER_REVIEW_FILTER.PENDING,
+                        companyId: remaining[0].companyId,
+                      },
+                      "push"
+                    );
+                  } else {
+                    writeUrl(
+                      { filter: PARTNER_REVIEW_FILTER.PENDING, companyId: "" },
+                      "push"
+                    );
+                  }
+                } catch {
+                  writeUrl(
+                    { filter: PARTNER_REVIEW_FILTER.PENDING, companyId: "" },
+                    "push"
+                  );
+                }
+              }}
+            />
           )}
         </Box>
       </Stack>

@@ -8,7 +8,12 @@ import PartnerLegalProfile from "@models/PartnerLegalProfile";
 import PartnerAgreementAcceptance from "@models/PartnerAgreementAcceptance";
 import { evaluateProfileCompleteness } from "@/domain/legal/partnerVerification";
 import { getCurrentPackageChecksum } from "@/domain/legal/agreementService";
-import { buildPartnerReviewCompliance } from "@/domain/legal/partnerReviewWorkspace";
+import {
+  buildPartnerReviewCompliance,
+  reviewDisplayStatus,
+  reviewDisplayStatusLabel,
+} from "@/domain/legal/partnerReviewWorkspace";
+import { buildPartnerReviewReadiness } from "@/domain/legal/partnerReviewReadiness";
 import {
   buildAdminCountryCompanyFilter,
   normalizeAdminCountryFilter,
@@ -99,6 +104,19 @@ export async function GET(request) {
     const completeness = profile ? evaluateProfileCompleteness(profile) : null;
     const missingDocs = completeness?.missingRecommendedDocuments || [];
     const listedOnMarketplace = company.listedOnMarketplace !== false;
+    const readiness = buildPartnerReviewReadiness({
+      profile,
+      country: company.country || "",
+      activeAgreement: active,
+      agreementHistory: list,
+      listedOnMarketplace,
+    });
+    const displayProfile = profile
+      ? {
+          verificationStatus: profile.verificationStatus,
+          rejectionDecision: profile.rejectionDecision || "",
+        }
+      : null;
 
     return {
       companyId: key,
@@ -115,6 +133,9 @@ export async function GET(request) {
         currentPackageChecksum,
         completeness,
       }),
+      readiness,
+      displayStatus: reviewDisplayStatus(displayProfile),
+      displayStatusLabel: reviewDisplayStatusLabel(displayProfile),
       bookingMode: company.bookingMode || "",
       verification: profile
         ? {
@@ -124,6 +145,9 @@ export async function GET(request) {
             verifiedByEmail: profile.verifiedByEmail || "",
             suspensionReason: profile.suspensionReason || "",
             rejectionReason: profile.rejectionReason || "",
+            rejectionDecision: profile.rejectionDecision || "",
+            requestedChanges: profile.requestedChanges || [],
+            verificationNote: profile.verificationNote || "",
             completeness,
             missingDocuments: missingDocs,
             pendingChanges: pendingProfileChangeSummary(profile),
@@ -138,11 +162,19 @@ export async function GET(request) {
             registeredAddress: profile.registeredAddress || "",
             insuranceProvider: profile.insuranceProvider || "",
             insurancePolicyReference: profile.insurancePolicyReference || "",
+            customAgreement: profile.customAgreement || null,
             documents: uploaded.map((doc) => ({
               kind: doc.kind,
               label: doc.label || "",
               uploadedAt: doc.uploadedAt,
+              uploadedByUserId: doc.uploadedByUserId || "",
+              uploadedByEmail: doc.uploadedByEmail || "",
               accepted: Boolean(doc.accepted),
+              reviewState: doc.reviewState || "",
+              problemReason: doc.problemReason || "",
+              note: doc.note || "",
+              reviewedAt: doc.reviewedAt || null,
+              reviewedByEmail: doc.reviewedByEmail || "",
             })),
             history: profile.statusHistory || [],
           }

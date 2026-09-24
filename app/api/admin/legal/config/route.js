@@ -9,7 +9,7 @@ import {
   getLegalSettingsStatus,
   updateLegalSettings,
 } from "@/domain/legal/legalSettingsService";
-import { getDocumentStatusOverview } from "@/domain/legal/documentService";
+import { getDocumentStatusOverview, listLiveTestContentDocuments } from "@/domain/legal/documentService";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
 import { ALL_ESIGN_MODES } from "@/domain/legal/esign";
 import { connectToDB } from "@lib/database";
@@ -50,6 +50,7 @@ export async function GET(request) {
   const entityStatus = getLegalConfigStatus();
   const settingsStatus = await getLegalSettingsStatus();
   const documents = await getDocumentStatusOverview();
+  const liveTestContent = await listLiveTestContentDocuments();
 
   await connectToDB();
   const platform = await getOrCreatePlatformSettings();
@@ -138,6 +139,7 @@ export async function GET(request) {
     missingCommercial: settingsStatus.missingCommercial,
     esignModes: ALL_ESIGN_MODES,
     documents,
+    liveTestContent,
     marketplaceBookingFee: {
       bps: feeBps,
       percentLabel: formatMarketplaceFeePercent(feeBps),

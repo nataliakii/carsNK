@@ -116,6 +116,7 @@ describe("Cookie Policy public publishing workflow", () => {
   it("shows a preparing fallback and Retry on unexpected failure", () => {
     const component = read("app/(legal)/_components/RovaroLegalDocument.js");
     expect(component).toContain("is being prepared.");
+    expect(component).toContain("Rovaro Customer Booking Terms are being prepared.");
     expect(component).toContain("publishedOnly");
     expect(component).toContain("getPublishedDocument");
     expect(component).toContain("LegalDocumentRetry");

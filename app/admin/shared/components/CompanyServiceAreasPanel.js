@@ -137,7 +137,7 @@ export default function CompanyServiceAreasPanel({
             maxDistanceKm: existing.maxDistanceKm,
             inside: existing.inside,
             outside: existing.outside,
-            afterHoursSurcharge: existing.afterHoursSurcharge,
+            // Omit afterHoursSurcharge — server keeps the persisted surcharge.
           },
         }),
       });

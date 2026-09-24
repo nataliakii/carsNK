@@ -458,6 +458,11 @@ if (Company?.schema && !Company.schema.path("deliveryPricing")) {
       version: { type: Number, default: 1, min: 1 },
     });
   }
+  if (dp?.schema && !dp.schema.path("afterHoursSurcharge")) {
+    dp.schema.add({
+      afterHoursSurcharge: { type: Number, default: 0, min: 0 },
+    });
+  }
 }
 
 if (Company?.schema && !Company.schema.path("bookingMode")) {

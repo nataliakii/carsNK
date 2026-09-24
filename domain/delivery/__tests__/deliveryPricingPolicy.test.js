@@ -123,4 +123,42 @@ describe("deliveryPricingPolicy", () => {
     expect(normalized.ok).toBe(true);
     expect(normalized.value.version).toBe(4);
   });
+
+  test("normalizeDeliveryPricingInput keeps afterHoursSurcharge and falls back when omitted", () => {
+    const previous = {
+      strategy: "radius",
+      radiusKm: 15,
+      operatingCities: [],
+      maxDistanceKm: null,
+      inside: { mode: "fixed", amount: 25 },
+      outside: { mode: "blocked", amount: 0 },
+      afterHoursSurcharge: 55,
+      version: 2,
+    };
+
+    const withUpdate = normalizeDeliveryPricingInput(
+      {
+        strategy: "radius",
+        radiusKm: 15,
+        inside: { mode: "fixed", amount: 25 },
+        outside: { mode: "blocked", amount: 0 },
+        afterHoursSurcharge: "40",
+      },
+      { deliveryPricing: previous, deliveryPricePerKm: 1 }
+    );
+    expect(withUpdate.ok).toBe(true);
+    expect(withUpdate.value.afterHoursSurcharge).toBe(40);
+
+    const omitted = normalizeDeliveryPricingInput(
+      {
+        strategy: "radius",
+        radiusKm: 15,
+        inside: { mode: "fixed", amount: 25 },
+        outside: { mode: "blocked", amount: 0 },
+      },
+      { deliveryPricing: previous, deliveryPricePerKm: 1 }
+    );
+    expect(omitted.ok).toBe(true);
+    expect(omitted.value.afterHoursSurcharge).toBe(55);
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Box,
   Typography,
@@ -133,6 +133,57 @@ export default function DeliveryZonesSection({
   const [policy, setPolicy] = useState(() => defaultDeliveryPricing(1));
   const [companyCountry, setCompanyCountry] = useState("");
   const { catalog: cityCatalog } = useOperatingCityCatalog(companyCountry);
+  /** Drops stale in-flight company GETs so they cannot overwrite a newer edit/save. */
+  const companyFetchGenRef = useRef(0);
+
+  const applyCompanyDeliveryState = useCallback((data, { allowDefaultPolicy = true } = {}) => {
+    if (!data || data.error) return;
+    const val = data.deliveryPricePerKm ?? 0;
+    setPricePerKm(String(val));
+    setPricePerKmSaved(String(val));
+    if (data.coords) {
+      const lat = data.coords?.lat != null ? String(data.coords.lat) : "";
+      const lon = data.coords?.lon != null ? String(data.coords.lon) : "";
+      setBaseLat(lat);
+      setBaseLon(lon);
+    }
+    if (data.country != null) {
+      setCompanyCountry(String(data.country || "").trim());
+    }
+    if (data.workingHours) {
+      setWorkStart(data.workingHours?.start || "08:00");
+      setWorkEnd(data.workingHours?.end || "22:00");
+    }
+    const dp = data.deliveryPricing;
+    if (dp && typeof dp === "object") {
+      setPolicy({
+        strategy:
+          dp.strategy || (dp.operatingCities?.length ? "cities" : "radius"),
+        radiusKm: dp.radiusKm ?? null,
+        operatingCities: Array.isArray(dp.operatingCities)
+          ? dp.operatingCities
+          : [],
+        maxDistanceKm: dp.maxDistanceKm ?? null,
+        inside: {
+          mode: dp.inside?.mode || "perKm",
+          amount:
+            dp.inside?.amount != null
+              ? Number(dp.inside.amount)
+              : Number(val) || 0,
+        },
+        outside: {
+          mode: dp.outside?.mode || "perKm",
+          amount:
+            dp.outside?.amount != null
+              ? Number(dp.outside.amount)
+              : Number(val) || 0,
+        },
+        afterHoursSurcharge: Number(dp.afterHoursSurcharge) || 0,
+      });
+    } else if (allowDefaultPolicy) {
+      setPolicy(defaultDeliveryPricing(val));
+    }
+  }, []);
 
   const companyIdForSession = useCallback(() => {
     if (viewAsActive && viewAsCompany?._id) {
@@ -215,53 +266,16 @@ export default function DeliveryZonesSection({
   const fetchCompany = useCallback(async () => {
     const id = companyIdForSession();
     if (!id) return;
+    const gen = ++companyFetchGenRef.current;
     try {
       const res = await fetch(`/api/company/${id}`, { cache: "no-store" });
       const data = await res.json();
-      if (data && !data.error) {
-        const val = data.deliveryPricePerKm ?? 0;
-        setPricePerKm(String(val));
-        setPricePerKmSaved(String(val));
-        const lat = data?.coords?.lat != null ? String(data.coords.lat) : "";
-        const lon = data?.coords?.lon != null ? String(data.coords.lon) : "";
-        setBaseLat(lat);
-        setBaseLon(lon);
-        setCompanyCountry(String(data?.country || "").trim());
-        setWorkStart(data?.workingHours?.start || "08:00");
-        setWorkEnd(data?.workingHours?.end || "22:00");
-        const dp = data.deliveryPricing;
-        if (dp && typeof dp === "object") {
-          setPolicy({
-            strategy: dp.strategy || (dp.operatingCities?.length ? "cities" : "radius"),
-            radiusKm: dp.radiusKm ?? null,
-            operatingCities: Array.isArray(dp.operatingCities)
-              ? dp.operatingCities
-              : [],
-            maxDistanceKm: dp.maxDistanceKm ?? null,
-            inside: {
-              mode: dp.inside?.mode || "perKm",
-              amount:
-                dp.inside?.amount != null
-                  ? Number(dp.inside.amount)
-                  : Number(val) || 0,
-            },
-            outside: {
-              mode: dp.outside?.mode || "perKm",
-              amount:
-                dp.outside?.amount != null
-                  ? Number(dp.outside.amount)
-                  : Number(val) || 0,
-            },
-            afterHoursSurcharge: Number(dp.afterHoursSurcharge) || 0,
-          });
-        } else {
-          setPolicy(defaultDeliveryPricing(val));
-        }
-      }
+      if (gen !== companyFetchGenRef.current) return;
+      applyCompanyDeliveryState(data);
     } catch (err) {
       console.error("Failed to fetch company:", err);
     }
-  }, [companyIdForSession]);
+  }, [companyIdForSession, applyCompanyDeliveryState]);
 
   useEffect(() => {
     setLoading(true);
@@ -475,13 +489,22 @@ export default function DeliveryZonesSection({
         });
         return;
       }
-      setPricePerKm(String(body.deliveryPricePerKm));
-      setPricePerKmSaved(String(body.deliveryPricePerKm));
+      // Invalidate any in-flight GET so it cannot clobber the saved surcharge.
+      companyFetchGenRef.current += 1;
+      applyCompanyDeliveryState(
+        {
+          ...data,
+          deliveryPricing: data.deliveryPricing || body.deliveryPricing,
+          workingHours: data.workingHours || body.workingHours,
+          deliveryPricePerKm:
+            data.deliveryPricePerKm ?? body.deliveryPricePerKm,
+        },
+        { allowDefaultPolicy: false }
+      );
       setNotification({
         severity: "success",
         message: t("deliveryZonesPage.policySaved"),
       });
-      fetchCompany();
     } catch (err) {
       setNotification({ severity: "error", message: err.message });
     } finally {

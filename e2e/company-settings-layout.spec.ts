@@ -37,8 +37,28 @@ function assertSameEdges(a: Box, b: Box, label: string, tolerance = 2) {
 }
 
 test.describe("Company settings unified layout", () => {
+  test.describe.configure({ timeout: 90_000 });
+
   test.beforeEach(async ({ page }) => {
     await ensureAdminSession(page);
+
+    // Bare superadmin is redirected off /admin/company — enter view-as first.
+    const ownersRes = await page.request.get("/api/admin/owners");
+    if (ownersRes.ok()) {
+      const ownersBody = await ownersRes.json().catch(() => null);
+      const list =
+        ownersBody?.companies ||
+        ownersBody?.owners ||
+        ownersBody?.data ||
+        (Array.isArray(ownersBody) ? ownersBody : null);
+      const first = Array.isArray(list) ? list[0] : list?.items?.[0];
+      const companyId = first?._id || first?.id;
+      if (companyId) {
+        await page.request.post("/api/admin/view-as", {
+          data: { companyId: String(companyId) },
+        });
+      }
+    }
   });
 
   for (const vp of VIEWPORTS) {

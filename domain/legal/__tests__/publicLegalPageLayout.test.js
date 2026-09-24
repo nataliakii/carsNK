@@ -101,7 +101,8 @@ describe("public legal page layout", () => {
     ).toBe("Rovaro Customer Booking Terms");
 
     const doc = read("app/(legal)/_components/RovaroLegalDocument.js");
-    expect(doc).toContain("{name} is being prepared.");
+    expect(doc).toContain("Rovaro Customer Booking Terms are being prepared.");
+    expect(doc).toContain("is being prepared.");
     expect(doc).toContain("publishedOnly");
     expect(doc).toContain("getPublishedDocument");
     // Draft label must not appear on publishedOnly success path source values.

@@ -26,9 +26,14 @@ const uploadedDocumentSchema = new mongoose.Schema(
     resourceType: { type: String, default: "" },
     uploadedAt: { type: Date, default: Date.now },
     uploadedByUserId: { type: String, default: "" },
+    uploadedByEmail: { type: String, default: "" },
     reviewedAt: { type: Date, default: null },
     reviewedByEmail: { type: String, default: "" },
     accepted: { type: Boolean, default: false },
+    /** not_checked | checked | problem — opening a file does not set checked. */
+    reviewState: { type: String, default: "not_checked" },
+    /** One of DOCUMENT_PROBLEM_REASON when reviewState is problem. */
+    problemReason: { type: String, default: "" },
     note: { type: String, default: "" },
   },
   { _id: false }
@@ -41,6 +46,17 @@ const statusHistorySchema = new mongoose.Schema(
     at: { type: Date, default: Date.now },
     byEmail: { type: String, default: "" },
     reason: { type: String, default: "" },
+    /** changes_requested | rejected when to === REJECTED. */
+    rejectionDecision: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const requestedChangeSchema = new mongoose.Schema(
+  {
+    type: { type: String, default: "other" },
+    key: { type: String, default: "" },
+    label: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -118,6 +134,13 @@ const partnerLegalProfileSchema = new mongoose.Schema(
     verificationNote: { type: String, default: "" },
     suspensionReason: { type: String, default: "" },
     rejectionReason: { type: String, default: "" },
+    /**
+     * Distinguishes Request changes vs Reject while both use REJECTED status.
+     * changes_requested | rejected | ""
+     */
+    rejectionDecision: { type: String, default: "" },
+    /** Exact items the company must fix after Request changes. */
+    requestedChanges: { type: [requestedChangeSchema], default: [] },
     statusHistory: { type: [statusHistorySchema], default: [] },
     /** Proposed legal edits. The verified fields stay active until approval. */
     pendingChanges: {

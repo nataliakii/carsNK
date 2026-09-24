@@ -50,7 +50,11 @@ describe("company view mode", () => {
     const actions = read(
       "app/admin/legal-profile/_components/PartnerReviewActions.js"
     );
+    const sticky = read(
+      "app/admin/legal-profile/_components/PartnerLegalReview/StickyReviewActions.js"
+    );
     expect(actions).toContain("ADMIN_VIEW_MODE.PLATFORM_ADMIN");
+    expect(sticky).toContain("ADMIN_VIEW_MODE.PLATFORM_ADMIN");
     expect(actions).not.toContain("Number(session?.user?.role)");
   });
 
