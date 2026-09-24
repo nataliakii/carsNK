@@ -16,14 +16,13 @@ import {
   Typography,
 } from "@mui/material";
 
-import PartnerReviewQueue from "./PartnerReviewQueue";
 import { standardPackageNeedsPublish } from "@/domain/legal/companyLegalPage";
 
 /**
  * Superadmin legal hub: partner document review + platform publish.
  */
 
-const TAB_KEYS = ["partners", "documents", "settings", "audit"];
+const TAB_KEYS = ["documents", "settings", "audit"];
 const TAB_LABEL_KEYS = {
   documents: "admin.legalHub.tabDocuments",
   partners: "admin.legalHub.tabPartners",
@@ -337,7 +336,7 @@ function ConfigTab() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Edit My business details under{" "}
           <Typography component="a" href="/admin/company" sx={{ fontWeight: 600 }}>
-            Platform settings
+            Settings
           </Typography>
           .
         </Typography>
@@ -401,7 +400,7 @@ function ConfigTab() {
             : "10%"}
         </Row>
         <Typography variant="caption" color="text.secondary">
-          Change the default under Platform settings. Partner overrides stay on each partner.
+          Change the default under Settings. Partner overrides stay on each partner.
         </Typography>
       </Box>
 
@@ -597,12 +596,12 @@ export default function LegalHubSection() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requested = searchParams.get("tab");
-  const tab = TAB_KEYS.includes(requested) ? requested : "partners";
+  const tab = TAB_KEYS.includes(requested) ? requested : "documents";
 
   function setTab(value) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", value);
-    if (value !== "partners") params.delete("companyId");
+    params.delete("companyId");
     router.replace(`/admin/legal?${params.toString()}`, { scroll: false });
   }
 
@@ -630,7 +629,6 @@ export default function LegalHubSection() {
       </Tabs>
 
       {tab === "documents" ? <DocumentsTab /> : null}
-      {tab === "partners" ? <PartnerReviewQueue /> : null}
       {tab === "settings" ? <ConfigTab /> : null}
       {tab === "audit" ? <AuditTab /> : null}
     </Box>

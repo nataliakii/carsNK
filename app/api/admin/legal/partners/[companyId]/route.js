@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 
-import { requireSuperAdmin } from "@lib/adminAuth";
+import { requirePlatformAdmin } from "@lib/adminAuth";
+import { applyPendingProfileChanges } from "@/domain/legal/verifiedProfileChanges";
 import { connectToDB } from "@lib/database";
 import Company from "@models/company";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
@@ -24,7 +25,7 @@ export const dynamic = "force-dynamic";
 
 /** Full profile + signed agreement snapshots for one partner. */
 export async function GET(request, { params }) {
-  const { errorResponse } = await requireSuperAdmin(request);
+  const { errorResponse } = await requirePlatformAdmin(request);
   if (errorResponse) return errorResponse;
 
   const { companyId: rawId } = await params;
@@ -76,7 +77,7 @@ export async function GET(request, { params }) {
  * still be verified once they are pending. This route does not email.
  */
 export async function PATCH(request, { params }) {
-  const { session, errorResponse } = await requireSuperAdmin(request);
+  const { session, errorResponse } = await requirePlatformAdmin(request);
   if (errorResponse) return errorResponse;
 
   const { companyId: rawId } = await params;
@@ -109,6 +110,25 @@ export async function PATCH(request, { params }) {
 
   const byEmail = session.user?.email || "";
   const { ipAddress, userAgent } = extractAuditContext(request);
+
+  if (String(body?.action || "") === "apply_pending_changes") {
+    const { applied } = applyPendingProfileChanges(profile);
+    await profile.save();
+    await recordAuditEvent({
+      action: "PARTNER_VERIFICATION_CHANGED",
+      userRole: "superadmin",
+      userEmail: byEmail,
+      severity: "high",
+      ipAddress,
+      userAgent,
+      metadata: { companyId: String(companyId), appliedPending: applied },
+    });
+    return NextResponse.json({
+      success: true,
+      verificationStatus: profile.verificationStatus,
+      appliedPending: applied,
+    });
+  }
 
   if (String(body?.action || "") === "terminate_agreement") {
     const terminated = await terminateActiveAgreement({

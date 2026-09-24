@@ -14,10 +14,7 @@ import { ownCompanyScope } from "@/domain/legal/companyLegalPage";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
 import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
 import { absoluteUrl } from "@config/domain";
-import {
-  CHECKOUT_INVALIDATION_REASON,
-  invalidateOpenMarketplaceCheckoutSessions,
-} from "@/domain/orders/invalidateMarketplaceCheckout";
+import { planVerifiedProfileSave } from "@/domain/legal/verifiedProfileChanges";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,29 +122,36 @@ export async function PUT(request) {
 
   const company = await Company.findById(companyId).select("name").lean();
 
-  const wasVerified =
-    profile.verificationStatus === PARTNER_VERIFICATION_STATUS.VERIFIED;
-  const changed = [];
-
+  const patch = {};
   for (const field of EDITABLE_FIELDS) {
     if (!(field in body)) continue;
-    const value = String(body[field] ?? "").trim();
-    if (profile[field] !== value) changed.push(field);
-    profile[field] = value;
+    patch[field] = String(body[field] ?? "").trim();
   }
   for (const field of EDITABLE_BOOLEANS) {
     if (!(field in body)) continue;
-    const value = Boolean(body[field]);
-    if (profile[field] !== value) changed.push(field);
-    profile[field] = value;
+    patch[field] = Boolean(body[field]);
   }
   if (body.insuranceValidUntil) {
-    profile.insuranceValidUntil = new Date(body.insuranceValidUntil);
-    changed.push("insuranceValidUntil");
+    patch.insuranceValidUntil = new Date(body.insuranceValidUntil);
   }
   if (Array.isArray(body.licences)) {
-    profile.licences = body.licences.map((l) => String(l).trim()).filter(Boolean);
-    changed.push("licences");
+    patch.licences = body.licences.map((l) => String(l).trim()).filter(Boolean);
+  }
+
+  const plan = planVerifiedProfileSave(profile, patch);
+  const changed = [
+    ...Object.keys(plan.applyNow),
+    ...Object.keys(plan.pending || {}),
+  ];
+  for (const [field, value] of Object.entries(plan.applyNow)) {
+    profile[field] = value;
+  }
+  if (plan.pending) {
+    profile.pendingChanges = {
+      fields: { ...(profile.pendingChanges?.fields || {}), ...plan.pending },
+      submittedAt: new Date(),
+      submittedByEmail: session.user?.email || "",
+    };
   }
 
   const email = session.user?.email || "";
@@ -158,14 +162,6 @@ export async function PUT(request) {
       to: PARTNER_VERIFICATION_STATUS.DRAFT,
       byEmail: email,
       reason: "Partner updated the profile after rejection",
-    });
-  }
-
-  if (wasVerified && changed.length) {
-    applyVerificationTransition(profile, {
-      to: PARTNER_VERIFICATION_STATUS.SUSPENDED,
-      byEmail: email,
-      reason: `Legal data changed after verification: ${changed.join(", ")}`,
     });
   }
 
@@ -214,38 +210,17 @@ export async function PUT(request) {
     },
   });
 
-  const suspendedAfterVerified =
-    wasVerified &&
-    profile.verificationStatus === PARTNER_VERIFICATION_STATUS.SUSPENDED;
-
-  if (suspendedAfterVerified) {
-    await invalidateOpenMarketplaceCheckoutSessions(companyId, {
-      reason: CHECKOUT_INVALIDATION_REASON.SUSPENDED,
-      actorEmail: email,
-      actorRole: "admin",
-      ipAddress,
-      userAgent,
-    }).catch((err) => {
-      console.error(
-        "[partner-profile] checkout invalidate failed",
-        err?.message || err
-      );
-    });
-  }
-
-  if (submittedForReview || suspendedAfterVerified) {
+  if (submittedForReview) {
     try {
       await notifySuperadmin({
-        title: submittedForReview
-          ? `📋 Partner submitted legal profile for review — ${profile.legalName || companyId}`
-          : `⏸ Verified partner changed legal data — ${profile.legalName || companyId}`,
+        title: `📋 Partner submitted legal profile for review — ${profile.legalName || companyId}`,
         bodyLines: [
           `Company ID: ${companyId}`,
           `Legal name: ${profile.legalName || "—"}`,
           `Status: ${profile.verificationStatus}`,
           `Submitted by: ${email}`,
           changed.length ? `Changed fields: ${changed.join(", ")}` : null,
-          `Review: ${absoluteUrl(`/admin/legal?tab=partners&companyId=${encodeURIComponent(companyId)}`)}`,
+          `Review: ${absoluteUrl(`/admin/partners?tab=review&companyId=${encodeURIComponent(companyId)}`)}`,
         ].filter(Boolean),
       });
     } catch (err) {

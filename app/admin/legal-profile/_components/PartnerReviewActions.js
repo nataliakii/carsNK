@@ -15,13 +15,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 
-import { ROLE } from "@/domain/orders/admin-rbac";
+import { ADMIN_VIEW_MODE } from "@/domain/admin/adminViewMode";
 import { PARTNER_VERIFICATION_STATUS } from "@/domain/legal/partnerVerification";
 import { reviewControlsForStatus } from "@/domain/legal/partnerReviewWorkspace";
-import { useAdminViewAs } from "@/app/hooks/useAdminViewAs";
 
 const S = PARTNER_VERIFICATION_STATUS;
 
@@ -34,11 +32,10 @@ export default function PartnerReviewActions({
   profile,
   companyId: companyIdProp,
   onChanged,
+  viewMode,
 }) {
   const { t } = useTranslation();
-  const { data: session } = useSession();
-  const { company } = useAdminViewAs();
-  const isSuperAdmin = Number(session?.user?.role) === ROLE.SUPERADMIN;
+  const platformMode = viewMode === ADMIN_VIEW_MODE.PLATFORM_ADMIN;
 
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -46,11 +43,9 @@ export default function PartnerReviewActions({
   const [notice, setNotice] = useState("");
   const [confirmMove, setConfirmMove] = useState(false);
 
-  if (!isSuperAdmin) return null;
+  if (!platformMode) return null;
 
-  const companyId = String(
-    profile?.companyId || companyIdProp || company?._id || ""
-  );
+  const companyId = String(profile?.companyId || companyIdProp || "");
   const status = profile?.verificationStatus || null;
   const controls = reviewControlsForStatus(status);
 

@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 
 import {
   explicitSignerRole,
-  presentPartnerTerms,
+  companyTermsPublication,
 } from "@/domain/legal/companyLegalPage";
 import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
 
@@ -72,7 +72,7 @@ export default function CompanyTermsPanel() {
 
   const view = useMemo(
     () =>
-      presentPartnerTerms({
+      companyTermsPublication({
         documents: data?.documents || [],
         containsDrafts: Boolean(data?.containsDrafts),
         customAgreement: profile?.customAgreement,
@@ -111,7 +111,7 @@ export default function CompanyTermsPanel() {
     }
   }
 
-  if (view.state === "preparing" || !data) {
+  if (view.publication === "NOT_PUBLISHED" || !data) {
     return (
       <Box sx={{ maxWidth: 720, pt: 2, px: { xs: 1, md: 2 } }}>
         {error ? (

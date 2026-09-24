@@ -273,7 +273,7 @@ export async function acceptMasterAgreement(input) {
         `Signer: ${input.signerName} (${input.signerRole})`,
         `Signer email: ${input.signerEmail}`,
         `Checksum: ${pkg.packageChecksum}`,
-        `Review: ${absoluteUrl(`/admin/legal?tab=partners&companyId=${encodeURIComponent(input.companyId)}`)}`,
+        `Review: ${absoluteUrl(`/admin/partners?tab=review&companyId=${encodeURIComponent(input.companyId)}`)}`,
       ].filter(Boolean),
     });
   } catch (err) {

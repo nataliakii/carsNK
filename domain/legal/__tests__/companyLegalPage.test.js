@@ -79,9 +79,9 @@ describe("company legal access", () => {
   const superadmin = { role: ROLE.SUPERADMIN };
   const impersonating = { role: ROLE.SUPERADMIN, viewAsCompanyId: OWN };
 
-  it("1. ADMIN Legal nav href is /admin/company/legal", () => {
+  it("1. ADMIN Legal nav href is the company terms step", () => {
     expect(legalNavHref({ role: ROLE.ADMIN, companyContextActive: false })).toBe(
-      "/admin/company/legal?tab=terms"
+      "/admin/company/setup?step=terms"
     );
   });
 
@@ -147,7 +147,7 @@ describe("company legal access", () => {
     expect(selectedCompanyForLegalPage(impersonating, OTHER)).toBe("");
     expect(ownCompanyScope({ user: impersonating }, OTHER).forbidden).toBe(true);
     const page = fs.readFileSync(
-      path.join(process.cwd(), "app/admin/company/legal/page.js"),
+      path.join(process.cwd(), "app/admin/company/setup/page.js"),
       "utf8"
     );
     expect(page).toContain("selectedCompanyForLegalPage(session.user)");
@@ -220,7 +220,7 @@ describe("partner terms package", () => {
     expect(view.links).toEqual([]);
     expect(JSON.stringify(view)).not.toContain("/admin/legal");
     expect(partnerLegalEn.companyPage.preparing).toBe(
-      "Rovaro is preparing the terms. No action is required from you yet."
+      "Rovaro Terms are being prepared. You can continue setting up your company and submitting documents."
     );
 
     const panel = fs.readFileSync(
@@ -356,11 +356,11 @@ describe("company legal copy", () => {
     expect(partnerLegalEn.companyPage.standardApply).toBe(
       "Standard Rovaro Terms apply"
     );
-    expect(partnerLegalEn.companyPage.termsReady).toBe("Terms ready to accept");
+    expect(partnerLegalEn.companyPage.termsReady).toBe("Review and accept terms");
     expect(partnerLegalEn.companyPage.acceptTerms).toBe("Accept terms");
-    expect(partnerLegalEn.companyPage.termsAccepted).toBe("Terms accepted");
+    expect(partnerLegalEn.companyPage.termsAccepted).toBe("Rovaro Terms accepted");
     expect(partnerLegalEn.companyPage.termsUpdated).toBe(
-      "Updated terms require acceptance"
+      "Updated Rovaro Terms require acceptance"
     );
     expect(partnerLegalEs.companyPage.acceptTerms).toBe("Aceptar condiciones");
     expect(partnerLegalEs.companyPage.preparing).not.toBe(
@@ -372,10 +372,12 @@ describe("company legal copy", () => {
       companyLegalStatusKey({ verificationStatus: "PENDING_VERIFICATION" })
     ).toBe("underReview");
     expect(companyLegalStatusKey({ submittedAt: "2026-09-23" })).toBe("submitted");
-    expect(legacyLegalProfileRedirect("agreement")).toBe(
-      "/admin/company/legal?tab=terms"
+    expect(legacyLegalProfileRedirect("/admin/legal-profile/agreement")).toBe(
+      "/admin/company/setup?step=terms"
     );
-    expect(legacyLegalProfileRedirect("profile")).toBe(COMPANY_TERMS_PATH);
+    expect(legacyLegalProfileRedirect("/admin/legal-profile")).toBe(
+      "/admin/company/setup?step=details"
+    );
   });
 });
 
@@ -416,7 +418,7 @@ describe("company terms screen", () => {
     expect(view.state).toBe("preparing");
     expect(view.canAccept).toBe(false);
     const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
-    expect(panel).toContain('view.state === "preparing"');
+    expect(panel).toContain('view.publication === "NOT_PUBLISHED"');
     expect(panel.indexOf("partnerLegal.companyPage.preparing")).toBeLessThan(
       panel.indexOf("partnerLegal.companyPage.signerName")
     );
@@ -424,7 +426,7 @@ describe("company terms screen", () => {
 
   it("5. Draft package shows only the neutral waiting message", () => {
     expect(partnerLegalEn.companyPage.preparing).toBe(
-      "Rovaro is preparing the terms. No action is required from you yet."
+      "Rovaro Terms are being prepared. You can continue setting up your company and submitting documents."
     );
     const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
     expect(panel).toContain("partnerLegal.companyPage.terms");
@@ -478,13 +480,18 @@ describe("company terms screen", () => {
     }
   });
 
-  it("9. Legacy URLs redirect to /admin/company/legal?tab=terms", () => {
-    expect(legacyLegalProfileRedirect()).toBe(COMPANY_TERMS_PATH);
+  it("9. Legacy URLs redirect to the matching setup step", () => {
+    expect(legacyLegalProfileRedirect("/admin/company/legal", { tab: "terms" })).toBe(
+      COMPANY_TERMS_PATH
+    );
+    expect(legacyLegalProfileRedirect("/admin/company/legal", { tab: "documents" })).toBe(
+      "/admin/company/setup?step=documents"
+    );
     expect(read("app/admin/legal-profile/page.js")).toContain(
-      "legacyLegalProfileRedirect()"
+      "legacyLegalProfileRedirect("
     );
     expect(read("app/admin/legal-profile/agreement/page.js")).toContain(
-      "?tab=terms"
+      'companySetupHref("terms")'
     );
     expect(read("app/admin/legal-profile/agreement/PartnerAgreementSection.js")).toContain(
       "COMPANY_TERMS_PATH"

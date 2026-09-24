@@ -69,6 +69,8 @@ function draftFromProfile(profile) {
 export default function PartnerLegalProfileSection({
   variant = "full",
   panel = "all",
+  viewMode = "",
+  termsPublication = "",
 } = {}) {
   const { t } = useTranslation();
 
@@ -117,7 +119,7 @@ export default function PartnerLegalProfileSection({
   }, [load]);
 
   const status = profile?.verificationStatus || S.DRAFT;
-  const companyView = variant === "company";
+  const companyView = variant === "company" || viewMode === "COMPANY_MODE";
   const showDetails = panel === "all" || panel === "details";
   const showDocuments = panel === "all" || panel === "documents";
   const locked = !FREELY_EDITABLE.has(status);
@@ -230,15 +232,20 @@ export default function PartnerLegalProfileSection({
         </Typography>
       )}
 
-      <PartnerComplianceGate
-        gate={gate}
-        listedOnMarketplace={listedOnMarketplace}
-      />
-      <PartnerReviewActions
-        profile={profile}
-        companyId={companyId}
-        onChanged={load}
-      />
+      {companyView ? null : (
+        <PartnerComplianceGate
+          gate={gate}
+          listedOnMarketplace={listedOnMarketplace}
+        />
+      )}
+      {companyView ? null : (
+        <PartnerReviewActions
+          profile={profile}
+          companyId={companyId}
+          onChanged={load}
+          viewMode={viewMode}
+        />
+      )}
       {companyView ? null : <PartnerVerificationBanner profile={profile} />}
 
       {error ? (
@@ -258,7 +265,13 @@ export default function PartnerLegalProfileSection({
         </Alert>
       ) : null}
 
-      {locked && !editable ? (
+      {companyView && termsPublication === "NOT_PUBLISHED" && showDocuments ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {t("partnerLegal.companyPage.preparing")}
+        </Alert>
+      ) : null}
+
+      {locked && !editable && !companyView ? (
         <Alert
           severity="info"
           sx={{ mb: 2 }}
@@ -277,10 +290,15 @@ export default function PartnerLegalProfileSection({
         </Alert>
       ) : null}
 
+      {companyView && status === S.VERIFIED && !unlocked && showDetails ? (
+        <Button size="small" sx={{ mb: 2 }} onClick={() => setUnlocked(true)}>
+          {t("partnerLegal.form.updateDetails")}
+        </Button>
+      ) : null}
+
       {status === S.VERIFIED && unlocked ? (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          <AlertTitle>{t("partnerLegal.form.unlockWarningTitle")}</AlertTitle>
-          {t("partnerLegal.form.unlockWarningBody")}
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {t("partnerLegal.form.updateDetailsBody")}
         </Alert>
       ) : null}
 
@@ -422,7 +440,7 @@ export default function PartnerLegalProfileSection({
         {companyView ? null : (
           <Button
             component={Link}
-            href="/admin/company/legal?tab=terms"
+            href="/admin/company/setup?step=terms"
             color="secondary"
           >
             {t("partnerLegal.form.goToAgreement")}

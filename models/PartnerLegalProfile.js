@@ -119,6 +119,12 @@ const partnerLegalProfileSchema = new mongoose.Schema(
     suspensionReason: { type: String, default: "" },
     rejectionReason: { type: String, default: "" },
     statusHistory: { type: [statusHistorySchema], default: [] },
+    /** Proposed legal edits. The verified fields stay active until approval. */
+    pendingChanges: {
+      fields: { type: mongoose.Schema.Types.Mixed, default: null },
+      submittedAt: { type: Date, default: null },
+      submittedByEmail: { type: String, default: "" },
+    },
   },
   { timestamps: true, collection: "partner_legal_profiles" }
 );

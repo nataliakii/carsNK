@@ -218,7 +218,7 @@ function CompanyHubInner({
     >
       <Typography variant="h4" fontWeight={700} sx={{ mb: 1, ...adminReadableTextSx }}>
         {platformHub
-          ? t("header.platformSettings", { defaultValue: "Platform settings" })
+          ? t("header.settings", { defaultValue: "Settings" })
           : t("companyProfile.hubTitle", { defaultValue: t("header.companyProfile") })}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, ...adminReadableTextSx }}>

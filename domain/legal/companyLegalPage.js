@@ -15,9 +15,10 @@ import {
 } from "@/domain/owners/ownerScope";
 import { computeSnapshotChecksum } from "./checksum";
 import { MASTER_AGREEMENT_PACKAGE } from "./documentTypes";
+import { companySetupHref, legacySetupRedirect } from "./companySetupReadiness";
 
 export const COMPANY_LEGAL_PATH = "/admin/company/legal";
-export const COMPANY_TERMS_PATH = `${COMPANY_LEGAL_PATH}?tab=terms`;
+export const COMPANY_TERMS_PATH = "/admin/company/setup?step=terms";
 export const SUPERADMIN_LEGAL_PATH = "/admin/legal";
 
 export const COMPANY_LEGAL_TABS = Object.freeze([
@@ -213,6 +214,28 @@ export function withCustomAgreement(pkg, customAgreement) {
   };
 }
 
+export const COMPANY_TERMS_PUBLICATION = Object.freeze({
+  NOT_PUBLISHED: "NOT_PUBLISHED",
+  READY_TO_ACCEPT: "READY_TO_ACCEPT",
+  ACCEPTED: "ACCEPTED",
+  UPDATE_REQUIRED: "UPDATE_REQUIRED",
+});
+
+/** One publication state for the Terms tab and the Documents tab. */
+export function companyTermsPublication(input) {
+  const view = presentPartnerTerms(input);
+  if (view.state === "preparing") {
+    return { ...view, publication: COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED };
+  }
+  if (view.state === "accepted") {
+    return { ...view, publication: COMPANY_TERMS_PUBLICATION.ACCEPTED };
+  }
+  if (view.state === "updated") {
+    return { ...view, publication: COMPANY_TERMS_PUBLICATION.UPDATE_REQUIRED };
+  }
+  return { ...view, publication: COMPANY_TERMS_PUBLICATION.READY_TO_ACCEPT };
+}
+
 export function presentPartnerTerms({
   documents = [],
   containsDrafts = false,
@@ -344,8 +367,8 @@ export function companyMayOperate({
 }
 
 /** Older profile and agreement URLs all open the company Terms tab. */
-export function legacyLegalProfileRedirect() {
-  return COMPANY_TERMS_PATH;
+export function legacyLegalProfileRedirect(pathname = "", search = {}) {
+  return legacySetupRedirect(pathname, search) || companySetupHref("details");
 }
 
 const SIGNER_ROLE_FIELDS = ["signerRole", "legalRole", "signatoryRole"];

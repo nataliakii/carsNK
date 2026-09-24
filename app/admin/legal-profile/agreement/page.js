@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-import { COMPANY_LEGAL_PATH } from "@/domain/legal/companyLegalPage";
+import { companySetupHref } from "@/domain/legal/companySetupReadiness";
 
 export default function PartnerAgreementPage() {
-  redirect(`${COMPANY_LEGAL_PATH}?tab=terms`);
+  redirect(companySetupHref("terms"));
 }

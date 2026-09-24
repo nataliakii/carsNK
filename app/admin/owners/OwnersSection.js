@@ -306,7 +306,7 @@ export default function OwnersSection() {
       filter = "all";
     }
     router.push(
-      `/admin/legal?tab=partners&filter=${filter}&companyId=${encodeURIComponent(selectedCompanyId)}`
+      `/admin/partners?tab=review&filter=${filter}&companyId=${encodeURIComponent(selectedCompanyId)}`
     );
   };
 

@@ -200,7 +200,7 @@ export default function NavBar({
     country: adminCountry,
   });
   const legalPendingCount = usePendingPartnerReviews({
-    enabled: Boolean(isSuperAdmin),
+    enabled: showSuperAdminChrome,
     country: adminCountry,
   });
   const [partnerCompanyName, setPartnerCompanyName] = useState("");
@@ -1021,7 +1021,7 @@ export default function NavBar({
                           size="small"
                           onClick={async () => {
                             await exitViewAs();
-                            router.push("/admin/owners");
+                            router.push("/admin/partners");
                             router.refresh();
                           }}
                           sx={{
@@ -1727,7 +1727,7 @@ export default function NavBar({
                         onClick={async () => {
                           setDrawerOpen(false);
                           await exitViewAs();
-                          router.push("/admin/owners");
+                          router.push("/admin/partners");
                           router.refresh();
                         }}
                         sx={{ textTransform: "none", color: "#2e7d32" }}

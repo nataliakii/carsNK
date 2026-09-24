@@ -28,6 +28,7 @@ import {
   PARTNER_GATE_BLOCKER,
 } from "./partnerGate";
 import { evaluateProfileCompleteness } from "./partnerVerification";
+import { companySetupReadiness } from "./companySetupReadiness";
 import { recordAuditEvent } from "./auditTrail";
 
 export const PARTNER_OPERATION_ERROR = Object.freeze({
@@ -168,6 +169,7 @@ function allowedResult({
   company,
   gate,
   listed,
+  readiness = null,
 }) {
   const signedChecksum = gate?.activeAgreementChecksum || "";
   return {
@@ -188,6 +190,7 @@ function allowedResult({
     partnerMessage: "",
     customerMessage: CUSTOMER_UNAVAILABLE_MESSAGE,
     signedChecksum,
+    readiness,
   };
 }
 
@@ -196,6 +199,8 @@ function deniedResult({
   gate,
   listed,
   denial,
+  readiness = null,
+  partnerMessage,
 }) {
   return {
     allowed: false,
@@ -210,7 +215,8 @@ function deniedResult({
     packageChecksumMatch: false,
     listedOnMarketplace: listed,
     marketplace: true,
-    partnerMessage: partnerMessageFor(denial),
+    partnerMessage: partnerMessage || partnerMessageFor(denial),
+    readiness,
     customerMessage: CUSTOMER_UNAVAILABLE_MESSAGE,
     blockers: gate?.blockers || [],
   };
@@ -261,30 +267,56 @@ export function evaluateMarketplaceOperatingState({
   });
   gate.activeAgreementChecksum = activeAgreement?.packageChecksum || "";
 
+  const termsPublication = !currentPackageChecksum
+    ? "NOT_PUBLISHED"
+    : !activeAgreement?.packageChecksum
+      ? "READY_TO_ACCEPT"
+      : activeAgreement.packageChecksum !== currentPackageChecksum
+        ? "UPDATE_REQUIRED"
+        : "ACCEPTED";
+  const readiness = companySetupReadiness({
+    profile,
+    completeness:
+      completeness || (profile ? evaluateProfileCompleteness(profile) : null),
+    termsPublication,
+    listedOnMarketplace: listed,
+    agreementAccepted: termsPublication === "ACCEPTED",
+  });
+
   const companyId = asCompanyId(company?._id);
-  if (!gate.canOperate) {
+  const neutral =
+    readiness.state === "TERMS_NOT_PUBLISHED" ||
+    readiness.state === "DOCUMENTS_UNDER_REVIEW" ||
+    readiness.state === "READY_BUT_LISTING_DISABLED"
+      ? "Rovaro is preparing the terms. No action is required from you."
+      : "";
+
+  if (!readiness.canReceiveBookings) {
+    if (readiness.state === "READY_BUT_LISTING_DISABLED") {
+      return deniedResult({
+        companyId,
+        gate,
+        listed,
+        readiness,
+        partnerMessage: "Rovaro will activate your marketplace listing.",
+        denial: {
+          error: PARTNER_OPERATION_ERROR.COMPLIANCE_REQUIRED,
+          code: PARTNER_OPERATION_REASON.MARKETPLACE_DISABLED,
+          reason: PARTNER_OPERATION_REASON.MARKETPLACE_DISABLED,
+        },
+      });
+    }
     return deniedResult({
       companyId,
       gate,
       listed,
+      readiness,
+      partnerMessage: neutral || undefined,
       denial: mapGateToOperationDenial(gate),
     });
   }
 
-  if (requireListed && !listed) {
-    return deniedResult({
-      companyId,
-      gate,
-      listed,
-      denial: {
-        error: PARTNER_OPERATION_ERROR.COMPLIANCE_REQUIRED,
-        code: PARTNER_OPERATION_REASON.MARKETPLACE_DISABLED,
-        reason: PARTNER_OPERATION_REASON.MARKETPLACE_DISABLED,
-      },
-    });
-  }
-
-  return allowedResult({ companyId, company, gate, listed });
+  return allowedResult({ companyId, company, gate, listed, readiness });
 }
 
 function validObjectId(id) {

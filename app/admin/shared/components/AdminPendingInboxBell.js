@@ -26,7 +26,6 @@ import { usePendingPartnerReviews } from "@app/hooks/usePendingPartnerReviews";
 import GavelIcon from "@mui/icons-material/Gavel";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
-import { legalNavHref } from "@/domain/legal/companyLegalPage";
 
 /**
  * Admin inbox bell: badge = unprocessed rentals + transfers.
@@ -39,10 +38,6 @@ export default function AdminPendingInboxBell() {
   const isAdmin = Boolean(session?.user?.isAdmin);
   const isSuperAdmin = Number(session?.user?.role) === ROLE.SUPERADMIN;
   const { active: viewAsActive } = useAdminViewAs();
-  const legalHref = legalNavHref({
-    role: session?.user?.role,
-    companyContextActive: viewAsActive,
-  });
   const { country } = useAdminCountryFilter();
   const {
     rentals,
@@ -208,13 +203,13 @@ export default function AdminPendingInboxBell() {
             </Typography>
           ) : null}
         </MenuItem>
-        {isSuperAdmin ? (
-          <MenuItem onClick={() => go(legalHref)}>
+        {isSuperAdmin && !viewAsActive ? (
+          <MenuItem onClick={() => go("/admin/partners?tab=review")}>
             <ListItemIcon>
               <GavelIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText
-              primary={t("header.legal", { defaultValue: "Legal" })}
+              primary={t("header.partners", { defaultValue: "Partners" })}
               secondary={
                 legalPending > 0
                   ? t("inbox.pendingCount", {

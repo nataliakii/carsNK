@@ -2,7 +2,7 @@
  * Admin top-nav IA
  *
  * Partner: Calendar | Cars | Orders | Company | Legal
- * Superadmin: Calendar | Cars | Orders | Partners | Partner reviews | Platform settings | Emails | Visits
+ * Superadmin: Calendar | Cars | Orders | Partners | Settings | Emails | Visits
  */
 
 export const ADMIN_PATHS = {
@@ -11,9 +11,10 @@ export const ADMIN_PATHS = {
   orders: "/admin/orders",
   company: "/admin/company",
   /** Partner company legal page: details, documents, terms. */
-  legal: "/admin/company/legal",
-  /** Superadmin partner document review + platform legal docs hub. */
+  legal: "/admin/company/setup?step=terms",
+  /** Superadmin platform legal documents, settings, and booking audit. */
   legalHub: "/admin/legal",
+  partners: "/admin/partners",
   owners: "/admin/owners",
   visits: "/admin/website-visits",
   emails: "/admin/emails",
@@ -32,7 +33,13 @@ export function isAdminOrdersSection(pathname) {
 }
 
 export function isAdminCompanySection(pathname) {
-  if (!pathname || pathname.startsWith("/admin/company/legal")) return false;
+  if (
+    !pathname ||
+    pathname.startsWith("/admin/company/legal") ||
+    pathname.startsWith("/admin/company/setup")
+  ) {
+    return false;
+  }
   return (
     pathname.startsWith("/admin/company") ||
     pathname.startsWith("/admin/delivery-zones") ||
@@ -49,12 +56,19 @@ export function isAdminLegalSection(pathname) {
     path === ADMIN_PATHS.legalHub ||
     path.startsWith(`${ADMIN_PATHS.legalHub}/`) ||
     path.startsWith("/admin/legal-profile") ||
-    path.startsWith(ADMIN_PATHS.legal)
+    path.startsWith("/admin/company/legal") ||
+    path.startsWith("/admin/company/setup")
   );
 }
 
+export function isAdminPartnersSection(pathname) {
+  if (!pathname) return false;
+  const path = pathname.split("?")[0];
+  return path === ADMIN_PATHS.partners || path.startsWith("/admin/owners");
+}
+
 export function isAdminOwnersSection(pathname) {
-  return pathname?.startsWith("/admin/owners");
+  return isAdminPartnersSection(pathname);
 }
 
 export function isAdminVisitsSection(pathname) {
@@ -147,22 +161,16 @@ export function getAdminNavItems({
 
   if (showSuperAdminChrome) {
     items.push({
-      id: "owners",
-      href: ADMIN_PATHS.owners,
+      id: "partners",
+      href: ADMIN_PATHS.partners,
       label: t("header.partners", { defaultValue: "Partners" }),
-      match: isAdminOwnersSection,
-    });
-    items.push({
-      id: "legal",
-      href: legalHref || ADMIN_PATHS.legalHub,
-      label: t("header.partnerReviews", { defaultValue: "Partner reviews" }),
-      match: isAdminLegalSection,
+      match: isAdminPartnersSection,
       badge: legalPendingCount,
     });
     items.push({
-      id: "company",
+      id: "settings",
       href: ADMIN_PATHS.company,
-      label: t("header.platformSettings", { defaultValue: "Platform settings" }),
+      label: t("header.settings", { defaultValue: "Settings" }),
       match: isAdminCompanySection,
     });
     items.push({

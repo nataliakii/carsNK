@@ -60,11 +60,13 @@ export function accountTriggerFits(viewportWidth) {
 
 /** Labels that stay in the desktop bar at md and up. */
 export const DESKTOP_NAV_LABELS = [
+  "Calendar",
+  "Cars",
   "Orders",
   "Partners",
-  "Partner reviews",
-  "Platform settings",
+  "Settings",
   "Emails",
+  "Visits",
 ];
 
 function desktopLinkPx(label) {

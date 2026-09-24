@@ -16,6 +16,7 @@ import {
 import PartnerReviewActions from "@/app/admin/legal-profile/_components/PartnerReviewActions";
 import PartnerDocumentsCard from "@/app/admin/legal-profile/_components/PartnerDocumentsCard";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
+import { partnersTabHref } from "@/domain/admin/partnersPage";
 import {
   PARTNER_REVIEW_FILTER,
   buildPartnerReviewCompliance,
@@ -67,7 +68,7 @@ function Field({ label, value }) {
 /**
  * Superadmin queue: review partner KYB without opening company admin.
  */
-export default function PartnerReviewQueue() {
+export default function PartnerReviewQueue({ viewMode }) {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -134,16 +135,14 @@ export default function PartnerReviewQueue() {
 
   const writeUrl = useCallback(
     (next, mode) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", "partners");
-      params.set("filter", next.filter);
-      if (next.companyId) params.set("companyId", next.companyId);
-      else params.delete("companyId");
-      const href = `/admin/legal?${params.toString()}`;
+      const href = partnersTabHref("review", {
+        filter: next.filter,
+        companyId: next.companyId,
+      });
       if (mode === "push") router.push(href, { scroll: false });
       else router.replace(href, { scroll: false });
     },
-    [router, searchParams]
+    [router]
   );
 
   useEffect(() => {
@@ -361,7 +360,7 @@ export default function PartnerReviewQueue() {
               })}
             </Alert>
           ) : (
-            <ReviewDetail row={selected} onChanged={load} />
+            <ReviewDetail row={selected} onChanged={load} viewMode={viewMode} />
           )}
         </Box>
       </Stack>
@@ -370,7 +369,7 @@ export default function PartnerReviewQueue() {
   );
 }
 
-function ReviewDetail({ row, onChanged }) {
+function ReviewDetail({ row, onChanged, viewMode }) {
   const { t } = useTranslation();
   const v = row.verification;
   const recommended = [
@@ -476,6 +475,7 @@ function ReviewDetail({ row, onChanged }) {
         }
         companyId={row.companyId}
         onChanged={onChanged}
+        viewMode={viewMode}
       />
 
       {recommended.length ? (

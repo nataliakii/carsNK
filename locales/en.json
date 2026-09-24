@@ -52,7 +52,8 @@
     "owners": "Partners",
     "partners": "Partners",
     "partnerReviews": "Partner reviews",
-    "platformSettings": "Platform settings",
+    "settings": "Settings",
+    "platformSettings": "Settings",
     "companyProfile": "Company",
     "platform": "Catalogue",
     "carRentals": "Car rentals",
@@ -1321,7 +1322,7 @@
       }
     },
     "companies": {
-      "legalHelperPlatform": "Platform contracts: Legal in the top bar → load drafts, then Publish EN/ES.",
+      "legalHelperPlatform": "Platform contracts: Settings → Legal documents. Load drafts, then Publish EN/ES.",
       "legalHelperPartner": "Partner papers: this company card → Review legal → set VERIFIED after you check the uploads.",
       "reviewLegal": "Review legal / Verify documents",
       "reviewLegalFailed": "Could not open this company's legal profile.",
@@ -1330,8 +1331,8 @@
       "hideStorefront": "Hide storefront"
     },
     "legalHub": {
-      "title": "Partner reviews",
-      "subtitle": "Review partner profiles and documents. Platform legal documents and operator settings live under Platform settings.",
+      "title": "Legal documents",
+      "subtitle": "Platform legal documents, operator settings, and booking audit.",
       "tabDocuments": "Legal documents",
       "tabPartners": "Partner reviews",
       "queueTitle": "Partner document review",

@@ -11,10 +11,11 @@ import {
 import { normalizeLegalLanguage } from "@/domain/legal/documentTypes";
 import { evaluatePartnerOperatingGate } from "@/domain/legal/partnerGate";
 import {
-  companyMayOperate,
+  companyTermsPublication,
   ownCompanyScope,
   withCustomAgreement,
 } from "@/domain/legal/companyLegalPage";
+import { companySetupReadiness } from "@/domain/legal/companySetupReadiness";
 import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
 import { evaluateProfileCompleteness } from "@/domain/legal/partnerVerification";
 
@@ -77,6 +78,19 @@ export async function GET(request) {
   });
 
   const listedOnMarketplace = company?.listedOnMarketplace !== false;
+  const publication = companyTermsPublication({
+    documents: terms.documents || [],
+    containsDrafts: Boolean(pkg.anyDraft),
+    activeChecksum: activeAgreement?.packageChecksum || "",
+    currentChecksum: terms.packageChecksum || "",
+  });
+  const readiness = companySetupReadiness({
+    profile,
+    completeness,
+    termsPublication: publication.publication,
+    listedOnMarketplace,
+    agreementAccepted: publication.publication === "ACCEPTED",
+  });
 
   return NextResponse.json({
     success: true,
@@ -84,7 +98,8 @@ export async function GET(request) {
     gate,
     completeness,
     listedOnMarketplace,
-    canListPublicly: companyMayOperate({ gate, listedOnMarketplace }),
+    canListPublicly: readiness.canReceiveBookings,
+    readiness,
     currentPackageChecksum: terms.packageChecksum,
     containsDrafts: pkg.anyDraft,
     signedAgreement: activeAgreement

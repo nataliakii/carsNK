@@ -9,7 +9,7 @@ import Feed from "@app/components/Feed";
 // Shared components from new structure
 import { AdminLoader, AdminNotifications } from "@app/admin/shared";
 import CalendarHubTabs from "@app/admin/features/calendar/CalendarHubTabs";
-import PartnerComplianceGate from "@/app/admin/legal-profile/_components/PartnerComplianceGate";
+import PartnerComplianceCard from "@/app/admin/shared/components/PartnerComplianceCard";
 import usePartnerLegalStatus from "@/app/admin/legal-profile/_components/usePartnerLegalStatus";
 
 function FeatureLoader({ i18nKey }) {
@@ -184,18 +184,8 @@ function AdminViewContent({ viewType }) {
       ) : null}
 
       {gate && !gate.canOperate ? (
-        <Box
-          sx={{
-            px: { xs: 1, md: 2 },
-            pt: 2,
-            flexShrink: 0,
-          }}
-        >
-          <PartnerComplianceGate
-            gate={gate}
-            hideWhenOpen
-            listedOnMarketplace={listedOnMarketplace}
-          />
+        <Box sx={{ px: { xs: 1, md: 2 }, pt: 2, flexShrink: 0 }}>
+          <PartnerComplianceCard />
         </Box>
       ) : null}
 

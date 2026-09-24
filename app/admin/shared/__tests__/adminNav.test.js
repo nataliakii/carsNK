@@ -108,39 +108,56 @@ describe("adminNav IA", () => {
     );
   });
 
-  it("superadmin nav: Partners, Partner reviews, Platform settings, Emails", () => {
+  it("superadmin nav: Partners, Settings, Emails", () => {
     const t = (key, opts) => opts?.defaultValue || key;
     const items = getAdminNavItems({
       t,
       showSuperAdminChrome: true,
       showCompanyNav: true,
       showLegalNav: true,
-      legalHref: ADMIN_PATHS.legalHub,
+      legalHref: ADMIN_PATHS.legal,
       legalPendingCount: 3,
     });
     expect(items.map((item) => item.id)).toEqual([
       "calendar",
       "cars",
       "orders",
-      "owners",
-      "legal",
-      "company",
+      "partners",
+      "settings",
       "emails",
       "visits",
     ]);
-    expect(items.find((item) => item.id === "owners").label).toBe("Partners");
-    expect(items.find((item) => item.id === "legal").label).toBe(
-      "Partner reviews"
+    expect(items.find((item) => item.id === "partners").href).toBe(
+      ADMIN_PATHS.partners
     );
-    expect(items.find((item) => item.id === "legal").href).toBe(
-      ADMIN_PATHS.legalHub
-    );
-    expect(items.find((item) => item.id === "legal").badge).toBe(3);
-    expect(items.find((item) => item.id === "company").label).toBe(
-      "Platform settings"
-    );
-    expect(items.find((item) => item.id === "company").href).toBe(
+    expect(items.find((item) => item.id === "partners").badge).toBe(3);
+    expect(items.some((item) => item.label === "Partner reviews")).toBe(false);
+    expect(items.some((item) => item.label === "Platform settings")).toBe(false);
+    expect(items.find((item) => item.id === "settings").href).toBe(
       ADMIN_PATHS.company
+    );
+  });
+
+  it("hides superadmin Partners and Settings in company context", () => {
+    const t = (key, opts) => opts?.defaultValue || key;
+    const items = getAdminNavItems({
+      t,
+      showSuperAdminChrome: false,
+      showCompanyNav: true,
+      showLegalNav: true,
+      legalHref: ADMIN_PATHS.legal,
+    });
+    expect(items.map((item) => item.id)).toEqual([
+      "calendar",
+      "cars",
+      "orders",
+      "company",
+      "legal",
+    ]);
+    expect(items.some((item) => item.id === "partners")).toBe(false);
+    expect(items.some((item) => item.id === "settings")).toBe(false);
+    expect(items.find((item) => item.id === "legal").href).toBe(
+      ADMIN_PATHS.legal
     );
   });
 });

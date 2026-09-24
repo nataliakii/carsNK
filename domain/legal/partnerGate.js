@@ -95,7 +95,8 @@ export function evaluatePartnerOperatingGate({
     Boolean(currentPackageChecksum) &&
     signedChecksum !== currentPackageChecksum;
 
-  if (!agreementSigned) {
+  const packagePublished = Boolean(String(currentPackageChecksum || "").trim());
+  if (packagePublished && !agreementSigned) {
     blockers.push({
       code: PARTNER_GATE_BLOCKER.AGREEMENT_NOT_SIGNED,
       step: PARTNER_GATE_STEP.AGREEMENT,
