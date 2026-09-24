@@ -11,6 +11,7 @@ import {
   getPublicLegalEntity,
 } from "@config/legalEntity";
 import { platformDocumentDisplayName } from "@/domain/legal/platformPublish";
+import { PUBLIC_LEGAL_STATUS_PREPARING } from "@/domain/legal/publicLegalPageLayout";
 import LegalDocumentRetry from "./LegalDocumentRetry";
 
 /**
@@ -24,13 +25,10 @@ import LegalDocumentRetry from "./LegalDocumentRetry";
  *
  * `publishedOnly` is for public customer pages (Cookie Policy, Privacy, …):
  * unpublished documents show a preparing message instead of draft text.
+ *
+ * Optional `children` (e.g. BookingFeeOutcomesTable) render only when a
+ * published document loaded successfully — never with unpublished/error states.
  */
-
-const contentPadding = {
-  maxWidth: 820,
-  margin: "0 auto",
-  padding: "24px 20px 48px",
-};
 
 function formatDate(value) {
   if (!value) return null;
@@ -44,18 +42,43 @@ function formatDate(value) {
 function PreparingMessage({ documentType }) {
   const name = platformDocumentDisplayName(documentType);
   return (
-    <div style={contentPadding}>
-      <div
+    <div
+      data-testid="public-legal-unpublished"
+      style={PUBLIC_LEGAL_STATUS_PREPARING}
+    >
+      {name} is being prepared.
+    </div>
+  );
+}
+
+function DocumentHeader({ title, version, effectiveFrom, source, fellBackToEnglish }) {
+  return (
+    <header data-testid="public-legal-document-header">
+      <h1
         style={{
-          padding: 16,
-          backgroundColor: "#fff3e0",
-          borderRadius: 4,
-          color: "#e65100",
+          textAlign: "center",
+          marginTop: 0,
+          marginBottom: 12,
+          fontSize: 28,
+          fontWeight: 600,
         }}
       >
-        {name} is being prepared.
-      </div>
-    </div>
+        {title}
+      </h1>
+      <p
+        style={{
+          textAlign: "center",
+          color: "#78909c",
+          fontSize: 13,
+          marginBottom: 32,
+        }}
+      >
+        Version {version}
+        {effectiveFrom ? ` · Effective from ${effectiveFrom}` : ""}
+        {source === "draft" ? " · Draft — not yet published" : ""}
+        {fellBackToEnglish ? " · English version shown" : ""}
+      </p>
+    </header>
   );
 }
 
@@ -63,6 +86,7 @@ export default async function RovaroLegalDocument({
   documentType,
   locale,
   publishedOnly = false,
+  children = null,
 }) {
   try {
     const [{ doc, source, fellBackToEnglish }, { tokens }] = await Promise.all([
@@ -83,17 +107,8 @@ export default async function RovaroLegalDocument({
         return <PreparingMessage documentType={documentType} />;
       }
       return (
-        <div style={contentPadding}>
-          <div
-            style={{
-              padding: 16,
-              backgroundColor: "#fff3e0",
-              borderRadius: 4,
-              color: "#e65100",
-            }}
-          >
-            This document is not available yet.
-          </div>
+        <div style={PUBLIC_LEGAL_STATUS_PREPARING}>
+          This document is not available yet.
         </div>
       );
     }
@@ -107,74 +122,60 @@ export default async function RovaroLegalDocument({
     const effectiveFrom = formatDate(doc.effectiveFrom);
 
     return (
-      <article style={contentPadding}>
-        <h1
-          style={{
-            textAlign: "center",
-            marginBottom: 12,
-            fontSize: 28,
-            fontWeight: 600,
-          }}
-        >
-          {rendered.title}
-        </h1>
+      <>
+        <article data-testid="public-legal-published">
+          <DocumentHeader
+            title={rendered.title}
+            version={doc.version}
+            effectiveFrom={effectiveFrom}
+            source={source}
+            fellBackToEnglish={fellBackToEnglish}
+          />
 
-        <p
-          style={{
-            textAlign: "center",
-            color: "#78909c",
-            fontSize: 13,
-            marginBottom: 32,
-          }}
-        >
-          Version {doc.version}
-          {effectiveFrom ? ` · Effective from ${effectiveFrom}` : ""}
-          {source === "draft" ? " · Draft — not yet published" : ""}
-          {fellBackToEnglish ? " · English version shown" : ""}
-        </p>
-
-        {rendered.sections.map((section) => (
-          <section key={section.id} style={{ marginBottom: 24 }}>
-            {section.heading ? (
-              <h2
+          {rendered.sections.map((section) => (
+            <section key={section.id} style={{ marginBottom: 24 }}>
+              {section.heading ? (
+                <h2
+                  style={{
+                    fontSize: 17,
+                    fontWeight: 600,
+                    marginBottom: 8,
+                    color: "#263238",
+                  }}
+                >
+                  {section.heading}
+                </h2>
+              ) : null}
+              <div
                 style={{
-                  fontSize: 17,
-                  fontWeight: 600,
-                  marginBottom: 8,
-                  color: "#263238",
+                  lineHeight: 1.7,
+                  whiteSpace: "pre-line",
+                  color: "#37474f",
                 }}
               >
-                {section.heading}
-              </h2>
-            ) : null}
-            <div
-              style={{
-                lineHeight: 1.7,
-                whiteSpace: "pre-line",
-                color: "#37474f",
-              }}
-            >
-              {section.text}
-            </div>
-          </section>
-        ))}
+                {section.text}
+              </div>
+            </section>
+          ))}
 
-        <footer
-          style={{
-            marginTop: 40,
-            paddingTop: 20,
-            borderTop: "1px solid #e0e0e0",
-            fontSize: 13,
-            lineHeight: 1.7,
-            color: "#607d8b",
-          }}
-        >
-          <div>{getOperatorLine(doc.language)}</div>
-          {registrationLine ? <div>{registrationLine}</div> : null}
-          {addressLine ? <div>{addressLine}</div> : null}
-          <div>{entity.legalEmail}</div>
-        </footer>
-      </article>
+          <footer
+            style={{
+              marginTop: 40,
+              paddingTop: 20,
+              borderTop: "1px solid #e0e0e0",
+              fontSize: 13,
+              lineHeight: 1.7,
+              color: "#607d8b",
+            }}
+          >
+            <div>{getOperatorLine(doc.language)}</div>
+            {registrationLine ? <div>{registrationLine}</div> : null}
+            {addressLine ? <div>{addressLine}</div> : null}
+            <div>{entity.legalEmail}</div>
+          </footer>
+        </article>
+        {children}
+      </>
     );
   } catch (err) {
     console.error(

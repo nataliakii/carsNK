@@ -5,8 +5,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   FormControl,
   FormControlLabel,
   FormLabel,
@@ -27,6 +25,10 @@ import {
   parseMarketplaceBookingFeePercent,
   resolveMarketplaceBookingFeeBps,
 } from "@/domain/orders/marketplaceBookingFee";
+import {
+  adminReadableTextSx,
+  adminSurfaceSx,
+} from "@/app/admin/shared/components/AdminSettingsSection";
 
 function isSpainMarketplaceCompany(company) {
   return String(company?.country || "").trim().toUpperCase() === "ES";
@@ -36,7 +38,11 @@ function isSpainMarketplaceCompany(company) {
  * Per-company rental Stripe / on-site payment settings.
  * Spain marketplace: compact Commercial terms (SUPERADMIN only).
  */
-export default function CompanyRentalPaymentsCard({ company, onSaved }) {
+export default function CompanyRentalPaymentsCard({
+  company,
+  onSaved,
+  embedded = false,
+}) {
   const { t } = useTranslation();
   const { data: session, status } = useSession();
   const sessionReady = status !== "loading";
@@ -194,8 +200,21 @@ export default function CompanyRentalPaymentsCard({ company, onSaved }) {
   };
 
   return (
-    <Card variant="outlined" sx={{ borderRadius: 2 }}>
-      <CardContent sx={{ p: { xs: 2, sm: 2.5 }, "&:last-child": { pb: { xs: 2, sm: 2.5 } } }}>
+    <Box
+      sx={
+        embedded
+          ? adminSurfaceSx(true)
+          : {
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+              bgcolor: "#fff",
+              p: { xs: 2, sm: 2.5 },
+              boxSizing: "border-box",
+              ...adminReadableTextSx,
+            }
+      }
+    >
         {spainMarketplace ? (
           <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
             Commercial terms
@@ -350,7 +369,6 @@ export default function CompanyRentalPaymentsCard({ company, onSaved }) {
             </Button>
           ) : null}
         </Stack>
-      </CardContent>
-    </Card>
+    </Box>
   );
 }

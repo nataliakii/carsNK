@@ -18,14 +18,15 @@ import {
   meetingContactsUpdatePayload,
 } from "@/domain/company/meetingContacts";
 import {
-  adminCardSx,
   adminReadableTextSx,
+  adminSurfaceSx,
 } from "@/app/admin/shared/components/AdminSettingsSection";
 
 export default function CompanyMeetingContactsCard({
   company,
   onSaved,
   disabled = false,
+  embedded = false,
 }) {
   const { t } = useTranslation();
   const [contacts, setContacts] = useState(() =>
@@ -86,15 +87,15 @@ export default function CompanyMeetingContactsCard({
   if (!company) return null;
 
   return (
-    <Box sx={adminCardSx}>
-      <Stack
-        direction="row"
-        alignItems="flex-start"
-        justifyContent="space-between"
-        gap={1}
-        flexWrap="wrap"
-        sx={{ mb: 1.5 }}
-      >
+    <Box sx={adminSurfaceSx(embedded)}>
+    <Stack
+      direction="row"
+      alignItems="flex-start"
+      justifyContent="space-between"
+      gap={1}
+      flexWrap="wrap"
+      sx={{ mb: 1.5 }}
+    >
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography
             variant="h6"

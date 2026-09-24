@@ -261,8 +261,8 @@ export default function CompanyOfficesEditor({
             <Box
               sx={{
                 display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                gap: 1.5,
+                gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                gap: { xs: 2.5, md: 3 },
                 mt: 1.5,
               }}
             >
@@ -334,8 +334,8 @@ export default function CompanyOfficesEditor({
             <Box
               sx={{
                 display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                gap: 1.5,
+                gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                gap: { xs: 2.5, md: 3 },
               }}
             >
               <TextField

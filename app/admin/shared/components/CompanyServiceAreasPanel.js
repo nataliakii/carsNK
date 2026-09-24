@@ -19,9 +19,9 @@ import {
 } from "@/domain/company/companyOffices";
 import useOperatingCityCatalog from "@/app/admin/shared/hooks/useOperatingCityCatalog";
 import AdminSettingsSection, {
-  adminCardSx,
   adminFieldSx,
   adminReadableTextSx,
+  adminSurfaceSx,
 } from "@/app/admin/shared/components/AdminSettingsSection";
 import OperatingCitiesPicker from "@/app/admin/shared/components/OperatingCitiesPicker";
 import ServiceAreasPicker from "@/app/admin/shared/components/ServiceAreasPicker";
@@ -37,6 +37,7 @@ export default function CompanyServiceAreasPanel({
   company,
   onSaved,
   disabled = false,
+  embedded = false,
 }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
@@ -154,7 +155,7 @@ export default function CompanyServiceAreasPanel({
   if (!company) return null;
 
   return (
-    <Box sx={adminCardSx}>
+    <Box sx={adminSurfaceSx(embedded)}>
       <AdminSettingsSection title={t("companyProfile.coverageTitle")}>
         <ServiceAreasPicker
           country={company?.country}

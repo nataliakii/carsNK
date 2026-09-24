@@ -12,9 +12,9 @@ import {
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import AdminSettingsSection, {
-  adminCardSx,
   adminFieldSx,
   adminReadableTextSx,
+  adminSurfaceSx,
 } from "@/app/admin/shared/components/AdminSettingsSection";
 import { policyFromCompany } from "@/app/admin/shared/components/companyDeliveryPolicy";
 
@@ -34,6 +34,7 @@ export default function CompanyDeliveryPricingCard({
   company,
   onSaved,
   disabled = false,
+  embedded = false,
 }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
@@ -99,7 +100,7 @@ export default function CompanyDeliveryPricingCard({
   if (!company) return null;
 
   return (
-    <Box sx={adminCardSx}>
+    <Box sx={adminSurfaceSx(embedded)}>
       <AdminSettingsSection
         title={t("companyProfile.deliveryRulesTitle")}
         description={t("companyProfile.deliveryRulesHelp")}

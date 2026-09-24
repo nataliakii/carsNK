@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import Feed from "@app/components/Feed";
+import PublicLegalPageLayout from "@app/(legal)/_components/PublicLegalPageLayout";
 import RovaroLegalDocument from "@app/(legal)/_components/RovaroLegalDocument";
 import BookingFeeOutcomesTable from "@app/components/Legal/BookingFeeOutcomesTable";
 import {
@@ -34,13 +34,14 @@ export default async function CustomerTermsPage({ params }) {
   const normalized = normalizeRoutableLocale(locale);
 
   return (
-    <Feed locale={normalized}>
+    <PublicLegalPageLayout locale={normalized}>
       <RovaroLegalDocument
         documentType={LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS}
         locale={normalized}
         publishedOnly
-      />
-      <BookingFeeOutcomesTable language={normalized} />
-    </Feed>
+      >
+        <BookingFeeOutcomesTable language={normalized} />
+      </RovaroLegalDocument>
+    </PublicLegalPageLayout>
   );
 }

@@ -61,7 +61,7 @@ export default function PartnerComplianceCard() {
 
   if (loading) {
     return (
-      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         <CircularProgress size={20} />
       </Paper>
     );
@@ -72,7 +72,7 @@ export default function PartnerComplianceCard() {
   const action = readiness.nextAction;
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 3 }}>
+    <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 2, width: "100%" }}>
       <Stack spacing={1}>
         <Chip
           size="small"

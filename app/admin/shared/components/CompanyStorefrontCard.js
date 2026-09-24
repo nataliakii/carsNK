@@ -19,9 +19,10 @@ import { useTranslation } from "react-i18next";
 import { ALL_UI_LOCALES } from "@/domain/platform/uiLocales";
 import { resolveCompanyOffices } from "@/domain/company/companyOffices";
 import AdminSettingsSection, {
-  adminCardSx,
   adminFieldSx,
+  adminFormGridSx,
   adminReadableTextSx,
+  adminSurfaceSx,
 } from "@/app/admin/shared/components/AdminSettingsSection";
 import CompanyOfficesEditor from "@/app/admin/shared/components/CompanyOfficesEditor";
 
@@ -74,6 +75,7 @@ export default function CompanyStorefrontCard({
   company,
   onSaved,
   disabled = false,
+  embedded = false,
 }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
@@ -173,7 +175,7 @@ export default function CompanyStorefrontCard({
   if (!company) return null;
 
   return (
-    <Box sx={adminCardSx}>
+    <Box sx={adminSurfaceSx(embedded)}>
       <Typography
         variant="h6"
         fontWeight={700}
@@ -195,14 +197,7 @@ export default function CompanyStorefrontCard({
 
       <Stack gap={3} divider={<Divider sx={{ borderColor: "divider" }} />}>
         <AdminSettingsSection title={t("companyProfile.identityTitle")}>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-              gap: 2,
-              alignItems: "start",
-            }}
-          >
+          <Box sx={adminFormGridSx}>
             <TextField
               size="small"
               label={t("companyProfile.companyName")}
@@ -300,17 +295,7 @@ export default function CompanyStorefrontCard({
         </AdminSettingsSection>
 
         <AdminSettingsSection title={t("companyProfile.bookingRules")}>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "repeat(2, minmax(0, 1fr))",
-              },
-              gap: 2,
-              alignItems: "start",
-            }}
-          >
+          <Box sx={adminFormGridSx}>
             <TextField
               size="small"
               type="number"

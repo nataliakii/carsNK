@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import Feed from "@app/components/Feed";
+import PublicLegalPageLayout from "@app/(legal)/_components/PublicLegalPageLayout";
 import RovaroLegalDocument from "@app/(legal)/_components/RovaroLegalDocument";
 import {
   isRoutableLocale,
@@ -24,12 +24,12 @@ export default async function LocalizedPrivacyPolicyPage({ params }) {
   const normalized = normalizeRoutableLocale(locale);
 
   return (
-    <Feed locale={normalized}>
+    <PublicLegalPageLayout locale={normalized}>
       <RovaroLegalDocument
         documentType={LEGAL_DOCUMENT_TYPE.PRIVACY_POLICY}
         locale={normalized}
         publishedOnly
       />
-    </Feed>
+    </PublicLegalPageLayout>
   );
 }

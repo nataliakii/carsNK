@@ -433,6 +433,7 @@ export default function TransferVouchersSection({
   initialDefaults = null,
   emailApiPath = "/api/admin/vouchers/transfer/email",
   pdfApiPath = "/api/admin/vouchers/transfer/pdf",
+  embedded = false,
 }) {
   const isTokenMode = mode === "token";
   const companyList = Array.isArray(companies) && companies.length
@@ -775,20 +776,33 @@ export default function TransferVouchersSection({
   const fieldLabel = (key) => voucherFieldLabel(key, uiLocale);
 
   return (
-    <Box sx={{ p: { xs: 1, md: 2 }, maxWidth: 1280, mx: "auto" }}>
+    <Box
+      sx={
+        embedded
+          ? { width: "100%", maxWidth: "100%", p: 0, m: 0 }
+          : { p: { xs: 1, md: 2 }, maxWidth: 1280, mx: "auto" }
+      }
+    >
       <GlobalStyles styles={printStyles} />
 
       <Box className="no-print" sx={{ mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-          {voucherFieldLabel("pageTitle", uiLocale)}
-          {activeCompany?.name ? ` — ${activeCompany.name}` : ""}
-        </Typography>
+        {embedded ? null : (
+          <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+            {voucherFieldLabel("pageTitle", uiLocale)}
+            {activeCompany?.name ? ` — ${activeCompany.name}` : ""}
+          </Typography>
+        )}
+        {embedded && activeCompany?.name ? (
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
+            {activeCompany.name}
+          </Typography>
+        ) : null}
         {isTokenMode ? (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             {voucherUiText("tokenAccessHint", uiLocale)}
           </Typography>
         ) : (
-          <Box sx={{ mb: 1.5 }} />
+          <Box sx={{ mb: embedded ? 0.5 : 1.5 }} />
         )}
 
         {canPickCompany ? (

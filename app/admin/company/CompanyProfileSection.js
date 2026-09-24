@@ -6,10 +6,8 @@ import {
   Alert,
   Box,
   CircularProgress,
+  Divider,
   Stack,
-  Tab,
-  Tabs,
-  Typography,
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -22,8 +20,7 @@ import CompanyRentalPaymentsCard from "@/app/admin/shared/components/CompanyRent
 import CompanyAdminsCard from "@/app/admin/shared/components/CompanyAdminsCard";
 import CompanyMeetingContactsCard from "@/app/admin/shared/components/CompanyMeetingContactsCard";
 import PartnerComplianceCard from "@/app/admin/shared/components/PartnerComplianceCard";
-import { adminReadableTextSx } from "@/app/admin/shared/components/AdminSettingsSection";
-import { adminSectionTabsSx } from "@app/admin/shared/components/AdminSectionTabs";
+import CompanySettingsLayout from "@/app/admin/company/CompanySettingsLayout";
 import {
   getCompanyHubTabIds,
   resolveCompanyHubTab,
@@ -114,6 +111,7 @@ function CompanyHubInner({
   const requested = searchParams?.get("tab");
   const fallbackTab = tabIds[0] || TAB_STOREFRONT;
   const tab = resolveCompanyHubTab(requested, tabIds) || fallbackTab;
+  const tabValue = Math.max(tabIds.indexOf(tab), 0);
 
   const setTab = useCallback(
     (next) => {
@@ -173,119 +171,115 @@ function CompanyHubInner({
     tab === TAB_DELIVERY ||
     tab === TAB_PRICING;
 
-  const wideTab =
-    tab === TAB_DELIVERY || tab === TAB_PRICING || tab === TAB_VOUCHERS;
+  let activeTabContent = null;
+  if (needsCompany && hasCompanyContext && loading) {
+    activeTabContent = (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+        <CircularProgress />
+      </Box>
+    );
+  } else if (tab === TAB_STOREFRONT && !loading) {
+    activeTabContent = (
+      <CompanyStorefrontCard
+        company={company}
+        onSaved={handleCompanySaved}
+        embedded
+      />
+    );
+  } else if (tab === TAB_PEOPLE && !loading) {
+    activeTabContent = (
+      <Stack gap={3} divider={<Divider sx={{ borderColor: "divider" }} />}>
+        <CompanyAdminsCard
+          companyId={ownerId}
+          companyName={company?.name || ""}
+          embedded
+        />
+        <CompanyMeetingContactsCard
+          company={company}
+          onSaved={handleCompanySaved}
+          embedded
+        />
+      </Stack>
+    );
+  } else if (tab === TAB_DELIVERY) {
+    activeTabContent =
+      hasCompanyContext && !loading ? (
+        <CompanyCoverageCard
+          company={company}
+          onSaved={handleCompanySaved}
+          embedded
+        />
+      ) : (
+        <DeliveryZonesSection variant="coverage" embedded />
+      );
+  } else if (tab === TAB_PRICING) {
+    activeTabContent =
+      hasCompanyContext && !loading ? (
+        <Stack gap={3} divider={<Divider sx={{ borderColor: "divider" }} />}>
+          <CompanyDeliveryPricingCard
+            company={company}
+            onSaved={handleCompanySaved}
+            embedded
+          />
+          <CompanyRentalPaymentsCard
+            company={company}
+            onSaved={handleCompanySaved}
+            embedded
+          />
+          {isGreeceCompany(company) ? (
+            <DeliveryZonesSection variant="pricing" embedded />
+          ) : null}
+        </Stack>
+      ) : (
+        <DeliveryZonesSection variant="pricing" embedded />
+      );
+  } else if (tab === TAB_VOUCHERS) {
+    activeTabContent = (
+      <TransferVouchersSection
+        company={voucherHub?.company}
+        companies={voucherHub?.companies}
+        canPickCompany={voucherHub?.canPickCompany}
+        initialDefaults={voucherHub?.initialDefaults}
+        embedded
+      />
+    );
+  } else if (tab === TAB_TRANSFER) {
+    activeTabContent = (
+      <CompanyTransferServicesCard companyId={ownerId} embedded />
+    );
+  }
 
-  return (
-    <Box
-      sx={{
-        px: { xs: 1, md: 2 },
-        pb: 6,
-        pt: { xs: 2, md: 2 },
-        maxWidth: wideTab ? { xs: "100%", md: 1200 } : { xs: "100%", md: 960 },
-        mx: "auto",
-        overflowX: "hidden",
-      }}
-    >
-      <Typography variant="h4" fontWeight={700} sx={{ mb: 1, ...adminReadableTextSx }}>
-        {t("companyProfile.hubTitle", { defaultValue: t("header.companyProfile") })}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, ...adminReadableTextSx }}>
-        {t("companyProfile.hubSubtitle", {
-          defaultValue: t("companyProfile.subtitle"),
-        })}
-      </Typography>
-
-      {hasCompanyContext ? <PartnerComplianceCard /> : null}
-
-      <Tabs
-        value={Math.max(tabIds.indexOf(tab), 0)}
-        onChange={(_, v) => setTab(tabIds[v] || fallbackTab)}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        sx={{ ...adminSectionTabsSx, px: 0 }}
-      >
-        {tabs.map((item) => (
-          <Tab key={item.id} label={item.label} />
-        ))}
-      </Tabs>
-
+  const alerts = (
+    <>
       {error ? (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+        <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError("")}>
           {error}
         </Alert>
       ) : null}
       {ok ? (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setOk("")}>
+        <Alert severity="success" sx={{ mt: 2 }} onClose={() => setOk("")}>
           {ok}
         </Alert>
       ) : null}
+    </>
+  );
 
-      {needsCompany && hasCompanyContext && loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-          <CircularProgress />
-        </Box>
-      ) : null}
-
-      {tab === TAB_STOREFRONT && !loading ? (
-        <CompanyStorefrontCard company={company} onSaved={handleCompanySaved} />
-      ) : null}
-
-      {tab === TAB_PEOPLE && !loading ? (
-        <Stack gap={2.5} sx={{ mt: 1 }}>
-          <CompanyAdminsCard
-            companyId={ownerId}
-            companyName={company?.name || ""}
-          />
-          <CompanyMeetingContactsCard
-            company={company}
-            onSaved={handleCompanySaved}
-          />
-        </Stack>
-      ) : null}
-
-      {tab === TAB_DELIVERY ? (
-        hasCompanyContext && !loading ? (
-          <CompanyCoverageCard company={company} onSaved={handleCompanySaved} />
-        ) : (
-          <DeliveryZonesSection variant="coverage" />
-        )
-      ) : null}
-
-      {tab === TAB_PRICING ? (
-        hasCompanyContext && !loading ? (
-          <Stack gap={2.5} sx={{ mt: 1 }}>
-            <CompanyDeliveryPricingCard
-              company={company}
-              onSaved={handleCompanySaved}
-            />
-            <CompanyRentalPaymentsCard
-              company={company}
-              onSaved={handleCompanySaved}
-            />
-            {isGreeceCompany(company) ? (
-              <DeliveryZonesSection variant="pricing" />
-            ) : null}
-          </Stack>
-        ) : (
-          <DeliveryZonesSection variant="pricing" />
-        )
-      ) : null}
-
-      {tab === TAB_VOUCHERS ? (
-        <TransferVouchersSection
-          company={voucherHub?.company}
-          companies={voucherHub?.companies}
-          canPickCompany={voucherHub?.canPickCompany}
-          initialDefaults={voucherHub?.initialDefaults}
-        />
-      ) : null}
-
-      {tab === TAB_TRANSFER ? (
-        <CompanyTransferServicesCard companyId={ownerId} />
-      ) : null}
-    </Box>
+  return (
+    <CompanySettingsLayout
+      title={t("companyProfile.hubTitle", {
+        defaultValue: t("header.companyProfile"),
+      })}
+      subtitle={t("companyProfile.hubSubtitle", {
+        defaultValue: t("companyProfile.subtitle"),
+      })}
+      setupStatus={hasCompanyContext ? <PartnerComplianceCard /> : null}
+      tabs={tabs}
+      tabValue={tabValue}
+      onTabChange={(_, v) => setTab(tabIds[v] || fallbackTab)}
+      alerts={alerts}
+    >
+      {activeTabContent}
+    </CompanySettingsLayout>
   );
 }
 

@@ -22,9 +22,10 @@ import {
 import NextLink from "next/link";
 import { useTranslation } from "react-i18next";
 import AdminSettingsSection, {
-  adminCardSx,
   adminFieldSx,
+  adminFormGridSx,
   adminReadableTextSx,
+  adminSurfaceSx,
 } from "@/app/admin/shared/components/AdminSettingsSection";
 import ServiceAreasPicker from "@/app/admin/shared/components/ServiceAreasPicker";
 import OperatingCitiesPicker from "@/app/admin/shared/components/OperatingCitiesPicker";
@@ -60,7 +61,10 @@ function categoryLabel(code, options, t) {
 /**
  * Supplier transfer capability config — no customer price editing.
  */
-export default function CompanyTransferServicesCard({ companyId }) {
+export default function CompanyTransferServicesCard({
+  companyId,
+  embedded = false,
+}) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -247,7 +251,7 @@ export default function CompanyTransferServicesCard({ companyId }) {
     t("companyProfile.serviceAreasNone");
 
   return (
-    <Box sx={adminCardSx}>
+    <Box sx={adminSurfaceSx(embedded)}>
       <AdminSettingsSection
         title={t("companyProfile.transferTitle")}
         description={t("companyProfile.transferHelp")}
@@ -347,14 +351,7 @@ export default function CompanyTransferServicesCard({ companyId }) {
                         : t("companyProfile.transferFleetEmpty")}
                     </Typography>
                   ) : (
-                    <Box
-                      sx={{
-                        mt: 1.5,
-                        display: "grid",
-                        gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                        gap: 1.5,
-                      }}
-                    >
+                    <Box sx={{ mt: 1.5, ...adminFormGridSx }}>
                       <TextField
                         size="small"
                         type="number"
