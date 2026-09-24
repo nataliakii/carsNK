@@ -35,6 +35,7 @@ export default async function PartnerOperatingRulesPage({ params }) {
       <RovaroLegalDocument
         documentType={LEGAL_DOCUMENT_TYPE.PARTNER_OPERATING_RULES}
         locale={normalized}
+        publishedOnly
       />
     </Feed>
   );

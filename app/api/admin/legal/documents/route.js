@@ -5,6 +5,7 @@ import {
   listDocuments,
   syncSeedDocuments,
   publishDocument,
+  publishRequiredDocuments,
   archiveDocument,
   getDocumentStatusOverview,
   createDocumentVersion,
@@ -12,11 +13,12 @@ import {
   saveDocumentDraft,
   getPublishedDocument,
 } from "@/domain/legal/documentService";
-import { findSuppressedSections } from "@/domain/legal/tokens";
 import {
   isKnownDocumentType,
   LEGAL_AUTHORITATIVE_LANGUAGE,
+  LEGAL_DOCUMENT_TYPE,
 } from "@/domain/legal/documentTypes";
+import { findSuppressedSections } from "@/domain/legal/tokens";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
 import { reacceptanceRequired, PUBLICATION_CHANGE } from "@/domain/legal/publicationClass";
 import { invalidateMarketplaceCheckoutsForOutdatedAgreements } from "@/domain/orders/invalidateMarketplaceCheckout";
@@ -133,6 +135,61 @@ export async function POST(request) {
       userAgent,
       metadata: { created: result.created.length, skipped: result.skipped.length },
     });
+    return NextResponse.json({ success: true, ...result });
+  }
+
+  if (action === "publishAll") {
+    const changeClass =
+      body.changeClass === PUBLICATION_CHANGE.EDITORIAL
+        ? PUBLICATION_CHANGE.EDITORIAL
+        : PUBLICATION_CHANGE.MATERIAL;
+    const result = await publishRequiredDocuments({ byEmail, changeClass });
+    await recordAuditEvent({
+      action: "LEGAL_DOCUMENTS_PUBLISHED_BATCH",
+      userRole: "superadmin",
+      userEmail: byEmail,
+      severity: "high",
+      ipAddress,
+      userAgent,
+      metadata: {
+        changeClass,
+        published: result.published,
+        failed: result.failed,
+        remaining: result.remaining.length,
+      },
+    });
+    const supplierPublished = result.published.filter(
+      (row) =>
+        row.documentType === LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT ||
+        row.documentType === LEGAL_DOCUMENT_TYPE.PARTNER_OPERATING_RULES ||
+        row.documentType === LEGAL_DOCUMENT_TYPE.DATA_PROTECTION_SCHEDULE
+    );
+    if (
+      changeClass === PUBLICATION_CHANGE.MATERIAL &&
+      supplierPublished.some((row) => !row.unchanged)
+    ) {
+      await invalidateMarketplaceCheckoutsForOutdatedAgreements({
+        actorEmail: byEmail,
+        actorRole: "superadmin",
+        ipAddress,
+        userAgent,
+      }).catch((err) => {
+        console.error(
+          "[legal-documents] checkout invalidate failed",
+          err?.message || err
+        );
+      });
+    }
+    if (result.failed.length) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Published ${result.published.length} document(s); ${result.failed.length} failed.`,
+          ...result,
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ success: true, ...result });
   }
 
@@ -311,6 +368,9 @@ export async function POST(request) {
   }
 
   if (action === "saveDraft" || action === "importSave") {
+    // Import never publishes. Prefer updating an existing draft; create the
+    // next version only when the latest row is already published/archived.
+    const forceNewVersion = Boolean(body.forceNewVersion);
     const result = await saveDocumentDraft({
       documentType: body.documentType,
       language: body.language || LEGAL_AUTHORITATIVE_LANGUAGE,
@@ -323,6 +383,8 @@ export async function POST(request) {
       sourceChecksum: body.sourceChecksum || "",
       sourceVersion: body.sourceVersion || 0,
       pdfFile: body.pdf || null,
+      forceNewVersion,
+      sourceFilename: body.filename || body.sourceFilename || "",
     });
     if (!result.ok) {
       return NextResponse.json(
@@ -331,22 +393,46 @@ export async function POST(request) {
       );
     }
     await recordAuditEvent({
-      action: "LEGAL_DOCUMENT_DRAFT_SAVED",
+      action:
+        action === "importSave"
+          ? "LEGAL_DOCUMENT_IMPORT_SAVED"
+          : "LEGAL_DOCUMENT_DRAFT_SAVED",
       userRole: "superadmin",
       userEmail: byEmail,
       severity: "medium",
       ipAddress,
       userAgent,
-      metadata: auditLegalAction("saveDraft", {
+      metadata: auditLegalAction(action, {
         documentType: body.documentType,
-        language: body.language,
+        language: body.language || LEGAL_AUTHORITATIVE_LANGUAGE,
         version: result.doc?.version,
         checksum: result.doc?.checksum,
+        filename: body.filename || "",
+        fileType: body.fileType || body.format || "",
+        fileSize: Number(body.fileSize) || 0,
+        result: "draft_saved",
+        userId: session?.user?.id || session?.user?._id || "",
       }),
     });
     const document = { ...result.doc };
     if (document.pdfFile) document.pdfFile = { ...document.pdfFile, data: undefined };
-    return NextResponse.json({ success: true, document, published: false });
+    let publishedVersion = null;
+    try {
+      const live = await getPublishedDocument({
+        documentType: body.documentType,
+        language: body.language || LEGAL_AUTHORITATIVE_LANGUAGE,
+      });
+      publishedVersion = live?.doc?.version || null;
+    } catch {
+      publishedVersion = null;
+    }
+    return NextResponse.json({
+      success: true,
+      document,
+      published: false,
+      publishedVersion,
+      created: Boolean(result.created),
+    });
   }
 
   if (action === "importPreview") {
@@ -357,13 +443,55 @@ export async function POST(request) {
       title: body.title,
     });
     if (!imported.ok) {
+      await recordAuditEvent({
+        action: "LEGAL_DOCUMENT_IMPORT_FAILED",
+        userRole: "superadmin",
+        userEmail: byEmail,
+        severity: "medium",
+        ipAddress,
+        userAgent,
+        metadata: auditLegalAction("importPreview", {
+          documentType: body.documentType || "",
+          language: body.language || LEGAL_AUTHORITATIVE_LANGUAGE,
+          filename: body.filename || "",
+          fileType: body.fileType || "",
+          fileSize: Number(body.fileSize) || bytes.length || 0,
+          result: imported.code || "failed",
+          userId: session?.user?.id || session?.user?._id || "",
+        }),
+      });
       return NextResponse.json(
         { success: false, message: imported.message, code: imported.code },
         { status: 400 }
       );
     }
     const preview = { ...imported };
-    if (preview.pdf) preview.pdf = { filename: preview.pdf.filename, size: preview.pdf.size, preserved: true };
+    if (preview.pdf) {
+      preview.pdf = {
+        filename: preview.pdf.filename,
+        size: preview.pdf.size,
+        sha256: preview.pdf.sha256,
+        preserved: true,
+      };
+    }
+    await recordAuditEvent({
+      action: "LEGAL_DOCUMENT_IMPORT_PREVIEWED",
+      userRole: "superadmin",
+      userEmail: byEmail,
+      severity: "low",
+      ipAddress,
+      userAgent,
+      metadata: auditLegalAction("importPreview", {
+        documentType: body.documentType || "",
+        language: preview.detectedLanguage || "en",
+        filename: preview.filename || body.filename || "",
+        fileType: preview.fileType || body.fileType || "",
+        fileSize: preview.fileSize || bytes.length || 0,
+        result: "preview_ready",
+        sectionCount: preview.sectionCount || 0,
+        userId: session?.user?.id || session?.user?._id || "",
+      }),
+    });
     return NextResponse.json({ success: true, published: false, import: preview });
   }
 

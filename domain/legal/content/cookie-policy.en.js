@@ -1,6 +1,5 @@
 /**
  * Rovaro Cookie Policy — English (authoritative legal version).
- * Requires professional legal review before production publication.
  */
 
 const doc = {
@@ -92,12 +91,7 @@ const doc = {
         id: "15",
         heading: "Contact and version",
         body: "For any question about cookies, consent or this Policy, write to {{operator.legalEmail}}.\n\nThe operator is {{operator.description}}, operating the {{operator.platformBrand}} platform at {{operator.primaryDomain}} and {{operator.spanishDomain}}.\n\nThis is version 1 of the Rovaro Cookie Policy. Its effective date is shown on the published page on the platform.",
-      },
-      {
-        id: "16",
-        heading: "Legal review status",
-        body: "This text has been prepared as a working draft for the Rovaro platform. It requires professional legal review by a qualified lawyer in Ireland and by a qualified lawyer in Spain before it is published in production.\n\nUntil that review has been completed and the document has been approved, this text must not be relied upon as final legal advice or as a definitive description of the technologies in use.",
-      },
+      }
     ],
   },
 };

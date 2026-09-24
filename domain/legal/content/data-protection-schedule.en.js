@@ -1,6 +1,5 @@
 /**
  * Rovaro Data Protection Schedule — English (authoritative legal version).
- * Requires professional legal review before production publication.
  */
 
 const doc = {
@@ -116,11 +115,6 @@ const doc = {
         id: "21",
         heading: "Changes to this Schedule",
         body: "The Operator may amend this Schedule to reflect changes in law, in supervisory authority guidance, in the platform architecture or in the security measures applied, following the change procedure set out in the Partner Agreement.\n\nWhere a change materially affects the obligations of the Supplier, the Operator gives advance notice and, where required, seeks the written agreement of the Supplier.",
-      },
-      {
-        id: "22",
-        heading: "Legal review status",
-        body: "This text has been prepared as a working draft for the {{operator.platformBrand}} platform. It requires professional legal review by a qualified lawyer in {{operator.country}} and by a qualified lawyer in Spain, with data protection expertise, before it is published for production use or presented to any Supplier for acceptance.\n\nUntil that review has been completed and the document has been published with an effective date, this text has no contractual effect.",
       },
     ],
   },

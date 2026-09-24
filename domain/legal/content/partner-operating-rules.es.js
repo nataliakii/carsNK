@@ -1,7 +1,6 @@
 /**
  * Rovaro Partner Operating Rules — Spanish translation.
  * The English version is the authoritative legal version.
- * Requires professional legal review before production publication.
  */
 
 const doc = {
@@ -132,11 +131,6 @@ const doc = {
         id: "23",
         heading: "Modificación de las presentes Normas",
         body: "El Operador podrá modificar las presentes Normas y los plazos a los que remiten conforme al procedimiento de modificación previsto en el Contrato de Colaboración, con aviso previo en la cuenta de colaborador y por correo electrónico.\n\nA cada Reserva se aplicará la versión vigente en el momento de su confirmación.",
-      },
-      {
-        id: "24",
-        heading: "Estado de revisión jurídica",
-        body: "El presente texto se ha elaborado como borrador de trabajo para la plataforma {{operator.platformBrand}}. Requiere la revisión profesional de un abogado habilitado en {{operator.country}} y de un abogado habilitado en España antes de su publicación para uso en producción o de su presentación a cualquier Proveedor para su aceptación.\n\nHasta que dicha revisión se haya completado y el documento se haya publicado con una fecha de entrada en vigor, el presente texto carece de eficacia contractual.",
       },
     ],
   },

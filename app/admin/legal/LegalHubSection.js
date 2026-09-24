@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -15,9 +18,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
-import { standardPackageNeedsPublish } from "@/domain/legal/companyLegalPage";
+import { platformDocumentsNeedPublish } from "@/domain/legal/platformPublish";
 import { LEGAL_LANGUAGES } from "@/domain/legal/documentTypes";
+import { formatLegalLanguageStatus } from "@/domain/legal/languageStatus";
 import LegalDocumentCards from "./LegalDocumentCards";
 import LegalDocumentWorkspace from "./LegalDocumentWorkspace";
 import BookingFeeOutcomesTable from "@app/components/Legal/BookingFeeOutcomesTable";
@@ -161,16 +166,19 @@ function DocumentsTab() {
     );
   }
 
+  const needsPublish = platformDocumentsNeedPublish(data?.documents);
+
   return (
     <Stack spacing={3}>
       {error ? <Alert severity="error">{error}</Alert> : null}
-      {standardPackageNeedsPublish(data?.documents) ? (
+      {needsPublish ? (
         <Alert severity="warning">{t("admin.legalHub.publishHint")}</Alert>
       ) : null}
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1.5}
         alignItems={{ sm: "center" }}
+        flexWrap="wrap"
       >
         <Button
           variant="outlined"
@@ -181,6 +189,31 @@ function DocumentsTab() {
         >
           {t("admin.legalHub.loadDrafts")}
         </Button>
+        <Button
+          variant="contained"
+          size="large"
+          disabled={saving || !needsPublish}
+          onClick={() => {
+            if (
+              !window.confirm(
+                t("admin.legalHub.publishAllConfirm", {
+                  defaultValue:
+                    "Publish all required documents (EN and ES), including Cookie Policy?",
+                })
+              )
+            ) {
+              return;
+            }
+            documentAction({ action: "publishAll", changeClass: "material" });
+          }}
+          sx={{ fontWeight: 800 }}
+        >
+          {saving
+            ? t("admin.legalHub.saving")
+            : t("admin.legalHub.publishAll", {
+                defaultValue: "Publish all required documents",
+              })}
+        </Button>
         <Typography variant="body2" color="text.secondary">
           {t("admin.legalHub.publishHint")}
         </Typography>
@@ -188,118 +221,41 @@ function DocumentsTab() {
 
       <LegalDocumentCards
         overview={data.documents}
+        busy={saving}
         onEdit={(doc, mode) => setWorkspace({ open: true, mode, doc })}
+        onPublish={(documentType, language, version) => {
+          if (
+            !window.confirm(
+              `Publish ${documentType} (${String(language).toUpperCase()}) v${version}? This makes the draft public.`
+            )
+          ) {
+            return;
+          }
+          documentAction({
+            action: "publish",
+            documentType,
+            language,
+            version,
+            changeClass: "material",
+          });
+        }}
+        onDeleteDraft={(documentType, language, version) => {
+          if (
+            !window.confirm(
+              `Delete draft ${documentType} (${String(language).toUpperCase()}) v${version}? The live published version is not affected.`
+            )
+          ) {
+            return;
+          }
+          documentAction({
+            action: "archive",
+            documentType,
+            language,
+            version,
+            reason: "Draft deleted from admin card",
+          });
+        }}
       />
-
-      <BookingFeeOutcomesTable language="en" compact />
-
-      {data.documents.map((entry) => (
-        <Box
-          key={entry.documentType}
-          sx={{
-            p: 2,
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 2,
-          }}
-        >
-          <Typography sx={{ fontSize: "1.05rem", fontWeight: 800, mb: 1.5 }}>
-            {t(`admin.legalHub.documentTypes.${entry.documentType}`, {
-              defaultValue: entry.documentType,
-            })}
-          </Typography>
-          <Stack spacing={1.25}>
-            {LEGAL_LANGUAGES.map((lang) => {
-              const info = entry.languages[lang];
-              const published = Boolean(info?.published);
-              return (
-                <Stack
-                  key={lang}
-                  direction={{ xs: "column", sm: "row" }}
-                  spacing={1.5}
-                  alignItems={{ sm: "center" }}
-                  justifyContent="space-between"
-                >
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Chip size="small" label={lang.toUpperCase()} />
-                    <Typography variant="body2">
-                      {published
-                        ? t("admin.legalHub.published", {
-                            version: info.published.version,
-                          })
-                        : info?.latestVersion
-                          ? t("admin.legalHub.draft", {
-                              status: info.latestStatus,
-                              version: info.latestVersion,
-                            })
-                          : t("admin.legalHub.missing")}
-                    </Typography>
-                  </Stack>
-                  {info?.latestVersion && !published ? (
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Button
-                        variant="contained"
-                        size="large"
-                        disabled={saving}
-                        onClick={() => {
-                          const changeClass = window.confirm(
-                            "Is this a material change that requires partner re-acceptance?\n\nOK = Material\nCancel = Editorial (no new acceptance)"
-                          )
-                            ? "material"
-                            : "editorial";
-                          if (
-                            !window.confirm(
-                              `Publish ${entry.documentType} (${lang.toUpperCase()}) v${info.latestVersion} as ${changeClass}?`
-                            )
-                          ) {
-                            return;
-                          }
-                          documentAction({
-                            action: "publish",
-                            documentType: entry.documentType,
-                            language: lang,
-                            version: info.latestVersion,
-                            changeClass,
-                          });
-                        }}
-                        sx={{ fontWeight: 800, minWidth: 160 }}
-                      >
-                        {t("admin.legalHub.publishLang", {
-                          lang: lang.toUpperCase(),
-                        })}
-                      </Button>
-                    </Stack>
-                  ) : null}
-                  {published ? (
-                    <Button
-                      size="small"
-                      color="warning"
-                      disabled={saving}
-                      onClick={() => {
-                        if (
-                          !window.confirm(
-                            `Archive published ${entry.documentType} (${lang.toUpperCase()}) v${info.published.version}?`
-                          )
-                        ) {
-                          return;
-                        }
-                        documentAction({
-                          action: "archive",
-                          documentType: entry.documentType,
-                          language: lang,
-                          version: info.published.version,
-                        });
-                      }}
-                    >
-                      {t("admin.legalHub.archive")}
-                    </Button>
-                  ) : null}
-                </Stack>
-              );
-            })}
-          </Stack>
-        </Box>
-      ))}
 
       <LegalDocumentWorkspace
         open={workspace.open}
@@ -310,11 +266,156 @@ function DocumentsTab() {
             (row) => row.documentType === workspace.doc?.documentType
           ) || null
         }
-        documents={[]}
         busy={saving}
         onClose={() => setWorkspace({ open: false, mode: "preview", doc: null })}
-        onAction={documentAction}
+        onAction={async (payload) => {
+          if (payload?.action === "importPreview") {
+            const res = await fetch("/api/admin/legal/documents", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const json = await res.json();
+            if (!res.ok || json.success === false) {
+              throw Object.assign(new Error(json.message || "Request failed"), {
+                code: json.code,
+                status: res.status,
+              });
+            }
+            return json;
+          }
+          return documentAction(payload);
+        }}
+        onImported={() => load()}
       />
+
+      <BookingFeeOutcomesTable language="en" compact />
+
+      <Accordion disableGutters elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, "&:before": { display: "none" } }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Box>
+            <Typography sx={{ fontWeight: 800 }}>
+              {t("admin.legalHub.advancedTitle", {
+                defaultValue: "Advanced",
+              })}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t("admin.legalHub.advancedBody", {
+                defaultValue:
+                  "Publish or archive individual languages. Day-to-day setup uses Publish all required documents above.",
+              })}
+            </Typography>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Stack spacing={2}>
+            {data.documents.map((entry) => (
+              <Box
+                key={entry.documentType}
+                sx={{
+                  p: 2,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                }}
+              >
+                <Typography sx={{ fontSize: "1.05rem", fontWeight: 800, mb: 1.5 }}>
+                  {t(`admin.legalHub.documentTypes.${entry.documentType}`, {
+                    defaultValue: entry.documentType,
+                  })}
+                </Typography>
+                <Stack spacing={1.25}>
+                  {LEGAL_LANGUAGES.map((lang) => {
+                    const info = entry.languages[lang];
+                    const published = Boolean(info?.published);
+                    const hasNewerDraft =
+                      info?.latestStatus === "draft" &&
+                      info?.latestVersion &&
+                      (!published ||
+                        Number(info.latestVersion) >
+                          Number(info.published.version));
+                    return (
+                      <Stack
+                        key={lang}
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1.5}
+                        alignItems={{ sm: "center" }}
+                        justifyContent="space-between"
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Chip size="small" label={lang.toUpperCase()} />
+                          <Typography variant="body2">
+                            {formatLegalLanguageStatus(info, lang)}
+                          </Typography>
+                        </Stack>
+                        {hasNewerDraft ? (
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Button
+                              variant="contained"
+                              size="small"
+                              disabled={saving}
+                              onClick={() => {
+                                const changeClass = window.confirm(
+                                  "Is this a material change that requires partner re-acceptance?\n\nOK = Material\nCancel = Editorial (no new acceptance)"
+                                )
+                                  ? "material"
+                                  : "editorial";
+                                if (
+                                  !window.confirm(
+                                    `Publish ${entry.documentType} (${lang.toUpperCase()}) v${info.latestVersion} as ${changeClass}?`
+                                  )
+                                ) {
+                                  return;
+                                }
+                                documentAction({
+                                  action: "publish",
+                                  documentType: entry.documentType,
+                                  language: lang,
+                                  version: info.latestVersion,
+                                  changeClass,
+                                });
+                              }}
+                              sx={{ fontWeight: 700, minWidth: 140 }}
+                            >
+                              {t("admin.legalHub.publishLang", {
+                                lang: lang.toUpperCase(),
+                              })}
+                            </Button>
+                          </Stack>
+                        ) : null}
+                        {published ? (
+                          <Button
+                            size="small"
+                            color="warning"
+                            disabled={saving}
+                            onClick={() => {
+                              if (
+                                !window.confirm(
+                                  `Archive published ${entry.documentType} (${lang.toUpperCase()}) v${info.published.version}?`
+                                )
+                              ) {
+                                return;
+                              }
+                              documentAction({
+                                action: "archive",
+                                documentType: entry.documentType,
+                                language: lang,
+                                version: info.published.version,
+                              });
+                            }}
+                          >
+                            {t("admin.legalHub.archive")}
+                          </Button>
+                        ) : null}
+                      </Stack>
+                    );
+                  })}
+                </Stack>
+              </Box>
+            ))}
+          </Stack>
+        </AccordionDetails>
+      </Accordion>
     </Stack>
   );
 }
@@ -386,8 +487,12 @@ function ConfigTab() {
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Edit My business details under{" "}
-          <Typography component="a" href="/admin/company" sx={{ fontWeight: 600 }}>
-            Settings
+          <Typography
+            component="a"
+            href="/admin/settings?tab=general"
+            sx={{ fontWeight: 600 }}
+          >
+            Settings → General
           </Typography>
           .
         </Typography>

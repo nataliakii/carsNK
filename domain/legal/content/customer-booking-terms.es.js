@@ -1,7 +1,6 @@
 /**
  * Rovaro Customer Booking Terms — Spanish translation.
  * The English version is the authoritative legal version.
- * Requires professional legal review before production publication.
  */
 
 const doc = {
@@ -154,12 +153,7 @@ const doc = {
         id: "25",
         heading: "Versión y fecha de entrada en vigor",
         body: "Esta es la versión 1 de las Condiciones de Reserva de Rovaro.\n\nLa fecha de entrada en vigor de esta versión figura en la página publicada de la plataforma. Las versiones anteriores siguen siendo aplicables a las reservas realizadas mientras estuvieron vigentes, y conservamos constancia de la versión aplicable a cada reserva.",
-      },
-      {
-        id: "26",
-        heading: "Estado de revisión legal",
-        body: "Este texto se ha elaborado como borrador de trabajo para la plataforma Rovaro. Requiere una revisión legal profesional por parte de un abogado cualificado en Irlanda y de un abogado cualificado en España antes de su publicación en producción.\n\nHasta que dicha revisión se haya completado y el documento haya sido aprobado, este texto no debe considerarse asesoramiento legal definitivo ni una declaración concluyente de los derechos y obligaciones de ninguna de las partes.",
-      },
+      }
     ],
   },
 };

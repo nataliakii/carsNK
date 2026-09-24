@@ -23,6 +23,7 @@ import { computeDocumentChecksum, verifyDocumentChecksum } from "./checksum";
 import { buildDocumentKey } from "./documentKeys";
 import { sanitizeLegalHtml } from "./contentSanitizer";
 import { buildTranslationDraft } from "./translationAdapter";
+import { collectRequiredPublishTargets } from "./platformPublish";
 
 /** Scope guard applied to every query. */
 function scope(extra = {}) {
@@ -437,7 +438,9 @@ export async function createTranslationDraftVersion({
 export async function getDocumentStatusOverview() {
   await connectToDB();
   const rows = await LegalDocument.find(scope())
-    .select("documentType language version status checksum effectiveFrom updatedAt")
+    .select(
+      "documentType language version status checksum effectiveFrom updatedAt publishedAt publishedByEmail sourceFilename savedByEmail pdfFile.filename"
+    )
     .lean();
 
   return ALL_LEGAL_DOCUMENT_TYPES.map((documentType) => {
@@ -446,7 +449,15 @@ export async function getDocumentStatusOverview() {
     for (const language of LEGAL_LANGUAGES) {
       const published = forType
         .filter(
-          (r) => r.language === language && r.status === LEGAL_DOCUMENT_STATUS.PUBLISHED
+          (r) =>
+            r.language === language &&
+            r.status === LEGAL_DOCUMENT_STATUS.PUBLISHED
+        )
+        .sort((a, b) => b.version - a.version)[0];
+      const draft = forType
+        .filter(
+          (r) =>
+            r.language === language && r.status === LEGAL_DOCUMENT_STATUS.DRAFT
         )
         .sort((a, b) => b.version - a.version)[0];
       const anyVersion = forType
@@ -458,6 +469,18 @@ export async function getDocumentStatusOverview() {
               version: published.version,
               checksum: published.checksum,
               effectiveFrom: published.effectiveFrom,
+              publishedAt: published.publishedAt || null,
+              publishedByEmail: published.publishedByEmail || "",
+            }
+          : null,
+        draft: draft
+          ? {
+              version: draft.version,
+              updatedAt: draft.updatedAt || null,
+              savedByEmail: draft.savedByEmail || "",
+              sourceFilename:
+                draft.sourceFilename || draft.pdfFile?.filename || "",
+              pdfFilename: draft.pdfFile?.filename || "",
             }
           : null,
         latestVersion: anyVersion?.version ?? null,
@@ -500,6 +523,56 @@ export async function resolveDocumentForDisplay({
   };
 }
 
+/**
+ * Publish every required platform draft (EN + ES for all six documents).
+ * English is published before Spanish for each document type.
+ *
+ * @param {{ byEmail?: string, changeClass?: string }} [opts]
+ */
+export async function publishRequiredDocuments({
+  byEmail = "",
+  changeClass = "material",
+} = {}) {
+  const overview = await getDocumentStatusOverview();
+  const targets = collectRequiredPublishTargets(overview);
+  const published = [];
+  const failed = [];
+
+  for (const target of targets) {
+    const result = await publishDocument({
+      documentType: target.documentType,
+      language: target.language,
+      version: target.version,
+      byEmail,
+    });
+    if (result.ok) {
+      published.push({
+        documentType: target.documentType,
+        language: target.language,
+        version: target.version,
+        unchanged: Boolean(result.unchanged),
+        checksum: result.doc?.checksum,
+      });
+    } else {
+      failed.push({
+        documentType: target.documentType,
+        language: target.language,
+        version: target.version,
+        code: result.code,
+        message: result.message,
+      });
+    }
+  }
+
+  return {
+    targets,
+    published,
+    failed,
+    changeClass,
+    remaining: collectRequiredPublishTargets(await getDocumentStatusOverview()),
+  };
+}
+
 function normalizeContent(content) {
   return {
     title: content?.title || "",
@@ -528,24 +601,34 @@ export async function saveDocumentDraft({
   sourceChecksum = "",
   sourceVersion = 0,
   pdfFile = null,
+  forceNewVersion = false,
+  sourceFilename = "",
 }) {
   await connectToDB();
   const lang = normalizeLegalLanguage(language);
   const jur = normalizeJurisdiction(jurisdiction);
   const normalized = normalizeContent(content);
+  const filename = String(sourceFilename || pdfFile?.filename || "").trim();
 
   const latest = await LegalDocument.findOne(
     scope({ documentType, language: lang, jurisdiction: jur })
   )
     .sort({ version: -1 });
 
-  if (latest && latest.status === LEGAL_DOCUMENT_STATUS.DRAFT) {
+  // Never edit a published (or archived) row in place.
+  if (
+    !forceNewVersion &&
+    latest &&
+    latest.status === LEGAL_DOCUMENT_STATUS.DRAFT
+  ) {
     latest.content = normalized;
     latest.format = format || "sections";
     latest.translationStatus = translationStatus || latest.translationStatus || "";
     latest.sourceChecksum = sourceChecksum || latest.sourceChecksum || "";
     latest.sourceVersion = Number(sourceVersion || latest.sourceVersion || 0) || 0;
     if (pdfFile) latest.pdfFile = pdfFile;
+    if (filename) latest.sourceFilename = filename;
+    latest.savedByEmail = byEmail || latest.savedByEmail || "";
     latest.checksum = computeDocumentChecksum({
       platform: LEGAL_PLATFORM,
       documentType,
@@ -568,7 +651,7 @@ export async function saveDocumentDraft({
       },
     ];
     await latest.save();
-    return { ok: true, doc: latest.toObject() };
+    return { ok: true, doc: latest.toObject(), created: false };
   }
 
   const created = await createDocumentVersion({
@@ -580,17 +663,17 @@ export async function saveDocumentDraft({
     note: note || "New draft version",
   });
   if (!created.ok) return created;
-  if (format || translationStatus || pdfFile || sourceChecksum) {
-    const row = await LegalDocument.findById(created.doc._id);
-    if (row) {
-      row.format = format || "sections";
-      row.translationStatus = translationStatus || "";
-      row.sourceChecksum = sourceChecksum || "";
-      row.sourceVersion = Number(sourceVersion || 0) || 0;
-      if (pdfFile) row.pdfFile = pdfFile;
-      await row.save();
-      return { ok: true, doc: row.toObject() };
-    }
+  const row = await LegalDocument.findById(created.doc._id);
+  if (row) {
+    row.format = format || "sections";
+    row.translationStatus = translationStatus || "";
+    row.sourceChecksum = sourceChecksum || "";
+    row.sourceVersion = Number(sourceVersion || 0) || 0;
+    if (pdfFile) row.pdfFile = pdfFile;
+    if (filename) row.sourceFilename = filename;
+    row.savedByEmail = byEmail || "";
+    await row.save();
+    return { ok: true, doc: row.toObject(), created: true };
   }
-  return created;
+  return { ...created, created: true };
 }

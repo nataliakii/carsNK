@@ -1,7 +1,6 @@
 /**
  * Rovaro Partner Agreement — Spanish translation.
  * The English version is the authoritative legal version.
- * Requires professional legal review before production publication.
  */
 
 const doc = {
@@ -179,11 +178,6 @@ const doc = {
         id: "30",
         heading: "Notificaciones, integridad del contrato y control de versiones",
         body: "Las notificaciones formales al Operador se remitirán a {{operator.legalEmail}}. Las notificaciones al Proveedor se remitirán a la dirección de correo electrónico profesional que conste en la cuenta de colaborador y se pondrán asimismo a su disposición en dicha cuenta. Corresponde al Proveedor mantener actualizada esa dirección.\n\nEl presente Contrato, junto con las Normas Operativas para Colaboradores, el Anexo de Protección de Datos y los valores publicados en la Configuración de la Plataforma, constituye el acuerdo íntegro entre las partes sobre su objeto y sustituye cualquier entendimiento anterior relativo al mismo.\n\nCada versión de estos documentos está numerada y fechada. La versión aceptada por el Proveedor se registra junto con su aceptación y permanece disponible en la cuenta de colaborador. La versión en inglés es la versión jurídica auténtica y prevalecerá en caso de discrepancia con cualquier traducción.",
-      },
-      {
-        id: "31",
-        heading: "Estado de revisión jurídica",
-        body: "El presente texto se ha elaborado como borrador de trabajo para la plataforma {{operator.platformBrand}}. Requiere la revisión profesional de un abogado habilitado en {{operator.country}} y de un abogado habilitado en España antes de su publicación para uso en producción o de su presentación a cualquier Proveedor para su aceptación.\n\nHasta que dicha revisión se haya completado y el documento se haya publicado con una fecha de entrada en vigor, el presente texto carece de eficacia contractual.",
       },
     ],
   },

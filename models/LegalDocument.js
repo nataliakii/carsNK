@@ -88,6 +88,10 @@ const legalDocumentSchema = new mongoose.Schema(
     publishedAt: { type: Date, default: null },
     publishedByEmail: { type: String, default: "" },
     archivedAt: { type: Date, default: null },
+    /** Original upload name when this draft was imported (empty for seeded/edited). */
+    sourceFilename: { type: String, default: "" },
+    /** Last person who saved this draft row. */
+    savedByEmail: { type: String, default: "" },
     /** Append-only status/version trail. */
     history: { type: [versionHistorySchema], default: [] },
     format: { type: String, default: "sections" },

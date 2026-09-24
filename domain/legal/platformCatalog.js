@@ -19,36 +19,42 @@ export const PLATFORM_DOCUMENT_CATALOG = Object.freeze([
     name: "Rovaro Customer Booking Terms",
     audience: PLATFORM_AUDIENCE.CUSTOMER,
     publicPath: "/terms",
+    livePath: "/terms",
   },
   {
     documentType: LEGAL_DOCUMENT_TYPE.PRIVACY_POLICY,
     name: "Privacy Policy",
     audience: PLATFORM_AUDIENCE.CUSTOMER,
     publicPath: "/privacy-policy",
+    livePath: "/privacy",
   },
   {
     documentType: LEGAL_DOCUMENT_TYPE.COOKIE_POLICY,
     name: "Cookie Policy",
     audience: PLATFORM_AUDIENCE.CUSTOMER,
     publicPath: "/cookie-policy",
+    livePath: "/cookies",
   },
   {
     documentType: LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT,
     name: "Partner Agreement",
     audience: PLATFORM_AUDIENCE.SUPPLIER,
     publicPath: "/partner-terms",
+    livePath: "/partner-terms",
   },
   {
     documentType: LEGAL_DOCUMENT_TYPE.PARTNER_OPERATING_RULES,
     name: "Partner Operating Rules",
     audience: PLATFORM_AUDIENCE.SUPPLIER,
     publicPath: "/partner-operating-rules",
+    livePath: "/partner-operating-rules",
   },
   {
     documentType: LEGAL_DOCUMENT_TYPE.DATA_PROTECTION_SCHEDULE,
     name: "Data Protection Schedule",
     audience: PLATFORM_AUDIENCE.SUPPLIER,
     publicPath: "/data-protection-schedule",
+    livePath: "/data-protection-schedule",
   },
 ]);
 

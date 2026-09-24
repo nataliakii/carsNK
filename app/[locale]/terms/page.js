@@ -38,6 +38,7 @@ export default async function CustomerTermsPage({ params }) {
       <RovaroLegalDocument
         documentType={LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS}
         locale={normalized}
+        publishedOnly
       />
       <BookingFeeOutcomesTable language={normalized} />
     </Feed>

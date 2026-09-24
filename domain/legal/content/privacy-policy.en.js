@@ -1,6 +1,5 @@
 /**
  * Rovaro Privacy Policy — English (authoritative legal version).
- * Requires professional legal review before production publication.
  */
 
 const doc = {
@@ -142,12 +141,7 @@ const doc = {
         id: "25",
         heading: "Contact and version",
         body: "For any question about this Policy or about how we handle your personal data, write to {{operator.legalEmail}}.\n\nThe controller is {{operator.description}}, trading as {{operator.tradingName}} and operating the {{operator.platformBrand}} platform at {{operator.primaryDomain}} and {{operator.spanishDomain}}.\n\nThis is version 1 of the Rovaro Privacy Policy. Its effective date is shown on the published page on the platform.",
-      },
-      {
-        id: "26",
-        heading: "Legal review status",
-        body: "This text has been prepared as a working draft for the Rovaro platform. It requires professional legal review by a qualified lawyer in Ireland and by a qualified lawyer in Spain before it is published in production.\n\nUntil that review has been completed and the document has been approved, this text must not be relied upon as final legal advice or as a definitive description of the processing carried out by any party.",
-      },
+      }
     ],
   },
 };

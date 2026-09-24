@@ -1,7 +1,6 @@
 /**
  * Rovaro Data Protection Schedule — Spanish translation.
  * The English version is the authoritative legal version.
- * Requires professional legal review before production publication.
  */
 
 const doc = {
@@ -117,11 +116,6 @@ const doc = {
         id: "21",
         heading: "Modificación del presente Anexo",
         body: "El Operador podrá modificar el presente Anexo para reflejar cambios normativos, orientaciones de las autoridades de control, cambios en la arquitectura de la plataforma o en las medidas de seguridad aplicadas, conforme al procedimiento de modificación previsto en el Contrato de Colaboración.\n\nCuando una modificación afecte sustancialmente a las obligaciones del Proveedor, el Operador lo comunicará con antelación y, cuando resulte necesario, recabará la conformidad escrita del Proveedor.",
-      },
-      {
-        id: "22",
-        heading: "Estado de revisión jurídica",
-        body: "El presente texto se ha elaborado como borrador de trabajo para la plataforma {{operator.platformBrand}}. Requiere la revisión profesional de un abogado habilitado en {{operator.country}} y de un abogado habilitado en España, con experiencia en protección de datos, antes de su publicación para uso en producción o de su presentación a cualquier Proveedor para su aceptación.\n\nHasta que dicha revisión se haya completado y el documento se haya publicado con una fecha de entrada en vigor, el presente texto carece de eficacia contractual.",
       },
     ],
   },

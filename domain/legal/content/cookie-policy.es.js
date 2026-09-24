@@ -1,7 +1,6 @@
 /**
  * Rovaro Cookie Policy — Spanish translation.
  * The English version is the authoritative legal version.
- * Requires professional legal review before production publication.
  */
 
 const doc = {
@@ -93,12 +92,7 @@ const doc = {
         id: "15",
         heading: "Contacto y versión",
         body: "Para cualquier cuestión relativa a las cookies, al consentimiento o a esta Política, escriba a {{operator.legalEmail}}.\n\nEl operador es {{operator.description}}, que gestiona la plataforma {{operator.platformBrand}} en {{operator.primaryDomain}} y {{operator.spanishDomain}}.\n\nEsta es la versión 1 de la Política de Cookies de Rovaro. Su fecha de entrada en vigor figura en la página publicada de la plataforma.",
-      },
-      {
-        id: "16",
-        heading: "Estado de revisión legal",
-        body: "Este texto se ha elaborado como borrador de trabajo para la plataforma Rovaro. Requiere una revisión legal profesional por parte de un abogado cualificado en Irlanda y de un abogado cualificado en España antes de su publicación en producción.\n\nHasta que dicha revisión se haya completado y el documento haya sido aprobado, este texto no debe considerarse asesoramiento legal definitivo ni una descripción concluyente de las tecnologías utilizadas.",
-      },
+      }
     ],
   },
 };

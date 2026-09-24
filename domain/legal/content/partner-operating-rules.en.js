@@ -1,6 +1,5 @@
 /**
  * Rovaro Partner Operating Rules — English (authoritative legal version).
- * Requires professional legal review before production publication.
  */
 
 const doc = {
@@ -131,11 +130,6 @@ const doc = {
         id: "23",
         heading: "Changes to these Rules",
         body: "The Operator may amend these Rules and the deadlines they reference in accordance with the change procedure in the Partner Agreement, with prior notice in the partner account and by email.\n\nThe version in force at the time a Booking is confirmed applies to that Booking.",
-      },
-      {
-        id: "24",
-        heading: "Legal review status",
-        body: "This text has been prepared as a working draft for the {{operator.platformBrand}} platform. It requires professional legal review by a qualified lawyer in {{operator.country}} and by a qualified lawyer in Spain before it is published for production use or presented to any Supplier for acceptance.\n\nUntil that review has been completed and the document has been published with an effective date, this text has no contractual effect.",
       },
     ],
   },

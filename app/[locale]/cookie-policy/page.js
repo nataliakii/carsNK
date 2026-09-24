@@ -1,26 +1,35 @@
 import { notFound } from "next/navigation";
 import Feed from "@app/components/Feed";
-import LegalPageContent from "@app/(legal)/_components/LegalPageContent";
+import RovaroLegalDocument from "@app/(legal)/_components/RovaroLegalDocument";
 import {
   isRoutableLocale,
   normalizeRoutableLocale,
 } from "@domain/locationSeo/locationSeoService";
 import { STATIC_PAGE_KEYS } from "@domain/locationSeo/locationSeoKeys";
 import { buildStaticPageMetadata } from "@/services/seo/metadataBuilder";
+import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }) {
-  return buildStaticPageMetadata(params.locale, STATIC_PAGE_KEYS.COOKIE_POLICY);
+  const { locale } = await params;
+  return buildStaticPageMetadata(locale, STATIC_PAGE_KEYS.COOKIE_POLICY);
 }
 
-export default function LocalizedCookiePolicyPage({ params }) {
-  const locale = normalizeRoutableLocale(params.locale);
-  if (!isRoutableLocale(params.locale)) {
+export default async function LocalizedCookiePolicyPage({ params }) {
+  const { locale } = await params;
+  if (!isRoutableLocale(locale)) {
     notFound();
   }
+  const normalized = normalizeRoutableLocale(locale);
 
   return (
-    <Feed locale={locale}>
-      <LegalPageContent docType="cookie-policy" forcedLang={locale} />
+    <Feed locale={normalized}>
+      <RovaroLegalDocument
+        documentType={LEGAL_DOCUMENT_TYPE.COOKIE_POLICY}
+        locale={normalized}
+        publishedOnly
+      />
     </Feed>
   );
 }

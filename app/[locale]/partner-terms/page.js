@@ -33,6 +33,7 @@ export default async function PartnerTermsPage({ params }) {
       <RovaroLegalDocument
         documentType={LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT}
         locale={normalized}
+        publishedOnly
       />
       <div style={{ maxWidth: 820, margin: "0 auto", padding: "0 20px 48px" }}>
         <a

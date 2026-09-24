@@ -35,6 +35,7 @@ export default async function DataProtectionSchedulePage({ params }) {
       <RovaroLegalDocument
         documentType={LEGAL_DOCUMENT_TYPE.DATA_PROTECTION_SCHEDULE}
         locale={normalized}
+        publishedOnly
       />
     </Feed>
   );

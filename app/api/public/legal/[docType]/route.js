@@ -6,7 +6,7 @@ import {
   LEGAL_DOCUMENT_AUDIENCE,
   normalizeLegalLanguage,
 } from "@/domain/legal/documentTypes";
-import { resolveDocumentForDisplay } from "@/domain/legal/documentService";
+import { getPublishedDocument } from "@/domain/legal/documentService";
 import { renderLegalDocument } from "@/domain/legal/tokens";
 import { loadLegalSettingsWithTokens } from "@/domain/legal/legalSettingsService";
 
@@ -23,6 +23,9 @@ export const dynamic = "force-dynamic";
  * Token substitution happens server-side, so no legal identifier and no
  * unconfigured placeholder ever reaches the browser: sections that depend on
  * a value that has not been confirmed are omitted entirely.
+ *
+ * Unpublished documents return 404 — public pages show a preparing message.
+ * No authentication is required.
  */
 export async function GET(request, { params }) {
   const { docType } = await params;
@@ -45,14 +48,18 @@ export async function GET(request, { params }) {
   );
 
   try {
-    const [{ doc, source, fellBackToEnglish }, { tokens }] = await Promise.all([
-      resolveDocumentForDisplay({ documentType: docType, language }),
+    const [{ doc, fellBackToEnglish }, { tokens }] = await Promise.all([
+      getPublishedDocument({ documentType: docType, language }),
       loadLegalSettingsWithTokens({ language }),
     ]);
 
     if (!doc) {
       return NextResponse.json(
-        { success: false, message: "Document not available" },
+        {
+          success: false,
+          code: "NOT_PUBLISHED",
+          message: "Document not available",
+        },
         { status: 404 }
       );
     }
@@ -68,15 +75,14 @@ export async function GET(request, { params }) {
       status: doc.status,
       checksum: doc.checksum,
       effectiveFrom: doc.effectiveFrom || null,
-      /** "draft" means nothing is published yet — the UI labels it. */
-      source,
+      source: "published",
       fellBackToEnglish,
       content: rendered,
     });
   } catch (err) {
-    console.error("[public legal]", err?.message || err);
+    console.error("[public legal]", docType, language, err?.message || err);
     return NextResponse.json(
-      { success: false, message: "Failed to load document" },
+      { success: false, code: "LOAD_FAILED", message: "Failed to load document" },
       { status: 500 }
     );
   }

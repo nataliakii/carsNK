@@ -102,18 +102,55 @@ export function importLegalFile({ filename = "", bytes, title = "" } = {}) {
     return { ok: false, code: "unsafe", message: "Macros, scripts and executable content are rejected" };
   }
 
+  const fileMeta = {
+    filename: filename || "upload",
+    fileSize: buf.length,
+    fileType: name.endsWith(".pdf")
+      ? "application/pdf"
+      : name.endsWith(".docx")
+        ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        : name.endsWith(".md") || name.endsWith(".markdown")
+          ? "text/markdown"
+          : name.endsWith(".txt")
+            ? "text/plain"
+            : "application/octet-stream",
+  };
+
+  function withMeta(result) {
+    if (!result?.ok) return result;
+    const sections = result.content?.sections || [];
+    const detectedLanguage = detectLanguageHint(sections, filename);
+    return {
+      ...result,
+      ...fileMeta,
+      detectedLanguage,
+      sectionCount: sections.length,
+      incomplete: Boolean(
+        result.extractionComplete === false ||
+          (result.previewRequired && sections.length === 0)
+      ),
+      published: false,
+    };
+  }
+
   if (name.endsWith(".md") || name.endsWith(".markdown")) {
     const content = markdownToSections(asText, title || "Imported document");
-    return { ok: true, format: "markdown", editable: true, published: false, content };
+    return withMeta({
+      ok: true,
+      format: "markdown",
+      editable: true,
+      published: false,
+      content,
+    });
   }
   if (name.endsWith(".txt")) {
-    return {
+    return withMeta({
       ok: true,
       format: "text",
       editable: true,
       published: false,
       content: plainTextToSections(asText, title || "Imported document"),
-    };
+    });
   }
   if (name.endsWith(".docx")) {
     let entries;
@@ -130,13 +167,20 @@ export function importLegalFile({ filename = "", bytes, title = "" } = {}) {
     const xml = entries.get("word/document.xml");
     if (!xml) return { ok: false, code: "unreadable", message: "DOCX has no document.xml" };
     const content = docxXmlToSections(xml.toString("utf8"));
-    return { ok: true, format: "docx", editable: true, published: false, content, previewRequired: true };
+    return withMeta({
+      ok: true,
+      format: "docx",
+      editable: true,
+      published: false,
+      content,
+      previewRequired: true,
+    });
   }
   if (name.endsWith(".pdf")) {
     const extracted = extractPdfText(buf);
     const extractionComplete = extracted.length > 40 && extracted.length > buf.length / 80;
     const sha256 = crypto.createHash("sha256").update(buf).digest("hex");
-    return {
+    return withMeta({
       ok: true,
       format: "pdf",
       editable: false,
@@ -144,7 +188,7 @@ export function importLegalFile({ filename = "", bytes, title = "" } = {}) {
       extractionComplete,
       extractionNotice: extractionComplete
         ? "Text was extracted. Review the conversion before saving a draft. The original PDF is kept."
-        : "Text extraction is incomplete or this PDF looks scanned. The original PDF is preserved and is not an editable document.",
+        : "We could not reliably convert this PDF into editable text. You can keep it as a PDF or create the text manually.",
       pdf: {
         filename: filename || "document.pdf",
         size: buf.length,
@@ -155,7 +199,26 @@ export function importLegalFile({ filename = "", bytes, title = "" } = {}) {
         ? plainTextToSections(extracted, title || "Converted from PDF")
         : { title: title || filename || "PDF", sections: [] },
       conversionDraft: extractionComplete,
-    };
+    });
   }
-  return { ok: false, code: "unsupported", message: "Upload DOCX, Markdown, plain text or PDF" };
+  return {
+    ok: false,
+    code: "unsupported",
+    message: "Upload DOCX, Markdown, plain text or PDF",
+  };
+}
+
+function detectLanguageHint(sections, filename = "") {
+  const sample = `${filename}\n${(sections || [])
+    .map((s) => `${s.heading || ""} ${s.body || ""}`)
+    .join(" ")}`.toLowerCase();
+  if (/[а-яіїєґ]/.test(sample) && /(і|ї|є|ґ)/.test(sample)) return "uk";
+  if (/[а-яё]/.test(sample)) return "ru";
+  if (
+    /\b(el|los|las|para|condiciones|privacidad|proveedor)\b/.test(sample) ||
+    /[áéíóúñ¿¡]/.test(sample)
+  ) {
+    return "es";
+  }
+  return "en";
 }

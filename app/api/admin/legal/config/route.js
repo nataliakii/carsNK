@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { requirePlatformAdmin, requireSuperAdmin } from "@lib/adminAuth";
 import {
   getLegalConfigStatus,
-  getLegalConfigWarning,
   getServerLegalEntity,
 } from "@config/legalEntity";
 import {
@@ -68,9 +67,42 @@ export async function GET(request) {
   const taxReferenceNumber =
     profile.taxRegistrationNumber || entity.taxReferenceNumber || "";
 
+  const fields = entityStatus.fields.map((field) => {
+    if (field.key === "businessAddress") {
+      return { ...field, status: businessAddress ? "ok" : "missing" };
+    }
+    if (field.key === "businessNameNumber") {
+      return { ...field, status: businessNameNumber ? "ok" : "missing" };
+    }
+    if (field.key === "vatNumber") {
+      return { ...field, status: vatNumber ? "ok" : "missing" };
+    }
+    if (field.key === "taxReferenceNumber") {
+      return { ...field, status: taxReferenceNumber ? "ok" : "missing" };
+    }
+    return field;
+  });
+
+  const missingRequired = fields
+    .filter((f) => f.status === "missing" && f.severity === "required")
+    .map((f) => f.key);
+  const missingRecommended = fields
+    .filter((f) => f.status === "missing" && f.severity === "recommended")
+    .map((f) => f.key);
+  const warningParts = [];
+  if (missingRequired.length) {
+    warningParts.push(`missing required: ${missingRequired.join(", ")}`);
+  }
+  if (missingRecommended.length) {
+    warningParts.push(`missing recommended: ${missingRecommended.join(", ")}`);
+  }
+  const warning = warningParts.length
+    ? `Legal configuration incomplete — ${warningParts.join("; ")}.`
+    : "";
+
   return NextResponse.json({
     success: true,
-    warning: getLegalConfigWarning(),
+    warning,
     operator: {
       ownerLegalName: entity.ownerLegalName,
       legalStructure: entity.legalStructure,
@@ -95,21 +127,11 @@ export async function GET(request) {
     },
     entityStatus: {
       ...entityStatus,
-      fields: entityStatus.fields.map((field) => {
-        if (field.key === "businessAddress") {
-          return { ...field, status: businessAddress ? "ok" : "missing" };
-        }
-        if (field.key === "businessNameNumber") {
-          return { ...field, status: businessNameNumber ? "ok" : "missing" };
-        }
-        if (field.key === "vatNumber") {
-          return { ...field, status: vatNumber ? "ok" : "missing" };
-        }
-        if (field.key === "taxReferenceNumber") {
-          return { ...field, status: taxReferenceNumber ? "ok" : "missing" };
-        }
-        return field;
-      }),
+      ok: missingRequired.length === 0 && missingRecommended.length === 0,
+      hasBlockingIssues: missingRequired.length > 0,
+      missingRequired,
+      missingRecommended,
+      fields,
     },
     settings: settingsStatus.settings,
     settingsDefaults: settingsStatus.defaults,

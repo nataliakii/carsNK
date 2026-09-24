@@ -1,6 +1,5 @@
 /**
  * Rovaro Partner Agreement — English (authoritative legal version).
- * Requires professional legal review before production publication.
  */
 
 const doc = {
@@ -178,11 +177,6 @@ const doc = {
         id: "30",
         heading: "Notices, entire agreement and versioning",
         body: "Formal notices to the Operator are sent to {{operator.legalEmail}}. Notices to the Supplier are sent to the business email address held in the partner account and are also made available in that account. It is the responsibility of the Supplier to keep that address current.\n\nThis Agreement, together with the Partner Operating Rules, the Data Protection Schedule and the values published in the Platform Settings, constitutes the entire agreement between the parties in respect of its subject matter and replaces any earlier understanding relating to that subject matter.\n\nEach version of these documents is numbered and dated. The version accepted by the Supplier is recorded with its acceptance and remains available in the partner account. The English version is the authoritative legal version and prevails in the event of any discrepancy with a translation.",
-      },
-      {
-        id: "31",
-        heading: "Legal review status",
-        body: "This text has been prepared as a working draft for the {{operator.platformBrand}} platform. It requires professional legal review by a qualified lawyer in {{operator.country}} and by a qualified lawyer in Spain before it is published for production use or presented to any Supplier for acceptance.\n\nUntil that review has been completed and the document has been published with an effective date, this text has no contractual effect.",
       },
     ],
   },

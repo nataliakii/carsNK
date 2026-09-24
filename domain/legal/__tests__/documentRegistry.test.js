@@ -132,13 +132,16 @@ describe("no invented legal data in document content", () => {
     }
   });
 
-  it("flags every document as requiring professional legal review", () => {
+  it("does not include a legal-review disclaimer in any seed document", () => {
     for (const doc of getSeedDocuments()) {
       const text = doc.content.sections
         .map((s) => `${s.heading} ${s.body}`)
         .join("\n")
         .toLowerCase();
-      expect(text).toMatch(/legal review|revisión (jurídica|legal)|asesoramiento jurídico/);
+      expect(text).not.toMatch(/legal review status|estado de revisión (jurídica|legal)/);
+      expect(text).not.toMatch(/requires professional legal review/);
+      expect(text).not.toMatch(/not be relied upon as final/);
+      expect(text).not.toMatch(/carece de eficacia contractual/);
     }
   });
 });
