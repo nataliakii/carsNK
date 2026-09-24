@@ -82,7 +82,11 @@ function ConfigTab() {
         urgentRequestResponseMinutes: json.settings.urgentRequestResponseMinutes,
         paymentLinkExpirationMinutes: json.settings.paymentLinkExpirationMinutes,
         replacementNotificationHours: json.settings.replacementNotificationHours,
-        partnerComplaintResponseHours: json.settings.partnerComplaintResponseHours,
+        customerComplaintForwardResponseHours:
+          json.settings.customerComplaintForwardResponseHours,
+        partnerAppealResponseHours: json.settings.partnerAppealResponseHours,
+        customerComplaintResponseHours:
+          json.settings.customerComplaintResponseHours,
         documentRetentionDays: json.settings.documentRetentionDays,
         bookingRetentionDays: json.settings.bookingRetentionDays,
         documentRetentionBatchSize: json.settings.documentRetentionBatchSize,
@@ -243,7 +247,12 @@ function ConfigTab() {
             ["urgentRequestResponseMinutes", "Urgent response (min)"],
             ["paymentLinkExpirationMinutes", "Payment link (min)"],
             ["replacementNotificationHours", "Replacement notice (h)"],
-            ["partnerComplaintResponseHours", "Partner complaint (h)"],
+            [
+              "customerComplaintForwardResponseHours",
+              "Supplier: forwarded customer complaint (h)",
+            ],
+            ["partnerAppealResponseHours", "Operator: partner appeal (h)"],
+            ["customerComplaintResponseHours", "Platform: customer complaint (h)"],
             ["documentRetentionDays", "Document retention (days)"],
             ["bookingRetentionDays", "Booking retention (days, 7y=2555)"],
           ].map(([key, label]) => (

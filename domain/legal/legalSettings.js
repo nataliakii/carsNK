@@ -48,9 +48,17 @@ export const DEFAULT_OPERATIONAL_DEADLINES = Object.freeze({
   paymentLinkExpirationMinutes: 60,
   /** Partner must notify a replacement at least this long before pickup. */
   replacementNotificationHours: 24,
-  /** Partner must answer a complaint escalated by Rovaro. */
-  partnerComplaintResponseHours: 48,
-  /** Rovaro answers a customer complaint. */
+  /**
+   * Supplier must answer a customer complaint forwarded by the Operator.
+   * Distinct from partnerAppealResponseHours (Operator reviewing a Supplier appeal).
+   */
+  customerComplaintForwardResponseHours: 48,
+  /**
+   * Operator must communicate an outcome on a Supplier appeal / complaint
+   * about an Operator decision (listing hide, suspension, service charge…).
+   */
+  partnerAppealResponseHours: 48,
+  /** Rovaro answers a customer complaint sent to the platform. */
   customerComplaintResponseHours: 48,
   /** Accident / inability to hand over / insurance dispute reporting. */
   incidentReportingHours: 24,
@@ -154,6 +162,20 @@ export function resolveLegalSettings(stored) {
       raw[key],
       DEFAULT_OPERATIONAL_DEADLINES[key]
     );
+  }
+
+  // Legacy: one partnerComplaintResponseHours powered two different SLAs.
+  const legacyPartnerComplaint = positiveNumberOr(
+    raw.partnerComplaintResponseHours,
+    NaN
+  );
+  if (Number.isFinite(legacyPartnerComplaint)) {
+    if (raw.customerComplaintForwardResponseHours == null) {
+      deadlines.customerComplaintForwardResponseHours = legacyPartnerComplaint;
+    }
+    if (raw.partnerAppealResponseHours == null) {
+      deadlines.partnerAppealResponseHours = legacyPartnerComplaint;
+    }
   }
 
   const retentionJob = {};

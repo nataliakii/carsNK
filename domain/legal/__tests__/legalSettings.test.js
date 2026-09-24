@@ -120,6 +120,32 @@ describe("operational deadlines", () => {
       DEFAULT_OPERATIONAL_DEADLINES.standardRequestResponseHours
     );
   });
+
+  it("splits supplier forward-complaint and operator appeal SLAs", () => {
+    const tokens = buildLegalSettingsTokens(resolveLegalSettings(null));
+    expect(tokens.customerComplaintForwardResponseHours).toBe(48);
+    expect(tokens.partnerAppealResponseHours).toBe(48);
+    expect(tokens.customerComplaintResponseHours).toBe(48);
+    expect(tokens.partnerComplaintResponseHours).toBeUndefined();
+  });
+
+  it("migrates legacy partnerComplaintResponseHours into both new SLAs", () => {
+    const settings = resolveLegalSettings({
+      partnerComplaintResponseHours: 36,
+    });
+    expect(settings.customerComplaintForwardResponseHours).toBe(36);
+    expect(settings.partnerAppealResponseHours).toBe(36);
+  });
+
+  it("lets each new complaint SLA be set independently", () => {
+    const settings = resolveLegalSettings({
+      customerComplaintForwardResponseHours: 24,
+      partnerAppealResponseHours: 72,
+      partnerComplaintResponseHours: 36,
+    });
+    expect(settings.customerComplaintForwardResponseHours).toBe(24);
+    expect(settings.partnerAppealResponseHours).toBe(72);
+  });
 });
 
 describe("driving licence retention job parameters", () => {

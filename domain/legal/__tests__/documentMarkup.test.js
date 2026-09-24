@@ -25,16 +25,16 @@ describe("legal document markup formatting", () => {
       "<h2><b>Who we are</b></h2><p>Rovaro is the <strong>platform</strong> behind " +
       '<span style="font-weight:bold">{{operator.platformBrand}}</span>.</p>';
     const sections = htmlToSections(html, "Rovaro Booking Terms");
-    expect(sections.sections[0].heading).toBe("**Who we are**");
+    expect(sections.sections[0].heading).toBe("Who we are");
     expect(sections.sections[0].body).toContain("**platform**");
     expect(sections.sections[0].body).toContain("**{{operator.platformBrand}}**");
 
     const plain = sectionsToPlain(sections.sections);
-    expect(plain).toContain("## **Who we are**");
+    expect(plain).toContain("## Who we are");
     expect(plain).toContain("**platform**");
 
     const back = markdownToHtml(plain);
-    expect(back).toMatch(/<h2>.*<strong>Who we are<\/strong>.*<\/h2>/);
+    expect(back).toMatch(/<h2>Who we are<\/h2>/);
     expect(back).toContain("<strong>platform</strong>");
     expect(back).toContain("<strong>{{operator.platformBrand}}</strong>");
   });
@@ -56,5 +56,46 @@ describe("legal document markup formatting", () => {
       "<em>(Remove this note once review is complete.)</em>"
     );
     expect(html).not.toContain("**");
+  });
+
+  test("document-wide bold wrap does not make every paragraph strong", () => {
+    const html =
+      "<b><h2>Sobre esta Política</h2><p>Rovaro es una plataforma.</p>" +
+      "<p>Segundo párrafo normal.</p></b>";
+    const { sections } = htmlToSections(html, "Doc");
+    expect(sections[0].heading).toBe("Sobre esta Política");
+    expect(sections[0].body).toBe(
+      "Rovaro es una plataforma.\nSegundo párrafo normal."
+    );
+    const back = markdownToHtml(sectionsToPlain(sections));
+    expect(back).toContain("<h2>Sobre esta Política</h2>");
+    expect(back).toContain("<p>Rovaro es una plataforma.");
+    expect(back).not.toMatch(/<p><strong>/);
+    expect(back).not.toContain("</strong></p>");
+  });
+
+  test("orphan ** markers cannot bold the whole document on render", () => {
+    const broken = "## Doc\n\n**\n\n## Sobre\n\nRovaro text.\n**";
+    const html = markdownToHtml(broken);
+    expect(html).not.toMatch(/<p><strong>/);
+    expect(html).toContain("<h2>Sobre</h2>");
+    expect(html).toContain("<p>Rovaro text.");
+  });
+
+  test("paragraphs fully wrapped in ** render as normal text", () => {
+    const damaged =
+      "## Cookie Policy\n\n" +
+      "**Rovaro usa cookies en el sitio.**\n\n" +
+      "**Puede cambiar la configuración en cualquier momento.**\n\n" +
+      "Inline **still bold** phrase stays.";
+    const html = markdownToHtml(damaged);
+    expect(html).toContain("<p>Rovaro usa cookies en el sitio.</p>");
+    expect(html).toContain(
+      "<p>Puede cambiar la configuración en cualquier momento.</p>"
+    );
+    expect(html).toContain("Inline <strong>still bold</strong> phrase stays.");
+    expect(html).not.toContain(
+      "<p><strong>Rovaro usa cookies en el sitio.</strong></p>"
+    );
   });
 });

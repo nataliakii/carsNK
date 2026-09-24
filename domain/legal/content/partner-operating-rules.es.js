@@ -85,7 +85,7 @@ const doc = {
       {
         id: "15",
         heading: "Reclamaciones de Clientes",
-        body: "Las reclamaciones remitidas por el Operador deben contestarse en un plazo de {{settings.partnerComplaintResponseHours}} horas con una posición de fondo, que incluya los hechos acreditados por el Proveedor y las pruebas en que se apoye.\n\nEl Proveedor debe tramitar las reclamaciones con corrección y sin presionar al Cliente, no puede condicionar la resolución de una reclamación a la retirada de una valoración y no puede ofrecer incentivos a cambio de la eliminación de una opinión.\n\nCuando la reclamación se refiera a un cargo, el Proveedor deberá aportar el cálculo y los documentos justificativos.",
+        body: "Las reclamaciones remitidas por el Operador deben contestarse en un plazo de {{settings.customerComplaintForwardResponseHours}} horas con una posición de fondo, que incluya los hechos acreditados por el Proveedor y las pruebas en que se apoye.\n\nEl Proveedor debe tramitar las reclamaciones con corrección y sin presionar al Cliente, no puede condicionar la resolución de una reclamación a la retirada de una valoración y no puede ofrecer incentivos a cambio de la eliminación de una opinión.\n\nCuando la reclamación se refiera a un cargo, el Proveedor deberá aportar el cálculo y los documentos justificativos.",
       },
       {
         id: "16",

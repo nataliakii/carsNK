@@ -30,8 +30,8 @@ import {
   ADMIN_LANGUAGE_LABELS,
   attentionMessage,
   canonicalPublicPath,
-  compactLanguageBadge,
   customerDocumentRows,
+  documentLanguageSummary,
   formatLegalPublishedDate,
   languagePublicationState,
   orderedAdminDocuments,
@@ -313,19 +313,16 @@ export default function LegalDocumentsPanel() {
                     <Stack
                       direction="row"
                       spacing={1.5}
-                      flexWrap="wrap"
                       alignItems="center"
+                      sx={{ flexShrink: 0 }}
                     >
-                      {ADMIN_LEGAL_LANGUAGES.map((lang) => (
-                        <Typography
-                          key={lang}
-                          variant="body2"
-                          color="text.secondary"
-                          data-testid={`legal-doc-status-${row.documentType}-${lang}`}
-                        >
-                          {compactLanguageBadge(entry?.languages?.[lang], lang)}
-                        </Typography>
-                      ))}
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        data-testid={`legal-doc-summary-${row.documentType}`}
+                      >
+                        {documentLanguageSummary(entry?.languages)}
+                      </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>
                         Open
                       </Typography>
@@ -346,13 +343,25 @@ export default function LegalDocumentsPanel() {
                         allowScrollButtonsMobile
                         sx={{ borderBottom: "1px solid", borderColor: "divider" }}
                       >
-                        {ADMIN_LEGAL_LANGUAGES.map((lang) => (
-                          <Tab
-                            key={lang}
-                            value={lang}
-                            label={ADMIN_LANGUAGE_LABELS[lang] || lang}
-                          />
-                        ))}
+                        {ADMIN_LEGAL_LANGUAGES.map((lang) => {
+                          const tabState = languagePublicationState(
+                            openEntry?.languages?.[lang]
+                          );
+                          const base = ADMIN_LANGUAGE_LABELS[lang] || lang;
+                          const suffix =
+                            tabState.key === "published"
+                              ? ""
+                              : tabState.key === "unpublished_changes"
+                                ? " · edits"
+                                : " · draft";
+                          return (
+                            <Tab
+                              key={lang}
+                              value={lang}
+                              label={`${base}${suffix}`}
+                            />
+                          );
+                        })}
                       </Tabs>
                       <Typography
                         variant="body2"

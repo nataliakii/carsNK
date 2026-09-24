@@ -121,7 +121,7 @@ const doc = {
       {
         id: "20",
         heading: "Response deadlines",
-        body: "The Supplier must respond to requests transmitted through the Platform within the deadlines configured in the Platform Settings.\n\n- Standard requests, including booking confirmations, modification requests and information requests: within {{settings.standardRequestResponseHours}} hours.\n- Urgent requests, including same-day or imminent handover matters: within {{settings.urgentRequestResponseMinutes}} minutes.\n- Customer complaints forwarded by the Operator: within {{settings.partnerComplaintResponseHours}} hours.\n\nRepeated failure to meet these deadlines is a ground for reducing visibility, suspending listings or suspending the partner account.",
+        body: "The Supplier must respond to requests transmitted through the Platform within the deadlines configured in the Platform Settings.\n\n- Standard requests, including booking confirmations, modification requests and information requests: within {{settings.standardRequestResponseHours}} hours.\n- Urgent requests, including same-day or imminent handover matters: within {{settings.urgentRequestResponseMinutes}} minutes.\n- Customer complaints forwarded by the Operator: within {{settings.customerComplaintForwardResponseHours}} hours.\n\nRepeated failure to meet these deadlines is a ground for reducing visibility, suspending listings or suspending the partner account.",
       },
       {
         id: "21",
@@ -141,7 +141,7 @@ const doc = {
       {
         id: "24",
         heading: "Partner complaints and review procedure",
-        body: "The Supplier may submit a complaint about a decision of the Operator, including hiding a listing, suspending an account or applying a service charge, through the complaint channel in the partner account or by writing to {{operator.legalEmail}}.\n\nThe Operator acknowledges the complaint, examines it, and communicates a reasoned outcome in the partner account within the period configured in the Platform Settings for partner complaints, currently {{settings.partnerComplaintResponseHours}} hours from acknowledgement. Where the matter requires investigation with third parties the Operator informs the Supplier of the expected timetable.\n\nThe internal complaint procedure does not deprive the Supplier of any right to pursue a claim before a competent court or to use any dispute resolution mechanism available under applicable law.",
+        body: "The Supplier may submit a complaint about a decision of the Operator, including hiding a listing, suspending an account or applying a service charge, through the complaint channel in the partner account or by writing to {{operator.legalEmail}}.\n\nThe Operator acknowledges the complaint, examines it, and communicates a reasoned outcome in the partner account within the period configured in the Platform Settings for partner complaints, currently {{settings.partnerAppealResponseHours}} hours from acknowledgement. Where the matter requires investigation with third parties the Operator informs the Supplier of the expected timetable.\n\nThe internal complaint procedure does not deprive the Supplier of any right to pursue a claim before a competent court or to use any dispute resolution mechanism available under applicable law.",
       },
       {
         id: "25",

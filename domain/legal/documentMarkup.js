@@ -61,8 +61,9 @@ export function inlineToMarkdown(html) {
       const style = /style\s*=\s*("([^"]*)"|'([^']*)')/i.exec(attrs || "");
       const styleValue = style ? style[2] || style[3] || "" : "";
       let text = inlineToMarkdown(inner);
-      if (styleLooksBold(styleValue)) text = `**${text}**`;
-      if (styleLooksItalic(styleValue)) text = `*${text}*`;
+      // Only mark inline runs — never wrap multi-block content in **.
+      if (styleLooksBold(styleValue) && !/\n/.test(text)) text = `**${text}**`;
+      if (styleLooksItalic(styleValue) && !/\n/.test(text)) text = `*${text}*`;
       return text;
     }
   );
@@ -85,21 +86,84 @@ export function inlineToMarkdown(html) {
 
   out = decodeEntities(out);
 
-  // Drop empty bold markers left by vacant tags.
+  // Drop empty / orphan bold markers (e.g. block-wrapping <b>…</b>).
   out = out.replace(/\*\*\s*\*\*/g, "");
+  out = out
+    .split("\n")
+    .map((line) => {
+      if (!line.includes("**")) return line;
+      if (/\*\*[^*]+\*\*/.test(line)) return line;
+      return line.replace(/\*\*/g, "");
+    })
+    .join("\n");
 
   return out;
 }
 
+/** Strip wrapping bold markers from headings — CSS already emphasizes them. */
+export function cleanHeadingMarkdown(text) {
+  return String(text || "")
+    .replace(/^\*\*(.+)\*\*$/s, "$1")
+    .replace(/^\*(.+)\*$/s, "$1")
+    .trim();
+}
+
+/**
+ * Undo accidental "select all → Bold" damage: when a whole block/line is
+ * wrapped in **…** with no inner emphasis, treat it as plain text. Short
+ * inline bold like **status:** still kept.
+ */
+export function unwrapAccidentalFullBold(markdown) {
+  return String(markdown || "")
+    .split(/\n{2,}/)
+    .map((block) => {
+      const trimmed = block.trim();
+      if (!trimmed) return block;
+
+      const heading = /^(#{1,3}\s+)([\s\S]+)$/.exec(trimmed);
+      if (heading) {
+        return `${heading[1]}${cleanHeadingMarkdown(heading[2])}`;
+      }
+
+      const full = /^\*\*([^*]+)\*\*$/s.exec(trimmed);
+      if (full) return full[1].trim();
+
+      const lines = trimmed.split("\n");
+      if (
+        lines.length > 1 &&
+        lines.every((line) => !line.trim() || /^\*\*[^*]+\*\*$/.test(line.trim()))
+      ) {
+        return lines
+          .map((line) => {
+            const t = line.trim();
+            if (!t) return "";
+            return t.replace(/^\*\*([^*]+)\*\*$/, "$1");
+          })
+          .join("\n");
+      }
+
+      return block;
+    })
+    .join("\n\n");
+}
+
 export function htmlToSections(html, title = "Document") {
-  const source = String(html || "");
+  let source = String(html || "");
+  // Unwrap a single outer <b>/<strong> that Chromium may wrap around the
+  // whole document after "select all → Bold".
+  source = source.replace(
+    /^\s*<(strong|b)\b[^>]*>([\s\S]*)<\/\1>\s*$/i,
+    "$2"
+  );
   const chunks = source.split(/<h[1-3][^>]*>/i);
   const sections = [];
   chunks.forEach((chunk, index) => {
     const headingMatch = index === 0 ? null : chunk.match(/^([\s\S]*?)<\/h[1-3]>/i);
-    const heading = headingMatch ? inlineToMarkdown(headingMatch[1]).trim() : "";
+    const heading = headingMatch
+      ? cleanHeadingMarkdown(inlineToMarkdown(headingMatch[1]))
+      : "";
     const rest = headingMatch ? chunk.slice(headingMatch[0].length) : chunk;
-    const body = htmlBlockToMarkdown(rest).trim();
+    const body = unwrapAccidentalFullBold(htmlBlockToMarkdown(rest).trim());
     if (!heading && !body) return;
     sections.push({
       id: String(sections.length + 1),
@@ -108,7 +172,11 @@ export function htmlToSections(html, title = "Document") {
     });
   });
   if (!sections.length) {
-    sections.push({ id: "1", heading: title, body: inlineToMarkdown(source).trim() });
+    sections.push({
+      id: "1",
+      heading: title,
+      body: unwrapAccidentalFullBold(inlineToMarkdown(source).trim()),
+    });
   }
   return { title, sections };
 }
@@ -197,8 +265,9 @@ export function sameStructure(sourceSections, translatedSections) {
 
 function applyInlineMarkdown(escaped) {
   return String(escaped || "")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
+    // Inline only — never match across newlines (that orphaned <strong> tags).
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
     .replace(
       /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
       '<a href="$2" rel="noopener noreferrer">$1</a>'
@@ -207,20 +276,26 @@ function applyInlineMarkdown(escaped) {
 
 /** Safe HTML for a heading or short inline string (no block wrappers). */
 export function markdownInlineToHtml(text) {
-  return applyInlineMarkdown(escapeText(text));
+  return applyInlineMarkdown(escapeText(cleanHeadingMarkdown(text)));
 }
 
 export function markdownToHtml(markdown) {
-  const withInline = applyInlineMarkdown(escapeText(markdown));
-  return withInline
+  // Apply inline markers per block so a stray ** cannot wrap the whole doc.
+  // Also unwrap accidental full-paragraph bold left by a bad save.
+  return unwrapAccidentalFullBold(markdown)
     .split(/\n{2,}/)
     .map((block) => {
       const trimmed = block.trim();
+      if (!trimmed) return "";
       const heading = /^(#{1,3})\s+(.+)$/s.exec(trimmed);
       if (heading) {
         const level = Math.min(3, heading[1].length);
-        return `<h${level}>${heading[2].trim()}</h${level}>`;
+        const title = applyInlineMarkdown(
+          escapeText(cleanHeadingMarkdown(heading[2].trim()))
+        );
+        return `<h${level}>${title}</h${level}>`;
       }
+      const withInline = applyInlineMarkdown(escapeText(block));
       if (/^\| /m.test(block) || block.includes("|")) {
         const rows = block
           .split("\n")
@@ -229,7 +304,7 @@ export function markdownToHtml(markdown) {
           const cells = rows.map((row) =>
             row
               .split("|")
-              .map((cell) => cell.trim())
+              .map((cell) => applyInlineMarkdown(escapeText(cell.trim())))
               .filter(Boolean)
           );
           const head = cells[0].map((cell) => `<th>${cell}</th>`).join("");
@@ -244,11 +319,14 @@ export function markdownToHtml(markdown) {
         const items = block
           .split("\n")
           .filter(Boolean)
-          .map((line) => `<li>${line.replace(/^(- |\d+\. )/, "")}</li>`)
+          .map((line) => {
+            const item = line.replace(/^(- |\d+\. )/, "");
+            return `<li>${applyInlineMarkdown(escapeText(item))}</li>`;
+          })
           .join("");
         return /^\d+\. /.test(block) ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
       }
-      return `<p>${block.replace(/\n/g, "<br/>")}</p>`;
+      return `<p>${withInline.replace(/\n/g, "<br/>")}</p>`;
     })
     .join("");
 }

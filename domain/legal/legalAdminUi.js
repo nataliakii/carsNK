@@ -131,6 +131,35 @@ export function compactLanguageBadge(info, language) {
   return `${code} · Draft`;
 }
 
+/**
+ * One short line for the document list (instead of per-language sausages).
+ * @param {Record<string, object>|null|undefined} languages
+ */
+export function documentLanguageSummary(languages) {
+  const publishedCodes = [];
+  let drafts = 0;
+  let changes = 0;
+  for (const lang of ADMIN_LEGAL_LANGUAGES) {
+    const state = languagePublicationState(languages?.[lang]);
+    if (state.key === "published") publishedCodes.push(String(lang).toUpperCase());
+    else if (state.key === "unpublished_changes") changes += 1;
+    else drafts += 1;
+  }
+  const pending = drafts + changes;
+  if (publishedCodes.length === ADMIN_LEGAL_LANGUAGES.length) {
+    return "All languages published";
+  }
+  if (publishedCodes.length === 0) {
+    return changes > 0 ? "Drafts only" : "Not published";
+  }
+  const live = publishedCodes.join(", ");
+  if (pending === 0) return `${live} published`;
+  if (changes > 0 && drafts === 0) {
+    return `${live} published · ${changes} with edits`;
+  }
+  return `${live} published · ${pending} draft`;
+}
+
 export function summarizeAdminLanguages(overview) {
   const rows = Array.isArray(overview) ? overview : [];
   let published = 0;

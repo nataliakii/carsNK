@@ -84,7 +84,7 @@ const doc = {
       {
         id: "15",
         heading: "Customer complaints",
-        body: "Complaints forwarded by the Operator must be answered within {{settings.partnerComplaintResponseHours}} hours with a substantive position, including the facts established by the Supplier and any evidence relied upon.\n\nThe Supplier must handle complaints politely and without pressure on the Customer, must not condition the resolution of a complaint on the withdrawal of a review, and must not offer inducements in exchange for the removal of feedback.\n\nWhere the complaint concerns a charge, the Supplier must provide the calculation and the supporting documents.",
+        body: "Complaints forwarded by the Operator must be answered within {{settings.customerComplaintForwardResponseHours}} hours with a substantive position, including the facts established by the Supplier and any evidence relied upon.\n\nThe Supplier must handle complaints politely and without pressure on the Customer, must not condition the resolution of a complaint on the withdrawal of a review, and must not offer inducements in exchange for the removal of feedback.\n\nWhere the complaint concerns a charge, the Supplier must provide the calculation and the supporting documents.",
       },
       {
         id: "16",

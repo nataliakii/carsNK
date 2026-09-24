@@ -12,6 +12,7 @@ import {
   canonicalPublicPath,
   compactLanguageBadge,
   customerDocumentRows,
+  documentLanguageSummary,
   languagePublicationState,
   orderedAdminDocuments,
   partnerDocumentRows,
@@ -86,6 +87,13 @@ describe("simplified Legal documents admin", () => {
       }).key
     ).toBe("unpublished_changes");
     expect(compactLanguageBadge(null, "en")).toBe("EN · Draft");
+    expect(
+      documentLanguageSummary({
+        en: { published: { version: 1, publishedAt: "2026-09-24" } },
+        es: { published: { version: 1, publishedAt: "2026-09-24" } },
+      })
+    ).toBe("EN, ES published · 6 draft");
+    expect(documentLanguageSummary({})).toBe("Not published");
   });
 
   it("summarises language versions across all admin languages", () => {
