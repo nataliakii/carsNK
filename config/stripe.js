@@ -24,6 +24,9 @@ export const STRIPE_MODES = Object.freeze({
   LIVE: "live",
 });
 
+/** Brand name of the payment provider shown in legal documents. */
+export const PAYMENT_PROCESSOR_NAME = "Stripe";
+
 function trim(value) {
   return String(value || "").trim();
 }

@@ -17,6 +17,7 @@ import {
   getPlatformOperatorSentence,
   getOperatorLine,
 } from "@config/legalEntity";
+import { PAYMENT_PROCESSOR_NAME } from "@config/stripe";
 
 const TOKEN_RE = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g;
 
@@ -53,6 +54,7 @@ export function buildTokenValues({ settings = {}, language = "en" } = {}) {
     "operator.footerLine": getOperatorLine(language),
     "operator.dpa": e.dataProtectionAuthority,
     "operator.dpaUrl": e.dataProtectionAuthorityUrl,
+    "operator.paymentProcessorName": PAYMENT_PROCESSOR_NAME,
     ...Object.fromEntries(
       Object.entries(settings)
         .filter(([, value]) => value == null || typeof value !== "object")

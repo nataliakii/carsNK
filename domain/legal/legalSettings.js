@@ -29,6 +29,12 @@ export const BOOKING_PREPAYMENT_PERCENT = 10;
 /** Remaining share the customer pays the Supplier at handover. */
 export const SUPPLIER_BALANCE_PERCENT = 100 - BOOKING_PREPAYMENT_PERCENT;
 
+/** Booking-record retention window expressed in years (legal copy). */
+export const BOOKING_RETENTION_YEARS = 7;
+
+/** Calendar-day equivalent of {@link BOOKING_RETENTION_YEARS}. */
+export const BOOKING_RETENTION_DAYS = BOOKING_RETENTION_YEARS * 365;
+
 /**
  * Proposed operational deadlines. Editable by superadmin; stored on
  * PlatformSettings.legal.
@@ -57,7 +63,7 @@ export const DEFAULT_OPERATIONAL_DEADLINES = Object.freeze({
   /** Automatic deletion of driving licence images after rental end. */
   documentRetentionDays: 90,
   /** Booking records retention (accounting / dispute window). */
-  bookingRetentionDays: 2555,
+  bookingRetentionDays: BOOKING_RETENTION_DAYS,
 });
 
 export const OPERATIONAL_DEADLINE_KEYS = Object.freeze(
@@ -223,6 +229,11 @@ export function buildLegalSettingsTokens(settings, { language = "en" } = {}) {
     unconfigured;
   tokens.bookingPrepaymentPercent = `${BOOKING_PREPAYMENT_PERCENT}%`;
   tokens.supplierBalancePercent = `${SUPPLIER_BALANCE_PERCENT}%`;
+  tokens.bookingRetentionYears = Math.max(
+    1,
+    Math.round(Number(settings.bookingRetentionDays) / 365) ||
+      BOOKING_RETENTION_YEARS
+  );
   tokens.bookingFeeDisplayNote =
     language === "es"
       ? "El porcentaje aplicable de la Tasa de Reserva Rovaro se muestra al Cliente antes del pago y queda registrado en la confirmación de la reserva."

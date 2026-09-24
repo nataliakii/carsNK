@@ -64,8 +64,8 @@ const doc = {
       },
       {
         id: "10",
-        heading: "Payment data and Stripe",
-        body: "Booking prepayments are processed by Stripe, our payment service provider, which acts as an independent controller for its own payment, fraud-prevention and regulatory purposes.\n\nCard details are entered on a Stripe-operated payment page or component. Rovaro does not store full card numbers and never has access to your full card data or to your card security code. What we receive back is limited information such as the payment status, the amount, the currency, the payment reference and, in some cases, the card brand and the last digits, which we use to reconcile the booking and to process refunds.\n\nThe balance of the rental price and any security deposit are paid directly to the Supplier, and that payment is handled by the Supplier under its own arrangements.",
+        heading: "Payment data and {{operator.paymentProcessorName}}",
+        body: "Booking prepayments are processed by {{operator.paymentProcessorName}}, our payment service provider, which acts as an independent controller for its own payment, fraud-prevention and regulatory purposes.\n\nCard details are entered on a {{operator.paymentProcessorName}}-operated payment page or component. Rovaro does not store full card numbers and never has access to your full card data or to your card security code. What we receive back is limited information such as the payment status, the amount, the currency, the payment reference and, in some cases, the card brand and the last digits, which we use to reconcile the booking and to process refunds.\n\nThe balance of the rental price and any security deposit are paid directly to the Supplier, and that payment is handled by the Supplier under its own arrangements.",
       },
       {
         id: "11",
@@ -90,7 +90,7 @@ const doc = {
       {
         id: "15",
         heading: "Service providers and other recipients",
-        body: "We share personal data only where it is necessary:\n\n- with the Supplier of the booking, so that the rental can be prepared and performed;\n- with Stripe for payment processing;\n- with our hosting, database, email delivery, image storage and mapping providers, which act as processors on our documented instructions under written agreements;\n- with professional advisers, insurers and auditors where necessary and under a duty of confidentiality;\n- with public authorities, courts or regulators where we are legally required to do so.\n\nWe do not sell personal data and we do not share it for the independent marketing purposes of third parties.",
+        body: "We share personal data only where it is necessary:\n\n- with the Supplier of the booking, so that the rental can be prepared and performed;\n- with {{operator.paymentProcessorName}} for payment processing;\n- with our hosting, database, email delivery, image storage and mapping providers, which act as processors on our documented instructions under written agreements;\n- with professional advisers, insurers and auditors where necessary and under a duty of confidentiality;\n- with public authorities, courts or regulators where we are legally required to do so.\n\nWe do not sell personal data and we do not share it for the independent marketing purposes of third parties.",
       },
       {
         id: "16",
@@ -100,7 +100,7 @@ const doc = {
       {
         id: "17",
         heading: "How long we keep data",
-        body: "We keep personal data only for as long as it is needed for the purpose it was collected for.\n\n- Driver documents: {{settings.documentRetentionDays}} days after the end of the rental or the closing of the booking, then deleted automatically.\n- Booking records, including the booking ID, dates, locations, vehicle, price and status: {{settings.bookingRetentionDays}} days, after which they are deleted or anonymised, subject to any longer period required by law.\n- Accounting and tax records: for the period required by the applicable tax legislation.\n- Correspondence and complaint files: for as long as necessary to handle the matter and to defend legal claims.\n- Audit logs of document access: for as long as necessary for security and evidential purposes.\n\nWhere a legal obligation or a pending claim requires a longer period, we keep the data restricted to that purpose only and delete it once the period ends.",
+        body: "We keep personal data only for as long as it is needed for the purpose it was collected for.\n\n- Driver documents: {{settings.documentRetentionDays}} days after the end of the rental or the closing of the booking, then deleted automatically.\n- Booking records, including the booking ID, dates, locations, vehicle, price and status: {{settings.bookingRetentionYears}} years, after which they are deleted or anonymised, subject to any longer period required by law.\n- Accounting and tax records: for the period required by the applicable tax legislation.\n- Correspondence and complaint files: for as long as necessary to handle the matter and to defend legal claims.\n- Audit logs of document access: for as long as necessary for security and evidential purposes.\n\nWhere a legal obligation or a pending claim requires a longer period, we keep the data restricted to that purpose only and delete it once the period ends.",
       },
       {
         id: "18",

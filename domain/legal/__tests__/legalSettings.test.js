@@ -100,6 +100,12 @@ describe("operational deadlines", () => {
     }
   });
 
+  it("exposes booking retention as 7 years for legal copy", () => {
+    const tokens = buildLegalSettingsTokens(resolveLegalSettings(null));
+    expect(tokens.bookingRetentionDays).toBe(7 * 365);
+    expect(tokens.bookingRetentionYears).toBe(7);
+  });
+
   it("lets superadmin override a deadline", () => {
     const settings = resolveLegalSettings({ standardRequestResponseHours: 6 });
     expect(settings.standardRequestResponseHours).toBe(6);

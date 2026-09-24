@@ -108,6 +108,21 @@ describe("token substitution", () => {
     });
   });
 
+  it("resolves the payment processor name token", () => {
+    const { renderLegalDocument } = loadTokens();
+    const rendered = renderLegalDocument(
+      docWithSections([
+        {
+          id: "1",
+          heading: "Payment",
+          body: "Fees are paid through {{operator.paymentProcessorName}}.",
+        },
+      ])
+    );
+
+    expect(rendered.sections[0].text).toBe("Fees are paid through Stripe.");
+  });
+
   it("leaves an unknown token untouched rather than blanking it", () => {
     const { substituteTokens } = loadTokens();
     expect(substituteTokens("{{unknown.thing}}", {})).toBe("{{unknown.thing}}");

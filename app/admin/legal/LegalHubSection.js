@@ -84,6 +84,7 @@ function ConfigTab() {
         replacementNotificationHours: json.settings.replacementNotificationHours,
         partnerComplaintResponseHours: json.settings.partnerComplaintResponseHours,
         documentRetentionDays: json.settings.documentRetentionDays,
+        bookingRetentionDays: json.settings.bookingRetentionDays,
         documentRetentionBatchSize: json.settings.documentRetentionBatchSize,
         documentRetentionMaxBatches: json.settings.documentRetentionMaxBatches,
       });
@@ -143,6 +144,9 @@ function ConfigTab() {
         </Row>
         <Row label="Trading name">{data.operator.tradingName}</Row>
         <Row label="Platform brand">{data.operator.platformBrand}</Row>
+        <Row label="Payment processor">
+          {data.operator.paymentProcessorName || "—"}
+        </Row>
         <Row label="Legal email">{data.operator.legalEmail}</Row>
         <Row label="Domains">
           {data.operator.primaryDomain} · {data.operator.spanishDomain}
@@ -241,6 +245,7 @@ function ConfigTab() {
             ["replacementNotificationHours", "Replacement notice (h)"],
             ["partnerComplaintResponseHours", "Partner complaint (h)"],
             ["documentRetentionDays", "Document retention (days)"],
+            ["bookingRetentionDays", "Booking retention (days, 7y=2555)"],
           ].map(([key, label]) => (
             <TextField
               key={key}

@@ -70,7 +70,7 @@ const doc = {
       {
         id: "11",
         heading: "Third parties whose technologies we use",
-        body: "The following organisations may set or read cookies and similar identifiers when their services are loaded on our pages:\n\n- Google Analytics, for aggregated usage measurement, loaded only after you consent;\n- Stripe, for payment processing and payment fraud prevention, loaded on checkout and payment pages;\n- Cloudinary, for the delivery of vehicle images;\n- Google Maps, for address lookup and suggestions when you enter a pickup or delivery location.\n\nEach of these organisations processes the data it receives in accordance with its own privacy documentation. Stripe, Cloudinary and Google Maps are used where they are necessary to provide a function you have requested, such as paying or entering an address.",
+        body: "The following organisations may set or read cookies and similar identifiers when their services are loaded on our pages:\n\n- Google Analytics, for aggregated usage measurement, loaded only after you consent;\n- {{operator.paymentProcessorName}}, for payment processing and payment fraud prevention, loaded on checkout and payment pages;\n- Cloudinary, for the delivery of vehicle images;\n- Google Maps, for address lookup and suggestions when you enter a pickup or delivery location.\n\nEach of these organisations processes the data it receives in accordance with its own privacy documentation. {{operator.paymentProcessorName}}, Cloudinary and Google Maps are used where they are necessary to provide a function you have requested, such as paying or entering an address.",
       },
       {
         id: "12",

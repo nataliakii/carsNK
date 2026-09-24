@@ -7,6 +7,7 @@ import {
   getStripePublishableKey,
   isStripeConfigured,
   getStripePublicConfig,
+  PAYMENT_PROCESSOR_NAME,
   STRIPE_MODES,
 } from "../../config/stripe.js";
 
@@ -29,6 +30,10 @@ describe("config/stripe", () => {
     delete process.env.STRIPE_WEBHOOK_SECRET_TEST;
     delete process.env.STRIPE_WEBHOOK_SECRET_LIVE;
   }
+
+  test("exposes the legal payment processor display name", () => {
+    expect(PAYMENT_PROCESSOR_NAME).toBe("Stripe");
+  });
 
   test("defaults to test mode", () => {
     clearStripeEnv();

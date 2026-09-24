@@ -21,6 +21,7 @@ import {
   DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
   formatMarketplaceFeePercent,
 } from "@/domain/orders/marketplaceBookingFee";
+import { PAYMENT_PROCESSOR_NAME } from "@config/stripe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,6 +111,7 @@ export async function GET(request) {
       countryOfEstablishment: profile.country || entity.countryOfEstablishment,
       tradingName: entity.tradingName,
       platformBrand: entity.platformBrand,
+      paymentProcessorName: PAYMENT_PROCESSOR_NAME,
       legalEmail: profile.businessEmail || entity.legalEmail,
       primaryDomain: entity.primaryDomain,
       spanishDomain: entity.spanishDomain,
