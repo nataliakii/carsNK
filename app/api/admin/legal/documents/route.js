@@ -350,6 +350,7 @@ export async function POST(request) {
       success: true,
       document: result.doc,
       verified: result.verified || null,
+      unchanged: Boolean(result.unchanged),
     });
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -77,6 +77,7 @@ export default function LegalDocumentsPanel() {
   const [loadedKey, setLoadedKey] = useState("");
   const [publishOpen, setPublishOpen] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
+  const editorRef = useRef(null);
 
   const summary = useMemo(
     () => summarizeAdminLanguages(overview),
@@ -191,45 +192,62 @@ export default function LegalDocumentsPanel() {
     setNotice("");
   }
 
+  function flushEditorContent(title) {
+    const liveHtml = editorRef.current?.getHtml?.() || html;
+    if (liveHtml) {
+      const next = htmlToSections(liveHtml, title);
+      next.title = title;
+      return { content: next, html: liveHtml };
+    }
+    return {
+      content: { ...content, title: content.title || title },
+      html: liveHtml,
+    };
+  }
+
   async function saveChanges() {
     if (!openType) return;
     const title = content.title || openMeta?.name || "Document";
-    const nextContent = html ? htmlToSections(html, title) : content;
-    nextContent.title = title;
+    const flushed = flushEditorContent(title);
     await documentAction({
       action: "saveDraft",
       documentType: openType,
       language,
-      content: nextContent,
+      content: flushed.content,
     });
-    setContent(nextContent);
+    setContent(flushed.content);
+    setHtml(flushed.html || "");
     setDirty(false);
     setSavedMessage("Changes saved. They are not visible on the website yet.");
   }
 
   async function confirmPublish() {
     if (!openType) return;
+    setError("");
     const title = content.title || openMeta?.name || "Document";
-    let nextContent = content;
-    if (dirty && html) {
-      nextContent = htmlToSections(html, title);
-      nextContent.title = title;
-      await documentAction({
-        action: "saveDraft",
-        documentType: openType,
-        language,
-        content: nextContent,
-      });
-      setContent(nextContent);
-      setDirty(false);
-    }
+    const flushed = flushEditorContent(title);
+    await documentAction({
+      action: "saveDraft",
+      documentType: openType,
+      language,
+      content: flushed.content,
+    });
+    setContent(flushed.content);
+    setHtml(flushed.html || "");
+    setDirty(false);
+
     const latest = (await loadOverview()).find(
       (row) => row.documentType === openType
     );
     const version =
       latest?.languages?.[language]?.draft?.version ||
       latest?.languages?.[language]?.latestVersion;
-    await documentAction({
+    if (!version) {
+      throw new Error(
+        "No draft version to publish. Save changes first, then try again."
+      );
+    }
+    const result = await documentAction({
       action: "publish",
       documentType: openType,
       language,
@@ -238,7 +256,13 @@ export default function LegalDocumentsPanel() {
       publishConfirm: "PUBLISH",
     });
     setPublishOpen(false);
-    setNotice("Published successfully · View on website");
+    if (result?.unchanged) {
+      setNotice(
+        "This version was already published. Edit the text, then publish again."
+      );
+    } else {
+      setNotice("Published successfully · View on website");
+    }
     setSavedMessage("");
     await loadEditor(openType, language);
   }
@@ -381,7 +405,10 @@ export default function LegalDocumentsPanel() {
                             variant="contained"
                             disabled={saving || !canPublish}
                             title={!canPublish ? "No unpublished changes." : undefined}
-                            onClick={() => setPublishOpen(true)}
+                            onClick={() => {
+                              setError("");
+                              setPublishOpen(true);
+                            }}
                           >
                             Publish
                           </Button>
@@ -413,6 +440,7 @@ export default function LegalDocumentsPanel() {
                         />
                       ) : (
                         <LegalRichTextEditor
+                          ref={editorRef}
                           value={content}
                           onChange={onHtmlChange}
                         />
@@ -507,6 +535,11 @@ export default function LegalDocumentsPanel() {
             New publication date: {formatLegalPublishedDate(new Date())}
           </Typography>
           <Typography variant="body2">Live URL: {liveUrl}</Typography>
+          {error ? (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          ) : null}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPublishOpen(false)} disabled={saving}>
@@ -515,10 +548,14 @@ export default function LegalDocumentsPanel() {
           <Button
             variant="contained"
             disabled={saving}
-            onClick={() => confirmPublish().catch((err) => setError(err.message))}
+            onClick={() =>
+              confirmPublish().catch((err) =>
+                setError(err?.message || "Publish failed")
+              )
+            }
             data-testid="legal-publish-confirm-submit"
           >
-            Publish
+            {saving ? "Publishing…" : "Publish"}
           </Button>
         </DialogActions>
       </Dialog>

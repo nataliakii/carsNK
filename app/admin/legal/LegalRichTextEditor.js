@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Box, Button, Stack } from "@mui/material";
 
 import { markdownToHtml, sectionsToPlain } from "@/domain/legal/documentMarkup";
@@ -13,24 +13,34 @@ function command(name, value) {
  * Content-editable legal editor. The saved value is markdown sections, not raw HTML.
  * The style toolbar stays pinned above the scrolling document body.
  */
-export default function LegalRichTextEditor({
-  value,
-  onChange,
-  constrainHeight = true,
-}) {
-  const ref = useRef(null);
+const LegalRichTextEditor = forwardRef(function LegalRichTextEditor(
+  { value, onChange, constrainHeight = true },
+  ref
+) {
+  const nodeRef = useRef(null);
   const text = sectionsToPlain(value?.sections || []);
 
+  useImperativeHandle(ref, () => ({
+    getHtml: () => nodeRef.current?.innerHTML || "",
+    focus: () => nodeRef.current?.focus(),
+  }));
+
   useEffect(() => {
-    const node = ref.current;
+    const node = nodeRef.current;
     if (!node) return;
     if (document.activeElement === node) return;
     node.innerHTML = markdownToHtml(text);
   }, [text]);
 
   function emit() {
-    const html = ref.current?.innerHTML || "";
+    const html = nodeRef.current?.innerHTML || "";
     onChange?.(html);
+  }
+
+  function runCommand(name, value) {
+    nodeRef.current?.focus();
+    command(name, value);
+    emit();
   }
 
   return (
@@ -66,26 +76,26 @@ export default function LegalRichTextEditor({
           boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
         }}
       >
-        <Button size="small" onClick={() => command("bold")}>
+        <Button size="small" onClick={() => runCommand("bold")}>
           Bold
         </Button>
-        <Button size="small" onClick={() => command("italic")}>
+        <Button size="small" onClick={() => runCommand("italic")}>
           Italic
         </Button>
-        <Button size="small" onClick={() => command("insertUnorderedList")}>
+        <Button size="small" onClick={() => runCommand("insertUnorderedList")}>
           Bullets
         </Button>
-        <Button size="small" onClick={() => command("insertOrderedList")}>
+        <Button size="small" onClick={() => runCommand("insertOrderedList")}>
           Numbered
         </Button>
-        <Button size="small" onClick={() => command("formatBlock", "H2")}>
+        <Button size="small" onClick={() => runCommand("formatBlock", "H2")}>
           Heading
         </Button>
         <Button
           size="small"
           onClick={() => {
             const url = window.prompt("Link URL (https://)");
-            if (url && /^https?:\/\//i.test(url)) command("createLink", url);
+            if (url && /^https?:\/\//i.test(url)) runCommand("createLink", url);
           }}
         >
           Link
@@ -93,7 +103,7 @@ export default function LegalRichTextEditor({
         <Button
           size="small"
           onClick={() =>
-            command(
+            runCommand(
               "insertHTML",
               "<table><tr><th>Column</th><th>Column</th></tr><tr><td> </td><td> </td></tr></table>"
             )
@@ -101,15 +111,15 @@ export default function LegalRichTextEditor({
         >
           Table
         </Button>
-        <Button size="small" onClick={() => command("undo")}>
+        <Button size="small" onClick={() => runCommand("undo")}>
           Undo
         </Button>
-        <Button size="small" onClick={() => command("redo")}>
+        <Button size="small" onClick={() => runCommand("redo")}>
           Redo
         </Button>
       </Stack>
       <Box
-        ref={ref}
+        ref={nodeRef}
         contentEditable
         role="textbox"
         aria-label="Legal document editor"
@@ -128,4 +138,6 @@ export default function LegalRichTextEditor({
       />
     </Box>
   );
-}
+});
+
+export default LegalRichTextEditor;

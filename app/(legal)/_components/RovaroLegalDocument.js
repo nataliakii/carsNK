@@ -8,12 +8,6 @@ import {
   markdownToHtml,
 } from "@/domain/legal/documentMarkup";
 import { loadLegalSettingsWithTokens } from "@/domain/legal/legalSettingsService";
-import {
-  getOperatorLine,
-  getBusinessAddressLine,
-  getRegistrationLine,
-  getPublicLegalEntity,
-} from "@config/legalEntity";
 import { platformDocumentDisplayName } from "@/domain/legal/platformPublish";
 import { PUBLIC_LEGAL_STATUS_PREPARING } from "@/domain/legal/publicLegalPageLayout";
 import LegalDocumentRetry from "./LegalDocumentRetry";
@@ -121,11 +115,6 @@ export default async function RovaroLegalDocument({
     }
 
     const rendered = renderLegalDocument(doc, { settings: tokens });
-    // The document's own language drives the operator wording in its footer,
-    // which may differ from the route locale when we fall back to English.
-    const entity = getPublicLegalEntity(doc.language);
-    const addressLine = getBusinessAddressLine(doc.language);
-    const registrationLine = getRegistrationLine(doc.language);
     const effectiveFrom = formatDate(doc.effectiveFrom);
     const publishedAt = formatDate(doc.publishedAt);
 
@@ -169,22 +158,6 @@ export default async function RovaroLegalDocument({
               ) : null}
             </section>
           ))}
-
-          <footer
-            style={{
-              marginTop: 40,
-              paddingTop: 20,
-              borderTop: "1px solid #e0e0e0",
-              fontSize: 13,
-              lineHeight: 1.7,
-              color: "#607d8b",
-            }}
-          >
-            <div>{getOperatorLine(doc.language)}</div>
-            {registrationLine ? <div>{registrationLine}</div> : null}
-            {addressLine ? <div>{addressLine}</div> : null}
-            <div>{entity.legalEmail}</div>
-          </footer>
         </article>
         {children}
       </>
