@@ -86,8 +86,9 @@ export function inlineToMarkdown(html) {
 
   out = decodeEntities(out);
 
-  // Drop empty / orphan bold markers (e.g. block-wrapping <b>…</b>).
-  out = out.replace(/\*\*\s*\*\*/g, "");
+  // Drop empty bold markers left by vacant tags (same line only — never
+  // join adjacent **paragraph**\n**paragraph** into one giant bold run).
+  out = out.replace(/\*\*[^\S\n]*\*\*/g, "");
   out = out
     .split("\n")
     .map((line) => {
@@ -109,9 +110,9 @@ export function cleanHeadingMarkdown(text) {
 }
 
 /**
- * Undo accidental "select all → Bold" damage: when a whole block/line is
- * wrapped in **…** with no inner emphasis, treat it as plain text. Short
- * inline bold like **status:** still kept.
+ * Undo accidental "select all → Bold" / per-paragraph <b> wraps.
+ * - Whole block wrapped in **…** → plain
+ * - Any full line wrapped in **…** → plain (keeps **partial** bold)
  */
 export function unwrapAccidentalFullBold(markdown) {
   return String(markdown || "")
@@ -128,21 +129,15 @@ export function unwrapAccidentalFullBold(markdown) {
       const full = /^\*\*([^*]+)\*\*$/s.exec(trimmed);
       if (full) return full[1].trim();
 
-      const lines = trimmed.split("\n");
-      if (
-        lines.length > 1 &&
-        lines.every((line) => !line.trim() || /^\*\*[^*]+\*\*$/.test(line.trim()))
-      ) {
-        return lines
-          .map((line) => {
-            const t = line.trim();
-            if (!t) return "";
-            return t.replace(/^\*\*([^*]+)\*\*$/, "$1");
-          })
-          .join("\n");
-      }
-
-      return block;
+      return trimmed
+        .split("\n")
+        .map((line) => {
+          const t = line.trim();
+          if (!t) return "";
+          const only = /^\*\*([^*]+)\*\*$/.exec(t);
+          return only ? only[1] : line;
+        })
+        .join("\n");
     })
     .join("\n\n");
 }
@@ -182,7 +177,32 @@ export function htmlToSections(html, title = "Document") {
 }
 
 function htmlBlockToMarkdown(html) {
-  const marked = String(html || "")
+  // Convert each paragraph on its own so adjacent <b>…</b> blocks cannot
+  // be glued into one **…** run when empty-marker cleanup runs.
+  let source = String(html || "");
+  const paragraphs = [];
+  source = source.replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (_, inner) => {
+    paragraphs.push(unwrapBlockEmphasis(inner));
+    return "\n";
+  });
+  if (paragraphs.length) {
+    const rest = inlineToMarkdown(
+      source
+        .replace(/<li[^>]*>/gi, "\n- ")
+        .replace(/<\/li>/gi, "")
+        .replace(/<\/?(ol|ul|div|h[1-3])[^>]*>/gi, "\n")
+        .replace(/<tr[^>]*>/gi, "\n")
+        .replace(/<\/tr>/gi, " |")
+        .replace(/<t[dh][^>]*>/gi, "| ")
+        .replace(/<\/t[dh]>/gi, " ")
+        .replace(/<\/?(table|thead|tbody)[^>]*>/gi, "\n")
+    ).trim();
+    const parts = paragraphs.map((p) => inlineToMarkdown(p).trim()).filter(Boolean);
+    if (rest) parts.push(rest);
+    return parts.join("\n");
+  }
+
+  const marked = source
     .replace(/<li[^>]*>/gi, "\n- ")
     .replace(/<\/li>/gi, "")
     .replace(/<\/(ol|ul|p|div|h[1-3])>/gi, "\n")
@@ -193,6 +213,34 @@ function htmlBlockToMarkdown(html) {
     .replace(/<\/t[dh]>/gi, " ")
     .replace(/<\/?(table|thead|tbody)[^>]*>/gi, "\n");
   return inlineToMarkdown(marked);
+}
+
+/** If a block is only a single <b>/<strong>/<span bold> wrapper, unwrap it. */
+function unwrapBlockEmphasis(html) {
+  let out = String(html || "").trim();
+  let guard = 0;
+  while (guard < 4) {
+    guard += 1;
+    const bold = /^<(strong|b)\b[^>]*>([\s\S]*)<\/\1>$/i.exec(out);
+    if (bold) {
+      out = bold[2].trim();
+      continue;
+    }
+    const span = /^<span\b([^>]*)>([\s\S]*)<\/span>$/i.exec(out);
+    if (span) {
+      const style = /style\s*=\s*("([^"]*)"|'([^']*)')/i.exec(span[1] || "");
+      const styleValue = style ? style[2] || style[3] || "" : "";
+      if (styleLooksBold(styleValue) || styleLooksItalic(styleValue)) {
+        // Unwrap full-block style span; italic-only keep via markers later if partial.
+        if (styleLooksBold(styleValue) && !styleLooksItalic(styleValue)) {
+          out = span[2].trim();
+          continue;
+        }
+      }
+    }
+    break;
+  }
+  return out;
 }
 
 export function markdownToSections(markdown, title = "Document") {

@@ -39,12 +39,15 @@ describe("legal document markup formatting", () => {
     expect(back).toContain("<strong>{{operator.platformBrand}}</strong>");
   });
 
-  test("plain bold paragraphs survive html → sections → html", () => {
-    const html = "<p><b>Who we are</b></p><p>Next line without marks.</p>";
+  test("full-paragraph bold is treated as plain; inline bold is kept", () => {
+    const html =
+      "<p><b>Who we are</b></p><p>Next line with <b>inline</b> marks.</p>";
     const { sections } = htmlToSections(html, "Doc");
     const back = markdownToHtml(sectionsToPlain(sections));
-    expect(back).toContain("<strong>Who we are</strong>");
-    expect(back).toContain("Next line without marks.");
+    expect(back).toContain("Who we are");
+    expect(back).not.toMatch(/<p><strong>Who we are<\/strong><\/p>/);
+    expect(back).toContain("<strong>inline</strong>");
+    expect(back).toContain("Next line with");
   });
 
   test("published body markdown renders bold and italic instead of raw asterisks", () => {
@@ -82,20 +85,26 @@ describe("legal document markup formatting", () => {
     expect(html).toContain("<p>Rovaro text.");
   });
 
-  test("paragraphs fully wrapped in ** render as normal text", () => {
-    const damaged =
-      "## Cookie Policy\n\n" +
-      "**Rovaro usa cookies en el sitio.**\n\n" +
-      "**Puede cambiar la configuración en cualquier momento.**\n\n" +
-      "Inline **still bold** phrase stays.";
-    const html = markdownToHtml(damaged);
-    expect(html).toContain("<p>Rovaro usa cookies en el sitio.</p>");
-    expect(html).toContain(
-      "<p>Puede cambiar la configuración en cualquier momento.</p>"
-    );
-    expect(html).toContain("Inline <strong>still bold</strong> phrase stays.");
-    expect(html).not.toContain(
-      "<p><strong>Rovaro usa cookies en el sitio.</strong></p>"
-    );
+  test("adjacent bold paragraphs do not merge into one bold document", () => {
+    const html =
+      "<h2>Title</h2>" +
+      "<p><b>First paragraph of the policy text.</b></p>" +
+      "<p><b>Second paragraph continues here.</b></p>" +
+      "<p>Inline **kept** phrase.</p>";
+    // Simulate after editor partial bold mark already in text:
+    const html2 =
+      "<h2>Title</h2>" +
+      "<p><b>First paragraph of the policy text.</b></p>" +
+      "<p><b>Second paragraph continues here.</b></p>" +
+      "<p>Inline <b>kept</b> phrase.</p>";
+    const { sections } = htmlToSections(html2, "Doc");
+    expect(sections[0].body).toContain("First paragraph of the policy text.");
+    expect(sections[0].body).toContain("Second paragraph continues here.");
+    expect(sections[0].body).toContain("**kept**");
+    expect(sections[0].body).not.toMatch(/^\*\*/);
+    expect(sections[0].body).not.toMatch(/\*\*$/);
+    const back = markdownToHtml(sectionsToPlain(sections));
+    expect(back).not.toMatch(/<p><strong>First paragraph/);
+    expect(back).toContain("<strong>kept</strong>");
   });
 });

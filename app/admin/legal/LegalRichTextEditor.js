@@ -132,6 +132,9 @@ const LegalRichTextEditor = forwardRef(function LegalRichTextEditor(
           p: 1.5,
           fontSize: { xs: 15, md: 17 },
           lineHeight: 1.6,
+          fontWeight: 400,
+          "& b, & strong": { fontWeight: 700 },
+          "& h1, & h2, & h3": { fontWeight: 700 },
           "& table": { borderCollapse: "collapse", width: "100%" },
           "& td, & th": { border: "1px solid #cfd8dc", p: 0.5 },
         }}
