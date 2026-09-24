@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -18,18 +18,20 @@ import {
   LEGAL_ENTITY_IDENTITY,
   LEGAL_STRUCTURE_LABEL,
 } from "@config/legalEntity";
+import { useRegisterSettingsDirty } from "@/app/admin/settings/SettingsDirtyGuard";
 
 /**
  * SUPERADMIN: Rovaro / operator business details used in contracts and emails.
  * Identity facts come from config/legalEntity; editable contact/registration
  * fields persist on PlatformSettings.legal.businessProfile.
  */
-export default function PlatformMyBusinessCard() {
+export default function PlatformMyBusinessCard({ embedded = false } = {}) {
   const identity = getPublicLegalEntity("en");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
+  const [savedSnapshot, setSavedSnapshot] = useState("");
   const [form, setForm] = useState({
     businessAddress: "",
     country: "Ireland",
@@ -46,6 +48,12 @@ export default function PlatformMyBusinessCard() {
     proprietorName: "",
   });
 
+  const dirty = useMemo(
+    () => !loading && savedSnapshot !== "" && JSON.stringify(form) !== savedSnapshot,
+    [form, loading, savedSnapshot]
+  );
+  useRegisterSettingsDirty("platform-business", dirty);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -61,7 +69,7 @@ export default function PlatformMyBusinessCard() {
       }
       const profile = platform.settings?.businessProfile || {};
       const op = legal.operator || {};
-      setForm({
+      const nextForm = {
         businessAddress:
           profile.businessAddress || op.businessAddress || identity.businessAddress || "",
         country: profile.country || op.countryOfEstablishment || "Ireland",
@@ -78,7 +86,9 @@ export default function PlatformMyBusinessCard() {
         stripeStatementName: profile.stripeStatementName || "",
         proprietorName:
           profile.proprietorName || LEGAL_ENTITY_IDENTITY.ownerLegalName,
-      });
+      };
+      setForm(nextForm);
+      setSavedSnapshot(JSON.stringify(nextForm));
     } catch (err) {
       setError(err.message || "Failed to load");
     } finally {
@@ -128,12 +138,16 @@ export default function PlatformMyBusinessCard() {
   return (
     <Card variant="outlined" sx={{ borderRadius: 2 }}>
       <CardContent>
-        <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
-          My business details
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Operator information for contracts and official communications. Not shown as a rental company.
-        </Typography>
+        {embedded ? null : (
+          <>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
+              My business details
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Operator information for contracts and official communications. Not shown as a rental company.
+            </Typography>
+          </>
+        )}
         {error ? <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert> : null}
         {ok ? <Alert severity="success" sx={{ mb: 1.5 }}>{ok}</Alert> : null}
 

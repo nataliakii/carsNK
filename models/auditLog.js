@@ -88,6 +88,14 @@ const auditLogSchema = new mongoose.Schema(
         "COMPANY_DELIVERY_PRICING_UPDATED",
         "MARKETPLACE_BOOKING_FEE_CHANGED",
         "MARKETPLACE_PRICE_CORRECTED_AFTER_PAYMENT",
+        // Company admin account management (superadmin only)
+        "COMPANY_ADMIN_INVITED",
+        "COMPANY_ADMIN_INVITE_RESENT",
+        "COMPANY_ADMIN_EMAIL_CHANGED",
+        "COMPANY_ADMIN_PASSWORD_RESET_SENT",
+        "COMPANY_ADMIN_ACCESS_DISABLED",
+        "COMPANY_ADMIN_ACCESS_ENABLED",
+        "COMPANY_ADMIN_REMOVED",
         "OTHER",
       ],
       index: true,
@@ -311,7 +319,8 @@ if (mongoose.models?.AuditLog) {
   const values = cached?.enumValues || cached?.options?.enum || [];
   if (
     !values.includes("MARKETPLACE_BOOKING_FEE_CHANGED") ||
-    !values.includes("MARKETPLACE_PRICE_CORRECTED_AFTER_PAYMENT")
+    !values.includes("MARKETPLACE_PRICE_CORRECTED_AFTER_PAYMENT") ||
+    !values.includes("COMPANY_ADMIN_EMAIL_CHANGED")
   ) {
     delete mongoose.models.AuditLog;
     delete mongoose.connection.models.AuditLog;
@@ -329,6 +338,13 @@ if (AuditLog?.schema?.path("action")) {
     "MARKETPLACE_PRICE_CORRECTED_AFTER_PAYMENT",
     "COMPANY_DELIVERY_PRICING_UPDATED",
     "RENTAL_BOOKING_FEE_REFUND_REQUESTED",
+    "COMPANY_ADMIN_INVITED",
+    "COMPANY_ADMIN_INVITE_RESENT",
+    "COMPANY_ADMIN_EMAIL_CHANGED",
+    "COMPANY_ADMIN_PASSWORD_RESET_SENT",
+    "COMPANY_ADMIN_ACCESS_DISABLED",
+    "COMPANY_ADMIN_ACCESS_ENABLED",
+    "COMPANY_ADMIN_REMOVED",
   ];
   const current = Array.isArray(path.enumValues)
     ? path.enumValues

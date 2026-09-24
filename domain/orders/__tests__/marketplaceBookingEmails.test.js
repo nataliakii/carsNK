@@ -24,6 +24,11 @@ jest.mock("@models/company", () => ({
   __esModule: true,
   default: { findById: jest.fn() },
 }));
+jest.mock("@/domain/mail/notificationPolicy", () => ({
+  notifyBookingFeePaid: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
+import { notifyBookingFeePaid } from "@/domain/mail/notificationPolicy";
 
 const order = {
   _id: "64b7f2c3a1b2c3d4e5f60789",
@@ -153,7 +158,7 @@ describe("marketplace booking emails", () => {
     });
     const result = await sendPaidConfirmationEmails({ order });
     expect(result.customer.deduped).toBe(true);
-    expect(result.partner.deduped).toBe(true);
+    expect(result.partner.via).toBe("notification_policy");
     expect(sendEmailDirect).not.toHaveBeenCalled();
   });
 
@@ -164,13 +169,12 @@ describe("marketplace booking emails", () => {
       }),
     });
     await sendPaidConfirmationEmails({ order });
-    const partnerCall = sendEmailDirect.mock.calls.find((call) =>
-      call[0].to.includes("owner@a.test")
-    );
-    expect(partnerCall[0].html).toContain("Ana");
-    expect(partnerCall[0].html).toContain("+34600000000");
-    expect(partnerCall[0].html).toContain("ana@example.com");
-    expect(partnerCall[0].html).not.toContain("licence");
+    expect(notifyBookingFeePaid).toHaveBeenCalled();
+    const payload = notifyBookingFeePaid.mock.calls[0][0];
+    expect(payload.customerName).toBe("Ana");
+    expect(payload.phone).toBe("+34600000000");
+    expect(payload.email).toBe("ana@example.com");
+    expect(JSON.stringify(payload)).not.toMatch(/licence|password|token=/i);
   });
 
   test("expired email says no money was taken and points to Rovaro", async () => {

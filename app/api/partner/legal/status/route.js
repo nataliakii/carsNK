@@ -81,6 +81,7 @@ export async function GET(request) {
   const publication = companyTermsPublication({
     documents: terms.documents || [],
     containsDrafts: Boolean(pkg.anyDraft),
+    customAgreement: profile?.customAgreement,
     activeChecksum: activeAgreement?.packageChecksum || "",
     currentChecksum: terms.packageChecksum || "",
   });
@@ -100,6 +101,18 @@ export async function GET(request) {
     listedOnMarketplace,
     canListPublicly: readiness.canReceiveBookings,
     readiness,
+    /**
+     * The one publication state. The Terms tab, the Documents tab and the
+     * readiness gate above all read this value; no client re-derives it.
+     */
+    termsPublication: publication.publication,
+    terms: {
+      publication: publication.publication,
+      canAccept: publication.canAccept,
+      links: publication.links,
+      label: publication.label,
+      message: publication.message,
+    },
     currentPackageChecksum: terms.packageChecksum,
     containsDrafts: pkg.anyDraft,
     signedAgreement: activeAgreement

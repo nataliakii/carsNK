@@ -1,10 +1,11 @@
 /**
  * Company-facing legal page rules.
  *
- * /admin/legal stays a superadmin surface. A company admin is sent to
- * /admin/company/legal and can only see their own company. Acceptance of
- * the published terms package is one action; drafts never link into the
- * superadmin hub.
+ * Platform legal documents live under Settings → Legal documents
+ * (`/admin/settings?tab=legal`). `/admin/legal` redirects there.
+ * A company admin is sent to /admin/company/legal and can only see their
+ * own company. Acceptance of the published terms package is one action;
+ * drafts never link into the superadmin hub.
  */
 
 import { ROLE } from "@models/user";
@@ -19,7 +20,7 @@ import { companySetupHref, legacySetupRedirect } from "./companySetupReadiness";
 
 export const COMPANY_LEGAL_PATH = "/admin/company/legal";
 export const COMPANY_TERMS_PATH = "/admin/company/setup?step=terms";
-export const SUPERADMIN_LEGAL_PATH = "/admin/legal";
+export const SUPERADMIN_LEGAL_PATH = "/admin/settings?tab=legal";
 
 export const COMPANY_LEGAL_TABS = Object.freeze([
   "details",

@@ -4,6 +4,10 @@
  * English is the source of truth. Other languages are Google Translate copies
  * stored on the company so the booking modal can open them without a live
  * Translate call on every request.
+ *
+ * Versions are immutable: each save that changes the English source bumps
+ * publishedVersion. Clearing the source returns the company to Rovaro standard
+ * rental terms for future bookings only.
  */
 
 import crypto from "crypto";
@@ -16,6 +20,10 @@ import {
   CUSTOMER_RENTAL_TERMS_MAX_CHARS,
   CUSTOMER_RENTAL_TERMS_TARGET_LOCALES,
 } from "./customerRentalTermsConstants";
+import {
+  SUPPLIER_TERMS_STATUS,
+  validateSupplierRequirementsCopy,
+} from "@/domain/legal/supplierTermsVersion";
 
 export {
   CUSTOMER_RENTAL_TERMS_MAX_CHARS,
@@ -102,11 +110,14 @@ export function pickCompanyRentalTermsForLanguage(stored, lang) {
   };
 }
 
-function emptyStoredTerms() {
+function emptyStoredTerms(companyId = "") {
   return {
+    documentId: companyId ? `supplier-terms-${companyId}` : "",
     sourceEn: "",
     translations: {},
     sourceHash: "",
+    publishedVersion: 0,
+    status: SUPPLIER_TERMS_STATUS.REMOVED,
     translatedAt: null,
     updatedAt: new Date(),
     updatedByEmail: "",
@@ -122,24 +133,40 @@ export async function buildCustomerRentalTermsRecord({
   sourceEn: raw,
   previous = {},
   byEmail = "",
+  companyId = "",
 } = {}) {
   const check = validateRentalTermsSource(raw);
   if (!check.ok) return { ok: false, message: check.message };
 
   const sourceEn = check.sourceEn;
+  const documentId =
+    String(previous?.documentId || "").trim() ||
+    (companyId ? `supplier-terms-${companyId}` : "");
+
   if (!sourceEn) {
     return {
       ok: true,
       record: {
-        ...emptyStoredTerms(),
+        ...emptyStoredTerms(companyId),
+        documentId,
         updatedByEmail: String(byEmail || "").trim(),
       },
     };
   }
 
+  const lawful = validateSupplierRequirementsCopy(sourceEn);
+  if (!lawful.ok) {
+    return { ok: false, message: lawful.message, code: lawful.code };
+  }
+
   const sourceHash = hashRentalTermsSource(sourceEn);
   const previousHash = String(previous?.sourceHash || "");
   const previousTranslations = translationsToObject(previous?.translations);
+  const previousVersion = Number(previous?.publishedVersion || 0) || 0;
+  const publishedVersion =
+    previousHash && previousHash === sourceHash && previousVersion
+      ? previousVersion
+      : previousVersion + 1;
 
   let translations = {};
   let failed = [];
@@ -161,9 +188,12 @@ export async function buildCustomerRentalTermsRecord({
   return {
     ok: true,
     record: {
+      documentId,
       sourceEn,
       translations,
       sourceHash,
+      publishedVersion,
+      status: SUPPLIER_TERMS_STATUS.PUBLISHED,
       translatedAt,
       updatedAt: new Date(),
       updatedByEmail: String(byEmail || "").trim(),
@@ -178,5 +208,8 @@ export function publicCompanyRentalTermsView(stored, lang, companyName = "") {
   return {
     ...picked,
     companyName: String(companyName || "").trim(),
+    documentId: String(stored?.documentId || ""),
+    version: Number(stored?.publishedVersion || 0) || 0,
+    checksum: String(stored?.sourceHash || picked.sourceHash || ""),
   };
 }

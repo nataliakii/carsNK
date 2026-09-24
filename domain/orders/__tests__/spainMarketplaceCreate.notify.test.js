@@ -12,10 +12,25 @@ jest.mock("@/domain/booking/partnerBookingConfirmation", () => ({
     token: "partner-token",
   }),
 }));
+jest.mock("@/domain/mail/notificationPolicy", () => ({
+  notifyBookingRequested: jest.fn().mockResolvedValue({ ok: true }),
+}));
 jest.mock("@models/auditLog", () => ({
   __esModule: true,
   default: { create: jest.fn().mockResolvedValue({}) },
 }));
+jest.mock("@models/MailLog", () => ({
+  __esModule: true,
+  default: {
+    findOne: jest.fn().mockReturnValue({
+      select: () => ({ lean: () => Promise.resolve(null) }),
+    }),
+    create: jest.fn(),
+  },
+}));
+jest.mock("@lib/database", () => ({ connectToDB: jest.fn() }));
+
+import { notifyBookingRequested } from "@/domain/mail/notificationPolicy";
 
 describe("Spain marketplace create notifications", () => {
   const originalEmailTesting = process.env.EMAIL_TESTING;
@@ -55,18 +70,15 @@ describe("Spain marketplace create notifications", () => {
       notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
     });
 
-    const companyMail = sendEmailDirect.mock.calls.find((call) =>
-      call[0].to.includes("owner-a@example.com")
-    );
+    expect(notifyBookingRequested).toHaveBeenCalled();
+    const matrix = notifyBookingRequested.mock.calls[0][0];
+    expect(matrix.companyId).toBe("company-a");
+    expect(matrix.revealContacts).toBe(false);
+    expect(matrix.confirmUrl).toContain("partner-token");
     const leaked = sendEmailDirect.mock.calls.find((call) =>
       (call[0].to || []).includes("owner-b@example.com")
     );
-    expect(companyMail).toBeTruthy();
     expect(leaked).toBeFalsy();
-    const customerMail = sendEmailDirect.mock.calls.find((call) =>
-      call[0].to.includes("ana@example.com")
-    );
-    expect(customerMail[0].html).not.toContain("checkout.stripe.com");
   });
 
   test("missing owner does not email a platform company address", async () => {
@@ -91,6 +103,9 @@ describe("Spain marketplace create notifications", () => {
       notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
     });
 
+    expect(notifyBookingRequested).toHaveBeenCalled();
+    const matrix = notifyBookingRequested.mock.calls[0][0];
+    expect(matrix.companyId).toBe("");
     const partnerish = sendEmailDirect.mock.calls.filter((call) =>
       (call[0].to || []).some((addr) =>
         /owner|partner|company-b/i.test(String(addr))

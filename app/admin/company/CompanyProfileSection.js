@@ -47,26 +47,6 @@ const TransferVouchersSection = dynamic(
   () => import("@app/admin/vouchers/TransferVouchersSection"),
   { ssr: false, loading: TabLoader }
 );
-const AccessTokensSection = dynamic(
-  () => import("@app/admin/access-tokens/AccessTokensSection"),
-  { ssr: false, loading: TabLoader }
-);
-const PlatformCatalogSection = dynamic(
-  () => import("@app/admin/platform/PlatformCatalogSection"),
-  { ssr: false, loading: TabLoader }
-);
-const TransferPricingSection = dynamic(
-  () => import("@app/admin/platform/TransferPricingSection"),
-  { ssr: false, loading: TabLoader }
-);
-const PlatformMyBusinessCard = dynamic(
-  () => import("@/app/admin/shared/components/PlatformMyBusinessCard"),
-  { ssr: false, loading: TabLoader }
-);
-const PlatformBookingFeeCard = dynamic(
-  () => import("@/app/admin/shared/components/PlatformBookingFeeCard"),
-  { ssr: false, loading: TabLoader }
-);
 
 const TAB_STOREFRONT = "storefront";
 const TAB_PEOPLE = "people";
@@ -74,10 +54,8 @@ const TAB_DELIVERY = "delivery";
 const TAB_PRICING = "pricing";
 const TAB_VOUCHERS = "vouchers";
 const TAB_TRANSFER = "transfer";
-const TAB_ACCESS = "access-links";
-const TAB_PLATFORM = "platform";
 
-function companyTabDefs({ hasCompanyContext, showSuperAdminTabs, t }) {
+function companyTabDefs({ hasCompanyContext, t }) {
   const labels = {
     [TAB_STOREFRONT]: t("companyProfile.tabStorefront", {
       defaultValue: "Storefront & booking",
@@ -97,12 +75,11 @@ function companyTabDefs({ hasCompanyContext, showSuperAdminTabs, t }) {
     [TAB_VOUCHERS]: t("companyProfile.tabVouchers", {
       defaultValue: "Vouchers",
     }),
-    [TAB_ACCESS]: t("header.accessLinks", { defaultValue: "Access links" }),
-    [TAB_PLATFORM]: t("header.platform", { defaultValue: "Platform" }),
   };
-  return getCompanyHubTabIds({ hasCompanyContext, showSuperAdminTabs }).map(
-    (id) => ({ id, label: labels[id] || id })
-  );
+  return getCompanyHubTabIds({
+    hasCompanyContext,
+    showSuperAdminTabs: false,
+  }).map((id) => ({ id, label: labels[id] || id }));
 }
 
 function isGreeceCompany(company) {
@@ -129,14 +106,13 @@ function CompanyHubInner({
         ? String(session.user.ownerId)
         : "");
 
-  const showSuperAdminTabs = Boolean(voucherHub?.showSuperAdminTabs);
   const tabs = useMemo(
-    () => companyTabDefs({ hasCompanyContext, showSuperAdminTabs, t }),
-    [hasCompanyContext, showSuperAdminTabs, t]
+    () => companyTabDefs({ hasCompanyContext, t }),
+    [hasCompanyContext, t]
   );
   const tabIds = useMemo(() => tabs.map((tab) => tab.id), [tabs]);
   const requested = searchParams?.get("tab");
-  const fallbackTab = tabIds[0] || (hasCompanyContext ? TAB_STOREFRONT : TAB_ACCESS);
+  const fallbackTab = tabIds[0] || TAB_STOREFRONT;
   const tab = resolveCompanyHubTab(requested, tabIds) || fallbackTab;
 
   const setTab = useCallback(
@@ -198,12 +174,7 @@ function CompanyHubInner({
     tab === TAB_PRICING;
 
   const wideTab =
-    tab === TAB_DELIVERY ||
-    tab === TAB_PRICING ||
-    tab === TAB_VOUCHERS ||
-    tab === TAB_PLATFORM;
-
-  const platformHub = !hasCompanyContext && showSuperAdminTabs;
+    tab === TAB_DELIVERY || tab === TAB_PRICING || tab === TAB_VOUCHERS;
 
   return (
     <Box
@@ -217,50 +188,13 @@ function CompanyHubInner({
       }}
     >
       <Typography variant="h4" fontWeight={700} sx={{ mb: 1, ...adminReadableTextSx }}>
-        {platformHub
-          ? t("header.settings", { defaultValue: "Settings" })
-          : t("companyProfile.hubTitle", { defaultValue: t("header.companyProfile") })}
+        {t("companyProfile.hubTitle", { defaultValue: t("header.companyProfile") })}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, ...adminReadableTextSx }}>
-        {platformHub
-          ? t("companyProfile.platformHubSubtitle", {
-              defaultValue:
-                "My business details, default booking fee, catalogue, delivery and tools.",
-            })
-          : t("companyProfile.hubSubtitle", {
-              defaultValue: t("companyProfile.subtitle"),
-            })}
+        {t("companyProfile.hubSubtitle", {
+          defaultValue: t("companyProfile.subtitle"),
+        })}
       </Typography>
-
-      {platformHub ? (
-        <Stack gap={2.5} sx={{ mb: 3 }}>
-          <PlatformMyBusinessCard />
-          <PlatformBookingFeeCard />
-          <Box
-            sx={{
-              p: 1.5,
-              borderRadius: 2,
-              border: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
-              Legal documents
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Publish Rovaro agreement, terms and privacy documents.
-            </Typography>
-            <Typography
-              component="a"
-              href="/admin/legal?tab=documents"
-              variant="body2"
-              sx={{ fontWeight: 600 }}
-            >
-              Open legal documents →
-            </Typography>
-          </Box>
-        </Stack>
-      ) : null}
 
       {hasCompanyContext ? <PartnerComplianceCard /> : null}
 
@@ -350,15 +284,6 @@ function CompanyHubInner({
 
       {tab === TAB_TRANSFER ? (
         <CompanyTransferServicesCard companyId={ownerId} />
-      ) : null}
-
-      {tab === TAB_ACCESS ? <AccessTokensSection /> : null}
-
-      {tab === TAB_PLATFORM ? (
-        <>
-          <PlatformCatalogSection />
-          <TransferPricingSection />
-        </>
       ) : null}
     </Box>
   );

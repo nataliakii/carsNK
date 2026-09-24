@@ -5,7 +5,7 @@
  * - /privacy-policy
  * - /terms-of-service
  * - /cookie-policy
- * - /rental-terms
+ * - /terms (canonical; /rental-terms redirects here)
  * 
  * Uses shared Navbar to keep header behavior consistent with main pages.
  */
@@ -70,10 +70,10 @@ function MinimalFooter() {
             Cookie Policy
           </a>
           <a
-            href="/rental-terms"
+            href="/terms"
             style={{ color: "#b0bec5", textDecoration: "none", fontSize: "12px" }}
           >
-            Rental Terms
+            Terms
           </a>
         </div>
       </div>

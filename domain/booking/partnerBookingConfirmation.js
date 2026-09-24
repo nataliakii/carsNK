@@ -27,6 +27,14 @@ import {
 } from "./partnerConfirmationToken";
 import { recordAuditEvent } from "@/domain/legal/auditTrail";
 import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
+import {
+  notifyBookingAccepted,
+  notifyBookingDeclined,
+} from "@/domain/mail/notificationPolicy";
+import {
+  normalizePartnerDeclineReason,
+  PARTNER_DECLINE_REASON,
+} from "@/domain/mail/partnerDeclinePolicy";
 import { absoluteUrl } from "@config/domain";
 import { loadLegalSettings } from "@/domain/legal/legalSettingsService";
 import { getAgreementVersionRef } from "@/domain/legal/agreementService";
@@ -405,31 +413,46 @@ export function evaluatePartnerDecisionGuards(order, { tokenCompanyId, decision 
   return { ok: true };
 }
 
-async function notifyPartnerDecision(order, decision, actorEmail) {
+async function notifyPartnerDecision(order, decision, actorEmail, declineCtx = {}) {
   try {
-    await notifySuperadmin({
-      title:
-        decision === "accepted"
-          ? `✅ Partner confirmed availability — order #${order.orderNumber || order._id}`
-          : `⛔ Partner declined booking — order #${order.orderNumber || order._id}`,
-      bodyLines: [
-        decision === "accepted"
-          ? "The partner confirmed the vehicle is available."
-          : "The partner declined this booking.",
-        "",
-        `Order #${order.orderNumber || order._id}`,
-        `Car: ${order.carModel || "—"}`,
-        `Pickup: ${order.placeIn || "—"}`,
-        `Return: ${order.placeOut || "—"}`,
-        `Booking status: ${order.bookingStatus}`,
-        actorEmail ? `Actor: ${actorEmail}` : null,
-        "",
-        `Admin: ${absoluteUrl("/admin")}`,
-      ].filter((line) => line != null),
+    const companyId = order.ownerId ? String(order.ownerId) : "";
+    let companyName = "";
+    if (companyId) {
+      const company = await Company.findById(companyId).select("name").lean();
+      companyName = company?.name || "";
+    }
+    if (decision === "accepted") {
+      await notifyBookingAccepted({
+        orderId: String(order._id),
+        companyId,
+        companyName,
+        orderNumber: order.orderNumber,
+        actorEmail,
+        status: order.bookingStatus || "accepted",
+        timestamp: new Date(),
+      });
+      return;
+    }
+    await notifyBookingDeclined({
+      orderId: String(order._id),
+      companyId,
+      companyName,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName || "",
+      actorEmail,
+      reasonCode: declineCtx.reasonCode,
+      explanation: declineCtx.explanation,
+      reason: declineCtx.reason || order.declineReason || "",
+      feePaid: Boolean(declineCtx.feePaid),
+      feeFormatted: declineCtx.feeFormatted || "",
+      alternativeAvailable: declineCtx.alternativeAvailable,
+      bookingAlreadyAccepted: Boolean(declineCtx.bookingAlreadyAccepted),
+      status: order.bookingStatus || "declined",
+      timestamp: new Date(),
     });
   } catch (err) {
     console.error(
-      "[partner-confirm] superadmin notify failed:",
+      "[partner-confirm] decision notify failed:",
       err?.message || err
     );
   }
@@ -611,6 +634,8 @@ async function finalizePartnerDecline({
   userAgent,
   actorEmail,
   reason,
+  reasonCode = "",
+  explanation = "",
 }) {
   const now = new Date();
   if (
@@ -627,18 +652,51 @@ async function finalizePartnerDecline({
     };
   }
 
+  const normalized = normalizePartnerDeclineReason(
+    reasonCode || reason,
+    explanation || (reasonCode ? "" : reason)
+  );
+  let resolvedCode;
+  let resolvedExplanation;
+  if (normalized.ok) {
+    resolvedCode = normalized.code;
+    resolvedExplanation = normalized.explanation;
+  } else {
+    // Legacy free-text declines map to OTHER when an explanation is present.
+    const note = String(explanation || reason || "").trim().slice(0, 1000);
+    if (!note) {
+      return {
+        ok: false,
+        status: 400,
+        code: normalized.code || "invalid_decline_reason",
+        message:
+          normalized.message ||
+          "A structured decline reason is required.",
+      };
+    }
+    resolvedCode = PARTNER_DECLINE_REASON.OTHER;
+    resolvedExplanation = note;
+  }
+
   const moved = applyRentalStateTransition(order, RENTAL_STATE.DECLINED);
   if (!moved.ok) {
     order.bookingStatus = BOOKING_STATUS.SUPPLIER_DECLINED;
   }
   order.companyEmailDecision = "rejected";
   order.companyEmailDecisionAt = now;
-  order.declineReason = String(reason || "").slice(0, 500);
+  order.declineReason = resolvedExplanation || resolvedCode;
   order.declinedAt = now;
   order.declinedByEmail = actorEmail || "";
   order.set(
     "declineMeta",
-    { jti: consumed?.jti, ipAddress, userAgent },
+    {
+      jti: consumed?.jti,
+      ipAddress,
+      userAgent,
+      reasonCode: resolvedCode,
+      explanation: resolvedExplanation,
+      autoRefund: false,
+    },
     { strict: false }
   );
   const payment = {
@@ -652,7 +710,7 @@ async function finalizePartnerDecline({
   await releaseMarketplaceHold(order._id, { reason: "supplier_declined" });
   await sendCustomerDeclineEmail({
     order: order.toObject ? order.toObject() : order,
-    reason,
+    reason: resolvedExplanation || resolvedCode,
   });
 
   await recordAuditEvent({
@@ -662,7 +720,7 @@ async function finalizePartnerDecline({
     severity: "critical",
     ipAddress,
     userAgent,
-    reason,
+    reason: resolvedExplanation || resolvedCode,
     orderData: {
       orderId: order._id,
       orderNumber: order.orderNumber,
@@ -670,9 +728,19 @@ async function finalizePartnerDecline({
       rentalStartDate: order.rentalStartDate,
       rentalEndDate: order.rentalEndDate,
     },
-    metadata: { jti: consumed?.jti },
+    metadata: {
+      jti: consumed?.jti,
+      reasonCode: resolvedCode,
+      autoRefund: false,
+    },
   });
-  await notifyPartnerDecision(order, "declined", actorEmail);
+  await notifyPartnerDecision(order, "declined", actorEmail, {
+    reasonCode: resolvedCode,
+    explanation: resolvedExplanation,
+    reason: resolvedExplanation || resolvedCode,
+    feePaid: String(order.payment?.status || "").toLowerCase() === "paid",
+    bookingAlreadyAccepted: Boolean(order.partnerConfirmedAt),
+  });
 
   return {
     ok: true,
@@ -682,6 +750,7 @@ async function finalizePartnerDecline({
     bookingStatus: order.bookingStatus,
     refundRequired: false,
     refunded: false,
+    autoRefund: false,
     message:
       "Booking declined. Rovaro will inform the customer.",
   };
@@ -695,6 +764,8 @@ export async function consumeConfirmationToken({
   userAgent = "",
   actorEmail = "",
   reason = "",
+  reasonCode = "",
+  explanation = "",
   complianceOverrideReason = "",
   complianceOverrideRole = "",
 }) {
@@ -939,6 +1010,8 @@ export async function consumeConfirmationToken({
       userAgent,
       actorEmail,
       reason,
+      reasonCode,
+      explanation,
     });
   }
 
@@ -1104,12 +1177,36 @@ export async function createConfirmedBookingSnapshot({
     legalRefs: {
       agreementId: agreementRef?.agreementId || "",
       agreementPackageChecksum: agreementRef?.packageChecksum || "",
-      customerBookingTerms: bookingTerms
+      customerBookingTerms: order.termsAcceptance?.platform?.checksum
         ? {
-            documentType: bookingTerms.documentType,
-            language: bookingTerms.language,
-            version: bookingTerms.version,
-            checksum: bookingTerms.checksum,
+            documentType: order.termsAcceptance.platform.documentType,
+            language: order.termsAcceptance.platform.language,
+            version: order.termsAcceptance.platform.version,
+            checksum: order.termsAcceptance.platform.checksum,
+            acceptedAt: order.termsAcceptance.platform.acceptedAt || null,
+          }
+        : bookingTerms
+          ? {
+              documentType: bookingTerms.documentType,
+              language: bookingTerms.language,
+              version: bookingTerms.version,
+              checksum: bookingTerms.checksum,
+            }
+          : null,
+      privacyPolicy: order.termsAcceptance?.privacy?.checksum
+        ? {
+            version: order.termsAcceptance.privacy.version,
+            language: order.termsAcceptance.privacy.language,
+            checksum: order.termsAcceptance.privacy.checksum,
+            contractualCheckbox: false,
+          }
+        : null,
+      supplierRentalTerms: order.termsAcceptance?.company?.checksum
+        ? {
+            documentId: order.termsAcceptance.company.documentId || "",
+            version: order.termsAcceptance.company.version || 0,
+            language: order.termsAcceptance.company.language || "",
+            checksum: order.termsAcceptance.company.checksum,
           }
         : null,
       partnerDocuments: agreementRef?.documents || null,

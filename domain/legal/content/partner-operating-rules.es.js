@@ -124,6 +124,11 @@ const doc = {
         body: "Los datos personales de los Clientes recibidos a través de la Plataforma solo pueden utilizarse para ejecutar la Reserva y el alquiler y para cumplir obligaciones legales. No pueden utilizarse con fines de comercialización sin una base jurídica válida obtenida por el propio Proveedor.\n\nLos permisos de conducir y demás documentos de identidad deben tratarse conforme al Anexo de Protección de Datos. No pueden fotografiarse con dispositivos personales, no pueden enviarse como archivos adjuntos de correo electrónico, no pueden compartirse a través de aplicaciones de mensajería y no pueden conservarse más allá del periodo de conservación configurado de {{settings.documentRetentionDays}} días, salvo que una obligación legal lo exija.\n\nEl acceso dentro de la organización del Proveedor debe limitarse al personal que lo necesite para ejecutar el alquiler, y todo acceso a un documento a través de la Plataforma queda registrado.",
       },
       {
+        id: "22.1",
+        heading: "Vehículo y precio confirmados",
+        body: "El Proveedor debe entregar el vehículo confirmado. Si ese vehículo no está disponible, puede ofrecer la misma clase o una superior al mismo precio. Cualquier sustitución requiere el acuerdo explícito del Cliente. El Proveedor no puede aumentar el precio confirmado sin el acuerdo explícito del Cliente. Si el Cliente rechaza el cambio de vehículo o de precio, la reserva se cancela y la tarifa de reserva se reembolsa íntegramente. El Proveedor reembolsa a Rovaro la tarifa devuelta cuando el incumplimiento estaba bajo su control. Los incumplimientos graves o reiterados pueden dar lugar a restricciones, suspensión o resolución. Esto no impone una penalización automática igual al precio total del alquiler.",
+      },
+      {
         id: "23",
         heading: "Modificación de las presentes Normas",
         body: "El Operador podrá modificar las presentes Normas y los plazos a los que remiten conforme al procedimiento de modificación previsto en el Contrato de Colaboración, con aviso previo en la cuenta de colaborador y por correo electrónico.\n\nA cada Reserva se aplicará la versión vigente en el momento de su confirmación.",

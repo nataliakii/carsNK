@@ -35,7 +35,9 @@ describe("partners page", () => {
 
   it("6. Needs review tab renders PartnerReviewQueue", () => {
     const src = read("app/admin/partners/PartnersSection.js");
-    expect(src).toContain('tab === "review" ? <PartnerReviewQueue />');
+    expect(src).toMatch(
+      /tab === "review" \? \(\s*<PartnerReviewQueue viewMode=\{viewMode\} \/>/
+    );
   });
 
   it("7. Review actions still use the secured existing API", () => {
@@ -44,7 +46,10 @@ describe("partners page", () => {
     );
     const route = read("app/api/admin/legal/partners/[companyId]/route.js");
     expect(actions).toContain("/api/admin/legal/partners/");
-    expect(route).toContain("requireSuperAdmin");
+    expect(route).toContain("requirePlatformAdmin");
+    expect(read("lib/adminAuth.js")).toMatch(
+      /export async function requirePlatformAdmin[\s\S]*requireSuperAdmin/
+    );
   });
 
   it("8. Old partner-review URLs redirect to /admin/partners?tab=review", () => {

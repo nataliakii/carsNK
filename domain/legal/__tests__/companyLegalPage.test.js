@@ -85,10 +85,10 @@ describe("company legal access", () => {
     );
   });
 
-  it("2. SUPERADMIN without company context Legal nav href is /admin/legal", () => {
+  it("2. SUPERADMIN without company context Legal nav href is Settings → Legal documents", () => {
     expect(
       legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: false })
-    ).toBe("/admin/legal");
+    ).toBe("/admin/settings?tab=legal");
   });
 
   it("3. SUPERADMIN with active company context Legal nav href is /admin/company/legal", () => {
@@ -128,7 +128,7 @@ describe("company legal access", () => {
       COMPANY_TERMS_PATH
     );
     expect(legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: false })).toBe(
-      "/admin/legal"
+      "/admin/settings?tab=legal"
     );
   });
 
@@ -192,7 +192,8 @@ describe("company legal access", () => {
       "app/api/admin/legal/booking-audit/[orderId]/route.js",
     ]) {
       const src = fs.readFileSync(path.join(process.cwd(), file), "utf8");
-      expect(src).toContain("requireSuperAdmin");
+      // requirePlatformAdmin is requireSuperAdmin plus "not inside a company".
+      expect(src).toMatch(/require(SuperAdmin|PlatformAdmin)/);
     }
   });
 
@@ -357,7 +358,7 @@ describe("company legal copy", () => {
       "Standard Rovaro Terms apply"
     );
     expect(partnerLegalEn.companyPage.termsReady).toBe("Review and accept terms");
-    expect(partnerLegalEn.companyPage.acceptTerms).toBe("Accept terms");
+    expect(partnerLegalEn.companyPage.acceptTerms).toBe("Accept and continue");
     expect(partnerLegalEn.companyPage.termsAccepted).toBe("Rovaro Terms accepted");
     expect(partnerLegalEn.companyPage.termsUpdated).toBe(
       "Updated Rovaro Terms require acceptance"
@@ -418,7 +419,8 @@ describe("company terms screen", () => {
     expect(view.state).toBe("preparing");
     expect(view.canAccept).toBe(false);
     const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
-    expect(panel).toContain('view.publication === "NOT_PUBLISHED"');
+    expect(panel).toContain("COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED");
+    expect(panel).toContain("if (!termsAvailable || !data)");
     expect(panel.indexOf("partnerLegal.companyPage.preparing")).toBeLessThan(
       panel.indexOf("partnerLegal.companyPage.signerName")
     );

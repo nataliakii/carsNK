@@ -5,15 +5,22 @@
  * Superadmin: Calendar | Cars | Orders | Partners | Settings | Emails | Visits
  */
 
+import {
+  PLATFORM_SETTINGS_PATH,
+  isPlatformSettingsPath,
+} from "@/domain/admin/platformSettingsNav";
+
 export const ADMIN_PATHS = {
   calendar: "/admin/orders-calendar",
   cars: "/admin/cars",
   orders: "/admin/orders",
   company: "/admin/company",
+  /** Superadmin platform Settings hub. */
+  settings: PLATFORM_SETTINGS_PATH,
   /** Partner company legal page: details, documents, terms. */
   legal: "/admin/company/setup?step=terms",
-  /** Superadmin platform legal documents, settings, and booking audit. */
-  legalHub: "/admin/legal",
+  /** Superadmin platform legal documents (Settings → Legal documents). */
+  legalHub: `${PLATFORM_SETTINGS_PATH}?tab=legal`,
   partners: "/admin/partners",
   owners: "/admin/owners",
   visits: "/admin/website-visits",
@@ -40,6 +47,7 @@ export function isAdminCompanySection(pathname) {
   ) {
     return false;
   }
+  if (isPlatformSettingsPath(pathname)) return false;
   return (
     pathname.startsWith("/admin/company") ||
     pathname.startsWith("/admin/delivery-zones") ||
@@ -49,12 +57,30 @@ export function isAdminCompanySection(pathname) {
   );
 }
 
+export function isAdminSettingsSection(pathname) {
+  if (!pathname) return false;
+  if (isPlatformSettingsPath(pathname)) return true;
+  const path = pathname.split("?")[0];
+  // Legacy bookmarks that redirect into Settings still highlight Settings.
+  return (
+    path === "/admin/legal" ||
+    path.startsWith("/admin/legal/") ||
+    path === "/admin/platform" ||
+    path.startsWith("/admin/platform/") ||
+    path === "/admin/access-tokens" ||
+    path.startsWith("/admin/access-tokens/")
+  );
+}
+
 export function isAdminLegalSection(pathname) {
   if (!pathname) return false;
   const path = pathname.split("?")[0];
+  if (isPlatformSettingsPath(pathname)) {
+    return /(?:\?|&)tab=legal(?:&|$)/.test(pathname);
+  }
   return (
-    path === ADMIN_PATHS.legalHub ||
-    path.startsWith(`${ADMIN_PATHS.legalHub}/`) ||
+    path === "/admin/legal" ||
+    path.startsWith("/admin/legal/") ||
     path.startsWith("/admin/legal-profile") ||
     path.startsWith("/admin/company/legal") ||
     path.startsWith("/admin/company/setup")
@@ -80,10 +106,8 @@ export function isAdminEmailsSection(pathname) {
 }
 
 /**
- * In-page Company / Platform hub tabs.
- *
- * Superadmin (no view-as): Access links | Platform | Delivery | Pricing | Vouchers
- * Company / view-as: Storefront | People | Delivery | Pricing | Transfer | Vouchers
+ * In-page Company hub tabs (company admins and superadmin company view).
+ * Platform Settings live on /admin/settings — not here.
  */
 export const COMPANY_HUB_TAB_ALIASES = {
   contacts: "people",
@@ -98,7 +122,7 @@ export function resolveCompanyHubTab(requested, tabIds) {
 
 export function getCompanyHubTabIds({
   hasCompanyContext,
-  showSuperAdminTabs,
+  showSuperAdminTabs: _showSuperAdminTabs,
 }) {
   if (hasCompanyContext) {
     return [
@@ -110,12 +134,8 @@ export function getCompanyHubTabIds({
       "vouchers",
     ];
   }
-  const ids = [];
-  if (showSuperAdminTabs) {
-    ids.push("access-links", "platform");
-  }
-  ids.push("delivery", "pricing", "vouchers");
-  return ids;
+  // Bare platform hub moved to /admin/settings; keep empty for safety.
+  return [];
 }
 
 /**
@@ -169,9 +189,9 @@ export function getAdminNavItems({
     });
     items.push({
       id: "settings",
-      href: ADMIN_PATHS.company,
+      href: ADMIN_PATHS.settings,
       label: t("header.settings", { defaultValue: "Settings" }),
-      match: isAdminCompanySection,
+      match: isAdminSettingsSection,
     });
     items.push({
       id: "emails",

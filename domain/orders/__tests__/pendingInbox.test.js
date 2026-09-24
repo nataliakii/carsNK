@@ -17,12 +17,13 @@ const GR_OWNER = new mongoose.Types.ObjectId();
 
 describe("pendingInbox", () => {
   it("sums counts and exposes separate orders vs notifications badges", () => {
-    expect(sumPendingInbox({ rentals: 2, transfers: 3 })).toEqual({
+    expect(sumPendingInbox({ rentals: 2, transfers: 3 })).toMatchObject({
       rentals: 2,
       transfers: 3,
       ordersBadge: 2,
       notificationsBadge: 5,
       total: 5,
+      companySetup: { count: 0, tasks: [] },
     });
   });
 

@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
 
+import { ADMIN_VIEW_MODE } from "@/domain/admin/adminViewMode";
 import { PARTNER_VERIFICATION_STATUS } from "@/domain/legal/partnerVerification";
 import { companyLegalStatusKey } from "@/domain/legal/companyLegalPage";
 
@@ -119,7 +120,11 @@ export default function PartnerLegalProfileSection({
   }, [load]);
 
   const status = profile?.verificationStatus || S.DRAFT;
-  const companyView = variant === "company" || viewMode === "COMPANY_MODE";
+  // Company context wins over the account role: a SUPERADMIN who opened a
+  // company sees the partner experience, never the platform review surface.
+  const companyView =
+    variant === "company" || viewMode === ADMIN_VIEW_MODE.COMPANY;
+  const pendingFields = Object.keys(profile?.pendingChanges?.fields || {});
   const showDetails = panel === "all" || panel === "details";
   const showDocuments = panel === "all" || panel === "documents";
   const locked = !FREELY_EDITABLE.has(status);
@@ -185,6 +190,9 @@ export default function PartnerLegalProfileSection({
           : t("partnerLegal.form.saved")
       );
       await load();
+      if (submitForVerification) {
+        window.dispatchEvent(new Event("rovaro-inbox-refresh"));
+      }
     } catch (err) {
       setError(err.message || t("partnerLegal.form.saveFailed"));
     } finally {
@@ -299,6 +307,19 @@ export default function PartnerLegalProfileSection({
       {status === S.VERIFIED && unlocked ? (
         <Alert severity="info" sx={{ mb: 2 }}>
           {t("partnerLegal.form.updateDetailsBody")}
+        </Alert>
+      ) : null}
+
+      {pendingFields.length && showDetails ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <AlertTitle>{t("partnerLegal.form.pendingChangesTitle")}</AlertTitle>
+          {t("partnerLegal.form.pendingChangesBody", {
+            fields: pendingFields
+              .map((key) =>
+                t(`partnerLegal.form.fields.${key}.label`, { defaultValue: key })
+              )
+              .join(", "),
+          })}
         </Alert>
       ) : null}
 

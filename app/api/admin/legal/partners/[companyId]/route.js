@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 
 import { requirePlatformAdmin } from "@lib/adminAuth";
-import { applyPendingProfileChanges } from "@/domain/legal/verifiedProfileChanges";
+import {
+  applyPendingProfileChanges,
+  discardPendingProfileChanges,
+  pendingProfileChangeSummary,
+} from "@/domain/legal/verifiedProfileChanges";
 import { connectToDB } from "@lib/database";
 import Company from "@models/company";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
@@ -63,6 +67,8 @@ export async function GET(request, { params }) {
     },
     profile: profile || null,
     completeness: profile ? evaluateProfileCompleteness(profile) : null,
+    /** Only the fields the partner proposed — the verified values stay live. */
+    pendingChanges: pendingProfileChangeSummary(profile),
     /** Read-only. There is no endpoint that edits a signed snapshot. */
     agreements,
   });
@@ -127,6 +133,26 @@ export async function PATCH(request, { params }) {
       success: true,
       verificationStatus: profile.verificationStatus,
       appliedPending: applied,
+    });
+  }
+
+  if (String(body?.action || "") === "discard_pending_changes") {
+    const { discarded } = discardPendingProfileChanges(profile);
+    await profile.save();
+    await recordAuditEvent({
+      action: "PARTNER_VERIFICATION_CHANGED",
+      userRole: "superadmin",
+      userEmail: byEmail,
+      severity: "high",
+      ipAddress,
+      userAgent,
+      reason: String(body?.reason || ""),
+      metadata: { companyId: String(companyId), discardedPending: discarded },
+    });
+    return NextResponse.json({
+      success: true,
+      verificationStatus: profile.verificationStatus,
+      discardedPending: discarded,
     });
   }
 

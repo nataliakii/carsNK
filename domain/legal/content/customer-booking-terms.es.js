@@ -146,6 +146,11 @@ const doc = {
         requires: ["businessNameNumber"],
       },
       {
+        id: "24.3",
+        heading: "Vehículo y precio confirmados",
+        body: "El Proveedor debe entregar el vehículo confirmado. Si ese vehículo no está disponible, puede ofrecer la misma clase o una superior al mismo precio. Cualquier sustitución requiere su acuerdo explícito. El Proveedor no puede aumentar el precio confirmado sin su acuerdo explícito. Si usted rechaza el cambio de vehículo o de precio, la reserva se cancela y la tarifa de reserva se reembolsa íntegramente. Cuando el incumplimiento estaba bajo el control del Proveedor, este reembolsa a Rovaro la tarifa devuelta. Los incumplimientos graves o reiterados pueden dar lugar a restricciones, suspensión o resolución. Esto no impone una penalización automática igual al precio total del alquiler.",
+      },
+      {
         id: "25",
         heading: "Versión y fecha de entrada en vigor",
         body: "Esta es la versión 1 de las Condiciones de Reserva de Rovaro.\n\nLa fecha de entrada en vigor de esta versión figura en la página publicada de la plataforma. Las versiones anteriores siguen siendo aplicables a las reservas realizadas mientras estuvieron vigentes, y conservamos constancia de la versión aplicable a cada reserva.",

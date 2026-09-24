@@ -16,22 +16,26 @@ import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 
 import {
+  COMPANY_TERMS_PUBLICATION,
   explicitSignerRole,
-  companyTermsPublication,
 } from "@/domain/legal/companyLegalPage";
-import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
 
-const DOC_LABEL = {
-  [LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT]: "Partner Agreement",
-  [LEGAL_DOCUMENT_TYPE.PARTNER_OPERATING_RULES]: "Partner Operating Rules",
-  [LEGAL_DOCUMENT_TYPE.DATA_PROTECTION_SCHEDULE]: "Data Protection Schedule",
-};
-
-export default function CompanyTermsPanel() {
+/**
+ * Company-facing Terms tab.
+ *
+ * The publication state is resolved once on the server (see
+ * `/api/partner/legal/status`) and handed down. This panel renders that
+ * answer; it never re-derives the state from the agreement package, so the
+ * Documents tab and this tab can never disagree.
+ */
+export default function CompanyTermsPanel({
+  termsPublication = COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED,
+  terms = null,
+  onAccepted,
+}) {
   const { t, i18n } = useTranslation();
   const { data: session } = useSession();
   const [data, setData] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [accepted, setAccepted] = useState(false);
   const [signerName, setSignerName] = useState("");
   const [signerRole, setSignerRole] = useState("");
@@ -39,6 +43,8 @@ export default function CompanyTermsPanel() {
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
+  const termsAvailable =
+    termsPublication !== COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED;
   const email = String(session?.user?.email || "");
 
   const load = useCallback(async () => {
@@ -55,12 +61,13 @@ export default function CompanyTermsPanel() {
       throw new Error(agreement.message || t("partnerLegal.companyPage.acceptFailed"));
     }
     setData(agreement);
-    setProfile(profileBody.profile || null);
     setSignerName(String(session?.user?.name || ""));
     setSignerRole(explicitSignerRole(profileBody.profile));
   }, [i18n.language, session?.user?.name, t]);
 
   useEffect(() => {
+    // Rovaro has nothing ready yet, so there is no package to open.
+    if (!termsAvailable) return undefined;
     let cancelled = false;
     load().catch((err) => {
       if (!cancelled) setError(err.message);
@@ -68,18 +75,17 @@ export default function CompanyTermsPanel() {
     return () => {
       cancelled = true;
     };
-  }, [load]);
+  }, [load, termsAvailable]);
 
   const view = useMemo(
-    () =>
-      companyTermsPublication({
-        documents: data?.documents || [],
-        containsDrafts: Boolean(data?.containsDrafts),
-        customAgreement: profile?.customAgreement,
-        activeChecksum: data?.activeAgreement?.packageChecksum || "",
-        currentChecksum: data?.packageChecksum || "",
-      }),
-    [data, profile]
+    () => ({
+      publication: termsPublication,
+      canAccept: Boolean(terms?.canAccept),
+      links: terms?.links || [],
+      label: terms?.label || "standard",
+      message: terms?.message || "",
+    }),
+    [termsPublication, terms]
   );
 
   async function acceptTerms() {
@@ -104,6 +110,8 @@ export default function CompanyTermsPanel() {
       setDone(true);
       setAccepted(false);
       await load();
+      await onAccepted?.();
+      window.dispatchEvent(new Event("rovaro-inbox-refresh"));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -111,7 +119,7 @@ export default function CompanyTermsPanel() {
     }
   }
 
-  if (view.publication === "NOT_PUBLISHED" || !data) {
+  if (!termsAvailable || !data) {
     return (
       <Box sx={{ maxWidth: 720, pt: 2, px: { xs: 1, md: 2 } }}>
         {error ? (
@@ -166,7 +174,10 @@ export default function CompanyTermsPanel() {
             const link = view.links.find(
               (item) => item.documentType === doc.documentType
             );
-            const label = DOC_LABEL[doc.documentType] || doc.title || doc.documentType;
+            const label = t(
+              `partnerLegal.companyPage.documentTypes.${doc.documentType}`,
+              { defaultValue: doc.title || doc.documentType }
+            );
             return link ? (
               <Typography
                 key={doc.documentType}

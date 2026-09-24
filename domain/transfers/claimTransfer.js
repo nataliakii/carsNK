@@ -6,6 +6,12 @@ import Transfer, {
 import Company from "@models/company";
 import mongoose from "mongoose";
 import { isCompanyEligibleForTransfer } from "@/domain/transfers/eligibility";
+import { Car } from "@models/car";
+import { TRANSFER_ELIGIBILITY_PURPOSE } from "@/domain/transfers/transferSettings";
+import {
+  CHILD_SEAT_STATUS,
+  fleetChildSeatStatus,
+} from "@/domain/transfers/transferFleet";
 import { locationDisplayName } from "@/domain/transfers/locationSnapshot";
 import { formatMinor } from "@/domain/money/minorUnits";
 
@@ -26,11 +32,18 @@ export async function claimTransferLead({
   }
 
   const company = await Company.findById(companyId)
-    .select("name email country transferServices")
+    .select(
+      "name email country transferServices deliveryPricing offices serviceAreas orderRadiusKm"
+    )
     .lean();
   if (!company) {
     return { ok: false, message: "Company not found", code: "company" };
   }
+  const fleetCars = await Car.find({ ownerId: companyId })
+    .select(
+      "ownerId seats class model PriceChildSeats childSeats childSeatsAvailable isActive testingCar isHidden deletedAt unavailable status"
+    )
+    .lean();
 
   const existing = await Transfer.findById(transferId).lean();
   if (!existing) {
@@ -147,7 +160,10 @@ export async function claimTransferLead({
     };
   }
 
-  const eligibility = isCompanyEligibleForTransfer(company, existing);
+  const eligibility = isCompanyEligibleForTransfer(company, existing, {
+    purpose: TRANSFER_ELIGIBILITY_PURPOSE.FULFILLMENT,
+    cars: fleetCars,
+  });
   // During migration: if transferServices not configured, allow claim for same-country admins
   // only when eligibleSupplierIds was empty (legacy leads).
   if (!eligibility.ok && eligibleIds.length > 0) {
@@ -175,6 +191,13 @@ export async function claimTransferLead({
 
   const payout =
     existing.quoteSnapshot?.supplierPayoutMinor ?? null;
+
+  const childSeats = fleetChildSeatStatus(fleetCars, existing);
+  const childSeatsConfirmationRequired =
+    childSeats.status === CHILD_SEAT_STATUS.CONFIRMATION_REQUIRED;
+  const claimMessage = childSeatsConfirmationRequired
+    ? "Claimed; child seats require confirmation"
+    : "Claimed";
 
   const now = new Date();
   const openStatuses = [
@@ -225,6 +248,8 @@ export async function claimTransferLead({
         claimedByCompanyId: companyId,
         claimedByEmail: email,
         claimedAt: now,
+        childSeatsConfirmationRequired,
+        childSeatsConfirmedAt: childSeatsConfirmationRequired ? null : now,
       },
       $push: {
         assignmentHistory: {
@@ -239,7 +264,7 @@ export async function claimTransferLead({
           companyId,
           at: now,
           result: "success",
-          message: "Claimed",
+          message: claimMessage,
         },
         statusEvents: {
           from: existing.status,

@@ -1,20 +1,29 @@
 import { NextResponse } from "next/server";
 
-import { requireSuperAdmin } from "@lib/adminAuth";
+import { requirePlatformAdmin, requireSuperAdmin } from "@lib/adminAuth";
 import {
   listDocuments,
   syncSeedDocuments,
   publishDocument,
   archiveDocument,
   getDocumentStatusOverview,
+  createDocumentVersion,
+  createTranslationDraftVersion,
+  saveDocumentDraft,
+  getPublishedDocument,
 } from "@/domain/legal/documentService";
 import { findSuppressedSections } from "@/domain/legal/tokens";
 import {
   isKnownDocumentType,
-  MASTER_AGREEMENT_PACKAGE,
+  LEGAL_AUTHORITATIVE_LANGUAGE,
 } from "@/domain/legal/documentTypes";
 import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
+import { reacceptanceRequired, PUBLICATION_CHANGE } from "@/domain/legal/publicationClass";
 import { invalidateMarketplaceCheckoutsForOutdatedAgreements } from "@/domain/orders/invalidateMarketplaceCheckout";
+import { importLegalFile } from "@/domain/legal/documentImport";
+import { buildTranslationDraft, publicationBlockReason } from "@/domain/legal/translationAdapter";
+import { auditLegalAction } from "@/domain/legal/contentSanitizer";
+import { assertTranslationPublishable } from "@/domain/legal/translationWorkflow";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,13 +39,27 @@ export async function GET(request) {
   const { errorResponse } = await requireSuperAdmin(request);
   if (errorResponse) return errorResponse;
 
+  const includeContent =
+    request.nextUrl.searchParams.get("includeContent") === "1";
+  const filterType = String(
+    request.nextUrl.searchParams.get("documentType") || ""
+  ).trim();
+  const filterLang = String(
+    request.nextUrl.searchParams.get("language") || ""
+  ).trim();
+
   const rows = await listDocuments();
   const overview = await getDocumentStatusOverview();
+  const filtered = rows.filter((doc) => {
+    if (filterType && doc.documentType !== filterType) return false;
+    if (filterLang && doc.language !== filterLang) return false;
+    return true;
+  });
 
   return NextResponse.json({
     success: true,
     overview,
-    documents: rows.map((doc) => ({
+    documents: filtered.map((doc) => ({
       platform: doc.platform,
       documentType: doc.documentType,
       language: doc.language,
@@ -51,9 +74,21 @@ export async function GET(request) {
       updatedAt: doc.updatedAt,
       sectionCount: doc.content?.sections?.length || 0,
       title: doc.content?.title || "",
+      ...(includeContent ? { content: doc.content || { title: "", sections: [] } } : {}),
       /** Sections hidden from public output until config is complete. */
       suppressedSections: findSuppressedSections(doc),
-      history: doc.history || [],
+      history: (doc.history || []).map((row) => ({
+        version: row.version,
+        status: row.status,
+        changedAt: row.changedAt,
+        note: row.note,
+      })),
+      format: doc.format || "sections",
+      translationStatus: doc.translationStatus || "",
+      sourceChecksum: doc.sourceChecksum || "",
+      pdf: doc.pdfFile?.filename
+        ? { filename: doc.pdfFile.filename, size: doc.pdfFile.size, extractionComplete: doc.pdfFile.extractionComplete }
+        : null,
       pk: doc.pk,
       sk: doc.sk,
     })),
@@ -65,9 +100,12 @@ export async function GET(request) {
  *
  * Publishing never edits an existing version: it flips status and archives
  * the version it replaces, so a previously accepted agreement stays intact.
+ *
+ * Publishing platform legal documents is a platform-admin act. A superadmin
+ * who is inside a company has to leave it first.
  */
 export async function POST(request) {
-  const { session, errorResponse } = await requireSuperAdmin(request);
+  const { session, errorResponse } = await requirePlatformAdmin(request);
   if (errorResponse) return errorResponse;
 
   let body;
@@ -114,6 +152,23 @@ export async function POST(request) {
   };
 
   if (action === "publish") {
+    if (String(body.language || "en") !== "en") {
+      const source = await getPublishedDocument({
+        documentType: body.documentType,
+        language: "en",
+      });
+      const block = publicationBlockReason(source.doc, {
+        sections: body.sections,
+        sourceChecksum: body.sourceChecksum,
+        status: "draft",
+      });
+      if (body.sections && block) {
+        return NextResponse.json(
+          { success: false, message: `Translation cannot be published: ${block}`, code: block },
+          { status: 409 }
+        );
+      }
+    }
     const result = await publishDocument({
       ...params,
       effectiveFrom: body.effectiveFrom || null,
@@ -131,16 +186,21 @@ export async function POST(request) {
       severity: "high",
       ipAddress,
       userAgent,
-      metadata: {
+        metadata: {
         documentType: params.documentType,
         language: params.language,
         version: params.version,
         checksum: result.doc?.checksum,
+        changeClass: body.changeClass === "editorial" ? "editorial" : "material",
       },
     });
+    const changeClass =
+      body.changeClass === PUBLICATION_CHANGE.EDITORIAL
+        ? PUBLICATION_CHANGE.EDITORIAL
+        : PUBLICATION_CHANGE.MATERIAL;
     if (
       !result.unchanged &&
-      MASTER_AGREEMENT_PACKAGE.includes(params.documentType)
+      reacceptanceRequired({ documentType: params.documentType, changeClass })
     ) {
       await invalidateMarketplaceCheckoutsForOutdatedAgreements({
         actorEmail: byEmail,
@@ -173,13 +233,138 @@ export async function POST(request) {
       ipAddress,
       userAgent,
       reason: body.reason || "",
-      metadata: {
+      metadata: auditLegalAction("archive", {
         documentType: params.documentType,
         language: params.language,
         version: params.version,
-      },
+      }),
     });
     return NextResponse.json({ success: true, document: result.doc });
+  }
+
+  if (action === "createVersion") {
+    const result = await createDocumentVersion({
+      documentType: body.documentType,
+      language: body.language || LEGAL_AUTHORITATIVE_LANGUAGE,
+      jurisdiction: body.jurisdiction,
+      content: body.content,
+      byEmail,
+      note: body.note || "",
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, message: result.message || "Failed to create draft" },
+        { status: 400 }
+      );
+    }
+    await recordAuditEvent({
+      action: "LEGAL_DOCUMENT_DRAFT_CREATED",
+      userRole: "superadmin",
+      userEmail: byEmail,
+      severity: "medium",
+      ipAddress,
+      userAgent,
+      metadata: auditLegalAction("createVersion", {
+        documentType: body.documentType,
+        language: body.language,
+        version: result.doc?.version,
+        checksum: result.doc?.checksum,
+      }),
+    });
+    return NextResponse.json({ success: true, document: result.doc });
+  }
+
+  if (action === "createTranslationDraft") {
+    const result = await createTranslationDraftVersion({
+      documentType: body.documentType,
+      sourceLanguage: body.sourceLanguage || LEGAL_AUTHORITATIVE_LANGUAGE,
+      language: body.language,
+      jurisdiction: body.jurisdiction,
+      byEmail,
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, message: result.message, code: result.code },
+        { status: result.code === "not_found" ? 404 : 400 }
+      );
+    }
+    await recordAuditEvent({
+      action: "LEGAL_TRANSLATION_DRAFT_CREATED",
+      userRole: "superadmin",
+      userEmail: byEmail,
+      severity: "medium",
+      ipAddress,
+      userAgent,
+      metadata: auditLegalAction("createTranslationDraft", {
+        documentType: body.documentType,
+        language: body.language,
+        version: result.doc?.version,
+        checksum: result.doc?.checksum,
+        autoPublished: false,
+      }),
+    });
+    return NextResponse.json({
+      success: true,
+      document: result.doc,
+      publishable: assertTranslationPublishable(result.source, result.draft),
+    });
+  }
+
+  if (action === "saveDraft" || action === "importSave") {
+    const result = await saveDocumentDraft({
+      documentType: body.documentType,
+      language: body.language || LEGAL_AUTHORITATIVE_LANGUAGE,
+      jurisdiction: body.jurisdiction,
+      content: body.content,
+      byEmail,
+      note: body.note || (action === "importSave" ? "Imported draft" : "Draft saved"),
+      format: body.format || "sections",
+      translationStatus: body.translationStatus || "",
+      sourceChecksum: body.sourceChecksum || "",
+      sourceVersion: body.sourceVersion || 0,
+      pdfFile: body.pdf || null,
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, message: result.message || "Could not save draft" },
+        { status: 400 }
+      );
+    }
+    await recordAuditEvent({
+      action: "LEGAL_DOCUMENT_DRAFT_SAVED",
+      userRole: "superadmin",
+      userEmail: byEmail,
+      severity: "medium",
+      ipAddress,
+      userAgent,
+      metadata: auditLegalAction("saveDraft", {
+        documentType: body.documentType,
+        language: body.language,
+        version: result.doc?.version,
+        checksum: result.doc?.checksum,
+      }),
+    });
+    const document = { ...result.doc };
+    if (document.pdfFile) document.pdfFile = { ...document.pdfFile, data: undefined };
+    return NextResponse.json({ success: true, document, published: false });
+  }
+
+  if (action === "importPreview") {
+    const bytes = Buffer.from(String(body.base64 || ""), "base64");
+    const imported = importLegalFile({
+      filename: body.filename,
+      bytes,
+      title: body.title,
+    });
+    if (!imported.ok) {
+      return NextResponse.json(
+        { success: false, message: imported.message, code: imported.code },
+        { status: 400 }
+      );
+    }
+    const preview = { ...imported };
+    if (preview.pdf) preview.pdf = { filename: preview.pdf.filename, size: preview.pdf.size, preserved: true };
+    return NextResponse.json({ success: true, published: false, import: preview });
   }
 
   return NextResponse.json(

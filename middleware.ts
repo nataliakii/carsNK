@@ -23,6 +23,10 @@ import {
   withLocalePrefix,
 } from "@domain/locationSeo/locationSeoService";
 import { WEBSITE_VISIT_SESSION_COOKIE } from "@domain/visitors/websiteVisitNotification";
+import {
+  CUSTOMER_TERMS_SEGMENT,
+  isLegacyCustomerTermsPath,
+} from "@domain/legal/customerTermsRoute";
 
 const PUBLIC_FILE_REGEX = /\.[^/]+$/;
 const EXCLUDED_PREFIXES = ["/api", "/admin", "/access", "/_next", "/transfer", "/login", "/dev"];
@@ -194,9 +198,16 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  // /terms -> /{locale}/rental-terms
-  if (!isLocalePrefixedPath(normalizedPathname) && normalizedPathname === "/terms") {
-    const target = withSearchParams(getStaticPagePath(detectedLocale, "rental-terms"), request);
+  // /terms, /rental-terms, /booking-terms -> canonical /{locale}/terms
+  if (
+    !isLocalePrefixedPath(normalizedPathname) &&
+    (normalizedPathname === CUSTOMER_TERMS_SEGMENT ||
+      isLegacyCustomerTermsPath(normalizedPathname))
+  ) {
+    const target = withSearchParams(
+      withLocalePrefix(detectedLocale, CUSTOMER_TERMS_SEGMENT),
+      request
+    );
     const url = new URL(target, request.url);
     return withVisitSessionCookie(
       withLocaleCookie(NextResponse.redirect(url, 301), detectedLocale),
@@ -231,9 +242,12 @@ export function middleware(request: NextRequest) {
       );
     }
 
-    // /{locale}/terms -> /{locale}/rental-terms
-    if (stripped === "/terms") {
-      const target = withSearchParams(getStaticPagePath(locale, "rental-terms"), request);
+    // /{locale}/rental-terms and /{locale}/booking-terms -> /{locale}/terms
+    if (isLegacyCustomerTermsPath(stripped)) {
+      const target = withSearchParams(
+        withLocalePrefix(locale, CUSTOMER_TERMS_SEGMENT),
+        request
+      );
       const url = new URL(target, request.url);
       return withVisitSessionCookie(
         withLocaleCookie(NextResponse.redirect(url, 301), locale),

@@ -6,7 +6,10 @@ const POLL_MS = 25000;
 const EMPTY = Object.freeze({
   rentals: 0,
   transfers: 0,
+  ordersBadge: 0,
   total: 0,
+  bookings: Object.freeze({ count: 0, tasks: [] }),
+  companySetup: Object.freeze({ count: 0, tasks: [] }),
   ready: false,
   checkedAt: null,
   error: null,
@@ -24,6 +27,8 @@ let activeCountry = "ALL";
 let enabledCount = 0;
 /** @type {Promise<void> | null} */
 let inFlight = null;
+/** A refresh requested mid-request must not reuse the older response. */
+let refetchQueued = false;
 /** @type {number | null} */
 let baselineTotal = null;
 /** @type {(() => void) | null} */
@@ -38,8 +43,11 @@ function setSnapshot(partial) {
   emit();
 }
 
-async function fetchPending(country) {
-  if (inFlight) return inFlight;
+async function fetchPending(country, { fresh = false } = {}) {
+  if (inFlight) {
+    if (fresh) refetchQueued = true;
+    return inFlight;
+  }
   inFlight = (async () => {
     try {
       const params = new URLSearchParams();
@@ -58,23 +66,35 @@ async function fetchPending(country) {
       }
       const rentals = Number(data.rentals) || 0;
       const transfers = Number(data.transfers) || 0;
-      const total = rentals + transfers;
+      const companySetup = data.companySetup || { count: 0, tasks: [] };
+      const bookings = data.bookings || {
+        count: rentals + transfers,
+        tasks: [],
+      };
+      const total =
+        Number.isFinite(Number(data.total))
+          ? Number(data.total)
+          : bookings.count + (Number(companySetup.count) || 0);
 
+      const bookingTotal = Number(bookings.count) || 0;
       let arrival = snapshot.arrival;
-      if (baselineTotal !== null && total > baselineTotal) {
+      if (baselineTotal !== null && bookingTotal > baselineTotal) {
         arrival = {
-          delta: total - baselineTotal,
+          delta: bookingTotal - baselineTotal,
           rentals,
           transfers,
           total,
           at: Date.now(),
         };
       }
-      baselineTotal = total;
+      baselineTotal = bookingTotal;
 
       setSnapshot({
         rentals,
         transfers,
+        ordersBadge: Number(data.ordersBadge) || rentals,
+        bookings,
+        companySetup,
         total,
         ready: true,
         checkedAt: data.checkedAt || new Date().toISOString(),
@@ -88,6 +108,10 @@ async function fetchPending(country) {
       });
     } finally {
       inFlight = null;
+      if (refetchQueued) {
+        refetchQueued = false;
+        fetchPending(country);
+      }
     }
   })();
   return inFlight;
@@ -102,11 +126,14 @@ function startPolling(country) {
   const onVis = () => {
     if (document.visibilityState === "visible") fetchPending(activeCountry);
   };
+  const onRefresh = () => fetchPending(activeCountry, { fresh: true });
   window.addEventListener("focus", onFocus);
   document.addEventListener("visibilitychange", onVis);
+  window.addEventListener("rovaro-inbox-refresh", onRefresh);
   removeWindowListeners = () => {
     window.removeEventListener("focus", onFocus);
     document.removeEventListener("visibilitychange", onVis);
+    window.removeEventListener("rovaro-inbox-refresh", onRefresh);
   };
 }
 
@@ -160,7 +187,10 @@ export function useAdminPendingInbox(opts = {}) {
     setSnapshot({ arrival: null });
   }, []);
 
-  const refresh = useCallback(() => fetchPending(activeCountry), []);
+  const refresh = useCallback(
+    () => fetchPending(activeCountry, { fresh: true }),
+    []
+  );
 
   return {
     ...store,

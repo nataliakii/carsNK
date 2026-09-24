@@ -175,11 +175,45 @@ export async function applyCompanyEmailDecision({ token, decision }) {
     "Note: order.confirmed is unchanged — only SUPERADMIN can confirm in admin.",
   ];
 
-  await notifySuperadmins({
-    title,
-    bodyLines: lines,
-    telegramText: `${title}\n\n${lines.join("\n")}\n\n${superadminNotifyFooter()}`,
-  });
+  try {
+    const {
+      notifyBookingAccepted,
+      notifyBookingDeclined,
+    } = await import("@/domain/mail/notificationPolicy");
+    if (decision === "accepted") {
+      await notifyBookingAccepted({
+        orderId: String(order._id),
+        companyId: order.ownerId ? String(order.ownerId) : "",
+        orderNumber: order.orderNumber,
+        actorEmail: "company-email-action",
+        status: "accepted",
+        timestamp: new Date(),
+      });
+    } else {
+      await notifyBookingDeclined({
+        orderId: String(order._id),
+        companyId: order.ownerId ? String(order.ownerId) : "",
+        orderNumber: order.orderNumber,
+        customerName: order.customerName || "",
+        actorEmail: "company-email-action",
+        reasonCode: "other",
+        explanation: "Declined via company email action link",
+        feePaid: false,
+        status: "declined",
+        timestamp: new Date(),
+      });
+    }
+  } catch (err) {
+    console.error(
+      "[companyEmailAction] matrix notify failed, falling back:",
+      err?.message || err
+    );
+    await notifySuperadmins({
+      title,
+      bodyLines: lines,
+      telegramText: `${title}\n\n${lines.join("\n")}\n\n${superadminNotifyFooter()}`,
+    });
+  }
 
   return {
     ok: true,

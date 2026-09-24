@@ -23,22 +23,8 @@ export default function usePartnerLegalStatus() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    fetch("/api/partner/legal/status", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((json) => {
-        if (!cancelled) setPayload(json.success ? json : null);
-      })
-      .catch(() => {
-        if (!cancelled) setPayload(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    reload();
+  }, [reload]);
 
   return {
     loading,
@@ -46,6 +32,9 @@ export default function usePartnerLegalStatus() {
     gate: payload?.gate || null,
     listedOnMarketplace: payload?.listedOnMarketplace !== false,
     canListPublicly: Boolean(payload?.canListPublicly),
+    /** Server-resolved. Terms and Documents render this same value. */
+    termsPublication: payload?.termsPublication || "",
+    terms: payload?.terms || null,
     reload,
   };
 }

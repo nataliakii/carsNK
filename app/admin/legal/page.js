@@ -1,20 +1,15 @@
-import { Suspense } from "react";
 import { unstable_noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 
 import { authOptions } from "@lib/authOptions";
-import Feed from "@app/components/Feed";
-import { getCars, getCompany, getAllOrders } from "@/domain/services";
-import { COMPANY_ID } from "@/config/company";
 import { applyAdminViewAsFromCookies } from "@/domain/owners/adminViewAs";
 import { legalAreaDecision } from "@/domain/legal/companyLegalPage";
 import { legacyLegalPartnersRedirect } from "@/domain/admin/partnersPage";
-
-import LegalHubSection from "./LegalHubSection";
+import { platformSettingsHref } from "@/domain/admin/platformSettingsNav";
 
 /**
- * /admin/legal — superadmin hub: partner document review + platform publish.
+ * /admin/legal — redirects into Settings → Legal documents (or Partners review).
  */
 export default async function AdminLegalPage({ searchParams }) {
   unstable_noStore();
@@ -29,23 +24,12 @@ export default async function AdminLegalPage({ searchParams }) {
   const reviewHref = legacyLegalPartnersRedirect(searchParams || {});
   if (reviewHref) redirect(reviewHref);
 
-  const [company, cars, orders] = await Promise.all([
-    getCompany(COMPANY_ID),
-    getCars({ session }),
-    getAllOrders({ session }),
-  ]);
-
-  return (
-    <Feed
-      cars={cars ? JSON.parse(JSON.stringify(cars)) : cars}
-      orders={orders ? JSON.parse(JSON.stringify(orders)) : orders}
-      company={company ? JSON.parse(JSON.stringify(company)) : company}
-      isAdmin
-      isMain={false}
-    >
-      <Suspense fallback={null}>
-        <LegalHubSection />
-      </Suspense>
-    </Feed>
+  const section = String(searchParams?.tab || "").trim();
+  const legalSections = new Set(["documents", "settings", "audit"]);
+  redirect(
+    platformSettingsHref(
+      "legal",
+      legalSections.has(section) ? { section } : {}
+    )
   );
 }

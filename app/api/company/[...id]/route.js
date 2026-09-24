@@ -255,6 +255,16 @@ export async function PATCH(request, { params }) {
       updates.orderRadiusKm = n;
     }
   }
+  if (body?.serviceAreas !== undefined) {
+    const { normalizeServiceAreasInput } = await import(
+      "@/domain/geo/spainAdminDivisions"
+    );
+    const normalized = normalizeServiceAreasInput(body.serviceAreas);
+    if (!normalized.ok) {
+      return NextResponse.json({ error: normalized.message }, { status: 400 });
+    }
+    updates.serviceAreas = normalized.value;
+  }
   if (body?.meetingContacts != null) {
     const { meetingContactsUpdatePayload } = await import(
       "@/domain/company/meetingContacts"
@@ -301,7 +311,6 @@ export async function PATCH(request, { params }) {
       }
       const listingGate = await assertPartnerCanOperate(companyId, {
         company: existingCompany,
-        requireListed: false,
         purpose: PARTNER_OPERATION_PURPOSE.LISTING,
       });
       if (!listingGate.allowed) {
@@ -353,11 +362,12 @@ export async function PATCH(request, { params }) {
       "marketplaceBookingFeeBps"
     );
     let previousFeeBps = null;
-    if (feeChanging) {
-      const prevFee = await Company.findById(companyId)
-        .select("marketplaceBookingFeeBps")
-        .lean();
-      previousFeeBps = prevFee?.marketplaceBookingFeeBps ?? null;
+    let previousForNotify = null;
+    if (feeChanging || Object.keys(updates).length) {
+      previousForNotify = await Company.findById(companyId).lean();
+      if (feeChanging) {
+        previousFeeBps = previousForNotify?.marketplaceBookingFeeBps ?? null;
+      }
     }
 
     const updateDoc = {};
@@ -373,6 +383,41 @@ export async function PATCH(request, { params }) {
     }
 
     revalidatePath(`/api/company/${companyId}`);
+
+    try {
+      const { classifyCompanySettingChanges } = await import(
+        "@/domain/mail/importantCompanyChanges"
+      );
+      const { notifyImportantCompanySettings } = await import(
+        "@/domain/mail/notificationPolicy"
+      );
+      const { normalizeEmailPreferences } = await import(
+        "@/domain/mail/emailPreferences"
+      );
+      // Apply email preference patch after save (safe nested update).
+      if (body?.emailPreferences != null) {
+        const prefs = normalizeEmailPreferences(body.emailPreferences);
+        await Company.findByIdAndUpdate(companyId, {
+          $set: { emailPreferences: prefs },
+        });
+      }
+      const classified = classifyCompanySettingChanges(
+        previousForNotify || {},
+        updates
+      );
+      if (classified.important) {
+        await notifyImportantCompanySettings({
+          companyId: String(companyId),
+          companyName: company.name || "",
+          actorEmail: user?.email || "",
+          timestamp: new Date(),
+          requestId: `${Date.now()}`,
+          changes: classified.changes,
+        });
+      }
+    } catch (err) {
+      console.error("[company] important-settings notify failed:", err?.message || err);
+    }
 
     if (
       listingWasEnabled &&

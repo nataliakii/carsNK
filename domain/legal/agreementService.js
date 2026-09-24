@@ -40,8 +40,7 @@ import {
   canPartnerOperate,
 } from "./partnerVerification";
 import { recordAuditEvent } from "./auditTrail";
-import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
-import { absoluteUrl } from "@config/domain";
+import { notifyAgreementAccepted } from "@/domain/mail/notificationPolicy";
 
 /** Stable, non-guessable public identifier for one agreement instance. */
 export function generateAgreementId() {
@@ -112,8 +111,7 @@ export async function buildAgreementPackage({ language = "en" } = {}) {
 
 /** Wording the partner must explicitly tick. */
 export const CLICKWRAP_ACCEPTANCE_STATEMENT =
-  "I have read the Partner Agreement, the Partner Operating Rules and the Data Protection Schedule, " +
-  "I am authorised to sign on behalf of the company named above, and I accept these documents on its behalf.";
+  "I am authorised to accept the Partner Agreement, Partner Operating Rules and Data Protection Schedule on behalf of the company.";
 
 /**
  * Record an acceptance.
@@ -263,22 +261,19 @@ export async function acceptMasterAgreement(input) {
     },
   });
 
-  try {
-    await notifySuperadmin({
-      title: `✅ Partner agreement accepted — ${profile.legalName || input.companyId}`,
-      bodyLines: [
-        `Company: ${profile.legalName || "—"}`,
-        profile.tradingName ? `Trading name: ${profile.tradingName}` : null,
-        `Agreement ID: ${agreementId}`,
-        `Signer: ${input.signerName} (${input.signerRole})`,
-        `Signer email: ${input.signerEmail}`,
-        `Checksum: ${pkg.packageChecksum}`,
-        `Review: ${absoluteUrl(`/admin/partners?tab=review&companyId=${encodeURIComponent(input.companyId)}`)}`,
-      ].filter(Boolean),
-    });
-  } catch (err) {
-    console.error("[agreement] superadmin notify failed:", err?.message || err);
-  }
+  await notifyAgreementAccepted({
+    companyId: String(input.companyId),
+    companyName: profile.legalName || profile.tradingName || "",
+    agreementId,
+    packageChecksum: pkg.packageChecksum,
+    actorEmail: input.signerEmail,
+    actorName: input.signerName,
+    previousStatus: profile.verificationStatus || "",
+    newVersion: pkg.packageChecksum,
+    timestamp: acceptedAt,
+  }).catch((err) => {
+    console.error("[agreement] notify failed:", err?.message || err);
+  });
 
   return { ok: true, agreementId, acceptance: acceptance.toObject() };
 }

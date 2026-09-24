@@ -131,8 +131,20 @@ function confirmationFormHtml(token, view) {
       <form method="POST" action="${actionUrl}" style="margin-top:16px;">
         <input type="hidden" name="token" value="${esc(token)}" />
         <input type="hidden" name="decision" value="declined" />
-        <input type="text" name="reason" maxlength="500" placeholder="Reason (optional)"
-          style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #cfd8dc;border-radius:8px;font:inherit;font-size:0.86rem;" />
+        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;">Decline reason</label>
+        <select name="reasonCode" required
+          style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #cfd8dc;border-radius:8px;font:inherit;font-size:0.86rem;">
+          <option value="">Select a reason</option>
+          <option value="vehicle_unavailable">Vehicle unavailable</option>
+          <option value="dates_unavailable">Dates unavailable</option>
+          <option value="customer_does_not_meet_requirements">Customer does not meet rental requirements</option>
+          <option value="documents_not_acceptable">Documents not acceptable</option>
+          <option value="incorrect_listing_or_price">Incorrect listing or price</option>
+          <option value="safety_or_fraud_concern">Safety or fraud concern</option>
+          <option value="other">Other</option>
+        </select>
+        <input type="text" name="explanation" maxlength="1000" placeholder="Explanation (required for Other)"
+          style="width:100%;box-sizing:border-box;margin-top:10px;padding:10px;border:1px solid #cfd8dc;border-radius:8px;font:inherit;font-size:0.86rem;" />
         <button type="submit"
           style="margin-top:10px;background:#fff;color:#B71C1C;border:1px solid #ef9a9a;border-radius:8px;padding:10px 16px;font-weight:600;font-size:0.88rem;cursor:pointer;">
           Decline
@@ -276,6 +288,8 @@ export async function POST(request) {
   let decision = "";
   let accepted = false;
   let reason = "";
+  let reasonCode = "";
+  let explanation = "";
   let proposedCarId = "";
 
   if (contentType.includes("application/json")) {
@@ -284,6 +298,8 @@ export async function POST(request) {
     decision = String(body.decision || "");
     accepted = Boolean(body.accepted);
     reason = String(body.reason || "");
+    reasonCode = String(body.reasonCode || "");
+    explanation = String(body.explanation || "");
     proposedCarId = String(body.proposedCarId || body.carId || "");
   } else {
     const form = await request.formData();
@@ -291,6 +307,8 @@ export async function POST(request) {
     decision = String(form.get("decision") || "");
     accepted = String(form.get("accepted") || "") === "yes";
     reason = String(form.get("reason") || "");
+    reasonCode = String(form.get("reasonCode") || "");
+    explanation = String(form.get("explanation") || "");
     proposedCarId = String(form.get("proposedCarId") || "");
   }
 
@@ -357,6 +375,8 @@ export async function POST(request) {
     ipAddress,
     userAgent,
     reason,
+    reasonCode,
+    explanation,
   });
 
   if (!result.ok) {

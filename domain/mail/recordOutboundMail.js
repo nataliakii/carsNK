@@ -81,6 +81,11 @@ export function buildMailLogDocument({
     typeof meta.type === "string" && meta.type.trim()
       ? meta.type.trim()
       : MAIL_TYPE.GENERIC;
+  const idempotencyKey =
+    typeof meta.idempotencyKey === "string" && meta.idempotencyKey.trim()
+      ? clip(meta.idempotencyKey.trim(), 300)
+      : null;
+
   return {
     to: asEmailList(to),
     cc: asEmailList(cc),
@@ -104,6 +109,7 @@ export function buildMailLogDocument({
     payload: meta.payload != null ? jsonSafe(meta.payload) : null,
     messageId: clip(messageId, 200),
     resentFromId: asObjectId(meta.resentFromId),
+    idempotencyKey,
     attachmentNames: Array.isArray(attachmentNames)
       ? attachmentNames.map((name) => clip(name, 180)).filter(Boolean).slice(0, 8)
       : [],

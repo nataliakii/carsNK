@@ -39,6 +39,7 @@ import { ROVARO_MAILBOX } from "@config/email";
 import CarPhoto from "@app/components/CarComponent/CarPhoto";
 import { formatMinor } from "@/domain/money/minorUnits";
 import { formatDateTime } from "@/domain/time/businessTime";
+import { canonicalTermsPath } from "@domain/legal/customerTermsRoute";
 import {
   formatMarketplaceEuro,
   marketplaceFeeNotice,
@@ -696,7 +697,7 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
           {" · "}
           <Box
             component={Link}
-            href={`/${locale}/booking-terms`}
+            href={canonicalTermsPath(locale)}
             sx={{ color: "primary.main", fontWeight: 600 }}
           >
             {t("alternativeOffer.bookingTermsLink")}

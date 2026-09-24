@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next";
 import { ADMIN_VIEW_MODE } from "@/domain/admin/adminViewMode";
 import { PARTNER_VERIFICATION_STATUS } from "@/domain/legal/partnerVerification";
 import { reviewControlsForStatus } from "@/domain/legal/partnerReviewWorkspace";
+import { pendingProfileChangeSummary } from "@/domain/legal/verifiedProfileChanges";
 
 const S = PARTNER_VERIFICATION_STATUS;
 
@@ -31,6 +32,7 @@ const S = PARTNER_VERIFICATION_STATUS;
 export default function PartnerReviewActions({
   profile,
   companyId: companyIdProp,
+  pendingChanges,
   onChanged,
   viewMode,
 }) {
@@ -48,6 +50,34 @@ export default function PartnerReviewActions({
   const companyId = String(profile?.companyId || companyIdProp || "");
   const status = profile?.verificationStatus || null;
   const controls = reviewControlsForStatus(status);
+  const proposed = pendingChanges || pendingProfileChangeSummary(profile);
+
+  async function send(body, failKey = "partnerLegal.review.failed") {
+    if (!companyId) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch(
+        `/api/admin/legal/partners/${encodeURIComponent(companyId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || t(failKey));
+      }
+      setNotice(t("partnerLegal.review.done"));
+      await onChanged?.();
+    } catch (err) {
+      setError(err.message || t(failKey));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function apply(to) {
     if (!companyId) return;
@@ -128,6 +158,49 @@ export default function PartnerReviewActions({
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t(bodyKey)}
       </Typography>
+
+      {proposed.length ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: "0.9rem" }}>
+            {t("partnerLegal.review.pendingChangesTitle")}
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            {t("partnerLegal.review.pendingChangesBody")}
+          </Typography>
+          <Stack spacing={0.25} sx={{ mb: 1.5 }}>
+            {proposed.map((change) => (
+              <Typography key={change.field} variant="body2">
+                {t(`partnerLegal.form.fields.${change.field}.label`, {
+                  defaultValue: change.field,
+                })}
+                {": "}
+                {String(change.verified || "—")} → {String(change.proposed || "—")}
+              </Typography>
+            ))}
+          </Stack>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+            <Button
+              variant="contained"
+              size="small"
+              disabled={busy || !companyId}
+              onClick={() => send({ action: "apply_pending_changes" })}
+            >
+              {t("partnerLegal.review.approveChanges")}
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              disabled={busy || !companyId}
+              onClick={() =>
+                send({ action: "discard_pending_changes", reason: reason.trim() })
+              }
+            >
+              {t("partnerLegal.review.discardChanges")}
+            </Button>
+          </Stack>
+        </Alert>
+      ) : null}
 
       {!profile ? (
         <Alert severity="info">{t("partnerLegal.review.noProfile")}</Alert>

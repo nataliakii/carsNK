@@ -20,6 +20,8 @@ import {
   formatMarketplaceEuro,
   marketplaceSplitLabels,
 } from "@/domain/orders/marketplaceFinancialSplit";
+import BookingFeeOutcomesTable from "@app/components/Legal/BookingFeeOutcomesTable";
+import { CUSTOMER_TERMS_SEGMENT } from "@/domain/legal/customerTermsRoute";
 
 function ContractBody({ platform, company, kind }) {
   if (kind === "company") {
@@ -162,10 +164,7 @@ export default function BookingContractsBlock({
   const close = () => setOpenKind("");
 
   const acceptOpen = () => {
-    if (openKind === "platform" || compactMarketplace) {
-      setPlatformAccepted(true);
-      if (company?.available) setCompanyAccepted(true);
-    }
+    if (openKind === "platform") setPlatformAccepted(true);
     if (openKind === "company") setCompanyAccepted(true);
     setOpenKind("");
   };
@@ -263,7 +262,7 @@ export default function BookingContractsBlock({
   );
 
   if (compactMarketplace) {
-    const termsAccepted = platformAccepted && (!company?.available || companyAccepted);
+    const termsAccepted = platformAccepted;
     return (
       <Box
         className={error ? "booking-field-shake" : ""}
@@ -271,7 +270,10 @@ export default function BookingContractsBlock({
       >
         <Button
           size="small"
-          onClick={() => open("platform")}
+          component="a"
+          href={`/${String(lang || "en").slice(0, 2)}${CUSTOMER_TERMS_SEGMENT}`}
+          target="_blank"
+          rel="noopener noreferrer"
           sx={{ px: 0, minWidth: 0, mb: 0.75, fontWeight: 600 }}
         >
           {splitLabels.bookingTerms}
@@ -319,11 +321,43 @@ export default function BookingContractsBlock({
             </Typography>
           }
         />
+        {company?.available ? (
+          <FormControlLabel
+            sx={{ alignItems: "flex-start", m: 0, mt: 0.5 }}
+            control={
+              <Checkbox
+                size="small"
+                checked={companyAccepted}
+                onChange={() => {
+                  if (!companyAccepted) open("company");
+                }}
+              />
+            }
+            label={t("order.agreeToCompanyTerms", { company: companyLabel })}
+          />
+        ) : (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+            {t("order.companyTermsMissing")}
+          </Typography>
+        )}
         {error ? (
           <Typography color="error" variant="caption" sx={{ display: "block", mt: 0.5 }}>
             {error}
           </Typography>
         ) : null}
+        <BookingFeeOutcomesTable language={lang} compact />
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+          {t("order.privacyBookingNotice")}{" "}
+          <Box
+            component="a"
+            href={`/${String(lang || "en").slice(0, 2)}/privacy`}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ color: "primary.main", fontWeight: 600 }}
+          >
+            {t("footer.privacyPolicy")}
+          </Box>
+        </Typography>
         {termsDialog}
       </Box>
     );
@@ -369,6 +403,16 @@ export default function BookingContractsBlock({
         <Button size="small" onClick={() => open("platform")} sx={{ mt: 0.25 }}>
           {t("order.readContract")}
         </Button>
+        <Button
+          size="small"
+          component="a"
+          href={`/${String(lang || "en").slice(0, 2)}${CUSTOMER_TERMS_SEGMENT}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{ mt: 0.25 }}
+        >
+          {t("footer.bookingTerms", { defaultValue: "Terms" })}
+        </Button>
       </Box>
 
       {company?.available ? (
@@ -405,6 +449,20 @@ export default function BookingContractsBlock({
           {t("order.companyTermsMissing")}
         </Typography>
       )}
+
+      <BookingFeeOutcomesTable language={lang} compact />
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+        {t("order.privacyBookingNotice")}{" "}
+        <Box
+          component="a"
+          href={`/${String(lang || "en").slice(0, 2)}/privacy`}
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{ color: "primary.main", fontWeight: 600 }}
+        >
+          {t("footer.privacyPolicy")}
+        </Box>
+      </Typography>
 
       {error ? (
         <Typography color="error" variant="caption" sx={{ display: "block", mt: 0.5 }}>

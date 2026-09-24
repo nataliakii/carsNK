@@ -14,12 +14,15 @@ import {
   LEGAL_DOCUMENT_STATUS,
   ALL_LEGAL_DOCUMENT_TYPES,
   LEGAL_AUTHORITATIVE_LANGUAGE,
+  LEGAL_LANGUAGES,
   normalizeLegalLanguage,
   normalizeJurisdiction,
 } from "./documentTypes";
 import { getSeedDocuments, getSeedDocument } from "./documentRegistry";
 import { computeDocumentChecksum, verifyDocumentChecksum } from "./checksum";
 import { buildDocumentKey } from "./documentKeys";
+import { sanitizeLegalHtml } from "./contentSanitizer";
+import { buildTranslationDraft } from "./translationAdapter";
 
 /** Scope guard applied to every query. */
 function scope(extra = {}) {
@@ -315,11 +318,11 @@ export async function createDocumentVersion({
     status: LEGAL_DOCUMENT_STATUS.DRAFT,
     effectiveFrom: null,
     content: {
-      title: content?.title || "",
+      title: sanitizeLegalHtml(content?.title || ""),
       sections: (content?.sections || []).map((section) => ({
         id: String(section.id),
-        heading: section.heading || "",
-        body: section.body ?? section.text ?? "",
+        heading: sanitizeLegalHtml(section.heading || ""),
+        body: sanitizeLegalHtml(section.body ?? section.text ?? ""),
         requires: Array.isArray(section.requires) ? section.requires : [],
       })),
     },
@@ -346,6 +349,88 @@ export async function createDocumentVersion({
 }
 
 /**
+ * Create a translation draft from the latest source-language content.
+ * Never publishes. Refuses incomplete auto-generated results on publish
+ * via assertTranslationPublishable at the call site.
+ */
+export async function createTranslationDraftVersion({
+  documentType,
+  sourceLanguage = LEGAL_AUTHORITATIVE_LANGUAGE,
+  language,
+  jurisdiction,
+  byEmail = "",
+  translateSection = null,
+}) {
+  const sourceLang = normalizeLegalLanguage(sourceLanguage);
+  const targetLang = normalizeLegalLanguage(language);
+  if (sourceLang === targetLang) {
+    return {
+      ok: false,
+      code: "same_language",
+      message: "Source and target language must differ",
+    };
+  }
+
+  await connectToDB();
+  const jur = normalizeJurisdiction(jurisdiction);
+  const source =
+    (await LegalDocument.findOne(
+      scope({
+        documentType,
+        language: sourceLang,
+        jurisdiction: jur,
+        status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
+      })
+    )
+      .sort({ version: -1 })
+      .lean()) ||
+    (await LegalDocument.findOne(
+      scope({ documentType, language: sourceLang, jurisdiction: jur })
+    )
+      .sort({ version: -1 })
+      .lean());
+
+  if (!source) {
+    return {
+      ok: false,
+      code: "not_found",
+      message: "Source document not found",
+    };
+  }
+
+  const draft = await buildTranslationDraft({
+    source,
+    language: targetLang,
+    sourceLanguage: sourceLang,
+    mode: "missing",
+    translateSection,
+  });
+
+  const result = await createDocumentVersion({
+    documentType,
+    language: targetLang,
+    jurisdiction: jur,
+    content: {
+      title: sanitizeLegalHtml(draft.title || source.content?.title || ""),
+      sections: (draft.sections || []).map((section) => ({
+        id: section.id,
+        heading: sanitizeLegalHtml(section.heading || ""),
+        body: sanitizeLegalHtml(section.body || ""),
+        requires: section.requires || [],
+      })),
+    },
+    byEmail,
+    note: `Translation draft from ${sourceLang} v${source.version} (not published)`,
+  });
+
+  return {
+    ...result,
+    source,
+    draft: { ...draft, published: false, autoPublished: false },
+  };
+}
+
+/**
  * Status overview for the superadmin Legal Configuration panel: which
  * document types have a published version in which languages.
  */
@@ -358,7 +443,7 @@ export async function getDocumentStatusOverview() {
   return ALL_LEGAL_DOCUMENT_TYPES.map((documentType) => {
     const forType = rows.filter((r) => r.documentType === documentType);
     const languages = {};
-    for (const language of ["en", "es"]) {
+    for (const language of LEGAL_LANGUAGES) {
       const published = forType
         .filter(
           (r) => r.language === language && r.status === LEGAL_DOCUMENT_STATUS.PUBLISHED
@@ -413,4 +498,99 @@ export async function resolveDocumentForDisplay({
     source: "draft",
     fellBackToEnglish: seed.language !== normalizeLegalLanguage(language),
   };
+}
+
+function normalizeContent(content) {
+  return {
+    title: content?.title || "",
+    sections: (content?.sections || []).map((section) => ({
+      id: String(section.id),
+      heading: section.heading || "",
+      body: section.body ?? section.text ?? "",
+      requires: Array.isArray(section.requires) ? section.requires : [],
+    })),
+  };
+}
+
+/**
+ * Save a draft. A published row is never edited; a new draft version is created.
+ * Import and translation both use this and stay unpublished.
+ */
+export async function saveDocumentDraft({
+  documentType,
+  language,
+  jurisdiction,
+  content,
+  byEmail = "",
+  note = "",
+  format = "sections",
+  translationStatus = "",
+  sourceChecksum = "",
+  sourceVersion = 0,
+  pdfFile = null,
+}) {
+  await connectToDB();
+  const lang = normalizeLegalLanguage(language);
+  const jur = normalizeJurisdiction(jurisdiction);
+  const normalized = normalizeContent(content);
+
+  const latest = await LegalDocument.findOne(
+    scope({ documentType, language: lang, jurisdiction: jur })
+  )
+    .sort({ version: -1 });
+
+  if (latest && latest.status === LEGAL_DOCUMENT_STATUS.DRAFT) {
+    latest.content = normalized;
+    latest.format = format || "sections";
+    latest.translationStatus = translationStatus || latest.translationStatus || "";
+    latest.sourceChecksum = sourceChecksum || latest.sourceChecksum || "";
+    latest.sourceVersion = Number(sourceVersion || latest.sourceVersion || 0) || 0;
+    if (pdfFile) latest.pdfFile = pdfFile;
+    latest.checksum = computeDocumentChecksum({
+      platform: LEGAL_PLATFORM,
+      documentType,
+      language: lang,
+      jurisdiction: jur,
+      version: latest.version,
+      status: LEGAL_DOCUMENT_STATUS.DRAFT,
+      effectiveFrom: null,
+      content: normalized,
+    });
+    latest.history = [
+      ...(latest.history || []),
+      {
+        version: latest.version,
+        checksum: latest.checksum,
+        status: LEGAL_DOCUMENT_STATUS.DRAFT,
+        changedAt: new Date(),
+        changedByEmail: byEmail,
+        note: note || "Draft saved",
+      },
+    ];
+    await latest.save();
+    return { ok: true, doc: latest.toObject() };
+  }
+
+  const created = await createDocumentVersion({
+    documentType,
+    language: lang,
+    jurisdiction: jur,
+    content: normalized,
+    byEmail,
+    note: note || "New draft version",
+  });
+  if (!created.ok) return created;
+  if (format || translationStatus || pdfFile || sourceChecksum) {
+    const row = await LegalDocument.findById(created.doc._id);
+    if (row) {
+      row.format = format || "sections";
+      row.translationStatus = translationStatus || "";
+      row.sourceChecksum = sourceChecksum || "";
+      row.sourceVersion = Number(sourceVersion || 0) || 0;
+      if (pdfFile) row.pdfFile = pdfFile;
+      await row.save();
+      return { ok: true, doc: row.toObject() };
+    }
+  }
+  return created;
 }

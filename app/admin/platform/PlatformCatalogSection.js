@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -25,8 +25,9 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import { useTranslation } from "react-i18next";
+import { useRegisterSettingsDirty } from "@/app/admin/settings/SettingsDirtyGuard";
 
-export default function PlatformCatalogSection() {
+export default function PlatformCatalogSection({ embedded = false } = {}) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -42,6 +43,18 @@ export default function PlatformCatalogSection() {
   const [newLat, setNewLat] = useState("");
   const [newLon, setNewLon] = useState("");
 
+  const draftDirty = useMemo(
+    () =>
+      Boolean(
+        newName.trim() ||
+          newLat.trim() ||
+          newLon.trim() ||
+          newDetail ||
+          newKind !== "city"
+      ),
+    [newDetail, newKind, newLat, newLon, newName]
+  );
+  useRegisterSettingsDirty("platform-catalog", draftDirty);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -188,16 +201,35 @@ export default function PlatformCatalogSection() {
   }
 
   return (
-    <Box sx={{ px: { xs: 1, md: 2 }, pb: 6, pt: 2, maxWidth: 960 }}>
-      <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>
-        {t("platform.title")}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {t("platform.subtitle", {
-          country: country?.countryName || country?.country || "—",
-          timezone: country?.timezone || "—",
-        })}
-      </Typography>
+    <Box
+      sx={{
+        px: embedded ? 0 : { xs: 1, md: 2 },
+        pb: embedded ? 0 : 6,
+        pt: embedded ? 0 : 2,
+        maxWidth: embedded ? "100%" : 960,
+      }}
+    >
+      {embedded ? null : (
+        <>
+          <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>
+            {t("platform.title")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            {t("platform.subtitle", {
+              country: country?.countryName || country?.country || "—",
+              timezone: country?.timezone || "—",
+            })}
+          </Typography>
+        </>
+      )}
+      {embedded ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("platform.subtitle", {
+            country: country?.countryName || country?.country || "—",
+            timezone: country?.timezone || "—",
+          })}
+        </Typography>
+      ) : null}
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>

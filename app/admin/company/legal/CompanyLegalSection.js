@@ -1,18 +1,18 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo } from "react";
 import { Box, CircularProgress, Tab, Tabs, Typography } from "@mui/material";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 
 import PartnerLegalProfileSection from "@/app/admin/legal-profile/PartnerLegalProfileSection";
+import usePartnerLegalStatus from "@/app/admin/legal-profile/_components/usePartnerLegalStatus";
 import { adminSectionTabsSx } from "@app/admin/shared/components/AdminSectionTabs";
-import {
-  COMPANY_LEGAL_TABS,
-  companyTermsPublication,
-} from "@/domain/legal/companyLegalPage";
+import { COMPANY_LEGAL_TABS } from "@/domain/legal/companyLegalPage";
 
 import CompanyTermsPanel from "./CompanyTermsPanel";
+import CompanyRentalTermsPanel from "./CompanyRentalTermsPanel";
+import BookingFeeOutcomesTable from "@app/components/Legal/BookingFeeOutcomesTable";
 
 function tabFromSearch(searchParams) {
   const tab = searchParams?.get("step") || searchParams?.get("tab");
@@ -25,27 +25,11 @@ function CompanyLegalInner({ viewMode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tab = tabFromSearch(searchParams);
-  const [publication, setPublication] = useState("NOT_PUBLISHED");
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/partner/legal/agreement?lang=en", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((body) => {
-        if (cancelled || !body?.success) return;
-        const view = companyTermsPublication({
-          documents: body.documents || [],
-          containsDrafts: Boolean(body.containsDrafts),
-          activeChecksum: body.activeAgreement?.packageChecksum || "",
-          currentChecksum: body.packageChecksum || "",
-        });
-        setPublication(view.publication);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // One server-resolved publication state, shared by Documents and Terms.
+  // Neither tab re-derives it from the agreement package.
+  const { termsPublication, terms, reload } = usePartnerLegalStatus();
+  const publication = termsPublication || "NOT_PUBLISHED";
 
   const setTab = useCallback(
     (next) => {
@@ -86,7 +70,15 @@ function CompanyLegalInner({ viewMode }) {
           termsPublication={publication}
         />
       ) : tab === "terms" ? (
-        <CompanyTermsPanel viewMode={viewMode} />
+        <>
+          <CompanyTermsPanel
+            termsPublication={publication}
+            terms={terms}
+            onAccepted={reload}
+          />
+          <BookingFeeOutcomesTable language="en" compact />
+          <CompanyRentalTermsPanel />
+        </>
       ) : (
         <PartnerLegalProfileSection
           variant="company"

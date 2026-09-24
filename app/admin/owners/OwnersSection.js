@@ -13,35 +13,28 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
-  IconButton,
   InputAdornment,
   List,
   ListItemButton,
   ListItemText,
   MenuItem,
   Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  Tabs,
   TextField,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import SearchIcon from "@mui/icons-material/Search";
-import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import MailOutlineIcon from "@mui/icons-material/MailOutline";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { COMPANY_ID } from "@config/company";
 import CompanyContactsCard from "@/app/admin/shared/components/CompanyContactsCard";
 import EditCompanyContactsDialog from "@/app/admin/shared/components/EditCompanyContactsDialog";
@@ -56,39 +49,19 @@ import {
   meetingContactsFromCompany,
   meetingContactsUpdatePayload,
 } from "@/domain/company/meetingContacts";
+import CompanyAdminsPanel from "@/app/admin/shared/components/CompanyAdminsPanel";
+import CompanyServiceAreasPanel from "@/app/admin/shared/components/CompanyServiceAreasPanel";
+import { adminSectionTabsSx } from "@app/admin/shared/components/AdminSectionTabs";
+import PartnerLegalTab from "@/app/admin/owners/PartnerLegalTab";
+import {
+  PARTNER_TAB,
+  canManageCompanyAdmins,
+  normalizePartnerTab,
+  visiblePartnerTabIds,
+} from "@/domain/admin/companyAdmins";
 
 const ROLE_ADMIN = 1;
 const ROLE_SUPERADMIN = 2;
-
-/** Strong random password for new company admins (browser crypto). */
-function generateStrongPassword(length = 16) {
-  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const lower = "abcdefghijkmnopqrstuvwxyz";
-  const digits = "23456789";
-  const symbols = "!@#$%&*-_=+?";
-  const all = upper + lower + digits + symbols;
-  const pick = (charset) => {
-    const buf = new Uint32Array(1);
-    crypto.getRandomValues(buf);
-    return charset[buf[0] % charset.length];
-  };
-  // Guarantee at least one of each class, then fill.
-  const chars = [
-    pick(upper),
-    pick(lower),
-    pick(digits),
-    pick(symbols),
-  ];
-  while (chars.length < length) chars.push(pick(all));
-  // Shuffle
-  for (let i = chars.length - 1; i > 0; i -= 1) {
-    const buf = new Uint32Array(1);
-    crypto.getRandomValues(buf);
-    const j = buf[0] % (i + 1);
-    [chars[i], chars[j]] = [chars[j], chars[i]];
-  }
-  return chars.join("");
-}
 
 function shortId(id) {
   const s = String(id || "");
@@ -96,10 +69,14 @@ function shortId(id) {
   return `${s.slice(0, 6)}…${s.slice(-4)}`;
 }
 
-export default function OwnersSection() {
+export default function OwnersSection({ viewMode }) {
   const { t } = useTranslation();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const { enter: enterViewAs, loading: viewAsLoading } = useAdminViewAs();
+  const canManageAdmins = canManageCompanyAdmins(session?.user);
   const [companies, setCompanies] = useState([]);
   const [users, setUsers] = useState([]);
   const [cars, setCars] = useState([]);
@@ -109,7 +86,11 @@ export default function OwnersSection() {
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
 
-  const [selectedCompanyId, setSelectedCompanyId] = useState("");
+  const urlCompanyId = searchParams?.get("companyId") || "";
+  const [selectedCompanyId, setSelectedCompanyId] = useState(urlCompanyId);
+  const tab = normalizePartnerTab(searchParams?.get("section"), {
+    canManageAdmins,
+  });
   const [carQuery, setCarQuery] = useState("");
   const [carFilter, setCarFilter] = useState("all"); // all | company | unassigned | other
   const [selectedCarIds, setSelectedCarIds] = useState([]);
@@ -117,12 +98,6 @@ export default function OwnersSection() {
   const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [companyEmail, setCompanyEmail] = useState("");
-
-  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
-  const [userPassword, setUserPassword] = useState("");
-  const [showAdminPassword, setShowAdminPassword] = useState(false);
-  const [passwordCopied, setPasswordCopied] = useState(false);
 
   const [editCompanyOpen, setEditCompanyOpen] = useState(false);
   const [editCompanyName, setEditCompanyName] = useState("");
@@ -134,9 +109,6 @@ export default function OwnersSection() {
     () => meetingContactsFromCompany(null)
   );
 
-  const [editAdminOpen, setEditAdminOpen] = useState(false);
-  const [editingAdmin, setEditingAdmin] = useState(null);
-  const [editAdminEmail, setEditAdminEmail] = useState("");
   const [storefrontOpen, setStorefrontOpen] = useState(false);
 
   const { country: adminCountry } = useAdminCountryFilter();
@@ -194,15 +166,6 @@ export default function OwnersSection() {
     () => companies.find((c) => String(c._id) === selectedCompanyId) || null,
     [companies, selectedCompanyId]
   );
-
-  const adminsForCompany = useMemo(() => {
-    if (!selectedCompanyId) return [];
-    return users.filter(
-      (u) =>
-        Number(u.role) !== ROLE_SUPERADMIN &&
-        String(u.ownerId || "") === selectedCompanyId
-    );
-  }, [users, selectedCompanyId]);
 
   const superadmins = useMemo(
     () => users.filter((u) => Number(u.role) === ROLE_SUPERADMIN),
@@ -290,57 +253,6 @@ export default function OwnersSection() {
     router.refresh();
   };
 
-  const openCompanyLegal = async () => {
-    if (!selectedCompanyId) return;
-    let filter = "all";
-    try {
-      const res = await fetch(
-        `/api/admin/legal/partners/${encodeURIComponent(selectedCompanyId)}`,
-        { cache: "no-store" }
-      );
-      const json = await res.json().catch(() => ({}));
-      if (json?.profile?.verificationStatus === "PENDING_VERIFICATION") {
-        filter = "pending";
-      }
-    } catch {
-      filter = "all";
-    }
-    router.push(
-      `/admin/partners?tab=review&filter=${filter}&companyId=${encodeURIComponent(selectedCompanyId)}`
-    );
-  };
-
-  const createUser = async () => {
-    setBusy(true);
-    setError("");
-    setOk("");
-    try {
-      const res = await fetch("/api/admin/owners/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: userEmail,
-          password: userPassword,
-          role: ROLE_ADMIN,
-          ownerId: selectedCompanyId,
-        }),
-      });
-      const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.message || "Failed");
-      setUserEmail("");
-      setUserPassword("");
-      setShowAdminPassword(false);
-      setPasswordCopied(false);
-      setAdminDialogOpen(false);
-      setOk(`Admin created for ${selectedCompany?.name || "company"}: ${body.user?.email}`);
-      await load();
-    } catch (err) {
-      setError(err.message || "Failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const openEditCompany = () => {
     if (!selectedCompany) return;
     setEditCompanyName(selectedCompany.name || "");
@@ -419,78 +331,6 @@ export default function OwnersSection() {
     }
   };
 
-  const openEditAdmin = (admin) => {
-    setEditingAdmin(admin);
-    setEditAdminEmail(admin.email || "");
-    setEditAdminOpen(true);
-  };
-
-  const updateAdminEmail = async () => {
-    if (!editingAdmin?._id) return;
-    setBusy(true);
-    setError("");
-    setOk("");
-    try {
-      const res = await fetch(`/api/admin/owners/users/${editingAdmin._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: editAdminEmail }),
-      });
-      const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.message || "Failed");
-      setEditAdminOpen(false);
-      setEditingAdmin(null);
-      setOk(`Email updated: ${body.user?.email}`);
-      await load();
-    } catch (err) {
-      setError(err.message || "Failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const deleteAdmin = async (admin) => {
-    const confirmed = window.confirm(
-      `Delete admin ${admin.email}? They will no longer be able to log in.`
-    );
-    if (!confirmed) return;
-    setBusy(true);
-    setError("");
-    setOk("");
-    try {
-      const res = await fetch(`/api/admin/owners/users/${admin._id}`, {
-        method: "DELETE",
-      });
-      const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.message || "Failed");
-      setOk(`Admin removed: ${admin.email}`);
-      await load();
-    } catch (err) {
-      setError(err.message || "Failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const sendAdminPasswordReset = async (admin) => {
-    setBusy(true);
-    setError("");
-    setOk("");
-    try {
-      const res = await fetch(
-        `/api/admin/owners/users/${admin._id}/reset-password`,
-        { method: "POST" }
-      );
-      const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.message || "Failed");
-      setOk(body.message || `Reset email sent to ${admin.email}`);
-    } catch (err) {
-      setError(err.message || "Failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const assignCars = async (ownerId = selectedCompanyId) => {
     if (!ownerId || selectedCarIds.length === 0) return;
     setBusy(true);
@@ -537,6 +377,38 @@ export default function OwnersSection() {
       setSelectedCarIds((prev) => Array.from(new Set([...prev, ...ids])));
     }
   };
+
+  /** Company and tab live in the URL so every tab is deep-linkable. */
+  const writeUrl = useCallback(
+    (companyId, section) => {
+      const params = new URLSearchParams(searchParams?.toString() || "");
+      params.set("tab", "all");
+      params.delete("filter");
+      if (companyId) params.set("companyId", String(companyId));
+      else params.delete("companyId");
+      if (section) params.set("section", section);
+      else params.delete("section");
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  const selectCompany = useCallback(
+    (companyId, section = tab) => {
+      setSelectedCompanyId(String(companyId));
+      setSelectedCarIds([]);
+      setCarFilter("company");
+      writeUrl(companyId, section);
+    },
+    [tab, writeUrl]
+  );
+
+  // Follow a deep link (for example the "N admins" badge) into this page.
+  useEffect(() => {
+    if (urlCompanyId && urlCompanyId !== selectedCompanyId) {
+      setSelectedCompanyId(urlCompanyId);
+    }
+  }, [urlCompanyId, selectedCompanyId]);
 
   if (loading) {
     return (
@@ -653,11 +525,7 @@ export default function OwnersSection() {
                 <ListItemButton
                   key={id}
                   selected={selected}
-                  onClick={() => {
-                    setSelectedCompanyId(id);
-                    setSelectedCarIds([]);
-                    setCarFilter("company");
-                  }}
+                  onClick={() => selectCompany(id)}
                   sx={{ py: 1.25, alignItems: "flex-start" }}
                 >
                   <ListItemText
@@ -683,7 +551,19 @@ export default function OwnersSection() {
                         />
                         <Chip
                           size="small"
-                          label={`${adminCountByCompany[id] || 0} admins`}
+                          clickable={canManageAdmins}
+                          label={t("admin.partners.adminCount", {
+                            count: adminCountByCompany[id] || 0,
+                          })}
+                          onClick={
+                            canManageAdmins
+                              ? (event) => {
+                                  // Open this company straight on its Admins tab.
+                                  event.stopPropagation();
+                                  selectCompany(id, PARTNER_TAB.ADMINS);
+                                }
+                              : undefined
+                          }
                           sx={{ height: 22, "& .MuiChip-label": { px: 0.75 } }}
                         />
                       </Stack>
@@ -709,6 +589,24 @@ export default function OwnersSection() {
             <Alert severity="info">Select a company on the left.</Alert>
           ) : (
             <Stack gap={2} sx={{ width: "100%" }}>
+              <Tabs
+                value={tab}
+                onChange={(_, next) => selectCompany(selectedCompanyId, next)}
+                variant="scrollable"
+                allowScrollButtonsMobile
+                sx={{ ...adminSectionTabsSx, px: 0 }}
+              >
+                {visiblePartnerTabIds({ canManageAdmins }).map((id) => (
+                  <Tab
+                    key={id}
+                    value={id}
+                    label={t(`admin.partnerTabs.${id}`)}
+                  />
+                ))}
+              </Tabs>
+
+              {tab === PARTNER_TAB.OVERVIEW ? (
+                <>
               <CompanyContactsCard
                 company={selectedCompany}
                 onEdit={openEditCompany}
@@ -719,7 +617,9 @@ export default function OwnersSection() {
                       size="small"
                       variant="contained"
                       startIcon={<AssignmentTurnedInIcon />}
-                      onClick={openCompanyLegal}
+                      onClick={() =>
+                        selectCompany(selectedCompanyId, PARTNER_TAB.LEGAL)
+                      }
                       disabled={busy || viewAsLoading || !selectedCompanyId}
                     >
                       {t("admin.companies.reviewLegal")}
@@ -732,20 +632,6 @@ export default function OwnersSection() {
                       disabled={busy || viewAsLoading || !selectedCompanyId}
                     >
                       Open company admin
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<PersonAddIcon />}
-                      onClick={() => {
-                        setUserEmail("");
-                        setUserPassword("");
-                        setShowAdminPassword(false);
-                        setPasswordCopied(false);
-                        setAdminDialogOpen(true);
-                      }}
-                    >
-                      Add admin
                     </Button>
                     {String(selectedCompany._id) !== String(COMPANY_ID) ? (
                       <Button
@@ -824,93 +710,51 @@ export default function OwnersSection() {
                   setOk(`Company updated: ${updated.name}`);
                 }}
               />
+                </>
+              ) : null}
 
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) minmax(0, 1.2fr)" },
-                  gap: 2,
-                  alignItems: "start",
-                  width: "100%",
-                }}
-              >
-              <Box
-                sx={{
-                  p: { xs: 1.5, sm: 2 },
-                  border: "1px solid",
-                  borderColor: "divider",
-                  borderRadius: 2,
-                  bgcolor: "background.paper",
-                  minWidth: 0,
-                }}
-              >
-                <Typography variant="subtitle1" fontWeight={700} mb={1}>
-                  Admins for this company
-                </Typography>
-                {adminsForCompany.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" mb={1}>
-                    No company admin yet. Add one so they can log in and manage
-                    only this fleet.
-                  </Typography>
-                ) : (
-                  <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Email</TableCell>
-                        <TableCell>Username</TableCell>
-                        <TableCell>Role</TableCell>
-                        <TableCell align="right">Actions</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {adminsForCompany.map((u) => (
-                        <TableRow key={String(u._id)}>
-                          <TableCell>{u.email}</TableCell>
-                          <TableCell>{u.username || "—"}</TableCell>
-                          <TableCell>
-                            <Chip size="small" label="ADMIN" color="primary" variant="outlined" />
-                          </TableCell>
-                          <TableCell align="right">
-                            <Stack direction="row" gap={0.5} justifyContent="flex-end">
-                              <Tooltip title="Change email">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => openEditAdmin(u)}
-                                  disabled={busy}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Send password reset email">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => sendAdminPasswordReset(u)}
-                                  disabled={busy}
-                                >
-                                  <MailOutlineIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Delete admin">
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => deleteAdmin(u)}
-                                  disabled={busy}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  </Box>
-                )}
-              </Box>
+              {tab === PARTNER_TAB.ADMINS ? (
+                <Box
+                  sx={{
+                    p: { xs: 1.5, sm: 2 },
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 2,
+                    bgcolor: "background.paper",
+                    minWidth: 0,
+                  }}
+                >
+                  <CompanyAdminsPanel
+                    companyId={selectedCompanyId}
+                    companyName={selectedCompany.name}
+                  />
+                </Box>
+              ) : null}
 
+              {tab === PARTNER_TAB.LEGAL ? (
+                <PartnerLegalTab
+                  companyId={selectedCompanyId}
+                  viewMode={viewMode}
+                />
+              ) : null}
+
+              {tab === PARTNER_TAB.COVERAGE ? (
+                <CompanyServiceAreasPanel
+                  company={selectedCompany}
+                  onSaved={(updated) => {
+                    setCompanies((prev) =>
+                      prev.map((item) =>
+                        String(item._id) === String(updated._id)
+                          ? { ...item, ...updated }
+                          : item
+                      )
+                    );
+                    setOk(`Company updated: ${updated.name}`);
+                  }}
+                />
+              ) : null}
+
+              {tab === PARTNER_TAB.CARS ? (
               <Box
                 sx={{
                   p: { xs: 1.5, sm: 2 },
@@ -1074,7 +918,7 @@ export default function OwnersSection() {
                   </TableBody>
                 </Table>
               </Box>
-              </Box>
+              ) : null}
             </Stack>
           )}
         </Box>
@@ -1127,130 +971,6 @@ export default function OwnersSection() {
         </DialogActions>
       </Dialog>
 
-      <Dialog
-        open={adminDialogOpen}
-        onClose={() => !busy && setAdminDialogOpen(false)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>
-          Add admin
-          {selectedCompany ? ` — ${selectedCompany.name}` : ""}
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            This login will only see cars and orders for this company.
-          </Typography>
-          <Stack gap={1.5}>
-            <TextField
-              label="Email"
-              value={userEmail}
-              onChange={(e) => setUserEmail(e.target.value)}
-              autoFocus
-              fullWidth
-            />
-            <TextField
-              type={showAdminPassword ? "text" : "password"}
-              label="Password (min 6)"
-              value={userPassword}
-              onChange={(e) => {
-                setUserPassword(e.target.value);
-                setPasswordCopied(false);
-              }}
-              fullWidth
-              helperText={
-                passwordCopied
-                  ? "Copied — send it to the admin securely, then close this dialog."
-                  : "Generate a strong password, copy it, then create the admin."
-              }
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Tooltip title="Generate strong password">
-                      <IconButton
-                        edge="end"
-                        size="small"
-                        aria-label="Generate strong password"
-                        onClick={() => {
-                          const next = generateStrongPassword(16);
-                          setUserPassword(next);
-                          setShowAdminPassword(true);
-                          setPasswordCopied(false);
-                        }}
-                        disabled={busy}
-                      >
-                        <RefreshIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={showAdminPassword ? "Hide password" : "Show password"}>
-                      <IconButton
-                        edge="end"
-                        size="small"
-                        aria-label={
-                          showAdminPassword ? "Hide password" : "Show password"
-                        }
-                        onClick={() => setShowAdminPassword((v) => !v)}
-                        disabled={busy || !userPassword}
-                      >
-                        {showAdminPassword ? (
-                          <VisibilityOffIcon fontSize="small" />
-                        ) : (
-                          <VisibilityIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={passwordCopied ? "Copied" : "Copy password"}>
-                      <span>
-                        <IconButton
-                          edge="end"
-                          size="small"
-                          aria-label="Copy password"
-                          onClick={async () => {
-                            if (!userPassword) return;
-                            try {
-                              await navigator.clipboard.writeText(userPassword);
-                              setPasswordCopied(true);
-                              setOk("Password copied to clipboard");
-                            } catch {
-                              setError("Could not copy password");
-                            }
-                          }}
-                          disabled={busy || !userPassword}
-                        >
-                          <ContentCopyIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControlLabel
-              control={<Checkbox checked disabled />}
-              label={`Owner: ${selectedCompany?.name || "—"}`}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setAdminDialogOpen(false)} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={createUser}
-            disabled={
-              busy ||
-              !selectedCompanyId ||
-              !userEmail.trim() ||
-              userPassword.trim().length < 6
-            }
-            sx={{ textTransform: "none" }}
-          >
-            Create admin
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       <EditCompanyContactsDialog
         open={editCompanyOpen}
         busy={busy}
@@ -1271,39 +991,6 @@ export default function OwnersSection() {
         onSave={updateCompany}
       />
 
-      <Dialog
-        open={editAdminOpen}
-        onClose={() => !busy && setEditAdminOpen(false)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>Change admin email</DialogTitle>
-        <DialogContent>
-          <Stack gap={1.5} sx={{ pt: 1 }}>
-            <TextField
-              label="Email"
-              type="email"
-              value={editAdminEmail}
-              onChange={(e) => setEditAdminEmail(e.target.value)}
-              autoFocus
-              fullWidth
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setEditAdminOpen(false)} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={updateAdminEmail}
-            disabled={busy || !editAdminEmail.trim()}
-            sx={{ textTransform: "none" }}
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

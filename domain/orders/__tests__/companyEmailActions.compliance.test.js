@@ -17,6 +17,10 @@ jest.mock("@/domain/notifications/notifySuperadmin", () => ({
   adminCalendarUrl: jest.fn(() => "https://admin.example/calendar"),
   superadminNotifyFooter: jest.fn(() => "footer"),
 }));
+jest.mock("@/domain/mail/notificationPolicy", () => ({
+  notifyBookingAccepted: jest.fn().mockResolvedValue({ ok: true }),
+  notifyBookingDeclined: jest.fn().mockResolvedValue({ ok: true }),
+}));
 jest.mock("@/domain/legal/partnerOperatingPolicy", () => ({
   PARTNER_OPERATION_PURPOSE: { EMAIL_ACCEPT: "email_accept" },
   assertPartnerCanOperate: jest.fn(),

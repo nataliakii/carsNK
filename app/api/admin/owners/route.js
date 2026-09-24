@@ -90,7 +90,7 @@ export async function GET(request) {
 
 /** POST: create partner company { name, email?, tel?, address? }. */
 export async function POST(request) {
-  const { errorResponse } = await requireSuperAdmin(request);
+  const { session, errorResponse } = await requireSuperAdmin(request);
   if (errorResponse) return errorResponse;
 
   let body;
@@ -128,6 +128,21 @@ export async function POST(request) {
     storefrontEnabled: true,
     listedOnMarketplace: defaultListedOnMarketplaceForCountry(country.country),
   });
+
+  try {
+    const { notifyCompanyCreated } = await import(
+      "@/domain/mail/notificationPolicy"
+    );
+    await notifyCompanyCreated({
+      companyId: String(company._id),
+      companyName: company.name,
+      country: company.country,
+      creatorEmail: session?.user?.email || "",
+      createdAt: company.createdAt || new Date(),
+    });
+  } catch (err) {
+    console.error("[owners] company-created notify failed:", err?.message || err);
+  }
 
   return json({ success: true, company }, 201);
 }

@@ -79,6 +79,10 @@ jest.mock("@/domain/legal/auditTrail", () => ({
 jest.mock("@/domain/notifications/notifySuperadmin", () => ({
   notifySuperadmin: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock("@/domain/mail/notificationPolicy", () => ({
+  notifyBookingAccepted: jest.fn().mockResolvedValue({ ok: true }),
+  notifyBookingDeclined: jest.fn().mockResolvedValue({ ok: true }),
+}));
 jest.mock("@/domain/legal/partnerOperatingPolicy", () => ({
   PARTNER_OPERATION_PURPOSE: {
     CONFIRM: "confirm",

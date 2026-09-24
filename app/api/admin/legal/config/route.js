@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireSuperAdmin } from "@lib/adminAuth";
+import { requirePlatformAdmin, requireSuperAdmin } from "@lib/adminAuth";
 import {
   getLegalConfigStatus,
   getLegalConfigWarning,
@@ -123,8 +123,9 @@ export async function GET(request) {
   });
 }
 
+/** Platform legal configuration. Not editable from inside a company. */
 export async function PATCH(request) {
-  const { session, errorResponse } = await requireSuperAdmin(request);
+  const { session, errorResponse } = await requirePlatformAdmin(request);
   if (errorResponse) return errorResponse;
 
   let body;

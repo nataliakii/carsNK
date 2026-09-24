@@ -128,6 +128,23 @@ export async function POST(req) {
     revalidatePath("/api/car/all");
     revalidatePath("/api/car/models");
 
+    try {
+      const { notifyCarLifecycle } = await import(
+        "@/domain/mail/notificationPolicy"
+      );
+      await notifyCarLifecycle({
+        action: "added",
+        carId: String(newCar._id),
+        companyId: newCar.ownerId ? String(newCar.ownerId) : "",
+        carModel: newCar.model || "",
+        regNumber: newCar.regNumber || "",
+        actorEmail: session.user?.email || "",
+        timestamp: new Date(),
+      });
+    } catch (err) {
+      console.error("[car/addOne] notify failed:", err?.message || err);
+    }
+
     return NextResponse.json(
       {
         success: true,

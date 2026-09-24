@@ -1,39 +1,11 @@
-import { notFound } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
-import Feed from "@app/components/Feed";
-import RovaroLegalDocument from "@app/(legal)/_components/RovaroLegalDocument";
-import {
-  isRoutableLocale,
-  normalizeRoutableLocale,
-} from "@domain/locationSeo/locationSeoService";
-import { absoluteUrl } from "@config/domain";
-import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
+import { normalizeRoutableLocale } from "@domain/locationSeo/locationSeoService";
+import { canonicalTermsPath } from "@domain/legal/customerTermsRoute";
 
-export const dynamic = "force-dynamic";
-
-export async function generateMetadata({ params }) {
+/** Legacy alias. The canonical customer Terms page is /{locale}/terms. */
+export default async function BookingTermsAliasPage({ params, searchParams }) {
   const { locale } = await params;
-  const normalized = normalizeRoutableLocale(locale);
-  return {
-    title: "Booking Terms",
-    description:
-      "Terms for booking a rental vehicle through the Rovaro booking platform.",
-    alternates: { canonical: absoluteUrl(`/${normalized}/booking-terms`) },
-    robots: { index: true, follow: true },
-  };
-}
-
-export default async function BookingTermsPage({ params }) {
-  const { locale } = await params;
-  if (!isRoutableLocale(locale)) notFound();
-  const normalized = normalizeRoutableLocale(locale);
-
-  return (
-    <Feed locale={normalized}>
-      <RovaroLegalDocument
-        documentType={LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS}
-        locale={normalized}
-      />
-    </Feed>
-  );
+  const query = await searchParams;
+  permanentRedirect(canonicalTermsPath(normalizeRoutableLocale(locale), query));
 }

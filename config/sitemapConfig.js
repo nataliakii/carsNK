@@ -36,6 +36,8 @@ export const NOINDEX_SLUGS = [
   "privacy-policy",
   "terms-of-service",
   "rental-terms",
+  "booking-terms",
+  "terms",
 ];
 
 /**

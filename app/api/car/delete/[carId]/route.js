@@ -32,6 +32,23 @@ export const DELETE = async (request, { params }) => {
     revalidatePath("/api/car/models");
     revalidatePath(`/api/car/${carId}`);
 
+    try {
+      const { notifyCarLifecycle } = await import(
+        "@/domain/mail/notificationPolicy"
+      );
+      await notifyCarLifecycle({
+        action: "deleted",
+        carId: String(carId),
+        companyId: existingCar.ownerId ? String(existingCar.ownerId) : "",
+        carModel: existingCar.model || "",
+        regNumber: existingCar.regNumber || "",
+        actorEmail: session.user?.email || "",
+        timestamp: new Date(),
+      });
+    } catch (err) {
+      console.error("[car/delete] notify failed:", err?.message || err);
+    }
+
     return new Response(
       JSON.stringify({ message: `Car with id ${carId} deleted successfully` }),
       {

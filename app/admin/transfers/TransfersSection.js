@@ -142,7 +142,7 @@ export default function TransfersSection() {
           {isSuperAdmin && (
             <Button
               variant="outlined"
-              href="/admin/company?tab=platform"
+              href="/admin/settings?tab=pricing"
               sx={{ textTransform: "none" }}
             >
               Pricing rules

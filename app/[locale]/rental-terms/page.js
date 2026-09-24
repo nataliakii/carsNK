@@ -1,26 +1,13 @@
-import { notFound } from "next/navigation";
-import Feed from "@app/components/Feed";
-import RentalTermsContent from "@app/(legal)/_components/RentalTermsContent";
-import {
-  isRoutableLocale,
-  normalizeRoutableLocale,
-} from "@domain/locationSeo/locationSeoService";
-import { STATIC_PAGE_KEYS } from "@domain/locationSeo/locationSeoKeys";
-import { buildStaticPageMetadata } from "@/services/seo/metadataBuilder";
+import { permanentRedirect } from "next/navigation";
 
-export async function generateMetadata({ params }) {
-  return buildStaticPageMetadata(params.locale, STATIC_PAGE_KEYS.RENTAL_TERMS);
-}
+import { normalizeRoutableLocale } from "@domain/locationSeo/locationSeoService";
+import { canonicalTermsPath } from "@domain/legal/customerTermsRoute";
 
-export default function LocalizedRentalTermsPage({ params }) {
-  const locale = normalizeRoutableLocale(params.locale);
-  if (!isRoutableLocale(params.locale)) {
-    notFound();
-  }
-
-  return (
-    <Feed locale={locale}>
-      <RentalTermsContent forcedLang={locale} />
-    </Feed>
+/** Legacy alias. The canonical customer Terms page is /{locale}/terms. */
+export default async function LocalizedRentalTermsPage({ params, searchParams }) {
+  const resolvedParams = await params;
+  const query = await searchParams;
+  permanentRedirect(
+    canonicalTermsPath(normalizeRoutableLocale(resolvedParams?.locale), query)
   );
 }

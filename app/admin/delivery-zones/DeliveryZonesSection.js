@@ -95,7 +95,10 @@ function hasFixedPrice(zone) {
   return Number.isFinite(Number(zone.fixedPrice));
 }
 
-export default function DeliveryZonesSection({ variant = "all" } = {}) {
+export default function DeliveryZonesSection({
+  variant = "all",
+  embedded = false,
+} = {}) {
   const { t } = useTranslation();
   const showInnerTabs = variant === "all";
   const showCoverage = variant !== "pricing";
@@ -585,8 +588,14 @@ export default function DeliveryZonesSection({ variant = "all" } = {}) {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 960, mx: "auto" }}>
-      {variant === "all" ? (
+    <Box
+      sx={{
+        p: embedded ? 0 : 3,
+        maxWidth: embedded ? "100%" : 960,
+        mx: embedded ? 0 : "auto",
+      }}
+    >
+      {variant === "all" && !embedded ? (
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
         <LocalShippingIcon sx={{ fontSize: 28 }} />
         <Typography variant="h5" fontWeight={700}>

@@ -312,6 +312,9 @@ const TransferSchema = new mongoose.Schema(
     },
     claimedByEmail: { type: String, default: "", trim: true },
     claimedAt: { type: Date, default: null },
+    /** Priced child-seat extra claimed without explicit inventory. */
+    childSeatsConfirmationRequired: { type: Boolean, default: false },
+    childSeatsConfirmedAt: { type: Date, default: null },
 
     /**
      * Optional rental-fleet car used for this transfer.

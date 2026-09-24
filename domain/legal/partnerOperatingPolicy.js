@@ -28,7 +28,14 @@ import {
   PARTNER_GATE_BLOCKER,
 } from "./partnerGate";
 import { evaluateProfileCompleteness } from "./partnerVerification";
-import { companySetupReadiness } from "./companySetupReadiness";
+import {
+  COMPANY_SETUP_CAPABILITY,
+  COMPANY_SETUP_STATE,
+  TERMS_PUBLICATION,
+  companySetupReadiness,
+  readinessAllows,
+  resolveTermsPublication,
+} from "./companySetupReadiness";
 import { recordAuditEvent } from "./auditTrail";
 
 export const PARTNER_OPERATION_ERROR = Object.freeze({
@@ -62,19 +69,29 @@ const OVERRIDE_PURPOSES = new Set([
   PARTNER_OPERATION_PURPOSE.REISSUE,
 ]);
 
-const PARTNER_MESSAGE = {
-  [PARTNER_OPERATION_ERROR.SUSPENDED]:
+const SETUP_INCOMPLETE_MESSAGE =
+  "Complete your company setup to start receiving bookings.";
+
+/** No action is required from the company in these states. */
+const ROVARO_SIDE_MESSAGE =
+  "Rovaro is preparing the terms. No action is required from you.";
+
+/**
+ * Company-facing text, keyed by the shared readiness state rather than by a
+ * compliance reason code. Nothing here names an agreement the company cannot
+ * open yet, and nothing tells them to sign something Rovaro has not published.
+ */
+const READINESS_MESSAGE = {
+  [COMPANY_SETUP_STATE.DETAILS_INCOMPLETE]: SETUP_INCOMPLETE_MESSAGE,
+  [COMPANY_SETUP_STATE.DOCUMENTS_MISSING]: SETUP_INCOMPLETE_MESSAGE,
+  [COMPANY_SETUP_STATE.DOCUMENTS_UNDER_REVIEW]: ROVARO_SIDE_MESSAGE,
+  [COMPANY_SETUP_STATE.TERMS_NOT_PUBLISHED]: ROVARO_SIDE_MESSAGE,
+  [COMPANY_SETUP_STATE.TERMS_READY]: SETUP_INCOMPLETE_MESSAGE,
+  [COMPANY_SETUP_STATE.TERMS_UPDATE]: SETUP_INCOMPLETE_MESSAGE,
+  [COMPANY_SETUP_STATE.LISTING_DISABLED]:
+    "Rovaro will activate your marketplace listing.",
+  [COMPANY_SETUP_STATE.SUSPENDED]:
     "Trading is suspended. Rovaro has to restore the account before you can continue.",
-  [PARTNER_OPERATION_REASON.AGREEMENT_MISSING]:
-    "You cannot take bookings until the current Partner Agreement is signed.",
-  [PARTNER_OPERATION_REASON.AGREEMENT_OUTDATED]:
-    "A new Partner Agreement is in force and has to be accepted before you can continue.",
-  [PARTNER_OPERATION_REASON.PARTNER_REJECTED]:
-    "This company cannot take bookings until the legal profile is corrected and verified.",
-  [PARTNER_OPERATION_REASON.MARKETPLACE_DISABLED]:
-    "Marketplace listing is not enabled for this company yet.",
-  default:
-    "You cannot publish cars or take bookings until the company is verified and the current Partner Agreement is signed.",
 };
 
 const CUSTOMER_UNAVAILABLE_MESSAGE = "This vehicle is not available.";
@@ -156,12 +173,12 @@ export function mapGateToOperationDenial(gate) {
   };
 }
 
-function partnerMessageFor(denial) {
-  if (!denial) return "";
-  if (denial.error === PARTNER_OPERATION_ERROR.SUSPENDED) {
-    return PARTNER_MESSAGE[PARTNER_OPERATION_ERROR.SUSPENDED];
-  }
-  return PARTNER_MESSAGE[denial.code] || PARTNER_MESSAGE.default;
+/**
+ * Company-facing text for a denial. Falls back to the neutral setup sentence,
+ * so an unmapped state can never surface an internal reason code as copy.
+ */
+function partnerMessageFor(readiness) {
+  return READINESS_MESSAGE[readiness?.state] || SETUP_INCOMPLETE_MESSAGE;
 }
 
 function allowedResult({
@@ -194,14 +211,7 @@ function allowedResult({
   };
 }
 
-function deniedResult({
-  companyId,
-  gate,
-  listed,
-  denial,
-  readiness = null,
-  partnerMessage,
-}) {
+function deniedResult({ companyId, gate, listed, denial, readiness = null }) {
   return {
     allowed: false,
     skipped: false,
@@ -215,7 +225,7 @@ function deniedResult({
     packageChecksumMatch: false,
     listedOnMarketplace: listed,
     marketplace: true,
-    partnerMessage: partnerMessage || partnerMessageFor(denial),
+    partnerMessage: partnerMessageFor(readiness),
     readiness,
     customerMessage: CUSTOMER_UNAVAILABLE_MESSAGE,
     blockers: gate?.blockers || [],
@@ -242,7 +252,13 @@ function skippedNotMarketplace(companyId) {
 }
 
 /**
- * Pure composition: legal gate + optional listing flag.
+ * Pure composition: company setup readiness + the legacy blocker detail the
+ * audit trail still records.
+ *
+ * `capability` says what the caller wants to do, and the answer comes from the
+ * one readiness result — so the Trading status card, car publishing, the public
+ * listing and the booking gate cannot drift apart.
+ *
  * Used by tests and by the async loader.
  */
 export function evaluateMarketplaceOperatingState({
@@ -251,7 +267,7 @@ export function evaluateMarketplaceOperatingState({
   completeness = null,
   activeAgreement = null,
   currentPackageChecksum = "",
-  requireListed = false,
+  capability = COMPANY_SETUP_CAPABILITY.BOOKINGS,
 } = {}) {
   if (!isMarketplaceOperatingCompany(company)) {
     return skippedNotMarketplace(asCompanyId(company?._id));
@@ -267,38 +283,28 @@ export function evaluateMarketplaceOperatingState({
   });
   gate.activeAgreementChecksum = activeAgreement?.packageChecksum || "";
 
-  const termsPublication = !currentPackageChecksum
-    ? "NOT_PUBLISHED"
-    : !activeAgreement?.packageChecksum
-      ? "READY_TO_ACCEPT"
-      : activeAgreement.packageChecksum !== currentPackageChecksum
-        ? "UPDATE_REQUIRED"
-        : "ACCEPTED";
+  const termsPublication = resolveTermsPublication({
+    signedChecksum: activeAgreement?.packageChecksum || "",
+    currentChecksum: currentPackageChecksum,
+  });
   const readiness = companySetupReadiness({
     profile,
     completeness:
       completeness || (profile ? evaluateProfileCompleteness(profile) : null),
     termsPublication,
     listedOnMarketplace: listed,
-    agreementAccepted: termsPublication === "ACCEPTED",
+    agreementAccepted: termsPublication === TERMS_PUBLICATION.ACCEPTED,
   });
 
   const companyId = asCompanyId(company?._id);
-  const neutral =
-    readiness.state === "TERMS_NOT_PUBLISHED" ||
-    readiness.state === "DOCUMENTS_UNDER_REVIEW" ||
-    readiness.state === "READY_BUT_LISTING_DISABLED"
-      ? "Rovaro is preparing the terms. No action is required from you."
-      : "";
 
-  if (!readiness.canReceiveBookings) {
-    if (readiness.state === "READY_BUT_LISTING_DISABLED") {
+  if (!readinessAllows(readiness, capability)) {
+    if (readiness.state === COMPANY_SETUP_STATE.LISTING_DISABLED) {
       return deniedResult({
         companyId,
         gate,
         listed,
         readiness,
-        partnerMessage: "Rovaro will activate your marketplace listing.",
         denial: {
           error: PARTNER_OPERATION_ERROR.COMPLIANCE_REQUIRED,
           code: PARTNER_OPERATION_REASON.MARKETPLACE_DISABLED,
@@ -311,7 +317,6 @@ export function evaluateMarketplaceOperatingState({
       gate,
       listed,
       readiness,
-      partnerMessage: neutral || undefined,
       denial: mapGateToOperationDenial(gate),
     });
   }
@@ -390,18 +395,33 @@ function overrideAllowed({ purpose, overrideReason, overrideByRole }) {
 }
 
 /**
+ * The readiness capability each purpose needs. Listing publicly and publishing
+ * a car are the same permission; everything else is a commercial action.
+ */
+const PURPOSE_CAPABILITY = {
+  [PARTNER_OPERATION_PURPOSE.LISTING]: COMPANY_SETUP_CAPABILITY.PUBLISH_CARS,
+  [PARTNER_OPERATION_PURPOSE.CAR_PUBLISH]: COMPANY_SETUP_CAPABILITY.PUBLISH_CARS,
+};
+
+function capabilityForPurpose(purpose) {
+  return PURPOSE_CAPABILITY[purpose] || COMPANY_SETUP_CAPABILITY.BOOKINGS;
+}
+
+/**
  * Authoritative "may this marketplace partner perform a new commercial action?"
  *
  * Greece / non-marketplace companies return `{ allowed: true, skipped: true }`.
  */
 export async function assertMarketplaceCarPublish(companyId, options = {}) {
   const car = options.car;
+  // Inactive, hidden and testing cars are drafts. `canCreateDraftCars` is true
+  // in every setup state, so work in progress is never blocked — only going
+  // public needs `canPublishCars`.
   if (car && !isPublicCar(car)) {
     return skippedNotMarketplace(asCompanyId(companyId));
   }
   return assertPartnerCanOperate(companyId, {
     company: options.company,
-    requireListed: false,
     purpose: PARTNER_OPERATION_PURPOSE.CAR_PUBLISH,
     overrideReason: options.overrideReason,
     overrideByRole: options.overrideByRole,
@@ -412,7 +432,6 @@ export async function assertMarketplaceCarPublish(companyId, options = {}) {
 
 export async function assertPartnerCanOperate(companyId, {
   company: companyHint = null,
-  requireListed = false,
   purpose = PARTNER_OPERATION_PURPOSE.BOOKING,
   overrideReason = "",
   overrideByRole = "",
@@ -443,7 +462,7 @@ export async function assertPartnerCanOperate(companyId, {
 
   const result = evaluateMarketplaceOperatingState({
     ...inputs,
-    requireListed,
+    capability: capabilityForPurpose(purpose),
   });
 
   if (result.allowed) return result;
@@ -617,7 +636,7 @@ export async function ownerIdsHiddenFromPublicMarketplace(companies = []) {
       profile,
       activeAgreement: agreementByCompany.get(key) || null,
       currentPackageChecksum,
-      requireListed: true,
+      capability: COMPANY_SETUP_CAPABILITY.PUBLISH_CARS,
     });
     if (!state.allowed) hide.push(company._id);
   }
@@ -645,7 +664,6 @@ export async function isPublicMarketplaceCarAllowed({ car, company }) {
   if (!isMarketplaceOperatingCompany(company)) return true;
   const state = await assertPartnerCanOperate(company._id, {
     company,
-    requireListed: true,
     purpose: PARTNER_OPERATION_PURPOSE.LISTING,
   });
   return Boolean(state.allowed);

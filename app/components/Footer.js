@@ -9,6 +9,7 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { useMainContext } from "@app/Context";
 import { withLocalePrefix } from "@domain/locationSeo/locationSeoService";
+import { CUSTOMER_TERMS_SEGMENT } from "@domain/legal/customerTermsRoute";
 import RovaroLogo from "@app/components/brand/RovaroLogo";
 import { BRAND, isGreeceSite } from "@config/brand";
 import {
@@ -24,13 +25,7 @@ const CallIcon = dynamic(() => import("@mui/icons-material/Call"), {
 const EmailIcon = dynamic(() => import("@mui/icons-material/Email"), {
   ssr: false,
 });
-const QrCode2Icon = dynamic(() => import("@mui/icons-material/QrCode2"), {
-  ssr: false,
-});
 const CodeIcon = dynamic(() => import("@mui/icons-material/Code"), {
-  ssr: false,
-});
-const LinkedInIcon = dynamic(() => import("@mui/icons-material/LinkedIn"), {
   ssr: false,
 });
 const ArrowOutwardIcon = dynamic(
@@ -148,14 +143,21 @@ function Footer() {
   const localeLink = (path) => withLocalePrefix(lang || "en", path);
   const guideHref = `https://kalikratia.bbqr.site/${lang || "en"}`;
 
-  const legalLinks = [
-    { href: localeLink("/booking-terms"), label: t("footer.bookingTerms") },
-    { href: localeLink("/privacy-policy"), label: t("footer.privacyPolicy") },
-    { href: localeLink("/cookie-policy"), label: t("footer.cookiePolicy") },
-    { href: localeLink("/partner-terms"), label: t("footer.partnerTerms") },
-    { href: localeLink("/terms-of-service"), label: t("footer.termsOfService") },
-    { href: localeLink("/rental-terms"), label: t("footer.rentalTerms") },
-  ];
+  // Rovaro customer footer: Terms / Privacy / Cookies only (no supplier package docs).
+  const legalLinks = greece
+    ? [
+        { href: localeLink(CUSTOMER_TERMS_SEGMENT), label: t("footer.bookingTerms") },
+        { href: localeLink("/privacy-policy"), label: t("footer.privacyPolicy") },
+        { href: localeLink("/cookie-policy"), label: t("footer.cookiePolicy") },
+      ]
+    : [
+        {
+          href: localeLink(CUSTOMER_TERMS_SEGMENT),
+          label: t("footer.terms", { defaultValue: "Terms" }),
+        },
+        { href: localeLink("/privacy"), label: t("footer.privacyPolicy") },
+        { href: localeLink("/cookies"), label: t("footer.cookiePolicy") },
+      ];
 
   const siteLinks = [
     { href: localeLink("/contacts"), label: t("footer.contact") },
@@ -414,29 +416,14 @@ function Footer() {
             </Typography>
           </Stack>
 
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={{ xs: 1, sm: 2.5 }}
-            alignItems="center"
+          <CreditLink
+            href="https://nataliaki.eu"
+            target="_blank"
+            rel="noopener noreferrer"
           >
-            <CreditLink
-              href="https://www.bbqr.site"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <QrCode2Icon sx={{ fontSize: 16 }} />
-              Restaurant Solutions
-            </CreditLink>
-            <CreditLink
-              href="https://www.linkedin.com/in/natalia-kirejeva/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <CodeIcon sx={{ fontSize: 16 }} />
-              {t("footer.developedBy")}
-              <LinkedInIcon sx={{ fontSize: 15 }} />
-            </CreditLink>
-          </Stack>
+            <CodeIcon sx={{ fontSize: 16 }} />
+            {t("footer.developedBy")}
+          </CreditLink>
         </Box>
       </Inner>
     </FooterRoot>

@@ -463,10 +463,30 @@ const OrderSchema = new mongoose.Schema({
           acceptedAt: { type: Date, default: null },
           sourceHash: { type: String, default: "" },
           language: { type: String, default: "" },
+          documentId: { type: String, default: "" },
+          version: { type: Number, default: 0 },
+          checksum: { type: String, default: "" },
+        },
+        privacy: {
+          presented: { type: Boolean, default: false },
+          contractualCheckbox: { type: Boolean, default: false },
+          presentedAt: { type: Date, default: null },
+          documentType: { type: String, default: "" },
+          version: { type: Number, default: 0 },
+          checksum: { type: String, default: "" },
+          language: { type: String, default: "" },
         },
       },
       { _id: false }
     ),
+    default: undefined,
+  },
+  /**
+   * Immutable commercial + legal refs for the booking. Prefer version/checksum
+   * references over copying full document bodies.
+   */
+  legalSnapshot: {
+    type: mongoose.Schema.Types.Mixed,
     default: undefined,
   },
   /** Secure image URLs (Cloudinary) for customer driving licence photos, optional. */

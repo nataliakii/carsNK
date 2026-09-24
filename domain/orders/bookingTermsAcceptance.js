@@ -94,6 +94,7 @@ export function buildTermsAcceptanceRecord({
   payload,
   platform,
   company,
+  privacy,
   acceptedAt = new Date(),
 } = {}) {
   const sent = asSlice(payload);
@@ -115,6 +116,23 @@ export function buildTermsAcceptanceRecord({
       acceptedAt,
       sourceHash: String(company.sourceHash || ""),
       language: String(company.language || sentCompany.language || "en"),
+    };
+    const documentId = String(company.documentId || sentCompany.documentId || "");
+    const version = Number(company.version || sentCompany.version || 0) || 0;
+    const checksum = String(company.checksum || "");
+    if (documentId) record.company.documentId = documentId;
+    if (version) record.company.version = version;
+    if (checksum) record.company.checksum = checksum;
+  }
+  if (privacy?.version || privacy?.checksum) {
+    record.privacy = {
+      presented: true,
+      contractualCheckbox: false,
+      presentedAt: acceptedAt,
+      documentType: "privacy-policy",
+      version: Number(privacy.version || 0) || 0,
+      checksum: String(privacy.checksum || ""),
+      language: String(privacy.language || platform?.language || "en"),
     };
   }
   return record;

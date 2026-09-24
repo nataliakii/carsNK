@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { requireSuperAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
-import { User, ROLE } from "@models/user";
+import { User } from "@models/user";
+import { normalizeNotificationLanguage } from "@/domain/admin/companyAdmins";
+import {
+  getCompanyAdminRow,
+  rowFromDoc,
+  findCompanyAdminDoc,
+  assertNotLastUsableAdmin,
+} from "@/domain/admin/companyAdminsService";
+import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
 
 export const runtime = "nodejs";
 
@@ -16,9 +24,29 @@ function parseUserId(params) {
   return String(id);
 }
 
-/** PATCH — change admin email (and username if it matched old local part) */
-export async function PATCH(request, { params }) {
+/** GET — one admin for the detail view. Never exposes password or tokens. */
+export async function GET(request, { params }) {
   const { errorResponse } = await requireSuperAdmin(request);
+  if (errorResponse) return errorResponse;
+
+  const userId = parseUserId(params);
+  if (!userId) return json({ success: false, message: "Invalid user id" }, 400);
+
+  const user = await getCompanyAdminRow(userId);
+  if (!user) return json({ success: false, message: "User not found" }, 404);
+
+  return json({ success: true, user });
+}
+
+/**
+ * PATCH — profile and access state.
+ * { name?, notificationLanguage?, disabled?: boolean }
+ *
+ * The login email is not editable here; it has its own audited endpoint at
+ * /api/admin/owners/users/[userId]/email.
+ */
+export async function PATCH(request, { params }) {
+  const { session, errorResponse } = await requireSuperAdmin(request);
   if (errorResponse) return errorResponse;
 
   const userId = parseUserId(params);
@@ -31,48 +59,63 @@ export async function PATCH(request, { params }) {
     return json({ success: false, message: "Invalid JSON" }, 400);
   }
 
-  const email = String(body?.email || "").trim().toLowerCase();
-  if (!email || !email.includes("@")) {
-    return json({ success: false, message: "valid email is required" }, 400);
-  }
-
   await connectToDB();
-  const user = await User.findById(userId);
-  if (!user || !user.isAdmin) {
+  const user = await findCompanyAdminDoc(userId);
+  if (!user) {
     return json({ success: false, message: "User not found" }, 404);
   }
 
-  const duplicate = await User.findOne({
-    _id: { $ne: user._id },
-    $or: [{ email }, { username: email.split("@")[0] }],
-  }).lean();
-  if (duplicate) {
-    return json(
-      { success: false, message: "Another user already uses this email" },
-      409
+  if (body?.name != null) user.name = String(body.name).trim().slice(0, 80);
+  if (body?.notificationLanguage != null) {
+    user.notificationLanguage = normalizeNotificationLanguage(
+      body.notificationLanguage
     );
   }
 
-  user.email = email;
-  if (body?.username != null) {
-    const username = String(body.username).trim();
-    if (username.length >= 3) user.username = username;
+  let accessAction = null;
+  if (body?.disabled != null) {
+    const disabled = body.disabled === true || body.disabled === "true";
+    if (disabled && String(session.user?.id || "") === userId) {
+      return json(
+        { success: false, message: "You cannot disable your own account" },
+        400
+      );
+    }
+    if (disabled) {
+      const lastAdmin = await assertNotLastUsableAdmin(user);
+      if (lastAdmin) return json(lastAdmin, 409);
+    }
+    if (disabled !== Boolean(user.disabledAt)) {
+      user.disabledAt = disabled ? new Date() : null;
+      accessAction = disabled
+        ? "COMPANY_ADMIN_ACCESS_DISABLED"
+        : "COMPANY_ADMIN_ACCESS_ENABLED";
+    }
   }
+
   await user.save();
 
-  return json({
-    success: true,
-    user: {
-      _id: user._id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      ownerId: user.ownerId,
-    },
-  });
+  if (accessAction) {
+    const { ipAddress, userAgent } = extractAuditContext(request);
+    await recordAuditEvent({
+      action: accessAction,
+      userRole: "superadmin",
+      userEmail: session.user?.email || "",
+      severity: "high",
+      metadata: {
+        targetUserId: userId,
+        targetEmail: user.email,
+        companyId: user.ownerId ? String(user.ownerId) : "",
+      },
+      ipAddress,
+      userAgent,
+    });
+  }
+
+  return json({ success: true, user: rowFromDoc(user) });
 }
 
-/** DELETE — remove company admin (not superadmin, not self) */
+/** DELETE — remove a company admin (not self, not the last usable admin). */
 export async function DELETE(request, { params }) {
   const { errorResponse, session } = await requireSuperAdmin(request);
   if (errorResponse) return errorResponse;
@@ -85,25 +128,30 @@ export async function DELETE(request, { params }) {
   }
 
   await connectToDB();
-  const user = await User.findById(userId);
-  if (!user || !user.isAdmin) {
+  const user = await findCompanyAdminDoc(userId);
+  if (!user) {
     return json({ success: false, message: "User not found" }, 404);
   }
 
-  if (Number(user.role) === ROLE.SUPERADMIN) {
-    const superCount = await User.countDocuments({
-      isAdmin: true,
-      role: ROLE.SUPERADMIN,
-    });
-    if (superCount <= 1) {
-      return json(
-        { success: false, message: "Cannot delete the only superadmin" },
-        400
-      );
-    }
-  }
+  const lastAdmin = await assertNotLastUsableAdmin(user);
+  if (lastAdmin) return json(lastAdmin, 409);
 
   await User.findByIdAndDelete(userId);
+
+  const { ipAddress, userAgent } = extractAuditContext(request);
+  await recordAuditEvent({
+    action: "COMPANY_ADMIN_REMOVED",
+    userRole: "superadmin",
+    userEmail: session.user?.email || "",
+    severity: "high",
+    metadata: {
+      targetUserId: userId,
+      targetEmail: user.email,
+      companyId: user.ownerId ? String(user.ownerId) : "",
+    },
+    ipAddress,
+    userAgent,
+  });
 
   return json({ success: true, deletedUserId: userId });
 }

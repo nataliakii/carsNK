@@ -61,6 +61,10 @@ import {
   withTestOrderTelegramMessage,
 } from "./testOrderMarkers";
 import { MAIL_RENDER_KEY, MAIL_TYPE } from "@/domain/mail/mailTypes";
+import { notifyBookingRequested } from "@/domain/mail/notificationPolicy";
+import { marketplaceFinancialSplit } from "@/domain/orders/marketplaceFinancialSplit";
+import { formatLocationLegLine } from "@/domain/orders/locationSnapshot";
+import { moneyMinor } from "@/domain/mail/notificationCopy";
 
 // ════════════════════════════════════════════════════════════════
 // TYPES
@@ -635,12 +639,93 @@ export async function notifyOrderAction({
   await auditLog({ order, user, action, access, intent, source });
   
   // Получаем список уведомлений
-  const notifications = getOrderNotifications({
+  let notifications = getOrderNotifications({
     action,
     access,
     order,
     actorIsSuperadmin: isSuperAdmin,
   });
+
+  // Matrix emails for new booking requests go through notificationPolicy
+  // (company + superadmin). Keep customer email + telegram here.
+  if (action === "CREATE" && order.my_order === true && order.confirmed !== true) {
+    let confirmUrl = "";
+    const orderIdForLink = order._id?.toString?.() || order._id;
+    if (orderIdForLink) {
+      try {
+        const issued = await issueConfirmationToken({
+          orderId: orderIdForLink,
+          issuedByEmail: "system:order-created",
+        });
+        if (issued.ok && issued.token) {
+          confirmUrl = `${getBaseUrl()}/api/booking/partner-confirm?token=${encodeURIComponent(issued.token)}`;
+        } else {
+          console.error(
+            "[notifyOrderAction] confirmation link not issued:",
+            issued.code || issued.message || "unknown"
+          );
+        }
+      } catch (err) {
+        console.error(
+          "[notifyOrderAction] confirmation link failed:",
+          err?.message || err
+        );
+      }
+    }
+    try {
+      const split = marketplaceFinancialSplit(order.authoritativePrice || order);
+      const snap = order.locationSnapshot;
+      const pickup = snap?.pickup
+        ? formatLocationLegLine(snap.pickup, {
+            officeLabel: "Office pickup",
+            deliveryLabel: "Delivery pickup",
+          })
+        : [order.placeIn, order.placeInDetail].filter(Boolean).join(" — ");
+      const ret = snap?.return
+        ? formatLocationLegLine(snap.return, {
+            officeLabel: "Office return",
+            deliveryLabel: "Delivery return",
+          })
+        : [order.placeOut, order.placeOutDetail].filter(Boolean).join(" — ");
+      await notifyBookingRequested({
+        orderId: order._id?.toString?.() || order._id,
+        companyId: order.ownerId?.toString?.() || order.ownerId || "",
+        companyEmail,
+        orderNumber: order.orderNumber,
+        carModel: order.carModel || "",
+        pickup,
+        return: ret,
+        numberOfDays: order.numberOfDays,
+        customerName: order.customerName || "",
+        phone: order.phone || "",
+        email: order.email || "",
+        revealContacts: false,
+        confirmUrl,
+        totalFormatted: moneyMinor(split.grossMinor, split.currency),
+        feeFormatted: moneyMinor(split.platformAmountMinor, split.currency),
+        remainingFormatted: moneyMinor(split.supplierBalanceMinor, split.currency),
+        feePercent: split.feePercent,
+      });
+    } catch (err) {
+      console.error(
+        "[notifyOrderAction] booking-requested policy failed:",
+        err?.message || err
+      );
+    }
+    notifications = notifications.filter((n) => {
+      if (n.target === "COMPANY_EMAIL") return false;
+      if (n.target === "SUPERADMIN") {
+        // Keep telegram ops alerts; email is owned by the matrix policy.
+        return Array.isArray(n.channels) && n.channels.includes("TELEGRAM");
+      }
+      return true;
+    }).map((n) => {
+      if (n.target === "SUPERADMIN" && Array.isArray(n.channels)) {
+        return { ...n, channels: n.channels.filter((c) => c === "TELEGRAM") };
+      }
+      return n;
+    });
+  }
   
   if (notifications.length === 0) {
     return;

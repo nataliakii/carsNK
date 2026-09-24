@@ -55,6 +55,7 @@ import { getSiteCountryCode, getSiteCountryConfig } from "@config/siteCountry";
 import { useNavLocations } from "@app/context/NavLocationsContext";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { resolveBookingLocationFromPathname } from "@/domain/orders/bookingLocationPathResolver";
+import { CUSTOMER_TERMS_SEGMENT } from "@domain/legal/customerTermsRoute";
 import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
 import {
   isSpainBookingSite,
@@ -65,6 +66,7 @@ import AdminCountrySwitch from "@app/admin/shared/components/AdminCountrySwitch"
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { useAdminPendingInbox } from "@app/hooks/useAdminPendingInbox";
+import { adminInboxBadges } from "@/domain/orders/inboxView";
 import { usePendingPartnerReviews } from "@app/hooks/usePendingPartnerReviews";
 import AdminNavLinks, {
   adminNavLinkSx,
@@ -195,10 +197,12 @@ export default function NavBar({
   /** Superadmin chrome (Owners, Platform, country switch) — hidden while viewing as a company. */
   const showSuperAdminChrome = isSuperAdmin && !viewAsActive;
   const { country: adminCountry } = useAdminCountryFilter();
-  const { rentals: pendingRentalsCount } = useAdminPendingInbox({
+  const pendingInbox = useAdminPendingInbox({
     enabled: Boolean(isAdmin),
     country: adminCountry,
   });
+  /** One server response drives both nav badges. */
+  const inboxBadges = adminInboxBadges(pendingInbox);
   const legalPendingCount = usePendingPartnerReviews({
     enabled: showSuperAdminChrome,
     country: adminCountry,
@@ -593,8 +597,7 @@ export default function NavBar({
     isAdmin ? path : withLocalePrefix(effectiveLocale, path);
   // Admin logo must not send staff to the public rental homepage.
   const homeHref = isAdmin ? "/admin/orders-calendar" : localeLink("/");
-  const rentalTermsHref = localeLink("/rental-terms");
-  const termsAliasHref = localeLink("/terms");
+  const termsHref = localeLink(CUSTOMER_TERMS_SEGMENT);
 
   const handleCarClassChange = (event) => {
     const selectedValue = event.target.value;
@@ -920,8 +923,10 @@ export default function NavBar({
           role: adminRole,
           companyContextActive: viewAsActive,
         }),
-        pendingCount: pendingRentalsCount,
-        legalPendingCount: showSuperAdminChrome ? legalPendingCount : 0,
+        pendingCount: inboxBadges.orders,
+        legalPendingCount: showSuperAdminChrome
+          ? legalPendingCount
+          : inboxBadges.companySetup,
       })
     : [];
   const adminActionLinkSx = {
@@ -1112,7 +1117,7 @@ export default function NavBar({
                 >
                   {t("header.locations") || "Locations"}
                 </Button>
-                <Link href={rentalTermsHref} style={{ textDecoration: "none" }}>
+                <Link href={termsHref} style={{ textDecoration: "none" }}>
                   <NavLinkText>{t("header.terms")}</NavLinkText>
                 </Link>
                 <Button
@@ -1784,7 +1789,7 @@ export default function NavBar({
                     ))}
                   </>
                 )}
-                <ListItem button component={Link} href={termsAliasHref}>
+                <ListItem button component={Link} href={termsHref}>
                   <ListItemText primary={t("header.terms")} />
                 </ListItem>
                 <ListItem

@@ -145,6 +145,11 @@ const doc = {
         requires: ["businessNameNumber"],
       },
       {
+        id: "24.3",
+        heading: "Confirmed vehicle and price",
+        body: "The Supplier must provide the confirmed vehicle. If the confirmed vehicle becomes unavailable, the Supplier may offer the same or a higher class at the same price. Any replacement requires your explicit agreement. The Supplier may not increase the confirmed price without your explicit agreement. If you reject a changed vehicle or price, the booking is cancelled and the Booking Fee is refunded in full. Where the failure was within the Supplier's control, the Supplier reimburses Rovaro for the refunded Booking Fee. Repeated or serious failures may result in listing restrictions, suspension or termination. This does not impose an automatic penalty equal to the full rental price.",
+      },
+      {
         id: "25",
         heading: "Version and effective date",
         body: "This is version 1 of the Rovaro Booking Terms.\n\nThe effective date of this version is shown on the published page on the platform. Earlier versions remain applicable to bookings made while they were in force, and we keep a record of the version that applied to each booking.",

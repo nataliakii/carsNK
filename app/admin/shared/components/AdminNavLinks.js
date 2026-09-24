@@ -86,6 +86,9 @@ export default function AdminNavLinks({
           sx={{
             ...adminNavLinkSx,
             ...(active ? adminNavActiveSx : null),
+            ...(item.badge && item.id === "legal"
+              ? { opacity: 1, fontWeight: 600 }
+              : null),
           }}
         >
           {item.label}

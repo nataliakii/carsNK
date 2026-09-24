@@ -2,19 +2,27 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { connectToDB } from "@lib/database";
 import Transfer, {
-  TRANSFER_STATUS,
   TRANSFER_OPEN_STATUSES,
   isTransferOpenStatus,
   normalizeTransferStatus,
 } from "@models/Transfer";
 import Company from "@models/company";
 import {
+  getEffectiveOwnerId,
   getSessionOwnerId,
-  isSuperAdminUser,
 } from "@/domain/owners/ownerScope";
 import { normalizeAdminCountryFilter } from "@/domain/platform/adminCountryScope";
 import { getSiteCountryConfig } from "@config/siteCountry";
 import { redactUnclaimedPartnerPii } from "@/domain/transfers/claimTransfer";
+import { Car } from "@models/car";
+import {
+  ADMIN_VIEW_MODE,
+  resolveAdminViewMode,
+} from "@/domain/admin/adminViewMode";
+import {
+  buildCompanyTransferBaseFilter,
+  listVisibleTransfersForCompany,
+} from "@/domain/transfers/transferVisibility";
 
 export const runtime = "nodejs";
 
@@ -79,13 +87,18 @@ export async function GET(request) {
     200,
     Math.max(1, Number(searchParams.get("limit")) || 100)
   );
+  const skip = Math.max(0, Number(searchParams.get("skip")) || 0);
 
   try {
     await connectToDB();
     const user = session.user;
+    const viewMode = resolveAdminViewMode(user);
     let filter = {};
+    let companyViewer = null;
+    let companyCars = [];
+    let viewerOwnerId = null;
 
-    if (isSuperAdminUser(user)) {
+    if (viewMode === ADMIN_VIEW_MODE.PLATFORM_ADMIN) {
       if (status === "open") {
         filter = {
           status: { $in: TRANSFER_OPEN_STATUSES },
@@ -101,60 +114,50 @@ export async function GET(request) {
         filter.country = countryParam;
       }
     } else {
-      const ownerId = getSessionOwnerId(user);
+      const ownerId =
+        getEffectiveOwnerId(user) || getSessionOwnerId(user);
       if (!ownerId) {
         return json({ success: false, message: "Forbidden" }, 403);
       }
-      const company = await Company.findById(ownerId).select("country").lean();
+      viewerOwnerId = ownerId;
+      const company = await Company.findById(ownerId)
+        .select(
+          "country email transferServices deliveryPricing offices serviceAreas orderRadiusKm"
+        )
+        .lean();
+      companyViewer = company;
+      companyCars = await Car.find({ ownerId })
+        .select(
+          "ownerId seats class model PriceChildSeats childSeats childSeatsAvailable isActive testingCar isHidden deletedAt unavailable status"
+        )
+        .lean();
       const companyCountry = String(company?.country || "").toUpperCase();
-      filter = {
-        $or: [
-          {
-            status: { $in: TRANSFER_OPEN_STATUSES },
-            country: companyCountry,
-            $or: [
-              { assignedSupplierId: null },
-              { assignedSupplierId: { $exists: false } },
-            ],
-          },
-          { assignedSupplierId: ownerId },
-          { claimedByCompanyId: ownerId },
-        ],
-      };
-      if (status === "claimed" || status === TRANSFER_STATUS.CLAIMED) {
-        filter = {
-          $or: [
-            { assignedSupplierId: ownerId },
-            { claimedByCompanyId: ownerId },
-          ],
-          status: {
-            $in: [TRANSFER_STATUS.CLAIMED, "claimed"],
-          },
-        };
-      } else if (status === "open") {
-        filter = {
-          status: { $in: TRANSFER_OPEN_STATUSES },
-          country: companyCountry,
-          $or: [
-            { assignedSupplierId: null },
-            { assignedSupplierId: { $exists: false } },
-          ],
-        };
-      } else if (status) {
-        filter = {
-          $or: [
-            { assignedSupplierId: ownerId },
-            { claimedByCompanyId: ownerId },
-          ],
-          status,
-        };
-      }
+      filter = buildCompanyTransferBaseFilter(ownerId, companyCountry, status);
     }
 
-    const items = await Transfer.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    let items;
+    let total = null;
+
+    if (viewMode === ADMIN_VIEW_MODE.COMPANY && companyViewer) {
+      const page = await listVisibleTransfersForCompany({
+        TransferModel: Transfer,
+        baseFilter: filter,
+        company: companyViewer,
+        cars: companyCars,
+        ownerId: viewerOwnerId,
+        limit,
+        skip,
+      });
+      items = page.items;
+      total = page.total;
+    } else {
+      total = await Transfer.countDocuments(filter);
+      items = await Transfer.find(filter)
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+    }
 
     const companyIds = [
       ...new Set(
@@ -182,10 +185,16 @@ export async function GET(request) {
     return json({
       success: true,
       country: countryParam,
+      total,
+      limit,
+      skip,
       items: items.map((item) =>
         serializeForViewer(item, companyNameById, {
-          isSuperAdmin: isSuperAdminUser(user),
-          ownerId: isSuperAdminUser(user) ? null : getSessionOwnerId(user),
+          isSuperAdmin: viewMode === ADMIN_VIEW_MODE.PLATFORM_ADMIN,
+          ownerId:
+            viewMode === ADMIN_VIEW_MODE.PLATFORM_ADMIN
+              ? null
+              : viewerOwnerId || getSessionOwnerId(user),
         })
       ),
     });

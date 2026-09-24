@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -17,6 +17,10 @@ import {
 } from "@mui/material";
 
 import { standardPackageNeedsPublish } from "@/domain/legal/companyLegalPage";
+import { LEGAL_LANGUAGES } from "@/domain/legal/documentTypes";
+import LegalDocumentCards from "./LegalDocumentCards";
+import LegalDocumentWorkspace from "./LegalDocumentWorkspace";
+import BookingFeeOutcomesTable from "@app/components/Legal/BookingFeeOutcomesTable";
 
 /**
  * Superadmin legal hub: partner document review + platform publish.
@@ -69,6 +73,7 @@ function DocumentsTab() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [workspace, setWorkspace] = useState({ open: false, mode: "preview", doc: null });
 
   const load = useCallback(async () => {
     try {
@@ -100,8 +105,10 @@ function DocumentsTab() {
         throw new Error(json.message || t("admin.legalHub.actionFailed"));
       }
       await load();
+      return json;
     } catch (err) {
       setError(err.message || t("admin.legalHub.actionFailed"));
+      throw err;
     } finally {
       setSaving(false);
     }
@@ -179,6 +186,13 @@ function DocumentsTab() {
         </Typography>
       </Stack>
 
+      <LegalDocumentCards
+        overview={data.documents}
+        onEdit={(doc, mode) => setWorkspace({ open: true, mode, doc })}
+      />
+
+      <BookingFeeOutcomesTable language="en" compact />
+
       {data.documents.map((entry) => (
         <Box
           key={entry.documentType}
@@ -195,9 +209,9 @@ function DocumentsTab() {
             })}
           </Typography>
           <Stack spacing={1.25}>
-            {["en", "es"].map((lang) => {
+            {LEGAL_LANGUAGES.map((lang) => {
               const info = entry.languages[lang];
-              const published = Boolean(info.published);
+              const published = Boolean(info?.published);
               return (
                 <Stack
                   key={lang}
@@ -213,7 +227,7 @@ function DocumentsTab() {
                         ? t("admin.legalHub.published", {
                             version: info.published.version,
                           })
-                        : info.latestVersion
+                        : info?.latestVersion
                           ? t("admin.legalHub.draft", {
                               status: info.latestStatus,
                               version: info.latestVersion,
@@ -221,39 +235,61 @@ function DocumentsTab() {
                           : t("admin.legalHub.missing")}
                     </Typography>
                   </Stack>
-                  {info.latestVersion && !published ? (
-                    <Button
-                      variant="contained"
-                      size="large"
-                      disabled={saving}
-                      onClick={() =>
-                        documentAction({
-                          action: "publish",
-                          documentType: entry.documentType,
-                          language: lang,
-                          version: info.latestVersion,
-                        })
-                      }
-                      sx={{ fontWeight: 800, minWidth: 160 }}
-                    >
-                      {t("admin.legalHub.publishLang", {
-                        lang: lang.toUpperCase(),
-                      })}
-                    </Button>
+                  {info?.latestVersion && !published ? (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Button
+                        variant="contained"
+                        size="large"
+                        disabled={saving}
+                        onClick={() => {
+                          const changeClass = window.confirm(
+                            "Is this a material change that requires partner re-acceptance?\n\nOK = Material\nCancel = Editorial (no new acceptance)"
+                          )
+                            ? "material"
+                            : "editorial";
+                          if (
+                            !window.confirm(
+                              `Publish ${entry.documentType} (${lang.toUpperCase()}) v${info.latestVersion} as ${changeClass}?`
+                            )
+                          ) {
+                            return;
+                          }
+                          documentAction({
+                            action: "publish",
+                            documentType: entry.documentType,
+                            language: lang,
+                            version: info.latestVersion,
+                            changeClass,
+                          });
+                        }}
+                        sx={{ fontWeight: 800, minWidth: 160 }}
+                      >
+                        {t("admin.legalHub.publishLang", {
+                          lang: lang.toUpperCase(),
+                        })}
+                      </Button>
+                    </Stack>
                   ) : null}
                   {published ? (
                     <Button
                       size="small"
                       color="warning"
                       disabled={saving}
-                      onClick={() =>
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            `Archive published ${entry.documentType} (${lang.toUpperCase()}) v${info.published.version}?`
+                          )
+                        ) {
+                          return;
+                        }
                         documentAction({
                           action: "archive",
                           documentType: entry.documentType,
                           language: lang,
                           version: info.published.version,
-                        })
-                      }
+                        });
+                      }}
                     >
                       {t("admin.legalHub.archive")}
                     </Button>
@@ -264,6 +300,21 @@ function DocumentsTab() {
           </Stack>
         </Box>
       ))}
+
+      <LegalDocumentWorkspace
+        open={workspace.open}
+        mode={workspace.mode}
+        documentMeta={workspace.doc}
+        overviewEntry={
+          (data.documents || []).find(
+            (row) => row.documentType === workspace.doc?.documentType
+          ) || null
+        }
+        documents={[]}
+        busy={saving}
+        onClose={() => setWorkspace({ open: false, mode: "preview", doc: null })}
+        onAction={documentAction}
+      />
     </Stack>
   );
 }
@@ -591,40 +642,59 @@ function AuditTab() {
   );
 }
 
-export default function LegalHubSection() {
+export default function LegalHubSection({ embedded = false } = {}) {
   const { t } = useTranslation();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const requested = searchParams.get("tab");
+  const sectionKey = embedded ? "section" : "tab";
+  const requested = searchParams.get(sectionKey);
   const tab = TAB_KEYS.includes(requested) ? requested : "documents";
 
   function setTab(value) {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", value);
+    params.set(sectionKey, value);
     params.delete("companyId");
+    if (embedded) {
+      params.set("tab", "legal");
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      return;
+    }
     router.replace(`/admin/legal?${params.toString()}`, { scroll: false });
   }
 
   return (
-    <Box sx={{ maxWidth: 1080, mx: "auto", p: { xs: 2, md: 3 } }}>
-      <Typography variant="h5" sx={{ fontSize: "1.35rem", fontWeight: 800, mb: 0.75 }}>
-        {t("admin.legalHub.title")}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t("admin.legalHub.subtitle")}
-      </Typography>
+    <Box
+      sx={{
+        maxWidth: embedded ? "100%" : 1080,
+        mx: embedded ? 0 : "auto",
+        p: embedded ? 0 : { xs: 2, md: 3 },
+      }}
+    >
+      {embedded ? null : (
+        <>
+          <Typography
+            variant="h5"
+            sx={{ fontSize: "1.35rem", fontWeight: 800, mb: 0.75 }}
+          >
+            {t("admin.legalHub.title")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("admin.legalHub.subtitle")}
+          </Typography>
+        </>
+      )}
 
       <Tabs
         value={tab}
         onChange={(_e, value) => setTab(value)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{ mb: 3, borderBottom: "1px solid #eceff1" }}
       >
         {TAB_KEYS.map((key) => (
-          <Tab
-            key={key}
-            value={key}
-            label={t(TAB_LABEL_KEYS[key])}
-          />
+          <Tab key={key} value={key} label={t(TAB_LABEL_KEYS[key])} />
         ))}
       </Tabs>
 

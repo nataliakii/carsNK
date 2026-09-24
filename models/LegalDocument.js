@@ -90,6 +90,18 @@ const legalDocumentSchema = new mongoose.Schema(
     archivedAt: { type: Date, default: null },
     /** Append-only status/version trail. */
     history: { type: [versionHistorySchema], default: [] },
+    format: { type: String, default: "sections" },
+    translationStatus: { type: String, default: "" },
+    sourceChecksum: { type: String, default: "" },
+    sourceVersion: { type: Number, default: 0 },
+    /** Original PDF. `data` is omitted from list queries. */
+    pdfFile: {
+      filename: { type: String, default: "" },
+      size: { type: Number, default: 0 },
+      sha256: { type: String, default: "" },
+      data: { type: String, default: "", select: false },
+      extractionComplete: { type: Boolean, default: false },
+    },
   },
   { timestamps: true, collection: "legal_documents" }
 );

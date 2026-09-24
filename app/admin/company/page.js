@@ -10,8 +10,9 @@ import { applyAdminViewAsFromCookies } from "@/domain/owners/adminViewAs";
 import { getEffectiveOwnerId } from "@/domain/owners/ownerScope";
 import CompanyProfileSection from "./CompanyProfileSection";
 import { loadVoucherHubData } from "@/app/admin/vouchers/loadVoucherHubData";
+import { legacyCompanySettingsRedirect } from "@/domain/admin/platformSettingsNav";
 
-export default async function CompanyProfilePage() {
+export default async function CompanyProfilePage({ searchParams }) {
   unstable_noStore();
 
   const rawSession = await getServerSession(authOptions);
@@ -23,6 +24,11 @@ export default async function CompanyProfilePage() {
     viewAsOwnerId ||
       (Number(session.user.role) !== ROLE.SUPERADMIN && session.user.ownerId)
   );
+
+  // Platform Settings moved off this page. Bare superadmin → /admin/settings.
+  if (!hasCompanyContext && Number(session.user.role) === ROLE.SUPERADMIN) {
+    redirect(legacyCompanySettingsRedirect(searchParams?.tab));
+  }
 
   const companyId =
     viewAsOwnerId ||

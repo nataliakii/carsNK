@@ -9,7 +9,12 @@ import {
 } from "@/domain/admin/adminViewMode";
 import { companyTermsPublication } from "@/domain/legal/companyLegalPage";
 import {
+  MATERIAL_PROFILE_FIELDS,
+  NON_MATERIAL_PROFILE_FIELDS,
   applyPendingProfileChanges,
+  discardPendingProfileChanges,
+  isMaterialProfileField,
+  pendingProfileChangeSummary,
   planVerifiedProfileSave,
 } from "@/domain/legal/verifiedProfileChanges";
 import { PARTNER_VERIFICATION_STATUS as S } from "@/domain/legal/partnerVerification";
@@ -86,8 +91,17 @@ describe("company view mode", () => {
 
   it("9. Terms and Documents use the same terms publication state", () => {
     const section = read("app/admin/company/legal/CompanyLegalSection.js");
-    expect(section).toContain("companyTermsPublication");
+    // One server-resolved value feeds both tabs. Neither re-derives it.
+    expect(section).toContain("usePartnerLegalStatus()");
     expect(section).toContain("termsPublication={publication}");
+    expect(section).toContain("<CompanyTermsPanel");
+    expect(section).toContain("termsPublication={publication}");
+    expect(section).not.toContain("companyTermsPublication({");
+    const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
+    expect(panel).not.toContain("companyTermsPublication({");
+    const status = read("app/api/partner/legal/status/route.js");
+    expect(status).toContain("companyTermsPublication");
+    expect(status).toContain("termsPublication: publication.publication");
     const unpublished = companyTermsPublication({ containsDrafts: true });
     const ready = companyTermsPublication({
       documents: [{ documentType: "partner-agreement", source: "published" }],
@@ -115,14 +129,33 @@ describe("company view mode", () => {
       {
         verificationStatus: S.VERIFIED,
         businessPhone: "+34000",
+        notificationLanguage: "en",
         legalName: "Test",
       },
-      { businessPhone: "+34111", legalName: "Test" }
+      {
+        businessPhone: "+34111",
+        notificationLanguage: "es",
+        legalName: "Test",
+      }
     );
     expect(plan.pending).toBeNull();
-    expect(plan.applyNow).toEqual({ businessPhone: "+34111" });
+    expect(plan.applyNow).toEqual({
+      businessPhone: "+34111",
+      notificationLanguage: "es",
+    });
     expect(plan.verificationStatus).toBe(S.VERIFIED);
     expect(plan.suspend).toBe(false);
+  });
+
+  it("11b. Material and non-material fields are classified explicitly", () => {
+    for (const field of NON_MATERIAL_PROFILE_FIELDS) {
+      expect(isMaterialProfileField(field)).toBe(false);
+    }
+    for (const field of MATERIAL_PROFILE_FIELDS) {
+      expect(isMaterialProfileField(field)).toBe(true);
+    }
+    // Unknown fields are material until someone classifies them.
+    expect(isMaterialProfileField("somethingNew")).toBe(true);
   });
 
   it("12. Material legal changes create pending changes without overwriting the verified profile", () => {
@@ -137,10 +170,29 @@ describe("company view mode", () => {
     expect(profile.legalName).toBe("Test");
     expect(plan.verificationStatus).toBe(S.VERIFIED);
     profile.pendingChanges = { fields: plan.pending };
+
+    // A reviewer sees only what changed, next to the value they verified.
+    expect(pendingProfileChangeSummary(profile)).toEqual([
+      { field: "legalName", verified: "Test", proposed: "Test SL", material: true },
+    ]);
+
     const applied = applyPendingProfileChanges(profile);
     expect(applied.applied).toEqual(["legalName"]);
     expect(profile.legalName).toBe("Test SL");
     expect(profile.verificationStatus).toBe(S.VERIFIED);
+    expect(pendingProfileChangeSummary(profile)).toEqual([]);
+  });
+
+  it("12b. Discarding a proposal leaves the verified profile untouched", () => {
+    const profile = {
+      verificationStatus: S.VERIFIED,
+      legalName: "Test",
+      pendingChanges: { fields: { legalName: "Test SL" } },
+    };
+    expect(discardPendingProfileChanges(profile).discarded).toEqual(["legalName"]);
+    expect(profile.legalName).toBe("Test");
+    expect(profile.verificationStatus).toBe(S.VERIFIED);
+    expect(pendingProfileChangeSummary(profile)).toEqual([]);
   });
 
   it("13. Direct URLs cannot expose SUPERADMIN controls in company mode", () => {

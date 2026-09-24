@@ -123,6 +123,11 @@ const doc = {
         body: "Customer personal data received through the Platform may be used only to perform the Booking and the rental, and to comply with legal obligations. It must not be used for marketing without a valid legal basis obtained by the Supplier itself.\n\nDriving licences and other identity documents must be handled in accordance with the Data Protection Schedule. They must not be photographed on personal devices, must not be sent as email attachments, must not be shared through messaging applications, and must not be retained beyond the configured retention period of {{settings.documentRetentionDays}} days unless a legal obligation requires it.\n\nAccess within the Supplier organisation must be limited to staff who need it to perform the rental, and every access to a document through the Platform is logged.",
       },
       {
+        id: "22.1",
+        heading: "Confirmed vehicle and price",
+        body: "The Supplier must provide the confirmed vehicle. If the confirmed vehicle becomes unavailable, the Supplier may offer the same or a higher class at the same price. Any replacement requires the Customer's explicit agreement. The Supplier may not increase the confirmed price without the Customer's explicit agreement. If the Customer rejects a changed vehicle or price, the booking is cancelled and the Booking Fee is refunded in full. The Supplier reimburses Rovaro for the refunded Booking Fee where the failure was within the Supplier's control. Repeated or serious failures may result in listing restrictions, suspension or termination. This does not impose an automatic penalty equal to the full rental price.",
+      },
+      {
         id: "23",
         heading: "Changes to these Rules",
         body: "The Operator may amend these Rules and the deadlines they reference in accordance with the change procedure in the Partner Agreement, with prior notice in the partner account and by email.\n\nThe version in force at the time a Booking is confirmed applies to that Booking.",

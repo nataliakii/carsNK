@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -16,19 +16,27 @@ import {
   parseMarketplaceBookingFeePercent,
   DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
 } from "@/domain/orders/marketplaceBookingFee";
+import { useRegisterSettingsDirty } from "@/app/admin/settings/SettingsDirtyGuard";
 
 /**
  * SUPERADMIN: platform default Rovaro booking fee for Spain marketplace.
  */
-export default function PlatformBookingFeeCard() {
+export default function PlatformBookingFeeCard({ embedded = false } = {}) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [percentInput, setPercentInput] = useState("10");
+  const [savedPercent, setSavedPercent] = useState("10");
   const [effectiveLabel, setEffectiveLabel] = useState("10");
   const [overrideCount, setOverrideCount] = useState(0);
   const [defaultCount, setDefaultCount] = useState(0);
+
+  const dirty = useMemo(
+    () => !loading && String(percentInput) !== String(savedPercent),
+    [loading, percentInput, savedPercent]
+  );
+  useRegisterSettingsDirty("platform-booking-fee", dirty);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,6 +55,7 @@ export default function PlatformBookingFeeCard() {
           : json.marketplaceBookingFeeBps;
       const label = formatMarketplaceFeePercent(bps);
       setPercentInput(label);
+      setSavedPercent(label);
       setEffectiveLabel(label);
       setOverrideCount(Number(json.feeStats?.customOverrideCount) || 0);
       setDefaultCount(Number(json.feeStats?.platformDefaultCount) || 0);
@@ -96,12 +105,16 @@ export default function PlatformBookingFeeCard() {
   return (
     <Card variant="outlined" sx={{ borderRadius: 2 }}>
       <CardContent>
-        <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
-          Default booking fee
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Used for partners without a custom rate.
-        </Typography>
+        {embedded ? null : (
+          <>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
+              Default booking fee
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Used for partners without a custom rate.
+            </Typography>
+          </>
+        )}
         {error ? <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert> : null}
         {ok ? <Alert severity="success" sx={{ mb: 1.5 }}>{ok}</Alert> : null}
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "center" }}>

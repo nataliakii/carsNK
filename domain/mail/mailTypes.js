@@ -32,9 +32,12 @@ export const MAIL_TYPE = {
   VOUCHER: "voucher",
   CONTACT: "contact",
   PASSWORD_RESET: "password_reset",
+  ADMIN_INVITE: "admin_invite",
   TEST: "test",
   RELAY: "relay",
   GENERIC: "generic",
+  /** Platform notification matrix (company/superadmin ops). */
+  PLATFORM_NOTIFICATION: "platform.notification",
 };
 
 export const MAIL_RENDER_KEY = {

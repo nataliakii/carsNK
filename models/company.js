@@ -160,6 +160,15 @@ const CompanySchema = new Schema({
    */
   orderRadiusKm: { type: Number, default: null, min: 0 },
 
+  /**
+   * Official Spanish coverage (INE codes). Separate from deliveryPricing
+   * city lists so booking prices stay unchanged.
+   */
+  serviceAreas: {
+    communityCodes: { type: [String], default: [] },
+    provinceCodes: { type: [String], default: [] },
+  },
+
   /** Public path or URL for transfer-voucher company stamp (per owner). */
   voucherStampSrc: { type: String, default: "", trim: true },
 
@@ -281,6 +290,10 @@ const CompanySchema = new Schema({
           default: [],
         },
         airportsServed: { type: [String], default: [] },
+        serviceAreas: {
+          communityCodes: { type: [String], default: [] },
+          provinceCodes: { type: [String], default: [] },
+        },
         maxOperatingDistanceKm: { type: Number, default: null, min: 0 },
         vehicleCategories: { type: [String], default: ["STANDARD"] },
         maxPassengers: { type: Number, default: 7, min: 1 },
@@ -298,6 +311,17 @@ const CompanySchema = new Schema({
         contactEmails: { type: [String], default: [] },
         notifyOnNewTransfer: { type: Boolean, default: true },
         acceptUrgentRequests: { type: Boolean, default: true },
+        /** When true, use active rental cars instead of manual transfer-vehicle fields. */
+        useRentalFleet: { type: Boolean, default: undefined },
+        /**
+         * Show every request in the saved service area. Does not auto-accept
+         * or reserve a vehicle — the company still claims each order.
+         */
+        acceptAllTransferRequests: { type: Boolean, default: false },
+        /** When true, reuse company Coverage cities/airports. */
+        transferCoverageFollowsCompany: { type: Boolean, default: undefined },
+        /** Optional override of company.email for transfer notifications. */
+        transferNotifyEmail: { type: String, default: "", trim: true },
         /**
          * Per-company Stripe / on-site collection preferences for transfers.
          * Independent of global STRIPE_* keys — those must still be set to charge.
@@ -476,6 +500,10 @@ if (Company?.schema && !Company.schema.path("transferServices")) {
           serviceCities: { type: [String], default: [] },
           serviceZoneIds: { type: [Schema.Types.ObjectId], default: [] },
           airportsServed: { type: [String], default: [] },
+          serviceAreas: {
+            communityCodes: { type: [String], default: [] },
+            provinceCodes: { type: [String], default: [] },
+          },
           maxOperatingDistanceKm: { type: Number, default: null, min: 0 },
           vehicleCategories: { type: [String], default: ["STANDARD"] },
           maxPassengers: { type: Number, default: 7, min: 1 },
@@ -493,6 +521,10 @@ if (Company?.schema && !Company.schema.path("transferServices")) {
           contactEmails: { type: [String], default: [] },
           notifyOnNewTransfer: { type: Boolean, default: true },
           acceptUrgentRequests: { type: Boolean, default: true },
+          useRentalFleet: { type: Boolean, default: undefined },
+          acceptAllTransferRequests: { type: Boolean, default: false },
+          transferCoverageFollowsCompany: { type: Boolean, default: undefined },
+          transferNotifyEmail: { type: String, default: "", trim: true },
           payments: {
             stripeForPlatformFee: { type: Boolean, default: false },
             stripeForCompanyAmount: { type: Boolean, default: false },
@@ -510,9 +542,21 @@ if (Company?.schema && !Company.schema.path("transferServices")) {
     customerRentalTerms: {
       type: new Schema(
         {
+          documentId: { type: String, default: "", trim: true },
+          title: { type: String, default: "", trim: true },
+          originalLanguage: { type: String, default: "en" },
+          format: { type: String, default: "text" },
+          effectiveFrom: { type: Date, default: null },
+          versions: { type: Schema.Types.Mixed, default: [] },
           sourceEn: { type: String, default: "" },
           translations: { type: Schema.Types.Mixed, default: {} },
           sourceHash: { type: String, default: "", trim: true },
+          publishedVersion: { type: Number, default: 0, min: 0 },
+          status: {
+            type: String,
+            default: "removed",
+            enum: ["draft", "published", "removed", "archived"],
+          },
           translatedAt: { type: Date, default: null },
           updatedAt: { type: Date, default: null },
           updatedByEmail: { type: String, default: "", trim: true },
@@ -524,6 +568,15 @@ if (Company?.schema && !Company.schema.path("transferServices")) {
   });
 }
 
+if (Company?.schema && !Company.schema.path("serviceAreas")) {
+  Company.schema.add({
+    serviceAreas: {
+      communityCodes: { type: [String], default: [] },
+      provinceCodes: { type: [String], default: [] },
+    },
+  });
+}
+
 if (Company?.schema && !Company.schema.path("marketplaceBookingFeeBps")) {
   Company.schema.add({
     marketplaceBookingFeeBps: {
@@ -531,6 +584,51 @@ if (Company?.schema && !Company.schema.path("marketplaceBookingFeeBps")) {
       default: null,
       min: 100,
       max: 3000,
+    },
+  });
+}
+
+if (Company?.schema && !Company.schema.path("emailPreferences")) {
+  Company.schema.add({
+    emailPreferences: {
+      type: new Schema(
+        {
+          primaryOperationalEmail: { type: String, default: "", trim: true },
+          additionalRecipients: {
+            type: [
+              new Schema(
+                {
+                  email: { type: String, trim: true, lowercase: true },
+                  bookingEmailsEnabled: { type: Boolean, default: true },
+                  transferEmailsEnabled: { type: Boolean, default: true },
+                },
+                { _id: false }
+              ),
+            ],
+            default: [],
+          },
+        },
+        { _id: false }
+      ),
+      default: undefined,
+    },
+  });
+}
+
+const transferServicesPath = Company?.schema?.path("transferServices");
+if (transferServicesPath?.schema && !transferServicesPath.schema.path("useRentalFleet")) {
+  transferServicesPath.schema.add({
+    useRentalFleet: { type: Boolean, default: undefined },
+    acceptAllTransferRequests: { type: Boolean, default: false },
+    transferCoverageFollowsCompany: { type: Boolean, default: undefined },
+    transferNotifyEmail: { type: String, default: "", trim: true },
+  });
+}
+if (transferServicesPath?.schema && !transferServicesPath.schema.path("serviceAreas")) {
+  transferServicesPath.schema.add({
+    serviceAreas: {
+      communityCodes: { type: [String], default: [] },
+      provinceCodes: { type: [String], default: [] },
     },
   });
 }

@@ -87,6 +87,7 @@ export default function PartnerDocumentsCard({
         );
       }
       await onChanged?.();
+      window.dispatchEvent(new Event("rovaro-inbox-refresh"));
     } catch (err) {
       setError(err.message);
     } finally {

@@ -156,6 +156,48 @@ export const PUT = async (req) => {
     revalidateTag("cars");
     revalidatePath("/api/car/all");
     revalidatePath(`/api/car/${_id}`);
+
+    try {
+      const wasActive = existingCar.isActive !== false;
+      const nowActive = updatedCar.isActive !== false;
+      if (wasActive && !nowActive) {
+        const { notifyCarLifecycle } = await import(
+          "@/domain/mail/notificationPolicy"
+        );
+        await notifyCarLifecycle({
+          action: "deactivated",
+          carId: String(_id),
+          companyId: updatedCar.ownerId ? String(updatedCar.ownerId) : "",
+          carModel: updatedCar.model || "",
+          regNumber: updatedCar.regNumber || "",
+          actorEmail: session.user?.email || "",
+          timestamp: new Date(),
+        });
+      } else {
+        const { classifyCarMaterialChanges } = await import(
+          "@/domain/mail/importantCompanyChanges"
+        );
+        const material = classifyCarMaterialChanges(existingCar, updateFields);
+        if (material.important && updateFields.isActive === undefined) {
+          const { notifyImportantCompanySettings } = await import(
+            "@/domain/mail/notificationPolicy"
+          );
+          await notifyImportantCompanySettings({
+            companyId: updatedCar.ownerId ? String(updatedCar.ownerId) : "",
+            companyName: "",
+            actorEmail: session.user?.email || "",
+            timestamp: new Date(),
+            requestId: `car:${_id}:${Date.now()}`,
+            changes: material.changes.map((c) => ({
+              ...c,
+              label: `Car ${updatedCar.model || _id} · ${c.field}`,
+            })),
+          });
+        }
+      }
+    } catch (err) {
+      console.error("[car/update] notify failed:", err?.message || err);
+    }
     
     return new Response(JSON.stringify(updatedCar), {
       status: 200,

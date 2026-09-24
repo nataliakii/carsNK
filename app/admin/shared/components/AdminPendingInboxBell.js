@@ -21,14 +21,44 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { useSession } from "next-auth/react";
 import { useAdminPendingInbox } from "@app/hooks/useAdminPendingInbox";
+import {
+  adminInboxBadges,
+  adminInboxGroups,
+} from "@/domain/orders/inboxView";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { usePendingPartnerReviews } from "@app/hooks/usePendingPartnerReviews";
 import GavelIcon from "@mui/icons-material/Gavel";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 
+const GROUP_ITEM_ICONS = {
+  rentals: <DirectionsCarIcon fontSize="small" />,
+  transfers: <AirportShuttleIcon fontSize="small" />,
+};
+
+/** Booking rows show their own count; setup tasks show their action line. */
+function itemSecondary(t, item) {
+  if (item.descriptionKey) {
+    return t(item.descriptionKey, {
+      defaultValue: item.description,
+      ...(item.descriptionParams || null),
+    });
+  }
+  if (!item.count) return t("inbox.none", { defaultValue: "None pending" });
+  if (item.id === "rentals") {
+    return t("inbox.bookingsNeedAttention", {
+      defaultValue: "{{count}} bookings need attention",
+      count: item.count,
+    });
+  }
+  return t("inbox.pendingCount", {
+    defaultValue: "{{count}} pending",
+    count: item.count,
+  });
+}
+
 /**
- * Admin inbox bell: badge = unprocessed rentals + transfers.
+ * Admin inbox bell: badge = booking tasks + company setup tasks.
  * Toasts when the pending count increases while the tab is open.
  */
 export default function AdminPendingInboxBell() {
@@ -39,24 +69,24 @@ export default function AdminPendingInboxBell() {
   const isSuperAdmin = Number(session?.user?.role) === ROLE.SUPERADMIN;
   const { active: viewAsActive } = useAdminViewAs();
   const { country } = useAdminCountryFilter();
-  const {
-    rentals,
-    transfers,
-    total: inboxTotal,
-    arrival,
-    dismissArrival,
-    refresh,
-  } = useAdminPendingInbox({
+  const inbox = useAdminPendingInbox({
     enabled: isAdmin && status === "authenticated",
     country,
   });
+  const { arrival, dismissArrival, refresh } = inbox;
   const legalPending = usePendingPartnerReviews({
     enabled: isSuperAdmin && !viewAsActive && status === "authenticated",
     country,
   });
 
-  /** Bell ≠ Orders badge: inbox (rentals+transfers) + legal reviews, once each. */
-  const total = inboxTotal + (isSuperAdmin && !viewAsActive ? legalPending : 0);
+  const platformMode = isSuperAdmin && !viewAsActive;
+  /** Same response the navbar badges read. */
+  const badges = adminInboxBadges(inbox);
+  const groups = adminInboxGroups(inbox, {
+    includeCompanySetup: !platformMode,
+  });
+  /** Company: server total (bookings + setup). Platform: that total plus partner reviews. */
+  const total = badges.bell + (platformMode ? legalPending : 0);
 
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
@@ -161,49 +191,42 @@ export default function AdminPendingInboxBell() {
           </Typography>
         </Box>
         <Divider />
-        <MenuItem onClick={() => go("/admin/orders")}>
-          <ListItemIcon>
-            <DirectionsCarIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary={t("header.carRentals", { defaultValue: "Car rentals" })}
-            secondary={
-              rentals > 0
-                ? t("inbox.pendingCount", {
-                    defaultValue: "{{count}} pending",
-                    count: rentals,
-                  })
-                : t("inbox.none", { defaultValue: "None pending" })
-            }
-          />
-          {rentals > 0 ? (
-            <Typography variant="body2" color="error" sx={{ fontWeight: 700 }}>
-              {rentals}
+        {groups.map((group) => [
+          <Box key={`${group.id}-label`} sx={{ px: 2, pt: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700 }}>
+              {t(group.labelKey, { defaultValue: group.label })}
             </Typography>
-          ) : null}
-        </MenuItem>
-        <MenuItem onClick={() => go("/admin/orders?tab=transfers")}>
-          <ListItemIcon>
-            <AirportShuttleIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary={t("header.transfers", { defaultValue: "Transfers" })}
-            secondary={
-              transfers > 0
-                ? t("inbox.pendingCount", {
-                    defaultValue: "{{count}} pending",
-                    count: transfers,
-                  })
-                : t("inbox.none", { defaultValue: "None pending" })
-            }
-          />
-          {transfers > 0 ? (
-            <Typography variant="body2" color="error" sx={{ fontWeight: 700 }}>
-              {transfers}
-            </Typography>
-          ) : null}
-        </MenuItem>
-        {isSuperAdmin && !viewAsActive ? (
+          </Box>,
+          ...(group.items.length
+            ? group.items.map((item) => (
+                <MenuItem key={item.id} onClick={() => go(item.href)}>
+                  {GROUP_ITEM_ICONS[item.id] ? (
+                    <ListItemIcon>{GROUP_ITEM_ICONS[item.id]}</ListItemIcon>
+                  ) : null}
+                  <ListItemText
+                    primary={t(item.titleKey, { defaultValue: item.title })}
+                    secondary={itemSecondary(t, item)}
+                  />
+                  {item.count > 0 ? (
+                    <Typography
+                      variant="body2"
+                      color="error"
+                      sx={{ fontWeight: 700 }}
+                    >
+                      {item.count}
+                    </Typography>
+                  ) : null}
+                </MenuItem>
+              ))
+            : [
+                <MenuItem key={`${group.id}-empty`} disabled>
+                  <ListItemText
+                    primary={t("inbox.none", { defaultValue: "None pending" })}
+                  />
+                </MenuItem>,
+              ]),
+        ])}
+        {platformMode ? (
           <MenuItem onClick={() => go("/admin/partners?tab=review")}>
             <ListItemIcon>
               <GavelIcon fontSize="small" />

@@ -193,13 +193,35 @@ export function buildPendingTransfersFilter(session, countryCode = "ALL") {
 export function sumPendingInbox(counts) {
   const rentals = Math.max(0, Number(counts?.rentals) || 0);
   const transfers = Math.max(0, Number(counts?.transfers) || 0);
+  const bookingCount = rentals + transfers;
+  const setupTasks = Array.isArray(counts?.companySetupTasks)
+    ? counts.companySetupTasks
+    : [];
+  const companySetup = { count: setupTasks.length, tasks: setupTasks };
+  const bookings = {
+    count: bookingCount,
+    tasks:
+      bookingCount > 0
+        ? [
+            {
+              id: "bookings",
+              title: "Bookings need attention",
+              href: "/admin/orders",
+              count: bookingCount,
+            },
+          ]
+        : [],
+  };
   return {
     rentals,
     transfers,
-    /** Orders nav badge — rentals requiring attention in this workspace */
+    /** Orders nav badge — rentals only. Never the bell total. */
     ordersBadge: rentals,
-    /** Bell badge — rentals + transfers (not a copy of a separate total source) */
-    notificationsBadge: rentals + transfers,
-    total: rentals + transfers,
+    /** Booking portion of the bell. Greece rental + transfer math is unchanged. */
+    notificationsBadge: bookingCount,
+    bookings,
+    companySetup,
+    /** Bell total for a company: booking tasks + legal tasks. */
+    total: bookingCount + companySetup.count,
   };
 }

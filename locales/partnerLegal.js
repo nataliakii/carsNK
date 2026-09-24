@@ -1,8 +1,13 @@
 /**
- * Partner legal profile + Master Partner Agreement UI copy.
+ * Company setup UI copy.
  *
- * English and Spanish are complete. Other listed locales keep the same keys
- * (English text) so the screens never render raw key paths.
+ * Company-facing text speaks about "company setup" and "Rovaro Terms" — never
+ * about a separate legal profile or a Master Partner Agreement, because a
+ * company has exactly one setup flow with one action at a time.
+ *
+ * English and Spanish are complete; Greek and Russian translate the Trading
+ * status card. Other listed locales keep the same keys (English text) so the
+ * screens never render raw key paths.
  */
 
 export const PARTNER_LEGAL_NAV = {
@@ -15,9 +20,9 @@ export const PARTNER_LEGAL_NAV = {
 };
 
 export const partnerLegalEn = {
-  title: "Legal profile",
+  title: "Company setup",
   subtitle:
-    "Add your company name to start. Everything else is optional — fill it in when you have it. Bookings stay closed until Rovaro verifies you and you sign the Partner Agreement.",
+    "Add your company name to start. Everything else is optional — fill it in when you have it. Complete your company setup to start receiving bookings.",
   card: {
     title: "Trading status",
     subtitle: "Complete your company setup to start receiving bookings.",
@@ -57,10 +62,9 @@ export const partnerLegalEn = {
     okTitle: "You can take bookings",
     okBody:
       "Your company is verified and the current Partner Agreement is signed.",
-    blockedTitle: "You cannot take bookings yet",
-    blockedBody:
-      "These items have to be cleared before listings can be offered and bookings received.",
-    goToProfile: "Open legal profile",
+    blockedTitle: "Setup in progress",
+    blockedBody: "Complete your company setup to start receiving bookings.",
+    goToProfile: "Continue setup",
     goToAgreement: "Review and accept terms",
     operatorAction: "Rovaro has to complete this step.",
     actionBlocked:
@@ -77,8 +81,7 @@ export const partnerLegalEn = {
       rejected: "The profile was rejected. Correct the details and submit again.",
       suspended: "Trading is suspended. Rovaro has to restore the account.",
       agreement_not_signed: "Rovaro Terms have not been accepted.",
-      agreement_outdated:
-        "A new version of the Partner Agreement is in force and has to be accepted.",
+      agreement_outdated: "Updated Rovaro Terms have to be accepted.",
     },
   },
   status: {
@@ -117,14 +120,14 @@ export const partnerLegalEn = {
   form: {
     loadFailed: "Could not load the legal profile.",
     saveFailed: "Could not save the legal profile.",
-    saved: "Legal profile saved.",
+    saved: "Company details saved.",
     submitted: "Submitted for verification.",
     saving: "Saving…",
     save: "Save",
     submitForVerification: "Submit for verification",
     resubmitForVerification: "Submit again for verification",
     cancelEdit: "Cancel editing",
-    goToAgreement: "Partner Agreement",
+    goToAgreement: "Rovaro Terms",
     rejectedReopen:
       "The previous application was rejected. Update the fields or documents that were refused and submit again.",
     unlockToEdit: "Update company details",
@@ -139,6 +142,9 @@ export const partnerLegalEn = {
     unlockWarningTitle: "Editing a verified profile",
     unlockWarningBody:
       "Changes to verified legal details may need review before they take effect.",
+    pendingChangesTitle: "Proposed changes are with Rovaro",
+    pendingChangesBody:
+      "Your verified details stay active and you keep trading. Rovaro is reviewing: {{fields}}.",
     missingTitle: "Still needed to submit",
     required: "Required",
     optional: "Optional",
@@ -253,9 +259,9 @@ export const partnerLegalEn = {
     },
   },
   agreement: {
-    title: "Master Partner Agreement",
+    title: "Rovaro Terms",
     subtitle:
-      "Read the current Partner Agreement and Operating Rules, then accept them if you are authorised to bind the company.",
+      "Read the current Rovaro Terms and Operating Rules, then accept them if you are authorised to bind the company.",
     loadFailed: "Could not load the agreement.",
     submitFailed: "Could not record the acceptance.",
     submitted: "Acceptance recorded as {{id}}.",
@@ -357,12 +363,12 @@ export const partnerLegalEn = {
     accepting: "Recording acceptance…",
     acceptNewVersion: "Accept the new version",
     accept: "Accept the Partner Agreement",
-    backToProfile: "Back to legal profile",
+    backToProfile: "Back to company setup",
   },
   customerRules: {
-    title: "Customer rental rules",
+    title: "Add your own rental terms",
     subtitle:
-      "Write the rental rules {{company}} customers must accept when they book. English is the source. Save translates them into every site language so the booking form can open both the Rovaro contract and yours.",
+      "Upload your own rental conditions, or continue using Rovaro standard rental terms.",
     englishLabel: "Rental rules (English)",
     englishHint:
       "Deposit, fuel, mileage, extra driver, cross-border, smoking, pets, late return. Plain text, up to {{max}} characters.",
@@ -413,6 +419,11 @@ export const partnerLegalEn = {
     verifiedTitle: "Verified partner",
     verifiedBody:
       "This profile is already verified. You can suspend it. Approving again is not available.",
+    pendingChangesTitle: "Proposed changes waiting for review",
+    pendingChangesBody:
+      "The verified profile is still live. Approving replaces only these fields.",
+    approveChanges: "Approve changes",
+    discardChanges: "Discard changes",
   },
   companyPage: {
     title: "Company legal",
@@ -429,25 +440,30 @@ export const partnerLegalEn = {
     standardTerms: "Standard terms",
     customAgreement: "Custom agreement",
     termsReady: "Review and accept terms",
-    acceptTerms: "Accept terms",
+    acceptTerms: "Accept and continue",
     termsAccepted: "Rovaro Terms accepted",
     termsUpdated: "Updated Rovaro Terms require acceptance",
     preparing:
       "Rovaro Terms are being prepared. You can continue setting up your company and submitting documents.",
+    documentTypes: {
+      "partner-agreement": "Rovaro Terms",
+      "partner-operating-rules": "Partner Operating Rules",
+      "data-protection-schedule": "Data Protection Schedule",
+    },
     signerName: "Your name",
     signerRole: "Your role",
     rolePlaceholder: "Owner, Director or Authorised representative",
     signerEmail: "Email",
-    authority: "I am authorised to accept these terms for this company.",
+    authority: "I am authorised to accept the Partner Agreement, Partner Operating Rules and Data Protection Schedule on behalf of the company.",
     acceptFailed: "Could not record the acceptance.",
     saved: "Saved.",
   },
 };
 
 export const partnerLegalEs = {
-  title: "Perfil legal",
+  title: "Configuración de la empresa",
   subtitle:
-    "Con el nombre de la empresa basta para empezar. El resto es opcional. Las reservas siguen cerradas hasta que Rovaro te verifique y firmes el Acuerdo de Partner.",
+    "Con el nombre de la empresa basta para empezar. El resto es opcional. Completa la configuración de la empresa para empezar a recibir reservas.",
   card: {
     title: "Estado comercial",
     subtitle: "Completa la configuración de la empresa para empezar a recibir reservas.",
@@ -487,10 +503,10 @@ export const partnerLegalEs = {
     okTitle: "Puedes recibir reservas",
     okBody:
       "Tu empresa está verificada y el Acuerdo de Partner vigente está firmado.",
-    blockedTitle: "Aún no puedes recibir reservas",
+    blockedTitle: "Configuración en curso",
     blockedBody:
-      "Hay que completar estos puntos antes de publicar anuncios y recibir reservas.",
-    goToProfile: "Abrir perfil legal",
+      "Completa la configuración de la empresa para empezar a recibir reservas.",
+    goToProfile: "Continuar configuración",
     goToAgreement: "Revisar y aceptar las condiciones",
     operatorAction: "Este paso lo tiene que completar Rovaro.",
     actionBlocked:
@@ -508,7 +524,7 @@ export const partnerLegalEs = {
       suspended: "La actividad está suspendida. Rovaro tiene que reactivar la cuenta.",
       agreement_not_signed: "Las Condiciones de Rovaro no se han aceptado.",
       agreement_outdated:
-        "Hay una nueva versión del Acuerdo de Partner y hay que aceptarla.",
+        "Hay que aceptar las Condiciones de Rovaro actualizadas.",
     },
   },
   status: {
@@ -547,14 +563,14 @@ export const partnerLegalEs = {
   form: {
     loadFailed: "No se ha podido cargar el perfil legal.",
     saveFailed: "No se ha podido guardar el perfil legal.",
-    saved: "Perfil legal guardado.",
+    saved: "Datos de la empresa guardados.",
     submitted: "Enviado para verificación.",
     saving: "Guardando…",
     save: "Guardar",
     submitForVerification: "Enviar para verificación",
     resubmitForVerification: "Volver a enviar para verificación",
     cancelEdit: "Cancelar edición",
-    goToAgreement: "Acuerdo de Partner",
+    goToAgreement: "Condiciones de Rovaro",
     rejectedReopen:
       "La solicitud anterior fue rechazada. Actualiza los campos o documentos rechazados y vuelve a enviarlo.",
     unlockToEdit: "Actualizar datos de la empresa",
@@ -569,6 +585,9 @@ export const partnerLegalEs = {
     unlockWarningTitle: "Edición de un perfil verificado",
     unlockWarningBody:
       "Los cambios en los datos legales verificados pueden necesitar revisión antes de aplicarse.",
+    pendingChangesTitle: "Cambios propuestos en revisión por Rovaro",
+    pendingChangesBody:
+      "Tus datos verificados siguen activos y puedes seguir operando. Rovaro está revisando: {{fields}}.",
     missingTitle: "Aún falta para enviar",
     required: "Obligatorio",
     optional: "Opcional",
@@ -684,9 +703,9 @@ export const partnerLegalEs = {
     },
   },
   agreement: {
-    title: "Acuerdo Marco de Partner",
+    title: "Condiciones de Rovaro",
     subtitle:
-      "Lee el Acuerdo de Partner y las Normas de Funcionamiento vigentes y acéptalos si estás autorizado para vincular a la empresa.",
+      "Lee las Condiciones de Rovaro y las Normas de Funcionamiento vigentes y acéptalas si estás autorizado para vincular a la empresa.",
     loadFailed: "No se ha podido cargar el acuerdo.",
     submitFailed: "No se ha podido registrar la aceptación.",
     submitted: "Aceptación registrada como {{id}}.",
@@ -790,7 +809,7 @@ export const partnerLegalEs = {
     accepting: "Registrando la aceptación…",
     acceptNewVersion: "Aceptar la nueva versión",
     accept: "Aceptar el Acuerdo de Partner",
-    backToProfile: "Volver al perfil legal",
+    backToProfile: "Volver a la configuración de la empresa",
   },
   customerRules: {
     title: "Normas de alquiler para el cliente",
@@ -846,6 +865,11 @@ export const partnerLegalEs = {
     verifiedTitle: "Partner verificado",
     verifiedBody:
       "Este perfil ya está verificado. Puedes suspenderlo. No se vuelve a aprobar.",
+    pendingChangesTitle: "Cambios propuestos pendientes de revisión",
+    pendingChangesBody:
+      "El perfil verificado sigue activo. Al aprobar solo se reemplazan estos campos.",
+    approveChanges: "Aprobar cambios",
+    discardChanges: "Descartar cambios",
   },
   companyPage: {
     title: "Legal de la empresa",
@@ -866,7 +890,12 @@ export const partnerLegalEs = {
     termsAccepted: "Condiciones de Rovaro aceptadas",
     termsUpdated: "Las Condiciones de Rovaro actualizadas requieren aceptación",
     preparing:
-      "Las Condiciones de Rovaro se están preparando. Puedes seguir configurando la empresa y enviando documentos.",
+      "Las Condiciones de Rovaro se están preparando. Puedes seguir configurando tu empresa y enviando documentos.",
+    documentTypes: {
+      "partner-agreement": "Condiciones de Rovaro",
+      "partner-operating-rules": "Normas de funcionamiento del partner",
+      "data-protection-schedule": "Anexo de protección de datos",
+    },
     signerName: "Tu nombre",
     signerRole: "Tu cargo",
     rolePlaceholder: "Propietario, director o representante autorizado",
@@ -879,6 +908,46 @@ export const partnerLegalEs = {
 
 export const partnerLegalRu = {
   ...partnerLegalEn,
+  card: {
+    title: "Статус работы",
+    subtitle: "Завершите настройку компании, чтобы начать принимать брони.",
+    labels: {
+      setup: "Настройка продолжается",
+      almost: "Настройка почти завершена",
+      ready: "Готово принимать брони",
+    },
+    actions: {
+      continueSetup: "Продолжить настройку",
+      uploadDocuments: "Загрузить документы",
+      reviewTerms: "Прочитать и принять условия",
+      reviewUpdatedTerms: "Прочитать обновлённые условия",
+    },
+    states: {
+      completeDetailsTitle: "Заполните данные компании, чтобы продолжить.",
+      completeDetailsBody:
+        "Завершите настройку компании, чтобы начать принимать брони.",
+      uploadTitle: "Загрузите оставшиеся документы компании.",
+      uploadBody: "Завершите настройку компании, чтобы начать принимать брони.",
+      reviewTitle: "Ваши документы на проверке.",
+      reviewBody: "Rovaro готовит условия. От вас ничего не требуется.",
+      termsPreparingTitle:
+        "Ваши документы проверены. Условия Rovaro готовятся.",
+      termsPreparingBody:
+        "Мы сообщим, когда они будут готовы. От вас ничего не требуется.",
+      termsReadyTitle: "Условия Rovaro готовы к ознакомлению.",
+      termsReadyBody:
+        "Завершите настройку компании, чтобы начать принимать брони.",
+      termsUpdateTitle: "Обновлённые условия Rovaro требуют вашего принятия.",
+      termsUpdateBody:
+        "Завершите настройку компании, чтобы начать принимать брони.",
+      listingTitle: "Ваша компания одобрена.",
+      listingBody: "Rovaro активирует размещение на маркетплейсе.",
+      readyTitle: "Готово принимать брони",
+      readyBody: "Ваша компания может принимать брони.",
+      suspendedTitle: "Настройка почти завершена",
+      suspendedBody: "Rovaro готовит условия. От вас ничего не требуется.",
+    },
+  },
   customerRules: {
     title: "Правила аренды для клиента",
     subtitle:
@@ -933,6 +1002,21 @@ export const partnerLegalRu = {
     verifiedTitle: "Партнёр подтверждён",
     verifiedBody:
       "Профиль уже подтверждён. Его можно приостановить. Повторного подтверждения нет.",
+    pendingChangesTitle: "Предложенные изменения ждут проверки",
+    pendingChangesBody:
+      "Подтверждённый профиль остаётся действующим. Подтверждение заменит только эти поля.",
+    approveChanges: "Подтвердить изменения",
+    discardChanges: "Отклонить изменения",
+  },
+  companyPage: {
+    ...partnerLegalEn.companyPage,
+    preparing:
+      "Условия Rovaro готовятся. Вы можете продолжать настройку компании и загрузку документов.",
+    documentTypes: {
+      "partner-agreement": "Условия Rovaro",
+      "partner-operating-rules": "Правила работы партнёра",
+      "data-protection-schedule": "Приложение о защите данных",
+    },
   },
 };
 
@@ -967,11 +1051,62 @@ export const partnerLegalUk = {
     verifiedTitle: "Партнера підтверджено",
     verifiedBody:
       "Профіль уже підтверджено. Його можна призупинити. Повторного підтвердження немає.",
+    pendingChangesTitle: "Запропоновані зміни очікують перевірки",
+    pendingChangesBody:
+      "Підтверджений профіль лишається чинним. Підтвердження замінить лише ці поля.",
+    approveChanges: "Підтвердити зміни",
+    discardChanges: "Відхилити зміни",
   },
 };
 
 export const partnerLegalEl = {
   ...partnerLegalEn,
+  card: {
+    title: "Κατάσταση λειτουργίας",
+    subtitle:
+      "Ολοκληρώστε τη ρύθμιση της εταιρείας για να αρχίσετε να λαμβάνετε κρατήσεις.",
+    labels: {
+      setup: "Ρύθμιση σε εξέλιξη",
+      almost: "Η ρύθμιση σχεδόν ολοκληρώθηκε",
+      ready: "Έτοιμη για κρατήσεις",
+    },
+    actions: {
+      continueSetup: "Συνέχεια ρύθμισης",
+      uploadDocuments: "Ανέβασμα εγγράφων",
+      reviewTerms: "Έλεγχος και αποδοχή των όρων",
+      reviewUpdatedTerms: "Έλεγχος των ενημερωμένων όρων",
+    },
+    states: {
+      completeDetailsTitle:
+        "Συμπληρώστε τα στοιχεία της εταιρείας για να συνεχίσετε.",
+      completeDetailsBody:
+        "Ολοκληρώστε τη ρύθμιση της εταιρείας για να αρχίσετε να λαμβάνετε κρατήσεις.",
+      uploadTitle: "Ανεβάστε τα υπόλοιπα έγγραφα της εταιρείας.",
+      uploadBody:
+        "Ολοκληρώστε τη ρύθμιση της εταιρείας για να αρχίσετε να λαμβάνετε κρατήσεις.",
+      reviewTitle: "Τα έγγραφά σας ελέγχονται.",
+      reviewBody:
+        "Η Rovaro προετοιμάζει τους όρους. Δεν απαιτείται καμία ενέργεια από εσάς.",
+      termsPreparingTitle:
+        "Τα έγγραφά σας επαληθεύτηκαν. Οι Όροι Rovaro προετοιμάζονται.",
+      termsPreparingBody:
+        "Θα σας ενημερώσουμε όταν είναι έτοιμοι. Δεν απαιτείται καμία ενέργεια από εσάς.",
+      termsReadyTitle: "Οι Όροι Rovaro είναι έτοιμοι για έλεγχο.",
+      termsReadyBody:
+        "Ολοκληρώστε τη ρύθμιση της εταιρείας για να αρχίσετε να λαμβάνετε κρατήσεις.",
+      termsUpdateTitle:
+        "Οι ενημερωμένοι Όροι Rovaro απαιτούν την αποδοχή σας.",
+      termsUpdateBody:
+        "Ολοκληρώστε τη ρύθμιση της εταιρείας για να αρχίσετε να λαμβάνετε κρατήσεις.",
+      listingTitle: "Η εταιρεία σας εγκρίθηκε.",
+      listingBody: "Η Rovaro θα ενεργοποιήσει την καταχώρισή σας.",
+      readyTitle: "Έτοιμη για κρατήσεις",
+      readyBody: "Η εταιρεία σας μπορεί να λαμβάνει κρατήσεις.",
+      suspendedTitle: "Η ρύθμιση σχεδόν ολοκληρώθηκε",
+      suspendedBody:
+        "Η Rovaro προετοιμάζει τους όρους. Δεν απαιτείται καμία ενέργεια από εσάς.",
+    },
+  },
   review: {
     title: "Επαλήθευση αυτού του συνεργάτη",
     body: "Ελέγξτε τη φόρμα και τα ανεβασμένα έγγραφα και ορίστε VERIFIED ή REJECTED. Η δημοσίευση των συμβολαίων της πλατφόρμας είναι άλλη σελίδα: Νομικά στην επάνω γραμμή.",
@@ -1001,6 +1136,21 @@ export const partnerLegalEl = {
     verifiedTitle: "Επαληθευμένος συνεργάτης",
     verifiedBody:
       "Το προφίλ είναι ήδη επαληθευμένο. Μπορείτε να το αναστείλετε. Δεν εγκρίνεται ξανά.",
+    pendingChangesTitle: "Προτεινόμενες αλλαγές σε αναμονή ελέγχου",
+    pendingChangesBody:
+      "Το επαληθευμένο προφίλ παραμένει ενεργό. Η έγκριση αντικαθιστά μόνο αυτά τα πεδία.",
+    approveChanges: "Έγκριση αλλαγών",
+    discardChanges: "Απόρριψη αλλαγών",
+  },
+  companyPage: {
+    ...partnerLegalEn.companyPage,
+    preparing:
+      "Οι Όροι Rovaro ετοιμάζονται. Μπορείτε να συνεχίσετε τη ρύθμιση της εταιρείας και την υποβολή εγγράφων.",
+    documentTypes: {
+      "partner-agreement": "Όροι Rovaro",
+      "partner-operating-rules": "Κανόνες λειτουργίας συνεργάτη",
+      "data-protection-schedule": "Παράρτημα προστασίας δεδομένων",
+    },
   },
 };
 
@@ -1035,6 +1185,11 @@ export const partnerLegalDe = {
     verifiedTitle: "Verifizierter Partner",
     verifiedBody:
       "Dieses Profil ist bereits verifiziert. Sie können es sperren. Eine erneute Freigabe gibt es nicht.",
+    pendingChangesTitle: "Vorgeschlagene Änderungen warten auf Prüfung",
+    pendingChangesBody:
+      "Das verifizierte Profil bleibt aktiv. Die Freigabe ersetzt nur diese Felder.",
+    approveChanges: "Änderungen freigeben",
+    discardChanges: "Änderungen verwerfen",
   },
 };
 

@@ -1,13 +1,27 @@
 import { NextResponse } from "next/server";
-import { hashSync } from "bcrypt";
 import { requireAdmin, requireSuperAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
-import { User, ROLE } from "@models/user";
+import { User } from "@models/user";
 import {
   getSessionOwnerId,
   isSuperAdminUser,
   normalizeOwnerId,
 } from "@/domain/owners/ownerScope";
+import {
+  normalizeNotificationLanguage,
+  resolveInviteRole,
+  usernameFromEmail,
+  validateAddAdminInput,
+} from "@/domain/admin/companyAdmins";
+import {
+  ensureUniqueUsername,
+  isEmailTaken,
+  listCompanyAdmins,
+  rowFromDoc,
+} from "@/domain/admin/companyAdminsService";
+import { sendAdminInviteEmailToUser } from "@/domain/auth/sendAdminInviteEmail";
+import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
+import Company from "@models/company";
 
 export const runtime = "nodejs";
 
@@ -15,19 +29,8 @@ function json(body, status = 200) {
   return NextResponse.json(body, { status });
 }
 
-function publicAdminUser(user) {
-  return {
-    _id: user._id,
-    email: user.email,
-    username: user.username,
-    role: user.role,
-    ownerId: user.ownerId,
-    createdAt: user.createdAt,
-  };
-}
-
 /**
- * GET: list company admins (no passwords).
+ * GET: list company admins (no passwords, no reset tokens).
  * Superadmin: any ownerId. Company admin: own company only.
  */
 export async function GET(request) {
@@ -36,38 +39,27 @@ export async function GET(request) {
 
   const url = new URL(request.url);
   const requestedOwnerId = normalizeOwnerId(url.searchParams.get("ownerId"));
-  const ownerId = isSuperAdminUser(session.user)
-    ? requestedOwnerId
-    : getSessionOwnerId(session.user);
+  const canManage = isSuperAdminUser(session.user);
+  const ownerId = canManage ? requestedOwnerId : getSessionOwnerId(session.user);
 
   if (!ownerId) {
     return json({ success: false, message: "ownerId is required" }, 400);
   }
 
-  await connectToDB();
-  const users = await User.find({
-    isAdmin: true,
-    role: { $ne: ROLE.SUPERADMIN },
-    ownerId,
-  })
-    .select("username email role ownerId isAdmin createdAt")
-    .sort({ createdAt: -1 })
-    .lean();
+  const users = await listCompanyAdmins(ownerId);
 
-  return json({
-    success: true,
-    users: users.map(publicAdminUser),
-    canManage: isSuperAdminUser(session.user),
-  });
+  return json({ success: true, users, canManage });
 }
 
 /**
- * POST: create admin user
- * { email, password, username?, role?: 1|2, ownerId? }
- * ADMIN requires ownerId. SUPERADMIN may omit ownerId.
+ * POST: invite a company admin.
+ * { name, email, role?, notificationLanguage?, ownerId }
+ *
+ * Superadmin only. No password is accepted or generated here — the invited
+ * person sets their own through the emailed one-time link.
  */
 export async function POST(request) {
-  const { errorResponse } = await requireSuperAdmin(request);
+  const { session, errorResponse } = await requireSuperAdmin(request);
   if (errorResponse) return errorResponse;
 
   let body;
@@ -77,61 +69,82 @@ export async function POST(request) {
     return json({ success: false, message: "Invalid JSON" }, 400);
   }
 
-  const email = String(body?.email || "").trim().toLowerCase();
-  const password = String(body?.password || "").trim();
-  const username =
-    String(body?.username || "").trim() || email.split("@")[0] || "admin";
-  const role =
-    Number(body?.role) === ROLE.SUPERADMIN ? ROLE.SUPERADMIN : ROLE.ADMIN;
-  const ownerId = normalizeOwnerId(body?.ownerId);
+  const { valid, errors, value } = validateAddAdminInput(body);
+  if (!valid) {
+    return json(
+      { success: false, message: "Invalid admin details", errors },
+      400
+    );
+  }
 
-  if (!email || !email.includes("@")) {
-    return json({ success: false, message: "valid email is required" }, 400);
-  }
-  if (!password || password.length < 6) {
-    return json(
-      { success: false, message: "password must be at least 6 characters" },
-      400
-    );
-  }
-  if (role === ROLE.ADMIN && !ownerId) {
-    return json(
-      { success: false, message: "ownerId is required for ADMIN" },
-      400
-    );
+  const ownerId = normalizeOwnerId(body?.ownerId);
+  const role = resolveInviteRole({ role: value.role, ownerId });
+  if (!ownerId) {
+    return json({ success: false, message: "ownerId is required" }, 400);
   }
 
   await connectToDB();
-  const existing = await User.findOne({
-    $or: [{ email }, { username }],
-  }).lean();
-  if (existing) {
+
+  if (await isEmailTaken(value.email)) {
     return json(
-      { success: false, message: "User with this email or username exists" },
+      {
+        success: false,
+        message: "This email already belongs to another user",
+        errors: { email: "admin.partnerAdmins.errors.emailTaken" },
+      },
       409
     );
   }
 
+  const username = await ensureUniqueUsername(usernameFromEmail(value.email));
+  const company = await Company.findById(ownerId).select("name").lean();
+  if (!company) {
+    return json({ success: false, message: "Company not found" }, 404);
+  }
+
   const user = await User.create({
-    email,
+    email: value.email,
     username,
-    password: hashSync(password, 10),
+    name: value.name,
     isAdmin: true,
     role,
-    ownerId: role === ROLE.SUPERADMIN ? ownerId : ownerId,
+    ownerId,
+    notificationLanguage: normalizeNotificationLanguage(
+      value.notificationLanguage
+    ),
+    invitedAt: new Date(),
   });
 
-  return json(
-    {
-      success: true,
-      user: {
-        _id: user._id,
-        email: user.email,
-        username: user.username,
-        role: user.role,
-        ownerId: user.ownerId,
+  try {
+    await sendAdminInviteEmailToUser(user, request, {
+      companyName: company?.name || "",
+    });
+  } catch (err) {
+    console.error("[admin invite]", err?.message || err);
+    return json(
+      {
+        success: true,
+        user: rowFromDoc(user),
+        inviteSent: false,
+        message: "Admin created, but the invitation email could not be sent",
       },
+      201
+    );
+  }
+
+  const { ipAddress, userAgent } = extractAuditContext(request);
+  await recordAuditEvent({
+    action: "COMPANY_ADMIN_INVITED",
+    userRole: "superadmin",
+    userEmail: session.user?.email || "",
+    metadata: {
+      companyId: String(ownerId),
+      invitedUserId: String(user._id),
+      invitedEmail: user.email,
     },
-    201
-  );
+    ipAddress,
+    userAgent,
+  });
+
+  return json({ success: true, user: rowFromDoc(user), inviteSent: true }, 201);
 }

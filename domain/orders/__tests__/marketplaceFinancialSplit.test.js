@@ -34,6 +34,27 @@ jest.mock("@models/company", () => ({
   __esModule: true,
   default: { findById: jest.fn() },
 }));
+jest.mock("@models/user", () => ({
+  ROLE: { ADMIN: 1, SUPERADMIN: 2 },
+  User: {
+    find: jest.fn().mockReturnValue({
+      select: () => ({
+        lean: () =>
+          Promise.resolve([
+            {
+              email: "owner@a.test",
+              ownerId: "64b7f2c3a1b2c3d4e5f60788",
+              disabledAt: null,
+              lastLoginAt: new Date(),
+            },
+          ]),
+      }),
+    }),
+  },
+}));
+jest.mock("@/domain/legal/auditTrail", () => ({
+  recordAuditEvent: jest.fn().mockResolvedValue(true),
+}));
 jest.mock("@/domain/delivery/calculateDeliveryPrice", () => ({
   calculateDeliveryPrice: jest.fn().mockResolvedValue({
     deliveryIn: 40,
@@ -195,32 +216,48 @@ describe("€500 marketplace 10%/90% split", () => {
 });
 
 describe("€500 marketplace emails", () => {
+  const originalInternal = process.env.MAIL_INTERNAL_TO;
+  const originalCountry = process.env.NEXT_PUBLIC_SITE_COUNTRY;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.NEXT_PUBLIC_SITE_COUNTRY = "ES";
+    process.env.MAIL_INTERNAL_TO = "admin@rovaro.autos";
     MailLog.findOne.mockReturnValue({
       select: () => ({ lean: () => Promise.resolve(null) }),
     });
     sendEmailDirect.mockResolvedValue({ messageId: "m1" });
     Company.findById.mockReturnValue({
       select: () => ({
-        lean: () => Promise.resolve({ email: "owner@a.test", name: "Owner A" }),
+        lean: () =>
+          Promise.resolve({
+            email: "owner@a.test",
+            name: "Owner A",
+            emailPreferences: null,
+            langAdmin: "en",
+          }),
       }),
     });
+  });
+
+  afterAll(() => {
+    if (originalInternal === undefined) delete process.env.MAIL_INTERNAL_TO;
+    else process.env.MAIL_INTERNAL_TO = originalInternal;
+    if (originalCountry === undefined) delete process.env.NEXT_PUBLIC_SITE_COUNTRY;
+    else process.env.NEXT_PUBLIC_SITE_COUNTRY = originalCountry;
   });
 
   test("partner email instructs the supplier to collect only €450", async () => {
     await sendPaidConfirmationEmails({ order: euro500Order() });
     const partnerCall = sendEmailDirect.mock.calls.find((call) =>
-      call[0].to.includes("owner@a.test")
+      String(call[0].title || "").includes("customer details are now available")
     );
     expect(partnerCall).toBeTruthy();
     const blob = `${partnerCall[0].html}\n${partnerCall[0].message}`;
-    expect(blob).toContain("Collect the rest at pickup");
+    expect(blob).toMatch(/paid the Rovaro booking fee/i);
     expect(blob).toContain("EUR 450.00");
-    expect(blob).toContain("Pay now");
-    expect(blob).toContain("EUR 50.00");
-    expect(blob).toContain("Total");
     expect(blob).toContain("EUR 500.00");
+    expect(blob).toMatch(/remaining balance/i);
     expect(blob).not.toMatch(/transfer to the supplier|settlement|Stripe Connect/i);
   });
 

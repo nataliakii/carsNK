@@ -67,7 +67,8 @@ const staticPagePathMap: Record<StaticPageKey, string> = {
   [STATIC_PAGE_KEYS.PRIVACY_POLICY]: "/privacy-policy",
   [STATIC_PAGE_KEYS.TERMS_OF_SERVICE]: "/terms-of-service",
   [STATIC_PAGE_KEYS.COOKIE_POLICY]: "/cookie-policy",
-  [STATIC_PAGE_KEYS.RENTAL_TERMS]: "/rental-terms",
+  /** Canonical customer Terms route; /rental-terms and /booking-terms redirect here. */
+  [STATIC_PAGE_KEYS.RENTAL_TERMS]: "/terms",
   [STATIC_PAGE_KEYS.FOR_BUSINESS]: "/for-business",
 };
 

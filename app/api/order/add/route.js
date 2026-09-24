@@ -27,6 +27,7 @@ import {
   evaluateBookingTermsAcceptance,
 } from "@/domain/orders/bookingTermsAcceptance";
 import { pickCompanyRentalTermsForLanguage } from "@/domain/company/customerRentalTerms";
+import { buildBookingLegalSnapshot } from "@/domain/legal/bookingLegalSnapshot";
 import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
 import { resolveDocumentForDisplay } from "@/domain/legal/documentService";
 import {
@@ -228,6 +229,8 @@ async function notifyAfterCreate({
   const user = session?.user || { id: null, role: 0, isAdmin: false };
   try {
     if (!offlineToSave) {
+      // notifyOrderAction → notificationPolicy for company/superadmin matrix
+      // emails on CREATE, while keeping telegram + partner-confirm token links.
       await notifyOrderAction({
         order: orderPlain,
         user,
@@ -645,7 +648,6 @@ async function postOrderAddHandler(request) {
       }
       const bookingGate = await assertPartnerCanOperate(ownerCompany._id, {
         company: ownerCompany,
-        requireListed: true,
         purpose: PARTNER_OPERATION_PURPOSE.BOOKING,
       });
       if (!bookingGate.allowed) {
@@ -663,6 +665,7 @@ async function postOrderAddHandler(request) {
 
     const clientLangEarly = normalizeLocale(clientLocale);
     let termsAcceptanceToSave;
+    let legalSnapshotToSave;
     const skipBookingTerms = isAdminSession || offlineToSave;
     if (!skipBookingTerms) {
       const { doc: platformDoc } = await resolveDocumentForDisplay({
@@ -700,6 +703,10 @@ async function postOrderAddHandler(request) {
           }
         );
       }
+      const { doc: privacyDoc } = await resolveDocumentForDisplay({
+        documentType: LEGAL_DOCUMENT_TYPE.PRIVACY_POLICY,
+        language: clientLangEarly,
+      }).catch(() => ({ doc: null }));
       termsAcceptanceToSave = buildTermsAcceptanceRecord({
         payload: termsAcceptanceRaw,
         platform: {
@@ -709,7 +716,23 @@ async function postOrderAddHandler(request) {
           documentType: platformDoc.documentType,
           language: platformDoc.language,
         },
-        company: companyTerms,
+        company: companyTerms.available
+          ? {
+              ...companyTerms,
+              documentId:
+                ownerCompany?.customerRentalTerms?.documentId ||
+                `supplier-terms-${ownerCompany?._id || ""}`,
+              version: ownerCompany?.customerRentalTerms?.publishedVersion || 0,
+              checksum: companyTerms.sourceHash,
+            }
+          : companyTerms,
+        privacy: privacyDoc
+          ? {
+              version: privacyDoc.version,
+              checksum: privacyDoc.checksum,
+              language: privacyDoc.language,
+            }
+          : null,
       });
     }
 
@@ -1051,6 +1074,50 @@ async function postOrderAddHandler(request) {
       throw err;
     }
 
+    if (termsAcceptanceToSave) {
+      const priceDoc = toAuthoritativePriceDoc(quote);
+      const grossMinor = Number(priceDoc?.grossMinor || 0) || 0;
+      const feeMinor =
+        Number(
+          priceDoc?.prepaymentMinor ??
+            priceDoc?.platformAmountMinor ??
+            priceDoc?.bookingFeeMinor ??
+            0
+        ) || 0;
+      const feePercent =
+        Number(
+          priceDoc?.prepaymentPercent ??
+            priceDoc?.bookingFeePercent ??
+            (grossMinor > 0 ? (feeMinor / grossMinor) * 100 : 0)
+        ) || 0;
+      legalSnapshotToSave = buildBookingLegalSnapshot({
+        platform: termsAcceptanceToSave.platform,
+        privacy: termsAcceptanceToSave.privacy,
+        supplierTerms: termsAcceptanceToSave.company
+          ? {
+              documentId: termsAcceptanceToSave.company.documentId,
+              version: termsAcceptanceToSave.company.version,
+              language: termsAcceptanceToSave.company.language,
+              checksum:
+                termsAcceptanceToSave.company.checksum ||
+                termsAcceptanceToSave.company.sourceHash,
+            }
+          : null,
+        language: clientLangEarly,
+        acceptedAt: termsAcceptanceToSave.platform?.acceptedAt || new Date(),
+        customerEmail: safeEmail || "",
+        ipAddress: "",
+        userAgent: String(request.headers.get("user-agent") || "").slice(0, 500),
+        priceMinor: grossMinor,
+        bookingFeeMinor: feeMinor,
+        bookingFeePercent: feePercent,
+        supplierBalanceMinor: Math.max(0, grossMinor - feeMinor),
+        carId: String(existingCar?._id || ""),
+        pickup: String(placeInToSave || placeIn || ""),
+        dropoff: String(placeOutToSave || placeOut || ""),
+      });
+    }
+
     if (isMarketplaceRequestMode(bookingMode) && quote) {
       const reconciled = assertAuthoritativePriceReconciled({
         authoritativePrice: toAuthoritativePriceDoc(quote),
@@ -1134,6 +1201,13 @@ async function postOrderAddHandler(request) {
     const rawClientIp = getClientIp(request);
     // Do not persist loopback/LAN IPs (::1, 127.0.0.1, etc.) — not a real visitor address.
     const clientIP = isPrivateIp(rawClientIp) ? "" : rawClientIp.trim();
+    if (legalSnapshotToSave) {
+      legalSnapshotToSave = {
+        ...legalSnapshotToSave,
+        ipAddress: clientIP,
+        customerEmail: legalSnapshotToSave.customerEmail || safeEmail || "",
+      };
+    }
     const geo = await getGeoFromIpApi(rawClientIp);
     const clientCountry = geo.country || "";
     const clientRegion = geo.region || "";
@@ -1200,6 +1274,7 @@ async function postOrderAddHandler(request) {
       fromLocalhost,
       drivingLicenceUrls,
       termsAcceptance: termsAcceptanceToSave,
+      legalSnapshot: legalSnapshotToSave,
       bookingMode,
       countryCode,
       currency,
@@ -1227,6 +1302,9 @@ async function postOrderAddHandler(request) {
     }
     if (termsAcceptanceToSave) {
       newOrder.set("termsAcceptance", termsAcceptanceToSave, { strict: false });
+    }
+    if (legalSnapshotToSave) {
+      newOrder.set("legalSnapshot", legalSnapshotToSave, { strict: false });
     }
 
     if (nonConfirmedDates.length > 0) {

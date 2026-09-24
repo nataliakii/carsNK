@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { requireSuperAdmin } from "@lib/adminAuth";
+import { requirePlatformAdmin } from "@lib/adminAuth";
+import { pendingProfileChangeSummary } from "@/domain/legal/verifiedProfileChanges";
 import { connectToDB } from "@lib/database";
 import Company from "@models/company";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
@@ -17,13 +18,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Superadmin partner verification overview / pending count.
+ * Platform-admin partner verification overview / pending count.
+ *
+ * This is the review surface's own data — internal compliance codes, refusal
+ * reasons and status history. A superadmin inside a company gets 403 and has
+ * to leave that company first.
  *
  * Optional `?country=ES|GR|ALL` scopes companies to the admin workspace so
  * Spain Legal badge never includes Greece partners (and vice versa).
  */
 export async function GET(request) {
-  const { errorResponse } = await requireSuperAdmin(request);
+  const { errorResponse } = await requirePlatformAdmin(request);
   if (errorResponse) return errorResponse;
 
   await connectToDB();
@@ -121,6 +126,7 @@ export async function GET(request) {
             rejectionReason: profile.rejectionReason || "",
             completeness,
             missingDocuments: missingDocs,
+            pendingChanges: pendingProfileChangeSummary(profile),
             legalName: profile.legalName || "",
             tradingName: profile.tradingName || "",
             registrationNumber: profile.registrationNumber || "",

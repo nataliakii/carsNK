@@ -7,6 +7,7 @@ import {
   isAdminCompanySection,
   isAdminLegalSection,
   isAdminOrdersSection,
+  isAdminSettingsSection,
   resolveCompanyHubTab,
 } from "../adminNav";
 
@@ -26,9 +27,12 @@ describe("adminNav IA", () => {
     expect(isAdminCompanySection("/admin/company?tab=vouchers")).toBe(true);
     expect(isAdminCompanySection("/admin/delivery-zones")).toBe(true);
     expect(isAdminCompanySection("/admin/vouchers")).toBe(true);
+    expect(isAdminCompanySection("/admin/settings")).toBe(false);
+    expect(isAdminSettingsSection("/admin/settings")).toBe(true);
+    expect(isAdminSettingsSection("/admin/settings?tab=pricing")).toBe(true);
     expect(isAdminLegalSection("/admin/legal-profile?tab=agreement")).toBe(true);
+    expect(isAdminLegalSection("/admin/settings?tab=legal")).toBe(true);
     expect(isAdminLegalSection("/admin/legal")).toBe(true);
-    expect(isAdminLegalSection("/admin/legal/")).toBe(true);
     expect(isAdminLegalSection("/admin/owners")).toBe(false);
   });
 
@@ -38,13 +42,7 @@ describe("adminNav IA", () => {
         hasCompanyContext: false,
         showSuperAdminTabs: true,
       })
-    ).toEqual([
-      "access-links",
-      "platform",
-      "delivery",
-      "pricing",
-      "vouchers",
-    ]);
+    ).toEqual([]);
     expect(
       getCompanyHubTabIds({
         hasCompanyContext: true,
@@ -60,7 +58,7 @@ describe("adminNav IA", () => {
     ]);
   });
 
-  it("does not put People on the empty superadmin hub", () => {
+  it("does not put platform Settings tabs on the company hub", () => {
     expect(
       getCompanyHubTabIds({
         hasCompanyContext: false,
@@ -73,6 +71,18 @@ describe("adminNav IA", () => {
         showSuperAdminTabs: true,
       })
     ).not.toContain("storefront");
+    expect(
+      getCompanyHubTabIds({
+        hasCompanyContext: true,
+        showSuperAdminTabs: false,
+      })
+    ).not.toContain("legal");
+    expect(
+      getCompanyHubTabIds({
+        hasCompanyContext: true,
+        showSuperAdminTabs: false,
+      })
+    ).not.toContain("platform");
   });
 
   it("maps old contacts and delivery-zones query tabs", () => {
@@ -134,8 +144,10 @@ describe("adminNav IA", () => {
     expect(items.some((item) => item.label === "Partner reviews")).toBe(false);
     expect(items.some((item) => item.label === "Platform settings")).toBe(false);
     expect(items.find((item) => item.id === "settings").href).toBe(
-      ADMIN_PATHS.company
+      ADMIN_PATHS.settings
     );
+    expect(ADMIN_PATHS.settings).toBe("/admin/settings");
+    expect(ADMIN_PATHS.legalHub).toBe("/admin/settings?tab=legal");
   });
 
   it("hides superadmin Partners and Settings in company context", () => {

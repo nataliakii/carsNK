@@ -41,6 +41,14 @@ const mailLogSchema = new mongoose.Schema(
       index: true,
     },
     attachmentNames: { type: [String], default: [] },
+    /**
+     * Stable delivery key (event type + entity id [+ audience]).
+     * Unique when set so webhook retries cannot duplicate matrix emails.
+     */
+    idempotencyKey: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -53,6 +61,14 @@ mailLogSchema.index({ type: 1, sentAt: -1 });
 mailLogSchema.index({ status: 1, sentAt: -1 });
 mailLogSchema.index({ orderId: 1, sentAt: -1 });
 mailLogSchema.index({ companyId: 1, sentAt: -1 });
+mailLogSchema.index(
+  { idempotencyKey: 1 },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: { idempotencyKey: { $type: "string" } },
+  }
+);
 
 const MailLog =
   mongoose.models?.MailLog || mongoose.model("MailLog", mailLogSchema);

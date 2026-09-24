@@ -74,6 +74,34 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    /** Display name shown in the partner Admins tab. Falls back to username. */
+    name: {
+      type: String,
+      default: "",
+      trim: true,
+      max: 80,
+    },
+    /** Set when an invitation is sent. Cleared never — see lastLoginAt. */
+    invitedAt: {
+      type: Date,
+      default: null,
+    },
+    /** Last successful credentials login. Null = invitation still pending. */
+    lastLoginAt: {
+      type: Date,
+      default: null,
+    },
+    /** Set while access is revoked. A disabled user cannot sign in. */
+    disabledAt: {
+      type: Date,
+      default: null,
+    },
+    /** UI locale used for invitations and admin notifications. */
+    notificationLanguage: {
+      type: String,
+      default: "en",
+      trim: true,
+    },
   },
   { timestamps: true }
 );
@@ -85,5 +113,15 @@ if (User?.schema && !User.schema.path("resetPasswordTokenHash")) {
   User.schema.add({
     resetPasswordTokenHash: { type: String, default: null, index: true },
     resetPasswordExpires: { type: Date, default: null },
+  });
+}
+
+if (User?.schema && !User.schema.path("lastLoginAt")) {
+  User.schema.add({
+    name: { type: String, default: "", trim: true, max: 80 },
+    invitedAt: { type: Date, default: null },
+    lastLoginAt: { type: Date, default: null },
+    disabledAt: { type: Date, default: null },
+    notificationLanguage: { type: String, default: "en", trim: true },
   });
 }

@@ -81,7 +81,7 @@ export const ALL_LEGAL_DOCUMENT_STATUSES = Object.freeze(
 
 /** Languages the registry ships. English is the authoritative legal version. */
 export const LEGAL_AUTHORITATIVE_LANGUAGE = "en";
-export const LEGAL_LANGUAGES = Object.freeze(["en", "es"]);
+export const LEGAL_LANGUAGES = Object.freeze(["en", "es", "ru", "uk"]);
 
 export function normalizeLegalLanguage(value) {
   const lang = String(value || "")

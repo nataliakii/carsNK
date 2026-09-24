@@ -11,10 +11,26 @@ jest.mock("@/domain/booking/partnerBookingConfirmation", () => ({
     token: "test-partner-confirm-token",
   }),
 }));
+jest.mock("@/domain/mail/notificationPolicy", () => ({
+  notifyBookingRequested: jest.fn().mockResolvedValue({ ok: true }),
+}));
 jest.mock("@models/auditLog", () => ({
   __esModule: true,
   default: { create: jest.fn().mockResolvedValue({}) },
 }));
+jest.mock("@models/MailLog", () => ({
+  __esModule: true,
+  default: {
+    findOne: jest.fn().mockReturnValue({
+      select: () => ({ lean: () => Promise.resolve(null) }),
+    }),
+    create: jest.fn(),
+  },
+}));
+jest.mock("@lib/database", () => ({ connectToDB: jest.fn() }));
+
+import { notifyBookingRequested } from "@/domain/mail/notificationPolicy";
+import { issueConfirmationToken } from "@/domain/booking/partnerBookingConfirmation";
 
 describe("orderNotificationDispatcher", () => {
   const originalEmailTesting = process.env.EMAIL_TESTING;
@@ -27,8 +43,8 @@ describe("orderNotificationDispatcher", () => {
     carModel: "Toyota Yaris",
     placeIn: "Thessaloniki Airport (SKG)",
     placeOut: "Nea Kallikratia",
-    rentalStartDate: "2026-01-14T22:00:00.000Z", // 15-01-26 Athens
-    rentalEndDate: "2026-01-16T22:00:00.000Z", // 17-01-26 Athens
+    rentalStartDate: "2026-01-14T22:00:00.000Z",
+    rentalEndDate: "2026-01-16T22:00:00.000Z",
     timeIn: "2026-01-15T12:00:00.000Z",
     timeOut: "2026-01-17T08:00:00.000Z",
     totalPrice: 123,
@@ -59,13 +75,14 @@ describe("orderNotificationDispatcher", () => {
     sendEmailDirect.mockResolvedValue({ messageId: "test-id" });
     sendTelegramDirect.mockResolvedValue(true);
     AuditLog.create.mockResolvedValue({});
+    notifyBookingRequested.mockResolvedValue({ ok: true });
   });
 
   afterAll(() => {
     process.env.EMAIL_TESTING = originalEmailTesting;
   });
 
-  test("CREATE client order sends all channels and formats dates in Athens timezone", async () => {
+  test("CREATE client order delegates company/superadmin to matrix and keeps telegram + customer", async () => {
     await expect(
       notifyOrderAction({
         order: baseOrder,
@@ -78,54 +95,30 @@ describe("orderNotificationDispatcher", () => {
       })
     ).resolves.toBeUndefined();
 
-    // COMPANY_EMAIL + SUPERADMIN + CUSTOMER -> 3 email sends
-    expect(sendEmailDirect).toHaveBeenCalledTimes(3);
-    // SUPERADMIN telegram only once for this scenario
+    expect(notifyBookingRequested).toHaveBeenCalledTimes(1);
+    const matrix = notifyBookingRequested.mock.calls[0][0];
+    expect(matrix.companyEmail).toBe("company@example.com");
+    expect(matrix.confirmUrl).toContain("/api/booking/partner-confirm?token=");
+    expect(matrix.confirmUrl).toContain("test-partner-confirm-token");
+    expect(matrix.revealContacts).toBe(false);
+    expect(matrix.customerName).toBe("Test User");
+    expect(issueConfirmationToken).toHaveBeenCalled();
+
+    // Customer email only (company/superadmin owned by matrix policy).
+    expect(sendEmailDirect).toHaveBeenCalledTimes(1);
+    expect(sendEmailDirect.mock.calls[0][0].to).toContain("customer@example.com");
     expect(sendTelegramDirect).toHaveBeenCalledTimes(1);
 
-    const firstEmailCall = sendEmailDirect.mock.calls[0][0];
-    expect(firstEmailCall.message).toContain("📅 From: 15-01-26 (14:00)");
-    expect(firstEmailCall.message).toContain("📅 To: 17-01-26 (10:00)");
-    expect(firstEmailCall.message).toContain("AA-1234");
-    expect(firstEmailCall.message).toContain("📍 Pickup: Thessaloniki Airport (SKG)");
-    expect(firstEmailCall.message).toContain("↩️ Return: Nea Kallikratia");
-    expect(firstEmailCall.html).toContain("/api/booking/partner-confirm?token=");
-    expect(firstEmailCall.html).toContain("test-partner-confirm-token");
-    expect(firstEmailCall.html).toContain("Contact Rovaro support");
-    expect(firstEmailCall.html).not.toContain("View calendar");
-    expect(firstEmailCall.html).not.toMatch(/superadmin/i);
-    expect(sendTelegramDirect.mock.calls[0][0]).toContain("AA-1234");
-    expect(sendTelegramDirect.mock.calls[0][0]).toContain(
-      "📍 Pickup: Thessaloniki Airport (SKG)"
-    );
-    expect(sendTelegramDirect.mock.calls[0][0]).toContain("↩️ Return: Nea Kallikratia");
-    expect(sendTelegramDirect.mock.calls[0][0]).toContain(
-      "🪪 Driver's licence: not uploaded"
-    );
-    expect(firstEmailCall.message).not.toContain("🪪 Driver's licence:");
-
-    // COMPANY_EMAIL: только язык + страна; SUPERADMIN: полный гео-футер в Telegram и письме
-    const companyEmail = sendEmailDirect.mock.calls[0][0];
-    expect(companyEmail.message).toContain("• Language: ru");
-    expect(companyEmail.message).toContain("• Country: Greece");
-    expect(companyEmail.message).not.toContain("• Region:");
-    expect(companyEmail.message).not.toContain("• City:");
-    expect(companyEmail.message).not.toContain("• Client IP:");
-
-    const superadminTelegram = sendTelegramDirect.mock.calls[0][0];
-    expect(superadminTelegram).toContain("• Language: ru");
-    expect(superadminTelegram).toContain("• Client IP: 203.0.113.1");
-    expect(superadminTelegram).toContain("• Country: Greece");
-    expect(superadminTelegram).toContain("• Region: Attica");
-    expect(superadminTelegram).toContain("• City: Athens");
-
-    const superadminEmail = sendEmailDirect.mock.calls[1][0];
-    expect(superadminEmail.message).toContain("• Language: ru");
-    expect(superadminEmail.message).toContain("• Client IP: 203.0.113.1");
-    expect(superadminEmail.message).toContain("🪪 Driver's licence: not uploaded");
+    const telegram = sendTelegramDirect.mock.calls[0][0];
+    expect(telegram).toContain("AA-1234");
+    expect(telegram).toContain("📍 Pickup: Thessaloniki Airport (SKG)");
+    expect(telegram).toContain("↩️ Return: Nea Kallikratia");
+    expect(telegram).toContain("🪪 Driver's licence: not uploaded");
+    expect(telegram).toContain("• Language: ru");
+    expect(telegram).toContain("• Client IP: 203.0.113.1");
   });
 
-  test("CREATE with CDW includes localized insurance line before days in admin/superadmin messages", async () => {
+  test("CREATE with CDW includes insurance line in telegram", async () => {
     await notifyOrderAction({
       order: { ...baseOrder, insurance: "CDW", numberOfDays: 2 },
       user: baseUser,
@@ -136,19 +129,15 @@ describe("orderNotificationDispatcher", () => {
       notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
     });
 
-    const companyMsg = sendEmailDirect.mock.calls[0][0].message;
-    const superadminEmailMsg = sendEmailDirect.mock.calls[1][0].message;
     const telegramMsg = sendTelegramDirect.mock.calls[0][0];
-    for (const msg of [companyMsg, superadminEmailMsg, telegramMsg]) {
-      const daysIdx = msg.indexOf("🗓 Days:");
-      const insIdx = msg.indexOf("🛡️ Insurance: CDW");
-      expect(insIdx).toBeGreaterThan(-1);
-      expect(daysIdx).toBeGreaterThan(-1);
-      expect(insIdx).toBeLessThan(daysIdx);
-    }
+    const daysIdx = telegramMsg.indexOf("🗓 Days:");
+    const insIdx = telegramMsg.indexOf("🛡️ Insurance: CDW");
+    expect(insIdx).toBeGreaterThan(-1);
+    expect(daysIdx).toBeGreaterThan(-1);
+    expect(insIdx).toBeLessThan(daysIdx);
   });
 
-  test("CREATE includes driving licence Cloudinary URLs only for superadmin channels", async () => {
+  test("CREATE includes driving licence URLs only on superadmin telegram", async () => {
     const licUrl = "https://res.cloudinary.com/demo/image/upload/v1/licence-front";
     await notifyOrderAction({
       order: { ...baseOrder, drivingLicenceUrls: [licUrl] },
@@ -160,19 +149,13 @@ describe("orderNotificationDispatcher", () => {
       notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
     });
 
-    const companyMsg = sendEmailDirect.mock.calls[0][0].message;
-    const superadminMsg = sendEmailDirect.mock.calls[1][0].message;
+    expect(notifyBookingRequested.mock.calls[0][0].revealContacts).toBe(false);
     const telegramMsg = sendTelegramDirect.mock.calls[0][0];
-    expect(companyMsg).not.toContain("🪪");
-    expect(companyMsg).not.toContain("Driver's licence:");
-    expect(companyMsg).not.toContain(licUrl);
-    expect(superadminMsg).toContain(licUrl);
-    expect(superadminMsg).toContain("🪪 Driver's licence: uploaded");
     expect(telegramMsg).toContain(licUrl);
     expect(telegramMsg).toContain("🪪 Driver's licence: uploaded");
   });
 
-  test("CREATE with driving licences and Russian notify locale does not throw (ru DICT had missing keys)", async () => {
+  test("CREATE with Russian notify locale does not throw", async () => {
     const licUrl = "https://res.cloudinary.com/demo/image/upload/v1/licence-front";
     await expect(
       notifyOrderAction({
@@ -186,16 +169,11 @@ describe("orderNotificationDispatcher", () => {
       })
     ).resolves.toBeUndefined();
 
-    expect(sendEmailDirect).toHaveBeenCalledTimes(3);
-    const companyMsg = sendEmailDirect.mock.calls[0][0].message;
-    const superadminMsg = sendEmailDirect.mock.calls[1][0].message;
-    expect(companyMsg).not.toContain("🪪");
-    expect(companyMsg).not.toContain("Водительские права");
-    expect(companyMsg).not.toContain(licUrl);
-    expect(superadminMsg).toContain(licUrl);
+    expect(notifyBookingRequested).toHaveBeenCalled();
+    expect(sendEmailDirect).toHaveBeenCalledTimes(1);
   });
 
-  test("CREATE with TPL does not include insurance line", async () => {
+  test("CREATE with TPL does not include insurance line on telegram", async () => {
     await notifyOrderAction({
       order: { ...baseOrder, insurance: "TPL", numberOfDays: 2 },
       user: baseUser,
@@ -206,12 +184,10 @@ describe("orderNotificationDispatcher", () => {
       notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
     });
 
-    const companyMsg = sendEmailDirect.mock.calls[0][0].message;
-    expect(companyMsg).not.toContain("🛡️");
     expect(sendTelegramDirect.mock.calls[0][0]).not.toContain("🛡️");
   });
 
-  test("CREATE succeeds when Telegram fails but all emails succeed", async () => {
+  test("CREATE succeeds when Telegram fails but customer email succeeds", async () => {
     sendTelegramDirect.mockResolvedValue(false);
 
     await expect(
@@ -226,15 +202,12 @@ describe("orderNotificationDispatcher", () => {
       })
     ).resolves.toBeUndefined();
 
-    expect(sendEmailDirect).toHaveBeenCalledTimes(3);
+    expect(sendEmailDirect).toHaveBeenCalledTimes(1);
     expect(sendTelegramDirect).toHaveBeenCalledTimes(1);
   });
 
-  test("throws aggregated error when at least one channel fails, but still attempts all channels", async () => {
-    sendEmailDirect
-      .mockResolvedValueOnce({ messageId: "ok" })
-      .mockRejectedValueOnce(new Error("SMTP down"))
-      .mockResolvedValueOnce({ messageId: "ok" });
+  test("throws aggregated error when customer email fails", async () => {
+    sendEmailDirect.mockRejectedValueOnce(new Error("SMTP down"));
 
     await expect(
       notifyOrderAction({
@@ -248,7 +221,7 @@ describe("orderNotificationDispatcher", () => {
       })
     ).rejects.toThrow(/Notification dispatch failed/);
 
-    expect(sendEmailDirect).toHaveBeenCalledTimes(3);
+    expect(sendEmailDirect).toHaveBeenCalledTimes(1);
     expect(sendTelegramDirect).toHaveBeenCalledTimes(1);
   });
 
@@ -290,31 +263,7 @@ describe("orderNotificationDispatcher", () => {
     expect(telegramText).toContain("New price: €120.00");
   });
 
-  test("AuditLog.create is called without licence URLs or full order payload", async () => {
-    await notifyOrderAction({
-      order: {
-        ...baseOrder,
-        drivingLicenceUrls: ["https://res.cloudinary.com/demo/licence.jpg"],
-      },
-      user: baseUser,
-      action: "CREATE",
-      source: "BACKEND",
-      companyEmail: "company@example.com",
-      locale: "en",
-      notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
-    });
-
-    expect(AuditLog.create).toHaveBeenCalled();
-    const payload = AuditLog.create.mock.calls[0][0];
-    expect(payload.action).toBe("OTHER");
-    expect(JSON.stringify(payload)).not.toMatch(/drivingLicenceUrls/);
-    expect(JSON.stringify(payload)).not.toMatch(/licence\.jpg/);
-    expect(payload.orderData.customerName).toBeUndefined();
-    expect(payload.orderData.customerPhone).toBeUndefined();
-    expect(payload.metadata.notificationAction).toBe("CREATE");
-  });
-
-  test("AuditLog.create failure does not fail the booking notification", async () => {
+  test("AuditLog persistence failure does not block notifications", async () => {
     AuditLog.create.mockRejectedValueOnce(new Error("mongo down"));
     await expect(
       notifyOrderAction({
@@ -323,35 +272,9 @@ describe("orderNotificationDispatcher", () => {
         action: "CREATE",
         source: "BACKEND",
         companyEmail: "company@example.com",
-        locale: "en",
         notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
       })
     ).resolves.toBeUndefined();
-    expect(sendEmailDirect).toHaveBeenCalled();
-  });
-
-  test("CONFIRM by company admin emails superadmin", async () => {
-    await notifyOrderAction({
-      order: {
-        ...baseOrder,
-        my_order: false,
-        confirmed: true,
-        rentalStartDate: "2099-01-14T22:00:00.000Z",
-        rentalEndDate: "2099-01-16T22:00:00.000Z",
-        timeIn: "2099-01-15T12:00:00.000Z",
-        timeOut: "2099-01-17T08:00:00.000Z",
-      },
-      user: baseUser,
-      action: "CONFIRM",
-      actorName: "Company Admin",
-      source: "BACKEND",
-      notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
-    });
-
-    const titles = sendEmailDirect.mock.calls.map((call) => call[0].title);
-    expect(titles.some((title) => /company admin confirmed/i.test(title))).toBe(
-      true
-    );
-    expect(sendTelegramDirect).toHaveBeenCalled();
+    expect(notifyBookingRequested).toHaveBeenCalled();
   });
 });

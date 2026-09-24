@@ -106,7 +106,7 @@ export async function createCarFromPayload(payload, ctx) {
 
     const ownerCompany = ownerId
       ? await Company.findById(ownerId)
-          .select("_id country bookingMode listedOnMarketplace")
+          .select("_id name country bookingMode listedOnMarketplace")
           .lean()
       : null;
     const superadmin = isSuperAdminUser(ctx.user);
@@ -143,7 +143,25 @@ export async function createCarFromPayload(payload, ctx) {
     });
 
     const car = await Car.create(data);
-    return { ok: true, car: car.toObject ? car.toObject() : car };
+    const plain = car.toObject ? car.toObject() : car;
+    try {
+      const { notifyCarLifecycle } = await import(
+        "@/domain/mail/notificationPolicy"
+      );
+      await notifyCarLifecycle({
+        action: "added",
+        carId: String(plain._id),
+        companyId: ownerId ? String(ownerId) : "",
+        companyName: ownerCompany?.name || "",
+        carModel: plain.model || "",
+        regNumber: plain.regNumber || "",
+        actorEmail: ctx.user?.email || "",
+        timestamp: new Date(),
+      });
+    } catch (err) {
+      console.error("[createCar] notify failed:", err?.message || err);
+    }
+    return { ok: true, car: plain };
   } catch (error) {
     return {
       ok: false,

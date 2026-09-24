@@ -20,7 +20,7 @@ import { formatMinor } from "@/domain/money/minorUnits";
 
 const KINDS = ["FIXED_ROUTE", "ZONE_PAIR", "CITY_FORMULA"];
 
-export default function TransferPricingSection() {
+export default function TransferPricingSection({ embedded = false } = {}) {
   const [rules, setRules] = useState([]);
   const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -233,10 +233,16 @@ export default function TransferPricingSection() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 } }}>
-      <Typography variant="h5" sx={{ mb: 1 }}>
-        Transfer pricing
-      </Typography>
+    <Box sx={{ p: embedded ? 0 : { xs: 2, md: 3 } }}>
+      {embedded ? (
+        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+          Transfer pricing
+        </Typography>
+      ) : (
+        <Typography variant="h5" sx={{ mb: 1 }}>
+          Transfer pricing
+        </Typography>
+      )}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Priority: fixed route → zone pair → city formula → manual quote.
         Suppliers cannot edit customer prices.

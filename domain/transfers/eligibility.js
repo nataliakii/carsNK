@@ -1,5 +1,24 @@
 import Company from "@models/company";
+import { Car } from "@models/car";
 import { locationDisplayName } from "@/domain/transfers/locationSnapshot";
+import {
+  anyFleetCarFitsTransfer,
+  groupCarsByOwner,
+  listEligibleFleetCars,
+  CHILD_SEAT_STATUS,
+  fleetChildSeatStatus,
+} from "@/domain/transfers/transferFleet";
+import {
+  TRANSFER_ELIGIBILITY_PURPOSE,
+  resolveAcceptAllTransferRequests,
+  resolveTransferNotifyEmail,
+  resolveTransferServiceArea,
+  resolveUseRentalFleet,
+} from "@/domain/transfers/transferSettings";
+import {
+  hasStructuredServiceAreas,
+  locationInServiceAreas,
+} from "@/domain/geo/spainPlaceCoverage";
 
 function normalize(value) {
   return String(value || "")
@@ -7,55 +26,53 @@ function normalize(value) {
     .toLowerCase();
 }
 
+function cityListMatches(ts, location) {
+  const cities = (ts.serviceCities || []).map(normalize);
+  if (!cities.length) return false;
+  const city = normalize(location?.city);
+  const name = normalize(locationDisplayName(location));
+  if (city && cities.includes(city)) return true;
+  if (name && cities.some((c) => name.includes(c) || c.includes(name))) {
+    return true;
+  }
+  return false;
+}
+
+function airportListMatches(ts, location) {
+  const airports = (ts.airportsServed || []).map((a) => String(a).toUpperCase());
+  if (!airports.length) return false;
+  const iata = String(location?.iataCode || "").toUpperCase();
+  if (iata && airports.includes(iata)) return true;
+  const name = normalize(locationDisplayName(location));
+  return airports.some(
+    (a) => normalize(a).includes(name) || name.includes(normalize(a))
+  );
+}
+
 function servesPlace(ts, location, country) {
   if (!ts) return false;
   const countries = (ts.serviceCountries || []).map((c) =>
     String(c).toUpperCase()
   );
-  if (countries.length && !countries.includes(String(country || "").toUpperCase())) {
+  if (
+    countries.length &&
+    !countries.includes(String(country || "").toUpperCase())
+  ) {
     return false;
   }
 
-  const cities = (ts.serviceCities || []).map(normalize);
-  const city = normalize(location?.city);
-  const name = normalize(locationDisplayName(location));
-  if (cities.length) {
-    const cityOk =
-      (city && cities.includes(city)) ||
-      (name && cities.some((c) => name.includes(c) || c.includes(name)));
-    if (!cityOk) {
-      // still allow if airport is listed
-      const iata = String(location?.iataCode || "").toUpperCase();
-      const airports = (ts.airportsServed || []).map((a) =>
-        String(a).toUpperCase()
-      );
-      if (!iata || !airports.includes(iata)) {
-        if (location?.locationType === "airport") {
-          const airportNames = airports.map(normalize);
-          if (!airportNames.some((a) => name.includes(a) || a.includes(name))) {
-            return false;
-          }
-        } else {
-          return false;
-        }
-      }
-    }
-  }
+  const hasCities = (ts.serviceCities || []).some((c) => String(c || "").trim());
+  const hasAirports = (ts.airportsServed || []).some((a) =>
+    String(a || "").trim()
+  );
+  const hasAdmin = hasStructuredServiceAreas(ts);
+  if (!hasCities && !hasAirports && !hasAdmin) return true;
 
-  if (location?.locationType === "airport" || location?.iataCode) {
-    const airports = (ts.airportsServed || []).map((a) =>
-      String(a).toUpperCase()
-    );
-    if (airports.length) {
-      const iata = String(location?.iataCode || "").toUpperCase();
-      const nameOk = airports.some((a) =>
-        normalize(a).includes(name) || name.includes(normalize(a))
-      );
-      if (iata && !airports.includes(iata) && !nameOk) return false;
-    }
-  }
+  if (hasAdmin && locationInServiceAreas(location, ts)) return true;
+  if (hasCities && cityListMatches(ts, location)) return true;
+  if (hasAirports && airportListMatches(ts, location)) return true;
 
-  return true;
+  return false;
 }
 
 function withinOperatingHours(ts, datetime) {
@@ -96,43 +113,7 @@ function meetsNotice(ts, datetime) {
   return true;
 }
 
-/**
- * Check whether a company can fulfil a transfer request.
- */
-export function isCompanyEligibleForTransfer(company, transfer) {
-  const reasons = [];
-  const ts = company?.transferServices;
-
-  if (!ts?.enabled) reasons.push("transfer_services_disabled");
-  if (ts?.suspended) reasons.push("suspended");
-  if (ts?.blockedByAdmin) reasons.push("blocked");
-  if (!ts?.supplierAgreementAcceptedAt) {
-    reasons.push("supplier_agreement_required");
-  }
-
-  const country = String(transfer.country || company?.country || "").toUpperCase();
-  if (
-    String(company?.country || "").toUpperCase() &&
-    String(company.country).toUpperCase() !== country &&
-    !(ts?.serviceCountries || []).map((c) => String(c).toUpperCase()).includes(country)
-  ) {
-    reasons.push("country_mismatch");
-  }
-
-  const origin = transfer.origin || {
-    placeName: transfer.from,
-    city: transfer.from,
-    country,
-  };
-  const destination = transfer.destination || {
-    placeName: transfer.to,
-    city: transfer.to,
-    country,
-  };
-
-  if (!servesPlace(ts, origin, country)) reasons.push("pickup_area");
-  if (!servesPlace(ts, destination, country)) reasons.push("destination_area");
-
+function applyCapacityFilters(reasons, ts, transfer) {
   const category = String(transfer.vehicleCategory || "STANDARD").toUpperCase();
   const cats = (ts?.vehicleCategories || []).map((c) => String(c).toUpperCase());
   if (cats.length && !cats.includes(category) && !cats.includes("*")) {
@@ -158,6 +139,7 @@ export function isCompanyEligibleForTransfer(company, transfer) {
   if (
     Number(transfer.childSeats || 0) > Number(ts?.childSeatsAvailable || 0)
   ) {
+    // Explicit inventory only. A priced extra is confirmation-required, not a hard reject.
     reasons.push("child_seats");
   }
   if (
@@ -190,16 +172,127 @@ export function isCompanyEligibleForTransfer(company, transfer) {
   if (!meetsNotice(ts, transfer.datetime)) {
     reasons.push("minimum_notice");
   }
+}
 
-  if (!company?.email && !(ts?.contactEmails || []).length) {
+/**
+ * Check whether a company can see or fulfil a transfer request.
+ *
+ * Visibility + accept-all: service area only (company still claims each order).
+ * Fulfillment: vehicle, passengers, luggage, child seats and timing for
+ * this specific order. Does not auto-accept or reserve a vehicle.
+ *
+ * @param {object} company
+ * @param {object} transfer
+ * @param {{ purpose?: string, cars?: object[] }} [opts]
+ */
+export function isCompanyEligibleForTransfer(company, transfer, opts = {}) {
+  const reasons = [];
+  const ts = company?.transferServices;
+  const purpose =
+    opts.purpose === TRANSFER_ELIGIBILITY_PURPOSE.VISIBILITY
+      ? TRANSFER_ELIGIBILITY_PURPOSE.VISIBILITY
+      : TRANSFER_ELIGIBILITY_PURPOSE.FULFILLMENT;
+  const acceptAll = resolveAcceptAllTransferRequests(ts);
+  const useFleet = resolveUseRentalFleet(ts);
+  const cars = Array.isArray(opts.cars) ? opts.cars : [];
+  const area = resolveTransferServiceArea(company);
+  const areaTs = { ...ts, ...area };
+
+  if (!ts?.enabled) reasons.push("transfer_services_disabled");
+  if (ts?.suspended) reasons.push("suspended");
+  if (ts?.blockedByAdmin) reasons.push("blocked");
+  if (!ts?.supplierAgreementAcceptedAt) {
+    reasons.push("supplier_agreement_required");
+  }
+
+  const country = String(transfer.country || company?.country || "").toUpperCase();
+  if (
+    String(company?.country || "").toUpperCase() &&
+    String(company.country).toUpperCase() !== country &&
+    !(ts?.serviceCountries || []).map((c) => String(c).toUpperCase()).includes(country)
+  ) {
+    reasons.push("country_mismatch");
+  }
+
+  const origin = transfer.origin || {
+    placeName: transfer.from,
+    city: transfer.from,
+    country,
+  };
+  const destination = transfer.destination || {
+    placeName: transfer.to,
+    city: transfer.to,
+    country,
+  };
+
+  if (!servesPlace(areaTs, origin, country)) reasons.push("pickup_area");
+  if (!servesPlace(areaTs, destination, country)) reasons.push("destination_area");
+
+  const checkCapacity =
+    purpose === TRANSFER_ELIGIBILITY_PURPOSE.FULFILLMENT || !acceptAll;
+
+  if (checkCapacity) {
+    if (useFleet) {
+      if (!anyFleetCarFitsTransfer(cars, transfer)) {
+        reasons.push("fleet_capacity");
+      } else {
+        const seats = fleetChildSeatStatus(cars, transfer);
+        if (seats.status === CHILD_SEAT_STATUS.CONFIRMATION_REQUIRED) {
+          // Claimable; partner confirms inventory when claiming.
+        } else if (seats.status === CHILD_SEAT_STATUS.UNAVAILABLE) {
+          reasons.push("child_seats");
+        }
+      }
+    } else {
+      applyCapacityFilters(reasons, ts, transfer);
+    }
+  }
+
+  const notifyEmail = resolveTransferNotifyEmail(company);
+  if (!notifyEmail) {
     reasons.push("no_contact_email");
   }
 
   return {
     ok: reasons.length === 0,
     reasons,
+    purpose,
+    acceptAll,
     companyId: company?._id ? String(company._id) : null,
   };
+}
+
+/**
+ * Open requests this company may see. Accept-all does not auto-assign.
+ */
+export function isTransferVisibleToCompany(company, transfer, opts = {}) {
+  return isCompanyEligibleForTransfer(company, transfer, {
+    ...opts,
+    purpose: TRANSFER_ELIGIBILITY_PURPOSE.VISIBILITY,
+  });
+}
+
+function claimedByCompany(item, ownerId) {
+  if (!ownerId) return false;
+  const assigned = item?.assignedSupplierId
+    ? String(item.assignedSupplierId)
+    : "";
+  const claimed = item?.claimedByCompanyId
+    ? String(item.claimedByCompanyId)
+    : "";
+  const owner = String(ownerId);
+  return assigned === owner || claimed === owner;
+}
+
+/**
+ * Company viewers see their own claimed jobs plus open requests in scope.
+ * Another company's claimed jobs stay hidden.
+ */
+export function filterTransfersForCompanyViewer(items, company, cars, ownerId) {
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    if (claimedByCompany(item, ownerId)) return true;
+    return isTransferVisibleToCompany(company, item, { cars }).ok;
+  });
 }
 
 /**
@@ -219,17 +312,35 @@ export async function findEligibleTransferCompanies(transfer, opts = {}) {
     "transferServices.suspended": { $ne: true },
     "transferServices.blockedByAdmin": { $ne: true },
   })
-    .select("name email country transferServices")
+    .select("name email country transferServices deliveryPricing offices")
     .lean();
+
+  const ownerIds = companies.map((c) => c._id).filter(Boolean);
+  const cars = ownerIds.length
+    ? await Car.find({ ownerId: { $in: ownerIds } })
+        .select(
+          "ownerId seats class model PriceChildSeats childSeats childSeatsAvailable isActive testingCar isHidden deletedAt unavailable status"
+        )
+        .lean()
+    : [];
+  const carsByOwner = groupCarsByOwner(cars);
 
   // Fallback during migration: if no company has transferServices.enabled,
   // do not silently notify everyone — return empty (admin must enable).
   const eligible = [];
   for (const company of companies) {
     if (excluded.has(String(company._id))) continue;
-    const check = isCompanyEligibleForTransfer(company, transfer);
+    const companyCars = carsByOwner.get(String(company._id)) || [];
+    const check = isCompanyEligibleForTransfer(company, transfer, {
+      purpose: TRANSFER_ELIGIBILITY_PURPOSE.VISIBILITY,
+      cars: companyCars,
+    });
     if (check.ok) {
-      eligible.push({ company, check });
+      eligible.push({
+        company,
+        check,
+        fleetCars: listEligibleFleetCars(companyCars),
+      });
     }
   }
   return eligible;
@@ -242,10 +353,12 @@ export async function findEligibleTransferCompanies(transfer, opts = {}) {
 export function partnerNotifyEmails(company) {
   const ts = company?.transferServices;
   const list = [];
+  const override = String(ts?.transferNotifyEmail || "").trim().toLowerCase();
+  if (override.includes("@")) list.push(override);
   for (const e of ts?.contactEmails || []) {
     if (e && String(e).includes("@")) list.push(String(e).trim().toLowerCase());
   }
-  if (company?.email && String(company.email).includes("@")) {
+  if (!override && company?.email && String(company.email).includes("@")) {
     list.push(String(company.email).trim().toLowerCase());
   }
   return [...new Set(list)];

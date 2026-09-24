@@ -24,18 +24,20 @@ export default function PartnersSection({ viewMode }) {
     (next) => {
       const params = new URLSearchParams(searchParams?.toString() || "");
       params.set("tab", next);
-      if (next !== "review") {
+      if (next === "review") {
+        // Partner detail tabs belong to the list view only.
+        params.delete("section");
+      } else {
         params.delete("filter");
-        params.delete("companyId");
       }
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [pathname, router, searchParams]
   );
 
-  const reviewLabel = t("admin.partners.needsReview", {
-    defaultValue: "Needs review",
-  });
+      const reviewLabel = t("admin.partners.reviews", {
+        defaultValue: "Needs review",
+      });
 
   return (
     <Box sx={{ px: { xs: 1, md: 2 }, pt: 2 }}>
@@ -46,7 +48,7 @@ export default function PartnersSection({ viewMode }) {
       >
         <Tab
           value="all"
-          label={t("admin.partners.all", { defaultValue: "All partners" })}
+              label={t("admin.partners.companies", { defaultValue: "All partners" })}
         />
         <Tab
           value="review"
@@ -56,7 +58,7 @@ export default function PartnersSection({ viewMode }) {
       {tab === "review" ? (
         <PartnerReviewQueue viewMode={viewMode} />
       ) : (
-        <OwnersSection />
+        <OwnersSection viewMode={viewMode} />
       )}
     </Box>
   );

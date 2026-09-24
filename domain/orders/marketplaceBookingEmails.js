@@ -732,7 +732,42 @@ export async function sendPaidConfirmationEmails({ order }) {
     order,
     supplierName: company?.name || "",
   });
-  const partner = await sendPartnerPaidEmail({ order, company });
+
+  // Company + superadmin ops emails: central matrix policy (contacts revealed
+  // only after verified server-side payment). Do not also send the legacy
+  // partner template — that would duplicate company mail.
+  let partner = { ok: true, via: "notification_policy" };
+  try {
+    const { notifyBookingFeePaid } = await import(
+      "@/domain/mail/notificationPolicy"
+    );
+    const { moneyMinor } = await import("@/domain/mail/notificationCopy");
+    const amounts = resolveRentalCheckoutAmount(order);
+    const stripeRef =
+      String(order?.payment?.paymentIntentId || "").slice(0, 24) ||
+      String(order?.payment?.providerPaymentId || "").slice(0, 24) ||
+      "";
+    const result = await notifyBookingFeePaid({
+      orderId: String(order._id),
+      companyId: order.ownerId ? String(order.ownerId) : "",
+      companyName: company?.name || "",
+      orderNumber: order.orderNumber,
+      customerName: order.customerName || "",
+      phone: order.phone || "",
+      email: order.email || "",
+      totalFormatted: moneyMinor(amounts.grossMinor, amounts.currency),
+      feeFormatted: moneyMinor(amounts.amountMinor, amounts.currency),
+      remainingFormatted: moneyMinor(amounts.balanceMinor, amounts.currency),
+      feePercent: amounts.feePercent,
+      stripeRef,
+      status: order.bookingStatus || order.payment?.status || "paid",
+    });
+    partner = { ok: result?.ok !== false, via: "notification_policy", result };
+  } catch (err) {
+    console.error("[marketplace email] fee-paid policy failed", err?.message || err);
+    partner = { ok: false, error: err?.message };
+  }
+
   return { customer, partner };
 }
 
