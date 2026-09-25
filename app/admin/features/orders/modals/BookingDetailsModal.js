@@ -1020,6 +1020,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
           </Typography>
         </StickyHeader>
         <ContentColumn>
+          {error ? <Alert severity="error">{error}</Alert> : null}
           <Typography variant="body2">
             {t("bookingDetails.replacementDialog.intro")}
           </Typography>
