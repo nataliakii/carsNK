@@ -19,11 +19,11 @@ import {
 import {
   BOOKING_CAPABILITY,
   BOOKING_ROLE,
-  resolveActorCompanyId,
   resolveActorRole,
   resolveBookingCapabilities as resolveCapabilityMap,
   resolveOrderCapabilities,
 } from "@/domain/orders/bookingCapabilities";
+import { orderBelongsToAnotherCompany } from "@/domain/orders/orderOwnershipGuard";
 import {
   AMENDMENT_ERROR,
   MATERIAL_AMENDMENT_FIELDS,
@@ -150,16 +150,28 @@ function amendmentChanges(payload) {
 
 /**
  * Backend twin of the modal. Company admins cannot edit a PLATFORM booking,
- * and the second driver is a platform extra nobody but Rovaro may add.
- * Superadmin material changes need an amendment reason and must not silently
- * rewrite terms the customer has already paid for.
+ * and on a PLATFORM booking the second driver is a Rovaro extra nobody but
+ * Rovaro may add. Superadmin material changes need an amendment reason and
+ * must not silently rewrite terms the customer has already paid for.
  */
 export function decideOrderUpdate({ order, user, payload = {} } = {}) {
   const role = bookingActorRole(user);
   const caps = capabilitiesForOrder(order, user);
 
-  // The second driver is priced and sold by Rovaro, so the rule holds on
-  // internal calendar records too, not only on platform bookings.
+  // Ownership comes before any field rule, so the answer is the same on both
+  // sources and whatever the payload happens to contain.
+  if (orderBelongsToAnotherCompany(user, order)) {
+    return {
+      ok: false,
+      status: 403,
+      code: "CAPABILITY_DENIED",
+      message: "This booking belongs to another fleet",
+    };
+  }
+
+  // On a PLATFORM booking the second driver is priced and sold by Rovaro to
+  // the customer, so only Rovaro adds it. An INTERNAL booking is the
+  // contractor's own offline record and its owner adds it freely.
   if (
     payload?.secondDriver !== undefined &&
     !caps.has(BOOKING_CAPABILITY.ADD_SECOND_DRIVER)
@@ -168,7 +180,7 @@ export function decideOrderUpdate({ order, user, payload = {} } = {}) {
       ok: false,
       status: 403,
       code: "CAPABILITY_DENIED",
-      message: "Only Rovaro can add the second driver to a booking",
+      message: "Only Rovaro can add the second driver to a platform booking",
       fields: ["secondDriver"],
     };
   }

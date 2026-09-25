@@ -379,7 +379,30 @@
     "bookingDetailsEdit": "Изменить в фильтрах",
     "bookingDetailsClose": "Закрыть",
     "bookingDetailsApply": "Применить",
-    "bookingDetailsCancel": "Отмена"
+    "bookingDetailsCancel": "Отмена",
+    "booking": {
+      "selectDates": "Выберите даты",
+      "calculatingPrice": "Расчёт цены…",
+      "book": "ЗАБРОНИРОВАТЬ",
+      "approxPrice": "Примерно {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 день аренды",
+      "rentalDays": "Дней аренды: {{days}}",
+      "rangeUnavailable": "Недоступно на эти даты",
+      "quoteFailed": "Не удалось проверить доступность",
+      "retry": "Повторить",
+      "showCalendar": "Проверить доступность",
+      "hideCalendar": "Скрыть календарь",
+      "clearDates": "Сбросить даты",
+      "previousMonth": "Предыдущий месяц",
+      "nextMonth": "Следующий месяц",
+      "legendAvailable": "Свободно",
+      "legendUnavailable": "Занято",
+      "legendSelected": "Выбрано",
+      "sortLabel": "Сортировка",
+      "sortPriceAsc": "Цена: по возрастанию",
+      "sortPriceDesc": "Цена: по убыванию"
+    }
   },
   "basic": {
     "close": "закрыть",
@@ -534,6 +557,7 @@
     "confirmationEmailFailed": "Не удалось отправить письмо-подтверждение",
     "confirmationEmailHistoryTitle": "История писем подтверждения",
     "confirmationEmailHistoryEmpty": "Письма подтверждения еще не отправлялись",
+    "confirmationEmailHistoryInternal": "Rovaro не отправляет письма по внутренним бронированиям.",
     "confirmationEmailHistoryShow": "Развернуть",
     "confirmationEmailHistoryHide": "Свернуть",
     "confirmationEmailHistoryCollapsed": "Отправлено: {{count}}",
@@ -1691,6 +1715,7 @@
     "close": "Закрыть",
     "back": "Назад",
     "privacyNotice": "Контакты клиента и водительские документы становятся доступны после получения платежа за бронирование.",
+    "platformSupportNotice": "Доступ службы поддержки платформы. Поставщик не видит эти контакты до получения оплаты бронирования.",
     "errors": {
       "generic": "Что-то пошло не так. Попробуйте ещё раз."
     },
@@ -1733,7 +1758,15 @@
       "transmission": "Коробка передач",
       "seats": "Мест",
       "luggage": "Багаж",
-      "fuel": "Тип топлива"
+      "fuel": "Тип топлива",
+      "doors": "Двери",
+      "airConditioning": "Кондиционер",
+      "modelYear": "Год выпуска",
+      "includedMileage": "Включённый пробег",
+      "deposit": "Залог",
+      "fleetCode": "Код в автопарке",
+      "registration": "Госномер",
+      "legacyNotice": "Это бронирование создано до появления снимков автомобиля. Показана текущая запись автопарка, она может отличаться от согласованной."
     },
     "dates": {
       "pickup": "Дата и время выдачи",
@@ -1781,7 +1814,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Открыть чат"
+      "openChat": "Открыть чат",
+      "copyPhone": "Скопировать телефон",
+      "copyEmail": "Скопировать email",
+      "copied": "Скопировано"
     },
     "documents": {
       "holder": "Владелец прав",
@@ -1794,7 +1830,6 @@
       "confirm": "Подтвердить запрошенный автомобиль",
       "replace": "Предложить равноценную замену",
       "decline": "Отклонить запрос",
-      "contactCustomer": "Связаться с клиентом",
       "contactRovaro": "Связаться с Rovaro",
       "reportProblem": "Сообщить о проблеме",
       "amend": "Изменить бронирование"
@@ -1846,7 +1881,10 @@
       "totalPrice": "Итого за аренду",
       "totalPriceHelp": "Такая же или ниже запрошенной цены.",
       "comment": "Комментарий для клиента",
-      "submit": "Отправить предложение"
+      "submit": "Отправить предложение",
+      "fleetPlaceholder": "Выберите автомобиль",
+      "internalFleet": "(внутренний) {{name}}",
+      "notOfferable": "Недоступно для этого бронирования:"
     },
     "amendDialog": {
       "notice": "Каждое изменение фиксируется с причиной и снимком «до и после». Существенное условие оплаченного бронирования нельзя изменить без согласия клиента.",
@@ -1868,6 +1906,16 @@
       "messageSent": "Сообщение отправлено в Rovaro.",
       "replacementOffered": "Предложение о замене отправлено.",
       "amended": "Изменение сохранено."
+    },
+    "header": {
+      "sourcePlatform": "Бронирование Rovaro",
+      "sourceInternal": "Внутреннее",
+      "awaitingPayment": "Ожидается оплата клиентом",
+      "paymentReceived": "Оплата бронирования получена",
+      "days_one": "{{count}} день",
+      "days_few": "{{count}} дня",
+      "days_many": "{{count}} дней",
+      "days_other": "{{count}} дней"
     }
   }
 }

@@ -2,6 +2,7 @@ import { Order } from "@models/order";
 import { Car } from "@models/car";
 import { PriceBreakdown } from "@models/PriceBreakdown";
 import { connectToDB } from "@lib/database";
+import { requireSuperAdmin } from "@/lib/adminAuth";
 import {
   publicIdsFromOrderDrivingLicenceUrls,
   deleteCloudinaryImagesByPublicIds,
@@ -9,6 +10,11 @@ import {
 
 export const DELETE = async (request) => {
   try {
+    // This wipes every booking in the database and has no company scope of any
+    // kind, so it is reachable by the platform owner alone.
+    const { errorResponse } = await requireSuperAdmin(request);
+    if (errorResponse) return errorResponse;
+
     await connectToDB();
 
     const ordersForAssets = await Order.find({})

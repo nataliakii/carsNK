@@ -13,7 +13,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  BOOKING_CAPABILITY,
+  resolveOrderCapabilities,
+} from "@/domain/orders/bookingCapabilities";
 import { formatMarketplaceEuro, marketplaceFeeNotice, marketplaceSplitLabels } from "@/domain/orders/marketplaceFinancialSplit";
 
 function money(minor, currency = "EUR") {
@@ -30,9 +34,21 @@ function when(value) {
   }
 }
 
-export default function OfferAlternativePanel({ order }) {
+export default function OfferAlternativePanel({
+  order,
+  currentUser,
+  isSuperAdmin = false,
+}) {
   const orderId = order?._id ? String(order._id) : "";
-  const marketplace = isMarketplaceRequestMode(order?.bookingMode);
+  // Booking mode says how the record was taken; booking source says whether
+  // Rovaro mediates it. Only the source decides whether a replacement offer
+  // exists, and the capability resolver is where that lives.
+  const platform = isPlatformBooking(order);
+  const capabilities = resolveOrderCapabilities(order, currentUser);
+  const offerable =
+    platform &&
+    (capabilities[BOOKING_CAPABILITY.OFFER_EQUIVALENT_REPLACEMENT] === true ||
+      isSuperAdmin);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState("");
@@ -65,7 +81,7 @@ export default function OfferAlternativePanel({ order }) {
     }
   }, [orderId, carId]);
 
-  if (!marketplace || !orderId) return null;
+  if (!offerable || !orderId) return null;
 
   const selected = (data?.eligibleCars || []).find((row) => row.carId === carId);
   const active = (data?.offers || []).find((row) => row.status === "OFFERED");

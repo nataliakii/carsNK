@@ -72,7 +72,30 @@
     "bookingDetailsSeats": "Locuri",
     "bookingDetailsSearch": "Căutare",
     "bookingDetailsEdit": "Editează filtrele",
-    "bookingDetailsClose": "Închide"
+    "bookingDetailsClose": "Închide",
+    "booking": {
+      "selectDates": "Alegeți datele",
+      "calculatingPrice": "Se calculează prețul…",
+      "book": "REZERVĂ",
+      "approxPrice": "Aprox. {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 zi de închiriere",
+      "rentalDays": "{{days}} zile de închiriere",
+      "rangeUnavailable": "Indisponibil pentru aceste date",
+      "quoteFailed": "Disponibilitatea nu a putut fi verificată",
+      "retry": "Încercați din nou",
+      "showCalendar": "Verifică disponibilitatea",
+      "hideCalendar": "Ascunde calendarul",
+      "clearDates": "Șterge datele",
+      "previousMonth": "Luna anterioară",
+      "nextMonth": "Luna următoare",
+      "legendAvailable": "Disponibil",
+      "legendUnavailable": "Indisponibil",
+      "legendSelected": "Selectat",
+      "sortLabel": "Sortare după",
+      "sortPriceAsc": "Preț: crescător",
+      "sortPriceDesc": "Preț: descrescător"
+    }
   },
   "basic": {
     "close": "închide",
@@ -190,6 +213,7 @@
     "confirmationEmailFailed": "Trimiterea emailului de confirmare a eșuat",
     "confirmationEmailHistoryTitle": "Istoricul emailurilor de confirmare",
     "confirmationEmailHistoryEmpty": "Nu au fost trimise încă emailuri de confirmare",
+    "confirmationEmailHistoryInternal": "Rovaro nu trimite emailuri pentru rezervările interne.",
     "confirmationEmailHistoryShow": "Arată",
     "confirmationEmailHistoryHide": "Ascunde",
     "confirmationEmailHistoryCollapsed": "Trimise: {{count}}",
@@ -599,6 +623,7 @@
     "close": "Închide",
     "back": "Înapoi",
     "privacyNotice": "Datele de contact ale clientului și documentele de conducere devin disponibile după primirea plății rezervării.",
+    "platformSupportNotice": "Acces al suportului platformei. Furnizorul nu vede aceste date de contact până la primirea plății rezervării.",
     "errors": {
       "generic": "Ceva nu a mers bine. Încercați din nou."
     },
@@ -641,7 +666,15 @@
       "transmission": "Transmisie",
       "seats": "Locuri",
       "luggage": "Bagaje",
-      "fuel": "Tip de combustibil"
+      "fuel": "Tip de combustibil",
+      "doors": "Uși",
+      "airConditioning": "Aer condiționat",
+      "modelYear": "Anul modelului",
+      "includedMileage": "Kilometri incluși",
+      "deposit": "Garanție",
+      "fleetCode": "Cod în flotă",
+      "registration": "Număr de înmatriculare",
+      "legacyNotice": "Această rezervare este anterioară instantaneelor de vehicul. Se afișează înregistrarea actuală din flotă, care poate diferi de cea convenită."
     },
     "dates": {
       "pickup": "Data și ora preluării",
@@ -689,7 +722,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Deschide conversația"
+      "openChat": "Deschide conversația",
+      "copyPhone": "Copiază telefonul",
+      "copyEmail": "Copiază emailul",
+      "copied": "Copiat"
     },
     "documents": {
       "holder": "Titularul permisului",
@@ -702,7 +738,6 @@
       "confirm": "Confirmă vehiculul solicitat",
       "replace": "Propune o înlocuire echivalentă",
       "decline": "Respinge cererea",
-      "contactCustomer": "Contactează clientul",
       "contactRovaro": "Contactează Rovaro",
       "reportProblem": "Raportează o problemă",
       "amend": "Modifică rezervarea"
@@ -754,7 +789,10 @@
       "totalPrice": "Preț total al închirierii",
       "totalPriceHelp": "Egal sau mai mic decât prețul solicitat.",
       "comment": "Comentariu pentru client",
-      "submit": "Trimite propunerea"
+      "submit": "Trimite propunerea",
+      "fleetPlaceholder": "Alegeți un vehicul",
+      "internalFleet": "(intern) {{name}}",
+      "notOfferable": "Nu pot fi oferite pentru această rezervare:"
     },
     "amendDialog": {
       "notice": "Fiecare modificare este înregistrată cu motivul ei și cu starea dinainte și de după. O condiție esențială a unei rezervări plătite nu se poate schimba fără acordul clientului.",
@@ -776,6 +814,15 @@
       "messageSent": "Mesaj trimis către Rovaro.",
       "replacementOffered": "Propunerea de înlocuire a fost trimisă.",
       "amended": "Modificare salvată."
+    },
+    "header": {
+      "sourcePlatform": "Rezervare Rovaro",
+      "sourceInternal": "Internă",
+      "awaitingPayment": "Se așteaptă plata clientului",
+      "paymentReceived": "Plata rezervării a fost primită",
+      "days_one": "{{count}} zi",
+      "days_few": "{{count}} zile",
+      "days_other": "{{count}} de zile"
     }
   }
 }

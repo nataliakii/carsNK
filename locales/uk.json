@@ -95,7 +95,30 @@
     "bookingDetailsEdit": "Змінити у фільтрах",
     "bookingDetailsClose": "Закрити",
     "bookingDetailsApply": "Застосувати",
-    "bookingDetailsCancel": "Скасувати"
+    "bookingDetailsCancel": "Скасувати",
+    "booking": {
+      "selectDates": "Оберіть дати",
+      "calculatingPrice": "Розрахунок ціни…",
+      "book": "ЗАБРОНЮВАТИ",
+      "approxPrice": "Приблизно {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 день оренди",
+      "rentalDays": "Днів оренди: {{days}}",
+      "rangeUnavailable": "Недоступно на ці дати",
+      "quoteFailed": "Не вдалося перевірити доступність",
+      "retry": "Спробувати ще раз",
+      "showCalendar": "Перевірити доступність",
+      "hideCalendar": "Сховати календар",
+      "clearDates": "Очистити дати",
+      "previousMonth": "Попередній місяць",
+      "nextMonth": "Наступний місяць",
+      "legendAvailable": "Вільно",
+      "legendUnavailable": "Зайнято",
+      "legendSelected": "Обрано",
+      "sortLabel": "Сортування",
+      "sortPriceAsc": "Ціна: від нижчої",
+      "sortPriceDesc": "Ціна: від вищої"
+    }
   },
   "basic": {
     "close": "закрити",
@@ -239,6 +262,7 @@
     "confirmationEmailFailed": "Не вдалося надіслати лист-підтвердження",
     "confirmationEmailHistoryTitle": "Історія листів-підтверджень",
     "confirmationEmailHistoryEmpty": "Листи-підтвердження ще не надсилались",
+    "confirmationEmailHistoryInternal": "Rovaro не надсилає листи щодо внутрішніх бронювань.",
     "confirmationEmailHistoryShow": "Розгорнути",
     "confirmationEmailHistoryHide": "Згорнути",
     "confirmationEmailHistoryCollapsed": "Надіслано: {{count}}",
@@ -1149,6 +1173,7 @@
     "close": "Закрити",
     "back": "Назад",
     "privacyNotice": "Контакти клієнта та водійські документи стають доступними після отримання платежу за бронювання.",
+    "platformSupportNotice": "Доступ служби підтримки платформи. Постачальник не бачить ці контакти до отримання оплати бронювання.",
     "errors": {
       "generic": "Щось пішло не так. Спробуйте ще раз."
     },
@@ -1191,7 +1216,15 @@
       "transmission": "Коробка передач",
       "seats": "Місць",
       "luggage": "Багаж",
-      "fuel": "Тип палива"
+      "fuel": "Тип палива",
+      "doors": "Двері",
+      "airConditioning": "Кондиціонер",
+      "modelYear": "Рік випуску",
+      "includedMileage": "Включений пробіг",
+      "deposit": "Застава",
+      "fleetCode": "Код в автопарку",
+      "registration": "Держномер",
+      "legacyNotice": "Це бронювання створено до появи знімків автомобіля. Показано поточний запис автопарку, він може відрізнятися від узгодженого."
     },
     "dates": {
       "pickup": "Дата й час видачі",
@@ -1239,7 +1272,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Відкрити чат"
+      "openChat": "Відкрити чат",
+      "copyPhone": "Скопіювати телефон",
+      "copyEmail": "Скопіювати email",
+      "copied": "Скопійовано"
     },
     "documents": {
       "holder": "Власник посвідчення",
@@ -1252,7 +1288,6 @@
       "confirm": "Підтвердити запитаний автомобіль",
       "replace": "Запропонувати рівноцінну заміну",
       "decline": "Відхилити запит",
-      "contactCustomer": "Зв'язатися з клієнтом",
       "contactRovaro": "Зв'язатися з Rovaro",
       "reportProblem": "Повідомити про проблему",
       "amend": "Змінити бронювання"
@@ -1304,7 +1339,10 @@
       "totalPrice": "Разом за оренду",
       "totalPriceHelp": "Така сама або нижча за запитану ціну.",
       "comment": "Коментар для клієнта",
-      "submit": "Надіслати пропозицію"
+      "submit": "Надіслати пропозицію",
+      "fleetPlaceholder": "Оберіть автомобіль",
+      "internalFleet": "(внутрішній) {{name}}",
+      "notOfferable": "Недоступно для цього бронювання:"
     },
     "amendDialog": {
       "notice": "Кожну зміну фіксують із причиною та знімком «до і після». Істотну умову оплаченого бронювання не можна змінити без згоди клієнта.",
@@ -1326,6 +1364,16 @@
       "messageSent": "Повідомлення надіслано до Rovaro.",
       "replacementOffered": "Пропозицію про заміну надіслано.",
       "amended": "Зміну збережено."
+    },
+    "header": {
+      "sourcePlatform": "Бронювання Rovaro",
+      "sourceInternal": "Внутрішнє",
+      "awaitingPayment": "Очікується оплата клієнтом",
+      "paymentReceived": "Оплату бронювання отримано",
+      "days_one": "{{count}} день",
+      "days_few": "{{count}} дні",
+      "days_many": "{{count}} днів",
+      "days_other": "{{count}} днів"
     }
   }
 }

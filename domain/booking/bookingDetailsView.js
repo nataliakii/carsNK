@@ -18,6 +18,13 @@ import {
   capabilitiesForOrder,
 } from "@/domain/booking/resolveBookingCapabilities";
 import {
+  BOOKING_ROLE,
+  resolveActorRole,
+} from "@/domain/orders/bookingCapabilities";
+import { companyMustHideCustomerIdentity } from "@/domain/orders/orderVisibility";
+import { readVehicleSnapshot } from "@/domain/orders/vehicleSnapshot";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import {
   bookingDisplayReference,
   buildBookingFinancialView,
 } from "@/domain/orders/bookingDetailsView";
@@ -26,6 +33,11 @@ export const PRIVACY_NOTICE =
   "Customer contact details and driving documents become available after the booking payment is received.";
 
 export const PRIVACY_NOTICE_KEY = "bookingDetails.privacyNotice";
+
+export const PLATFORM_SUPPORT_NOTICE =
+  "Platform support access. The supplier cannot see these contact details until the booking payment is received.";
+
+export const PLATFORM_SUPPORT_NOTICE_KEY = "bookingDetails.platformSupportNotice";
 
 export const PLATFORM_FORBIDDEN_CONTROLS = Object.freeze([
   "Edit order",
@@ -124,8 +136,17 @@ export function buildBookingDetailsView(order, user, opts = {}) {
   const stage = resolvePlatformWorkflowStage(order);
   const caps = capabilitiesForOrder(order, user, opts);
   const price = buildBookingPriceSummary(order, opts);
+  const { vehicle, legacy } = readVehicleSnapshot(order);
   const showContacts = caps.has(BOOKING_CAPABILITY.VIEW_CUSTOMER_CONTACTS);
   const showLicence = caps.has(BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS);
+  // A superadmin reading a booking the supplier cannot yet see is looking at
+  // the same screen the supplier gets, so the screen has to say whose eyes
+  // these contacts are open to. Otherwise platform-support access is
+  // indistinguishable from a leak.
+  const platformSupportView =
+    resolveActorRole(user) === BOOKING_ROLE.SUPERADMIN &&
+    showContacts &&
+    companyMustHideCustomerIdentity(order);
   const actions = [];
 
   if (caps.has(BOOKING_CAPABILITY.CONFIRM_REQUESTED_VEHICLE)) {
@@ -152,13 +173,10 @@ export function buildBookingDetailsView(order, user, opts = {}) {
       primary: true,
     });
   }
-  if (caps.has(BOOKING_CAPABILITY.CONTACT_CUSTOMER)) {
-    actions.push({
-      id: "contactCustomer",
-      label: "Contact customer",
-      labelKey: "bookingDetails.actions.contactCustomer",
-    });
-  }
+  // CONTACT_CUSTOMER is not an action. It is the permission to see and copy
+  // the customer's contacts, and it is read as `canContactCustomer` below. A
+  // button that opened a dialog to restate values already on screen was only
+  // an extra click.
   if (caps.has(BOOKING_CAPABILITY.CONTACT_ROVARO)) {
     actions.push({
       id: "contactRovaro",
@@ -197,6 +215,13 @@ export function buildBookingDetailsView(order, user, opts = {}) {
     privacyNotice: PRIVACY_NOTICE,
     privacyNoticeKey: PRIVACY_NOTICE_KEY,
     showContacts,
+    // Whether the phone and email may be reached and copied, as opposed to
+    // merely appearing. Kept separate so the permission model stays intact
+    // even though the button it used to drive is gone.
+    canContactCustomer: caps.has(BOOKING_CAPABILITY.CONTACT_CUSTOMER),
+    platformSupportView,
+    platformSupportNotice: PLATFORM_SUPPORT_NOTICE,
+    platformSupportNoticeKey: PLATFORM_SUPPORT_NOTICE_KEY,
     showLicence,
     customer: showContacts
       ? {
@@ -217,6 +242,14 @@ export function buildBookingDetailsView(order, user, opts = {}) {
           expiryDate: order?.drivingLicenceSnapshot?.expiryDate || "",
         }
       : null,
+    header: buildHeader(order, statusCopy, vehicle),
+    vehicle,
+    vehicleIsLegacy: legacy,
+    // The plate and fleet code point at one physical car in one company's
+    // yard. Reading the booking does not entitle anyone to that.
+    // VIEW_BOOKING is only granted to the owning company or the superadmin,
+    // so it is already the right question to ask.
+    showFleetIdentity: caps.has(BOOKING_CAPABILITY.VIEW_BOOKING),
     price,
     moneyActionsDisabled: price.dataWarning === true,
     actions,
@@ -228,6 +261,83 @@ export function buildBookingDetailsView(order, user, opts = {}) {
         ? order?.replacementOffer || order?.acceptedAlternative || null
         : null,
   };
+}
+
+/**
+ * What the contractor needs before reading anything else: which car, under
+ * which reference, for whom, when and where — and the state it is in.
+ *
+ * The status appears once, as a badge. Repeating it as a title, a subtitle and
+ * a sentence is what left the old header both empty and redundant.
+ */
+function buildHeader(order, statusCopy, vehicle) {
+  const platform = isPlatformBooking(order);
+  const badges = [
+    {
+      id: "status",
+      tone: "status",
+      label: statusCopy.title,
+      labelKey: statusCopy.titleKey,
+    },
+    {
+      id: "source",
+      tone: platform ? "platform" : "internal",
+      label: platform ? "Rovaro booking" : "Internal",
+      labelKey: platform
+        ? "bookingDetails.header.sourcePlatform"
+        : "bookingDetails.header.sourceInternal",
+    },
+  ];
+
+  // A payment badge that is always present says nothing. It appears only while
+  // the payment is the thing standing between the booking and being done.
+  const paymentBadge = paymentBadgeFor(order, platform);
+  if (paymentBadge) badges.push(paymentBadge);
+
+  const city =
+    String(order?.placeIn || "").trim() ||
+    String(order?.placeOut || "").trim() ||
+    null;
+
+  return {
+    make: vehicle?.make || null,
+    model: vehicle?.model || null,
+    vehicleName: vehicle?.displayName || null,
+    reference: bookingDisplayReference(order) || null,
+    companyName: String(order?.companyName || order?.ownerName || "").trim() || null,
+    pickupAt: order?.pickupAtUtc || order?.timeIn || null,
+    returnAt: order?.returnAtUtc || order?.timeOut || null,
+    rentalDays: Number.isFinite(Number(order?.numberOfDays))
+      ? Number(order.numberOfDays)
+      : null,
+    city,
+    badges,
+  };
+}
+
+function paymentBadgeFor(order, platform) {
+  if (!platform) return null;
+  const stage = resolvePlatformWorkflowStage(order);
+  if (stage === PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_PAYMENT) {
+    return {
+      id: "payment",
+      tone: "pending",
+      label: "Awaiting customer payment",
+      labelKey: "bookingDetails.header.awaitingPayment",
+    };
+  }
+  if (
+    stage === PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED ||
+    stage === PLATFORM_WORKFLOW_STAGE.COMPLETION_PENDING
+  ) {
+    return {
+      id: "payment",
+      tone: "settled",
+      label: "Booking payment received",
+      labelKey: "bookingDetails.header.paymentReceived",
+    };
+  }
+  return null;
 }
 
 /**

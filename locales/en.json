@@ -433,7 +433,30 @@
     "bookingDetailsEdit": "Edit filters",
     "bookingDetailsClose": "Close",
     "bookingDetailsApply": "Apply",
-    "bookingDetailsCancel": "Cancel"
+    "bookingDetailsCancel": "Cancel",
+    "booking": {
+      "selectDates": "Select dates",
+      "calculatingPrice": "Calculating price…",
+      "book": "BOOK",
+      "approxPrice": "Approx. {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 rental day",
+      "rentalDays": "{{days}} rental days",
+      "rangeUnavailable": "Not available for these dates",
+      "quoteFailed": "Could not check availability",
+      "retry": "Try again",
+      "showCalendar": "Check availability",
+      "hideCalendar": "Hide calendar",
+      "clearDates": "Clear dates",
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "legendAvailable": "Available",
+      "legendUnavailable": "Unavailable",
+      "legendSelected": "Selected",
+      "sortLabel": "Sort by",
+      "sortPriceAsc": "Price: low to high",
+      "sortPriceDesc": "Price: high to low"
+    }
   },
   "basic": {
     "close": "close",
@@ -591,6 +614,7 @@
     "confirmationEmailFailed": "Failed to send confirmation email",
     "confirmationEmailHistoryTitle": "Confirmation emails history",
     "confirmationEmailHistoryEmpty": "No confirmation emails sent yet",
+    "confirmationEmailHistoryInternal": "Rovaro does not send email for internal bookings.",
     "confirmationEmailHistoryShow": "Show",
     "confirmationEmailHistoryHide": "Hide",
     "confirmationEmailHistoryCollapsed": "Sent: {{count}}",
@@ -1827,6 +1851,7 @@
     "close": "Close",
     "back": "Back",
     "privacyNotice": "Customer contact details and driving documents become available after the booking payment is received.",
+    "platformSupportNotice": "Platform support access. The supplier cannot see these contact details until the booking payment is received.",
     "errors": {
       "generic": "Something went wrong. Please try again."
     },
@@ -1869,7 +1894,15 @@
       "transmission": "Transmission",
       "seats": "Seats",
       "luggage": "Luggage",
-      "fuel": "Fuel type"
+      "fuel": "Fuel type",
+      "doors": "Doors",
+      "airConditioning": "Air conditioning",
+      "modelYear": "Model year",
+      "includedMileage": "Included mileage",
+      "deposit": "Deposit",
+      "fleetCode": "Fleet code",
+      "registration": "Registration",
+      "legacyNotice": "This booking predates vehicle snapshots. The fleet record is shown as it is today, which may differ from what was agreed."
     },
     "dates": {
       "pickup": "Pickup date and time",
@@ -1917,7 +1950,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Open chat"
+      "openChat": "Open chat",
+      "copyPhone": "Copy phone",
+      "copyEmail": "Copy email",
+      "copied": "Copied"
     },
     "documents": {
       "holder": "Licence holder",
@@ -1930,7 +1966,6 @@
       "confirm": "Confirm requested vehicle",
       "replace": "Offer equivalent replacement",
       "decline": "Decline request",
-      "contactCustomer": "Contact customer",
       "contactRovaro": "Contact Rovaro",
       "reportProblem": "Report a problem",
       "amend": "Amend booking"
@@ -2007,6 +2042,14 @@
       "messageSent": "Message sent to Rovaro.",
       "replacementOffered": "Replacement proposal sent.",
       "amended": "Amendment saved."
+    },
+    "header": {
+      "sourcePlatform": "Rovaro booking",
+      "sourceInternal": "Internal",
+      "awaitingPayment": "Awaiting customer payment",
+      "paymentReceived": "Booking payment received",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
     }
   }
 }

@@ -5,6 +5,7 @@ import { ROLE } from "@models/user";
 import { connectToDB } from "@lib/database";
 import { Order } from "@models/order";
 import { extractAuditContext } from "@/domain/legal/auditTrail";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import {
   offerAlternativeVehicle,
   offerUnlistedEquivalent,
@@ -18,8 +19,25 @@ export const dynamic = "force-dynamic";
 
 async function assertOrderInScope(session, orderId) {
   await connectToDB();
-  const order = await Order.findById(orderId).select("ownerId bookingMode bookingStatus").lean();
+  const order = await Order.findById(orderId)
+    .select(
+      "ownerId bookingMode bookingStatus source my_order offline payment paymentStatus"
+    )
+    .lean();
   if (!order) return { ok: false, status: 404, message: "Order not found" };
+
+  // Offering a replacement is a Rovaro mediation step between a customer and a
+  // supplier. An internal booking is the company's own offline record, so
+  // there is no offer to make and no customer of ours to make it to. Booking
+  // mode is a separate axis and cannot stand in for this.
+  if (!isPlatformBooking(order)) {
+    return {
+      ok: false,
+      status: 409,
+      code: "NOT_A_PLATFORM_BOOKING",
+      message: "Replacement offers exist only on Rovaro bookings",
+    };
+  }
 
   if (Number(session.user?.role) === ROLE.SUPERADMIN) return { ok: true, order };
 
@@ -48,7 +66,7 @@ export async function GET(request) {
   const scope = await assertOrderInScope(session, orderId);
   if (!scope.ok) {
     return NextResponse.json(
-      { success: false, message: scope.message },
+      { success: false, code: scope.code, message: scope.message },
       { status: scope.status }
     );
   }
@@ -87,7 +105,7 @@ export async function POST(request) {
   const scope = await assertOrderInScope(session, orderId);
   if (!scope.ok) {
     return NextResponse.json(
-      { success: false, message: scope.message },
+      { success: false, code: scope.code, message: scope.message },
       { status: scope.status }
     );
   }

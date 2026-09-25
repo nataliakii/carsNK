@@ -65,6 +65,19 @@ export function impliedLocationCountry(name) {
   const greek = GREEK_LOCATION_KEYS.has(key);
   if (spanish && !greek) return "ES";
   if (greek && !spanish) return "GR";
+  if (spanish && greek) return "";
+
+  let grHit = false;
+  let esHit = false;
+  for (const label of ORDERED_LOCATION_OPTIONS) {
+    if (foldCityText(label) === "airport") continue;
+    if (mentionsName(name, label)) grHit = true;
+  }
+  for (const label of SPAIN_CITY_OPTIONS) {
+    if (mentionsName(name, label)) esHit = true;
+  }
+  if (grHit && !esHit) return "GR";
+  if (esHit && !grHit) return "ES";
   return "";
 }
 

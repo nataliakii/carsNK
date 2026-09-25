@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { orderOwnershipResponse } from "@/domain/orders/orderOwnershipGuard";
 import { sendOrderDeletedTelegramNotification } from "@/lib/notifications/sendOrderDeletedTelegram";
 import { deleteOrderCloudinaryAssets } from "@/domain/orders/deleteOrderCloudinaryAssets";
 
@@ -34,6 +35,10 @@ export const DELETE = async (request, { params }) => {
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    // Role and state are not company scope: check whose booking this is.
+    const foreign = orderOwnershipResponse(session.user, orderToDelete);
+    if (foreign) return foreign;
 
     const timeBucket = getTimeBucket(orderToDelete);
     const isPast = timeBucket === "PAST";

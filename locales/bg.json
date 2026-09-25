@@ -72,7 +72,30 @@
     "bookingDetailsSeats": "Места",
     "bookingDetailsSearch": "Търсене",
     "bookingDetailsEdit": "Промяна на филтрите",
-    "bookingDetailsClose": "Затвори"
+    "bookingDetailsClose": "Затвори",
+    "booking": {
+      "selectDates": "Изберете дати",
+      "calculatingPrice": "Изчисляване на цената…",
+      "book": "РЕЗЕРВИРАЙ",
+      "approxPrice": "Около {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 ден наем",
+      "rentalDays": "{{days}} дни наем",
+      "rangeUnavailable": "Не е налично за тези дати",
+      "quoteFailed": "Наличността не можа да бъде проверена",
+      "retry": "Опитайте отново",
+      "showCalendar": "Проверка на наличност",
+      "hideCalendar": "Скриване на календара",
+      "clearDates": "Изчистване на датите",
+      "previousMonth": "Предишен месец",
+      "nextMonth": "Следващ месец",
+      "legendAvailable": "Свободно",
+      "legendUnavailable": "Заето",
+      "legendSelected": "Избрано",
+      "sortLabel": "Подреждане",
+      "sortPriceAsc": "Цена: ниска към висока",
+      "sortPriceDesc": "Цена: висока към ниска"
+    }
   },
   "basic": {
     "close": "затвори",
@@ -190,6 +213,7 @@
     "confirmationEmailFailed": "Неуспешно изпращане на имейл за потвърждение",
     "confirmationEmailHistoryTitle": "История на имейлите за потвърждение",
     "confirmationEmailHistoryEmpty": "Все още няма изпратени имейли за потвърждение",
+    "confirmationEmailHistoryInternal": "Rovaro не изпраща имейли за вътрешни резервации.",
     "confirmationEmailHistoryShow": "Покажи",
     "confirmationEmailHistoryHide": "Скрий",
     "confirmationEmailHistoryCollapsed": "Изпратени: {{count}}",
@@ -599,6 +623,7 @@
     "close": "Затвори",
     "back": "Назад",
     "privacyNotice": "Данните за контакт на клиента и шофьорските документи стават достъпни след получаване на плащането за резервацията.",
+    "platformSupportNotice": "Достъп на поддръжката на платформата. Доставчикът не вижда тези контакти, докато плащането за резервацията не бъде получено.",
     "errors": {
       "generic": "Нещо се обърка. Опитайте отново."
     },
@@ -641,7 +666,15 @@
       "transmission": "Скоростна кутия",
       "seats": "Места",
       "luggage": "Багаж",
-      "fuel": "Вид гориво"
+      "fuel": "Вид гориво",
+      "doors": "Врати",
+      "airConditioning": "Климатик",
+      "modelYear": "Година на производство",
+      "includedMileage": "Включени километри",
+      "deposit": "Депозит",
+      "fleetCode": "Код в автопарка",
+      "registration": "Регистрационен номер",
+      "legacyNotice": "Тази резервация е отпреди снимките на автомобила. Показан е днешният запис от автопарка, който може да се различава от уговореното."
     },
     "dates": {
       "pickup": "Дата и час на получаване",
@@ -689,7 +722,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Отвори чата"
+      "openChat": "Отвори чата",
+      "copyPhone": "Копирай телефона",
+      "copyEmail": "Копирай имейла",
+      "copied": "Копирано"
     },
     "documents": {
       "holder": "Притежател на книжката",
@@ -702,7 +738,6 @@
       "confirm": "Потвърди заявения автомобил",
       "replace": "Предложи равностойна замяна",
       "decline": "Откажи заявката",
-      "contactCustomer": "Свържи се с клиента",
       "contactRovaro": "Свържи се с Rovaro",
       "reportProblem": "Съобщи за проблем",
       "amend": "Промени резервацията"
@@ -754,7 +789,10 @@
       "totalPrice": "Обща цена на наема",
       "totalPriceHelp": "Същата или по-ниска от заявената цена.",
       "comment": "Коментар за клиента",
-      "submit": "Изпрати предложението"
+      "submit": "Изпрати предложението",
+      "fleetPlaceholder": "Изберете автомобил",
+      "internalFleet": "(вътрешен) {{name}}",
+      "notOfferable": "Не могат да бъдат предложени за тази резервация:"
     },
     "amendDialog": {
       "notice": "Всяка промяна се записва с причината си и със състоянието преди и след. Съществено условие на платена резервация не може да се промени без съгласието на клиента.",
@@ -776,6 +814,14 @@
       "messageSent": "Съобщението е изпратено до Rovaro.",
       "replacementOffered": "Предложението за замяна е изпратено.",
       "amended": "Промяната е запазена."
+    },
+    "header": {
+      "sourcePlatform": "Резервация Rovaro",
+      "sourceInternal": "Вътрешна",
+      "awaitingPayment": "Очаква плащане от клиента",
+      "paymentReceived": "Плащането за резервацията е получено",
+      "days_one": "{{count}} ден",
+      "days_other": "{{count}} дни"
     }
   }
 }

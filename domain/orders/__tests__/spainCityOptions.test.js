@@ -8,6 +8,7 @@ const {
 } = require("../spainCityOptions");
 const {
   isSpainBookingSite,
+  isCatalogPlaceAllowedForSite,
   resolveCatalogPlaceOptions,
   resolveCatalogDefaultPlace,
   resolvePlaceRequiresAddressDetail,
@@ -80,12 +81,39 @@ describe("catalogPlaceOptions", () => {
     expect(resolveCatalogDefaultPlace("Vrasna", "ES")).toBe("Barcelona");
   });
 
+  test("Spain catalog drops Greek company delivery names", () => {
+    const names = resolveCatalogPlaceOptions(
+      [
+        "Palma Airport",
+        "Nea Kallikratia",
+        "Thessaloniki Airport",
+        "Custom Rovaro Hub",
+      ],
+      "ES"
+    );
+    expect(names).not.toContain("Nea Kallikratia");
+    expect(names).not.toContain("Thessaloniki Airport");
+    expect(names).toContain("Palma Airport");
+    expect(names).toContain("Custom Rovaro Hub");
+    expect(isCatalogPlaceAllowedForSite("Nea Kallikratia", "ES")).toBe(false);
+    expect(isCatalogPlaceAllowedForSite("Custom Rovaro Hub", "ES")).toBe(true);
+  });
+
   test("Greece keeps company location list", () => {
     expect(resolveCatalogPlaceOptions(["Vrasna", "Airport"], "GR")).toEqual([
       "Vrasna",
       "Airport",
     ]);
     expect(resolveCatalogDefaultPlace("Vrasna", "GR")).toBe("Vrasna");
+  });
+
+  test("Greece catalog drops Spanish company delivery names", () => {
+    expect(
+      resolveCatalogPlaceOptions(
+        ["Vrasna", "Barcelona Airport", "Palma Airport"],
+        "GR"
+      )
+    ).toEqual(["Vrasna"]);
   });
 
   test("Spain requires address for cities via resolvePlaceRequiresAddressDetail", () => {
