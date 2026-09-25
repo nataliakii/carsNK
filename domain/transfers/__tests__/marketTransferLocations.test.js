@@ -166,6 +166,49 @@ describe("assertTransferPlacesInMarket", () => {
     ).toBe(false);
   });
 
+  test("rejects a Greek stop written in the modelled location shape", () => {
+    const byPlaceName = assertTransferPlacesInMarket(
+      {
+        from: "Barcelona",
+        to: "Madrid",
+        additionalStops: [{ location: { placeName: "Nea Moudania" } }],
+      },
+      "ES"
+    );
+    expect(byPlaceName.ok).toBe(false);
+    expect(byPlaceName.field).toBe("additionalStops.0.location");
+
+    const byCity = assertTransferPlacesInMarket(
+      {
+        from: "Barcelona",
+        to: "Madrid",
+        additionalStops: [
+          { location: { placeName: "A hotel", city: "Kriopigi" } },
+        ],
+      },
+      "ES"
+    );
+    expect(byCity.ok).toBe(false);
+    expect(byCity.field).toBe("additionalStops.0.location.city");
+  });
+
+  test("an in-market stop in either shape is accepted", () => {
+    expect(
+      assertTransferPlacesInMarket(
+        {
+          from: "Barcelona",
+          to: "Madrid",
+          additionalStops: [
+            { location: { placeName: "Sitges", city: "Sitges" } },
+            { placeName: "Tarragona" },
+            "Girona",
+          ],
+        },
+        "ES"
+      )
+    ).toEqual({ ok: true });
+  });
+
   test("rejects everything when the market is unknown", () => {
     const result = assertTransferPlacesInMarket(
       { from: "Barcelona", to: "Madrid" },

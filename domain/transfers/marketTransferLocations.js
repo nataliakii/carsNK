@@ -180,9 +180,14 @@ export function assertTransferPlacesInMarket(payload = {}, marketCountry) {
     ["origin.city", payload.origin?.city],
     ["destination.placeName", payload.destination?.placeName],
     ["destination.city", payload.destination?.city],
-    ...(Array.isArray(payload.additionalStops) ? payload.additionalStops : []).map(
-      (stop, index) => [`additionalStops.${index}`, stop?.placeName || stop?.name || stop]
-    ),
+    ...(Array.isArray(payload.additionalStops)
+      ? payload.additionalStops
+      : []
+    ).flatMap((stop, index) => [
+      [`additionalStops.${index}`, stop?.placeName || stop?.name || stop],
+      [`additionalStops.${index}.location`, stop?.location?.placeName],
+      [`additionalStops.${index}.location.city`, stop?.location?.city],
+    ]),
   ];
 
   for (const [field, value] of candidates) {

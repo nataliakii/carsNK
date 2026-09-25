@@ -6,11 +6,14 @@ import {
   assertTransferPlacesInMarket,
   OUT_OF_MARKET_CODE,
 } from "@/domain/transfers/marketTransferLocations";
-import { omitUntrustedTransferMetrics } from "@/domain/transfers/createTransferOrder";
+import {
+  MAX_PUBLIC_ADDITIONAL_STOPS,
+  pickPublicTransferPayload,
+} from "@/domain/transfers/transferPayloadPolicy";
 
 export const QUOTE_MAX_PLACE_LEN = 200;
 export const QUOTE_MAX_CITY_LEN = 100;
-export const QUOTE_MAX_STOPS = 8;
+export const QUOTE_MAX_STOPS = MAX_PUBLIC_ADDITIONAL_STOPS;
 export const QUOTE_TIMEOUT_MS = Number(
   process.env.TRANSFER_QUOTE_TIMEOUT_MS || 10000
 );
@@ -59,7 +62,8 @@ function allowedCountry(raw, marketCountry) {
 
 /**
  * Validate and normalise a public transfer-quote body.
- * Drops client distance/price and pins the request to one market.
+ * Reduces the body to the public allow-list (so client distance, price and any
+ * admin-only field are gone) and pins the request to one market.
  * Does not call Google.
  *
  * @param {object} raw
@@ -72,7 +76,7 @@ export function validatePublicQuoteRequest(raw = {}, context = {}) {
     return { ok: false, message: "Invalid JSON" };
   }
 
-  const payload = omitUntrustedTransferMetrics(raw);
+  const payload = pickPublicTransferPayload(raw);
   const from = clip(payload.from || payload.origin?.placeName, QUOTE_MAX_PLACE_LEN);
   const to = clip(payload.to || payload.destination?.placeName, QUOTE_MAX_PLACE_LEN);
   if (!from || !to) {
