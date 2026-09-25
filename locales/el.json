@@ -1731,7 +1731,8 @@
       "registration": "Πινακίδα",
       "legacyNotice": "Η κράτηση αυτή προηγείται των στιγμιοτύπων οχήματος. Εμφανίζεται η σημερινή εγγραφή στόλου, που μπορεί να διαφέρει από τη συμφωνηθείσα.",
       "seatsShort": "{{count}} seats",
-      "specsInfo": "Vehicle details"
+      "specsInfo": "Vehicle details",
+      "viewSpecs": "View specs"
     },
     "dates": {
       "pickup": "Ημερομηνία και ώρα παραλαβής",

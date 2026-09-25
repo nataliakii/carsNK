@@ -16,7 +16,6 @@ import {
   MenuItem,
   Stack,
   TextField,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from "@mui/material";
@@ -114,7 +113,7 @@ const SectionPanel = styled(Box)(({ theme }) => ({
   flexDirection: "column",
   gap: theme.spacing(0.15),
   minWidth: 0,
-  padding: theme.spacing(0.75, 1),
+  padding: theme.spacing(0.65, 1),
   borderRadius: theme.shape.borderRadius,
   border: `1px solid ${theme.palette.divider}`,
   backgroundColor: theme.palette.background.paper,
@@ -287,6 +286,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   const [declineReason, setDeclineReason] = useState("");
   const [licenceUrls, setLicenceUrls] = useState([]);
   const [priceOpen, setPriceOpen] = useState(false);
+  const [vehicleDetailsOpen, setVehicleDetailsOpen] = useState(false);
   const [replacement, setReplacement] = useState(EMPTY_REPLACEMENT);
   const [amendment, setAmendment] = useState(EMPTY_AMENDMENT);
 
@@ -545,93 +545,41 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                     : "bookingDetails.sections.vehicle"
                 )}
               </SectionTitle>
-              <Stack
-                direction="row"
-                spacing={0.75}
-                alignItems="center"
-                sx={{ minWidth: 0 }}
+              <Button
+                fullWidth
+                onClick={() => setVehicleDetailsOpen(true)}
+                sx={{
+                  justifyContent: "space-between",
+                  textAlign: "left",
+                  textTransform: "none",
+                  px: 0,
+                  py: 0.25,
+                  color: "text.primary",
+                  "&:hover": { backgroundColor: "transparent", opacity: 0.85 },
+                }}
+                endIcon={
+                  <InfoOutlinedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+                }
+                data-testid="vehicle-specs-info"
               >
-                <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Box sx={{ minWidth: 0 }}>
                   <Typography
                     variant="subtitle1"
                     sx={{ fontWeight: 700, lineHeight: 1.25, fontSize: "1rem" }}
                   >
                     {vehicle.displayName}
                   </Typography>
-                  {(() => {
-                    const bits = [
-                      vehicle.class,
-                      vehicle.transmission,
-                      vehicle.seats != null && vehicle.seats !== ""
-                        ? t("bookingDetails.vehicle.seatsShort", {
-                            defaultValue: "{{count}} seats",
-                            count: vehicle.seats,
-                          })
-                        : null,
-                      vehicle.fuelType,
-                    ].filter(Boolean);
-                    return bits.length ? (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ lineHeight: 1.35, mt: 0.15 }}
-                      >
-                        {bits.join(" · ")}
-                      </Typography>
-                    ) : null;
-                  })()}
-                </Box>
-                <Tooltip
-                  arrow
-                  placement="left"
-                  title={
-                    <Box sx={{ py: 0.25, maxWidth: 220 }}>
-                      {[
-                        vehicle.class &&
-                          `${t("bookingDetails.vehicle.class")}: ${vehicle.class}`,
-                        vehicle.transmission &&
-                          `${t("bookingDetails.vehicle.transmission")}: ${vehicle.transmission}`,
-                        vehicle.fuelType &&
-                          `${t("bookingDetails.vehicle.fuel")}: ${vehicle.fuelType}`,
-                        vehicle.seats != null &&
-                          vehicle.seats !== "" &&
-                          `${t("bookingDetails.vehicle.seats")}: ${vehicle.seats}`,
-                        vehicle.doors != null &&
-                          vehicle.doors !== "" &&
-                          `${t("bookingDetails.vehicle.doors")}: ${vehicle.doors}`,
-                        typeof vehicle.airConditioning === "boolean" &&
-                          `${t("bookingDetails.vehicle.airConditioning")}: ${t(
-                            vehicle.airConditioning
-                              ? "bookingDetails.options.yes"
-                              : "bookingDetails.options.no"
-                          )}`,
-                      ]
-                        .filter(Boolean)
-                        .map((line) => (
-                          <Typography
-                            key={line}
-                            variant="caption"
-                            component="div"
-                            sx={{ color: "inherit", lineHeight: 1.45 }}
-                          >
-                            {line}
-                          </Typography>
-                        ))}
-                    </Box>
-                  }
-                >
-                  <IconButton
-                    size="small"
-                    aria-label={t("bookingDetails.vehicle.specsInfo", {
-                      defaultValue: "Vehicle details",
-                    })}
-                    sx={{ color: "text.secondary" }}
-                    data-testid="vehicle-specs-info"
+                  <Typography
+                    variant="caption"
+                    color="primary"
+                    sx={{ lineHeight: 1.3 }}
                   >
-                    <InfoOutlinedIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
-                </Tooltip>
-              </Stack>
+                    {t("bookingDetails.vehicle.viewSpecs", {
+                      defaultValue: "View specs",
+                    })}
+                  </Typography>
+                </Box>
+              </Button>
             </SectionPanel>
           ) : null}
 
@@ -915,7 +863,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         </Button>
       </StickyFooter>
 
-      <Dialog open={dialog === "confirm"} onClose={() => setDialog(null)} fullWidth>
+      <Dialog open={dialog === "confirm"} onClose={() => setDialog(null)} fullWidth maxWidth="xs">
         <StickyHeader>
           <Typography variant="h6" component="h3">
             {t("bookingDetails.confirmDialog.title")}
@@ -923,43 +871,31 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         </StickyHeader>
         <ContentColumn>
           {error ? <Alert severity="error">{error}</Alert> : null}
-          <Alert severity="warning">
+          <Typography variant="body2" color="text.secondary">
             {t("bookingDetails.confirmDialog.obligation", {
               defaultValue:
                 "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
             })}
-          </Alert>
-          <Typography variant="body2">
-            {t("bookingDetails.confirmDialog.intro")}
           </Typography>
-          <SummaryList component="dl">
-            <SummaryField
-              label={t("bookingDetails.vehicle.requested")}
-              value={current.carModel || current.car?.model}
-              strong
-            />
-            <SummaryField
-              label={t("bookingDetails.vehicle.transmission")}
-              value={current.car?.transmission}
-            />
-            <SummaryField
-              label={t("bookingDetails.dates.pickup")}
-              value={formatMoment(current.pickupAtUtc || current.timeIn)}
-            />
-            <SummaryField
-              label={t("bookingDetails.dates.return")}
-              value={formatMoment(current.returnAtUtc || current.timeOut)}
-            />
-            <SummaryField
-              label={t("bookingDetails.price.totalRentalPrice")}
-              value={price.totalText}
-            />
-            <SummaryField
-              label={t("bookingDetails.price.payableToSupplier")}
-              value={price.payableToSupplierText}
-              strong
-            />
-          </SummaryList>
+          <Typography variant="body2" sx={{ fontWeight: 700, mt: 1 }}>
+            {current.carModel || current.car?.model || vehicle?.displayName}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {[
+              formatMoment(current.pickupAtUtc || current.timeIn),
+              formatMoment(current.returnAtUtc || current.timeOut),
+            ]
+              .filter(Boolean)
+              .join(" → ")}
+          </Typography>
+          {price.payableToSupplierText || price.totalText ? (
+            <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.5 }}>
+              {price.payableToSupplierText || price.totalText}
+              {price.payableToSupplierText
+                ? ` · ${t("bookingDetails.price.payableToSupplier")}`
+                : ""}
+            </Typography>
+          ) : null}
         </ContentColumn>
         <StickyFooter>
           <Button onClick={() => setDialog(null)} disabled={busy}>
@@ -979,6 +915,83 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             {t("bookingDetails.confirmDialog.confirm", {
               defaultValue: "Yes, I commit to provide this vehicle",
             })}
+          </Button>
+        </StickyFooter>
+      </Dialog>
+
+      <Dialog
+        open={vehicleDetailsOpen}
+        onClose={() => setVehicleDetailsOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <StickyHeader>
+          <Typography variant="h6" component="h3">
+            {vehicle?.displayName || t("bookingDetails.sections.vehicle")}
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={() => setVehicleDetailsOpen(false)}
+            aria-label={t("bookingDetails.close")}
+          >
+            <CloseIcon />
+          </IconButton>
+        </StickyHeader>
+        <ContentColumn>
+          <Stack spacing={0.5}>
+            {[
+              vehicle?.class && [
+                t("bookingDetails.vehicle.class"),
+                vehicle.class,
+              ],
+              vehicle?.transmission && [
+                t("bookingDetails.vehicle.transmission"),
+                vehicle.transmission,
+              ],
+              vehicle?.fuelType && [
+                t("bookingDetails.vehicle.fuel"),
+                vehicle.fuelType,
+              ],
+              vehicle?.seats != null &&
+                vehicle.seats !== "" && [
+                  t("bookingDetails.vehicle.seats"),
+                  String(vehicle.seats),
+                ],
+              vehicle?.doors != null &&
+                vehicle.doors !== "" && [
+                  t("bookingDetails.vehicle.doors"),
+                  String(vehicle.doors),
+                ],
+              typeof vehicle?.airConditioning === "boolean" && [
+                t("bookingDetails.vehicle.airConditioning"),
+                t(
+                  vehicle.airConditioning
+                    ? "bookingDetails.options.yes"
+                    : "bookingDetails.options.no"
+                ),
+              ],
+            ]
+              .filter(Boolean)
+              .map(([label, value]) => (
+                <Stack
+                  key={label}
+                  direction="row"
+                  justifyContent="space-between"
+                  spacing={2}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    {label}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {value}
+                  </Typography>
+                </Stack>
+              ))}
+          </Stack>
+        </ContentColumn>
+        <StickyFooter>
+          <Button onClick={() => setVehicleDetailsOpen(false)}>
+            {t("bookingDetails.close")}
           </Button>
         </StickyFooter>
       </Dialog>

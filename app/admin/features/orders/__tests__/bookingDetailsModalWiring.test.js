@@ -94,16 +94,16 @@ describe("booking details modal wiring", () => {
 
   it("the confirmation dialog repeats the essential terms", () => {
     const dialog = MODAL.slice(MODAL.indexOf('dialog === "confirm"'));
-    for (const key of [
-      "bookingDetails.vehicle.requested",
-      "bookingDetails.vehicle.transmission",
-      "bookingDetails.dates.pickup",
-      "bookingDetails.dates.return",
-      "bookingDetails.price.totalRentalPrice",
-      "bookingDetails.price.payableToSupplier",
-    ]) {
-      expect(dialog).toContain(key);
-    }
+    expect(dialog).toContain("bookingDetails.confirmDialog.obligation");
+    expect(dialog).toContain("bookingDetails.price.payableToSupplier");
+    expect(dialog).toContain("confirm-requested-vehicle");
+  });
+
+  it("vehicle specs open on click instead of filling the main panel", () => {
+    expect(MODAL).toContain("vehicleDetailsOpen");
+    expect(MODAL).toContain("bookingDetails.vehicle.viewSpecs");
+    expect(MODAL).not.toContain("vehicle-legacy-notice");
+    expect(MODAL).not.toContain("bookingDetails.vehicle.registration");
   });
 
   it("contacting Rovaro sends a category and a message and never mutates the booking", () => {

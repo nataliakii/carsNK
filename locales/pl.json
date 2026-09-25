@@ -778,7 +778,8 @@
       "registration": "Numer rejestracyjny",
       "legacyNotice": "Ta rezerwacja pochodzi sprzed migawek pojazdu. Pokazano bieżący wpis floty, który może różnić się od uzgodnionego.",
       "seatsShort": "{{count}} seats",
-      "specsInfo": "Vehicle details"
+      "specsInfo": "Vehicle details",
+      "viewSpecs": "View specs"
     },
     "dates": {
       "pickup": "Data i godzina odbioru",

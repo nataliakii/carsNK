@@ -1138,7 +1138,8 @@
       "registration": "Kennzeichen",
       "legacyNotice": "Diese Buchung stammt aus der Zeit vor den Fahrzeug-Snapshots. Gezeigt wird der heutige Flotteneintrag, der vom Vereinbarten abweichen kann.",
       "seatsShort": "{{count}} seats",
-      "specsInfo": "Vehicle details"
+      "specsInfo": "Vehicle details",
+      "viewSpecs": "View specs"
     },
     "dates": {
       "pickup": "Abholdatum und -zeit",

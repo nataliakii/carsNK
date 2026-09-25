@@ -685,7 +685,8 @@
       "registration": "Регистрационен номер",
       "legacyNotice": "Тази резервация е отпреди снимките на автомобила. Показан е днешният запис от автопарка, който може да се различава от уговореното.",
       "seatsShort": "{{count}} seats",
-      "specsInfo": "Vehicle details"
+      "specsInfo": "Vehicle details",
+      "viewSpecs": "View specs"
     },
     "dates": {
       "pickup": "Дата и час на получаване",

@@ -685,7 +685,8 @@
       "registration": "Registarska oznaka",
       "legacyNotice": "Ova rezervacija je starija od snimaka vozila. Prikazan je današnji zapis voznog parka, koji može da se razlikuje od dogovorenog.",
       "seatsShort": "{{count}} seats",
-      "specsInfo": "Vehicle details"
+      "specsInfo": "Vehicle details",
+      "viewSpecs": "View specs"
     },
     "dates": {
       "pickup": "Датум и време преузимања",

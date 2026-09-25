@@ -1906,7 +1906,8 @@
       "registration": "Matrícula",
       "legacyNotice": "Esta reserva es anterior a las instantáneas de vehículo. Se muestra el registro actual de la flota, que puede diferir de lo acordado.",
       "seatsShort": "{{count}} plazas",
-      "specsInfo": "Detalles del vehículo"
+      "specsInfo": "Detalles del vehículo",
+      "viewSpecs": "Ver especificaciones"
     },
     "dates": {
       "pickup": "Fecha y hora de recogida",

@@ -1235,7 +1235,8 @@
       "registration": "Держномер",
       "legacyNotice": "Це бронювання створено до появи знімків автомобіля. Показано поточний запис автопарку, він може відрізнятися від узгодженого.",
       "seatsShort": "{{count}} seats",
-      "specsInfo": "Vehicle details"
+      "specsInfo": "Vehicle details",
+      "viewSpecs": "View specs"
     },
     "dates": {
       "pickup": "Дата й час видачі",

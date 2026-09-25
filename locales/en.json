@@ -1958,6 +1958,7 @@
       "fleetCode": "Fleet code",
       "registration": "Registration",
       "specsInfo": "Vehicle details",
+      "viewSpecs": "View specs",
       "legacyNotice": "This booking predates vehicle snapshots. The fleet record is shown as it is today, which may differ from what was agreed."
     },
     "dates": {
