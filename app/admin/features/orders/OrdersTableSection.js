@@ -2119,8 +2119,6 @@ export default function OrdersTableSection() {
                         </Stack>
                       </TableCell>
 
-                      </TableCell>
-
                       {/* Price: charged + history; system line only for offline */}
                       <TableCell align="right" sx={{ minWidth: 110 }}>
                         {(() => {
