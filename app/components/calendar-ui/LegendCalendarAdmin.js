@@ -21,15 +21,6 @@ const BufferSettingsModal = dynamic(
   { ssr: false }
 );
 
-const LEGEND_COLOR_KEYS = [
-  "PAID_AND_CLOSED",
-  "CONFIRMED_CLIENT",
-  "CONFIRMED_ADMIN",
-  "OFFLINE",
-  "PENDING_CLIENT",
-  "PENDING_ADMIN",
-];
-
 const LEGEND_POPOVER_ID = "calendar-admin-legend-popover";
 
 /**
@@ -245,12 +236,12 @@ function LegendCalendarAdmin({
           tooltip: t("calendar.legend.bookedDatesTooltip"),
         },
       ]
-    : LEGEND_COLOR_KEYS.map((key) => ({
-        key: key.toLowerCase().replace(/_/g, "-"),
-        color: ORDER_COLORS[key].main,
-        hatch: key === "OFFLINE",
-        label: legendLabel(key),
-        tooltip: legendDetail(key),
+    : getOrderColorsForLegend().map((oc) => ({
+        key: oc.key,
+        color: oc.main,
+        hatch: false,
+        label: legendLabel(oc.key),
+        tooltip: legendDetail(oc.key),
       }));
 
   const toolbarInfoOnly = inToolbar && !showLegendItems;

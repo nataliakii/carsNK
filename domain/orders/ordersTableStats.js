@@ -1,6 +1,23 @@
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import {
+  isPlatformBooking,
+  matchesBookingSourceFilter,
+  summarizeContractorAdminTotals,
+} from "@/domain/admin/rovaroContractorAdmin";
 import { marketplaceFinancialSplit } from "@/domain/orders/marketplaceFinancialSplit";
 import { formatMarketplaceFeePercent } from "@/domain/orders/marketplaceBookingFee";
+
+/**
+ * Rovaro Booking Fee totals only include client marketplace bookings.
+ * Internal / admin / offline calendar rows never contribute.
+ * Full contractor-admin split: domain/admin/ROVARO_CONTRACTOR_ADMIN.md
+ * Fee rows are platform source only. Missing source is not a fee row.
+ */
+export function isRovaroMarketplaceFeeOrder(order) {
+  if (!isPlatformBooking(order)) return false;
+  if (order.offline === true) return false;
+  return isMarketplaceRequestMode(order.bookingMode);
+}
 
 /**
  * effectivePrice = OverridePrice ?? totalPrice
@@ -102,8 +119,7 @@ export function filterOrdersForTable(orders, criteria = {}, helpers = {}) {
     if (statusFilter === "confirmed" && !order.confirmed) return false;
     if (statusFilter === "pending" && order.confirmed) return false;
 
-    if (originFilter === "client" && !order.my_order) return false;
-    if (originFilter === "admin" && order.my_order) return false;
+    if (!matchesBookingSourceFilter(order, originFilter)) return false;
 
     if (dateFrom || dateTo) {
       const orderStart = new Date(order.rentalStartDate);
@@ -150,29 +166,23 @@ export function filterOrdersForTable(orders, criteria = {}, helpers = {}) {
  */
 export function summarizeFilteredOrders(filteredOrders) {
   const orders = filteredOrders || [];
+  const split = summarizeContractorAdminTotals(orders);
   let sum = 0;
-  let platformMinor = 0;
-  let supplierMinor = 0;
-  let marketplaceCount = 0;
-  for (const order of orders) {
-    sum += getEffectivePrice(order);
-    if (!isMarketplaceRequestMode(order?.bookingMode)) continue;
-    marketplaceCount += 1;
-    const split = marketplaceFinancialSplit(order?.authoritativePrice || {});
-    platformMinor += Number(split.platformAmountMinor) || 0;
-    supplierMinor += Number(split.supplierBalanceMinor) || 0;
-  }
+  for (const order of orders) sum += getEffectivePrice(order);
+  const feeOrder = orders.find(isRovaroMarketplaceFeeOrder);
   return {
     count: orders.length,
     sum,
-    marketplaceCount,
-    commission: platformMinor / 100,
-    remaining: supplierMinor / 100,
+    marketplaceCount: split.platformFeeCount,
+    commission: split.rovaroBookingFees,
+    remaining: split.marketplaceSupplierAmount,
     commissionPercent:
-      marketplaceCount === 1
+      split.platformFeeCount === 1
         ? formatMarketplaceFeePercent(
-            marketplaceFinancialSplit(orders.find((o) => isMarketplaceRequestMode(o?.bookingMode))?.authoritativePrice || {}).marketplaceBookingFeeBps
+            marketplaceFinancialSplit(feeOrder?.authoritativePrice || {})
+              .marketplaceBookingFeeBps
           )
         : null,
+    ...split,
   };
 }

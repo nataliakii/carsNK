@@ -20,6 +20,7 @@ import {
   PARTNER_OPERATION_PURPOSE,
 } from "@/domain/legal/partnerOperatingPolicy";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import {
   invalidateMarketplaceCheckoutsForOrderRecord,
   retryCheckoutInvalidationForOrder,
@@ -49,6 +50,18 @@ export async function GET(request, { params }) {
   const order = await loadOrder(orderId);
   if (!order) return json({ success: false, message: "Order not found" }, 404);
 
+  if (!isPlatformBooking(order)) {
+    return json({
+      success: true,
+      internalCompanyBooking: true,
+      superadmin: Number(session.user?.role) === ROLE.SUPERADMIN,
+      canIssueNewLink: false,
+      canResendExisting: false,
+      message: "Internal company booking — not a Rovaro payment.",
+      view: null,
+    });
+  }
+
   const view = await buildMarketplacePaymentOpsView(order);
   const isSuper = Number(session.user?.role) === ROLE.SUPERADMIN;
   return json({
@@ -71,6 +84,17 @@ export async function POST(request, { params }) {
 
   const order = await loadOrder(orderId);
   if (!order) return json({ success: false, message: "Order not found" }, 404);
+
+  if (!isPlatformBooking(order)) {
+    return json(
+      {
+        success: false,
+        code: "internal_company_booking",
+        message: "Internal company booking — not a Rovaro payment.",
+      },
+      403
+    );
+  }
 
   if (action === "resend") {
     if (isMarketplaceRequestMode(order.bookingMode)) {

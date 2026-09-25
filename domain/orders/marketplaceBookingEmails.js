@@ -12,6 +12,7 @@ import MailLog from "@models/MailLog";
 import { MAIL_RENDER_KEY, MAIL_STATUS, MAIL_TYPE } from "@/domain/mail/mailTypes";
 import { renderRovaroBrandedEmail } from "@/app/ui/email/templates/rovaroBrandedEmail";
 import { normalizeEmailLocale } from "@locales/customerEmail";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { resolveRentalCheckoutAmount } from "@/domain/orders/companyRentalPaymentPolicy";
 import {
   formatMarketplaceEuro,
@@ -257,6 +258,11 @@ function customerEmailOf(order) {
   return email.includes("@") ? email : "";
 }
 
+function refuseNonPlatformCustomerMail(order) {
+  if (isPlatformBooking(order)) return null;
+  return { ok: false, skipped: true, code: "not_platform_booking" };
+}
+
 /**
  * Payment-request email after partner confirm. Does not create Stripe sessions.
  */
@@ -266,6 +272,8 @@ export async function sendCustomerPaymentRequestEmail({
   expiresAt,
   stripeSessionId,
 }) {
+  const blocked = refuseNonPlatformCustomerMail(order);
+  if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email || !paymentUrl) {
     return { ok: false, code: "missing_recipient_or_url" };
@@ -350,6 +358,8 @@ export async function sendCustomerPaymentExpiredEmail({
   order,
   stripeSessionId = "",
 }) {
+  const blocked = refuseNonPlatformCustomerMail(order);
+  if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
   const sessionKey =
@@ -414,6 +424,8 @@ export async function sendCustomerPaymentLinkUnavailableEmail({
   order,
   stripeSessionId = "",
 }) {
+  const blocked = refuseNonPlatformCustomerMail(order);
+  if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
   const sessionKey =
@@ -477,6 +489,8 @@ export async function sendCustomerNewPaymentLinkEmail({
   expiresAt,
   stripeSessionId,
 }) {
+  const blocked = refuseNonPlatformCustomerMail(order);
+  if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email || !paymentUrl) {
     return { ok: false, code: "missing_recipient_or_url" };
@@ -552,6 +566,8 @@ export async function sendCustomerNewPaymentLinkEmail({
 }
 
 export async function sendCustomerDeclineEmail({ order, reason = "" }) {
+  const blocked = refuseNonPlatformCustomerMail(order);
+  if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
   if (
@@ -602,6 +618,8 @@ export async function sendCustomerDeclineEmail({ order, reason = "" }) {
 }
 
 export async function sendCustomerPaidEmail({ order, supplierName = "" }) {
+  const blocked = refuseNonPlatformCustomerMail(order);
+  if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
   if (
@@ -777,6 +795,8 @@ export async function sendCustomerBookingFeeRefundEmail({
   currency,
   reason = "",
 } = {}) {
+  const blocked = refuseNonPlatformCustomerMail(order);
+  if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
   if (
@@ -849,6 +869,8 @@ export async function sendMarketplacePriceCorrectionEmails({
   order,
   revision,
 } = {}) {
+  const blocked = refuseNonPlatformCustomerMail(order);
+  if (blocked) return { customer: blocked, partner: blocked };
   await connectToDB();
   const customerLocale = order?.clientLang || order?.locale || "en";
   const customerCopy = marketplacePriceCorrectionCopy(customerLocale);

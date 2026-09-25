@@ -20,7 +20,11 @@ import {
   evaluateRentalAvailability,
 } from "@/domain/booking/availabilityEngine";
 import { analyzeConfirmationConflicts } from "@/domain/booking/analyzeConfirmationConflicts";
-import { resolveBookingMode } from "@/domain/booking/bookingMode";
+import {
+  isMarketplaceRequestMode,
+  resolveBookingMode,
+} from "@/domain/booking/bookingMode";
+import { startMarketplacePaymentAfterAvailability } from "@/domain/orders/startMarketplacePaymentAfterAvailability";
 import { LEGACY_FALLBACK_TZ } from "@/domain/time/resolveBusinessTimezone";
 import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
 import { orderMessages } from "@/domain/messages";
@@ -357,6 +361,29 @@ export async function applySupplierResponse({
     console.error("[supplier-response] notify failed:", err?.message);
   }
 
+  let paymentUrl = "";
+  if (kind === "accepted" && isMarketplaceRequestMode(order.bookingMode)) {
+    const issued = await startMarketplacePaymentAfterAvailability({
+      order,
+      actorEmail: actor.email,
+    });
+    if (!issued.ok) {
+      return {
+        status: issued.status || 502,
+        body: {
+          success: false,
+          message: issued.message,
+          code: issued.code,
+          data: {
+            confirmed: order.confirmed === true,
+            ...buildSupplierResponsePublicFields(order),
+          },
+        },
+      };
+    }
+    paymentUrl = issued.paymentUrl || "";
+  }
+
   return {
     status: 200,
     body: {
@@ -368,6 +395,7 @@ export async function applySupplierResponse({
           : orderMessages.SUPPLIER_DECLINED,
       data: {
         confirmed: order.confirmed === true,
+        paymentUrl,
         ...buildSupplierResponsePublicFields(order),
       },
     },

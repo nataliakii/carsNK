@@ -1,4 +1,5 @@
 import { Order } from "@models/order";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { snapshotMarketplaceBookingFeeBps, formatMarketplaceFeePercent } from "@/domain/orders/marketplaceBookingFee";
 import Company from "@models/company";
 import { getBaseUrl } from "@config/domain";
@@ -179,6 +180,13 @@ export async function createRentalCheckoutSession(
   const doc = await Order.findById(orderId);
   if (!doc) {
     return { ok: false, code: "not_found", message: "Order not found" };
+  }
+  if (!isPlatformBooking(doc)) {
+    return {
+      ok: false,
+      code: "not_platform_booking",
+      message: "Internal bookings do not use Rovaro Checkout.",
+    };
   }
 
   if (doc.payment?.status === "paid") {

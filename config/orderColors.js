@@ -1,32 +1,113 @@
 /**
- * Order colors configuration
- * 
- * 🎯 ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ для цветов заказов
- * 
- * Colors depend on:
- * - order.offline (boolean) — off-site booking
- * - order.confirmed (boolean)
- * - order.my_order (boolean)
- * - order.status (terminal PAID_AND_CLOSED)
- * 
- * my_order = true  → клиентский заказ (CLIENT)
- * my_order = false → админский заказ (ADMIN)
- * offline = true   → офлайн-бронь (штриховка в календаре)
- * 
- * ЦВЕТОВАЯ ЛОГИКА:
- * - Клиентские заказы (my_order=true):
- *   - Confirmed: cyan brand (primary.main)
- *   - Pending: желтый (brand yellow)
- * 
- * - Админские заказы (my_order=false):
- *   - Confirmed: зеленый (triadic.green)
- *   - Pending: оливковый (triadic.olive)
- * 
- * ВСЕ ЦВЕТА ИЗ ПАЛИТРЫ theme.js!
+ * Calendar/table colour tokens (theme palette only).
+ *
+ * Domain truth is `source` + `status`, not this file:
+ * `domain/admin/ROVARO_CONTRACTOR_ADMIN.md`
+ * `domain/admin/rovaroContractorAdmin.js` (`CALENDAR_TONE`).
+ *
+ * Map `resolveContractorCalendarTone(order)` through theme.palette.
+ * Do not branch business rules on CSS.
+ *
+ * Tone colours live in palette.contractorBooking and CONTRACTOR_TONE_COLORS.
+ *
+ * Legacy flags: offline, confirmed, my_order, status PAID_AND_CLOSED.
  */
 
 import { alpha } from "@mui/material/styles";
 import { palette } from "@/theme";
+import { CALENDAR_TONE } from "@/domain/admin/rovaroContractorAdmin";
+
+const booking = palette.contractorBooking;
+
+function swatch(key, main, label, labelEn, extra = {}) {
+  return {
+    key,
+    main,
+    light: extra.light || main,
+    dark: extra.dark || main,
+    text: extra.text || palette.neutral.gray900,
+    bg: alpha(main, 0.16),
+    label,
+    labelEn,
+    ...extra,
+  };
+}
+
+/** Tone → theme palette. Business rules stay in resolveContractorCalendarTone. */
+export const CONTRACTOR_TONE_COLORS = {
+  [CALENDAR_TONE.NEW_REQUEST]: swatch(
+    CALENDAR_TONE.NEW_REQUEST,
+    booking.newRequest,
+    "Новая заявка",
+    "New request",
+    { text: palette.neutral.black }
+  ),
+  [CALENDAR_TONE.AWAITING_PAYMENT]: swatch(
+    CALENDAR_TONE.AWAITING_PAYMENT,
+    booking.awaitingPayment,
+    "Ожидается оплата",
+    "Awaiting payment",
+    { text: palette.neutral.gray900 }
+  ),
+  [CALENDAR_TONE.CONFIRMED_PAID]: swatch(
+    CALENDAR_TONE.CONFIRMED_PAID,
+    booking.confirmedPaid,
+    "Подтверждено",
+    "Confirmed",
+    { text: palette.neutral.white }
+  ),
+  [CALENDAR_TONE.COMPLETED]: swatch(
+    CALENDAR_TONE.COMPLETED,
+    booking.confirmedPaid,
+    "Завершено",
+    "Completed",
+    { text: palette.neutral.white }
+  ),
+  [CALENDAR_TONE.INTERNAL]: swatch(
+    CALENDAR_TONE.INTERNAL,
+    booking.internal,
+    "Внутренняя запись",
+    "Internal booking",
+    { text: palette.neutral.white }
+  ),
+  [CALENDAR_TONE.DECLINED]: swatch(
+    CALENDAR_TONE.DECLINED,
+    booking.muted,
+    "Отказ",
+    "Declined",
+    { text: palette.neutral.gray800 }
+  ),
+  [CALENDAR_TONE.PAYMENT_EXPIRED]: swatch(
+    CALENDAR_TONE.PAYMENT_EXPIRED,
+    palette.neutral.gray300,
+    "Оплата просрочена",
+    "Payment expired",
+    { text: palette.neutral.gray800 }
+  ),
+  [CALENDAR_TONE.CANCELLED]: swatch(
+    CALENDAR_TONE.CANCELLED,
+    booking.muted,
+    "Отменён",
+    "Cancelled",
+    { text: palette.neutral.gray800 }
+  ),
+  [CALENDAR_TONE.UNRESOLVED]: swatch(
+    CALENDAR_TONE.UNRESOLVED,
+    palette.neutral.gray500,
+    "Нужна проверка",
+    "Needs review",
+    { text: palette.neutral.white }
+  ),
+};
+
+export function getContractorLegendSwatches() {
+  return [
+    CONTRACTOR_TONE_COLORS[CALENDAR_TONE.NEW_REQUEST],
+    CONTRACTOR_TONE_COLORS[CALENDAR_TONE.AWAITING_PAYMENT],
+    CONTRACTOR_TONE_COLORS[CALENDAR_TONE.CONFIRMED_PAID],
+    CONTRACTOR_TONE_COLORS[CALENDAR_TONE.INTERNAL],
+  ];
+}
 
 /**
  * ORDER_COLORS - строгая структура с обязательными полями
@@ -204,14 +285,7 @@ export const ORDER_UI_COLORS = {
  * Возвращает 4 состояния в фиксированном порядке
  */
 export function getOrderColorsForLegend() {
-  return [
-    ORDER_COLORS.PAID_AND_CLOSED,
-    ORDER_COLORS.CONFIRMED_CLIENT,
-    ORDER_COLORS.CONFIRMED_ADMIN,
-    ORDER_COLORS.OFFLINE,
-    ORDER_COLORS.PENDING_CLIENT,
-    ORDER_COLORS.PENDING_ADMIN,
-  ];
+  return getContractorLegendSwatches();
 }
 
 export default ORDER_COLORS;

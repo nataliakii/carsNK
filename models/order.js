@@ -360,6 +360,22 @@ const OrderSchema = new mongoose.Schema({
     default: false,
   },
   /**
+   * Immutable commercial source. New records must set this explicitly.
+   * PLATFORM = public Rovaro booking. INTERNAL = company calendar.
+   * Legacy rows may omit it; readers fall back to proven `my_order` only
+   * when that flag is a real boolean and does not conflict.
+   */
+  source: {
+    type: String,
+    enum: ["PLATFORM", "INTERNAL"],
+    index: true,
+  },
+  /** Internal calendar rows block the car unless this is explicitly false. */
+  blocksAvailability: {
+    type: Boolean,
+    default: true,
+  },
+  /**
    * Offline booking: reserved outside the website (phone / WhatsApp / etc.).
    * Blocks dates like a confirmed order; shown with a distinct calendar style.
    */

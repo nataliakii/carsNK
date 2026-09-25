@@ -3,14 +3,18 @@
  * `domain/booking/rentalBookingState.js` and must be applied through
  * `canTransitionRentalState` / `applyRentalStateTransition`.
  *
- * Spain MARKETPLACE_REQUEST mapping (P0):
- *   PENDING_SUPPLIER_CONFIRMATION  — request submitted; does not hard-block
- *   CONFIRMED_AWAITING_PAYMENT     — partner confirmed; brief hold (hard-block)
- *   PAYMENT_PROCESSING             — checkout created; user-facing PAYMENT_PENDING (hard-block)
- *   BOOKING_CONFIRMED              — Stripe webhook paid only (hard-block)
- *   SUPPLIER_DECLINED              — partner rejected; does not block
- *   PAYMENT_EXPIRED                — checkout expired/failed before pay; does not block
- *   CUSTOMER_CANCELLED / SUPPLIER_CANCELLED / ADMIN_CANCELLED — do not block
+ * Canonical product workflow: domain/booking/ROVARO_MARKETPLACE_WORKFLOW.md
+ * Contractor calendar/table: domain/admin/ROVARO_CONTRACTOR_ADMIN.md
+ *
+ * Spain MARKETPLACE_REQUEST mapping:
+ *   PENDING_SUPPLIER_CONFIRMATION  — AWAITING_SUPPLIER_RESPONSE
+ *   CONFIRMED_AWAITING_PAYMENT     — brief hold after Vehicle available
+ *   PAYMENT_PROCESSING             — AWAITING_CUSTOMER_PAYMENT (Checkout created)
+ *   BOOKING_CONFIRMED              — Stripe webhook paid only
+ *   SUPPLIER_DECLINED              — Cannot provide; no Stripe link
+ *   PAYMENT_EXPIRED                — unpaid link expired
+ *   ALTERNATIVE_PROPOSED           — customer must accept; admin must not
+ *   COMPLETED                      — rental finished / auto-closed
  *
  * Do not mass-migrate historical rows. New marketplace writes use these
  * constants; Greece ops still mostly uses legacy `confirmed` / `offline`.

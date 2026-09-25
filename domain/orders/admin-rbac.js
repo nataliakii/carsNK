@@ -27,6 +27,10 @@
    * ════════════════════════════════════════════════════════════════
    */
   import { ROLE } from "@models/user";
+  import {
+    isInternalBooking,
+    isPlatformBooking,
+  } from "@/domain/admin/rovaroContractorAdmin";
 
   // ════════════════════════════════════════════════════════════════
   // RE-EXPORTS
@@ -52,11 +56,11 @@
   // ════════════════════════════════════════════════════════════════
 
   export function isClientOrder(order) {
-    return order?.my_order === true;
+    return isPlatformBooking(order);
   }
 
   export function isAdminCreatedOrder(order) {
-    return order?.my_order === false;
+    return isInternalBooking(order);
   }
 
   // ════════════════════════════════════════════════════════════════

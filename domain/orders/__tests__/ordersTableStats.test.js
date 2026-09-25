@@ -8,6 +8,7 @@ import {
   computeCommission,
   filterOrdersForTable,
   summarizeFilteredOrders,
+  isRovaroMarketplaceFeeOrder,
 } from "@/domain/orders/ordersTableStats";
 
 describe("ordersTableStats", () => {
@@ -86,6 +87,7 @@ describe("ordersTableStats", () => {
   test("summarizeFilteredOrders uses stored marketplace amounts, not a hardcoded percent", () => {
     const orders = [
       {
+        my_order: true,
         totalPrice: 100,
         OverridePrice: null,
         bookingMode: "MARKETPLACE_REQUEST",
@@ -108,5 +110,104 @@ describe("ordersTableStats", () => {
     expect(s.commission).toBe(10);
     expect(s.remaining).toBe(90);
     expect(s.count).toBe(2);
+  });
+
+  test("summarizeFilteredOrders ignores internal bookings even if bookingMode is marketplace", () => {
+    const orders = [
+      {
+        my_order: false,
+        totalPrice: 100,
+        bookingMode: "MARKETPLACE_REQUEST",
+        authoritativePrice: {
+          grossMinor: 10000,
+          platformAmountMinor: 1000,
+          supplierBalanceMinor: 9000,
+          marketplaceBookingFeeBps: 1000,
+        },
+      },
+      {
+        my_order: true,
+        totalPrice: 200,
+        bookingMode: "MARKETPLACE_REQUEST",
+        authoritativePrice: {
+          grossMinor: 20000,
+          platformAmountMinor: 2000,
+          supplierBalanceMinor: 18000,
+          marketplaceBookingFeeBps: 1000,
+        },
+      },
+    ];
+    const s = summarizeFilteredOrders(orders);
+    expect(s.marketplaceCount).toBe(1);
+    expect(s.commission).toBe(20);
+    expect(s.remaining).toBe(180);
+    expect(s.count).toBe(2);
+  });
+
+  test("isRovaroMarketplaceFeeOrder excludes internal and offline rows", () => {
+    expect(
+      isRovaroMarketplaceFeeOrder({
+        my_order: true,
+        bookingMode: "MARKETPLACE_REQUEST",
+      })
+    ).toBe(true);
+    expect(
+      isRovaroMarketplaceFeeOrder({
+        my_order: false,
+        bookingMode: "MARKETPLACE_REQUEST",
+      })
+    ).toBe(false);
+    expect(
+      isRovaroMarketplaceFeeOrder({
+        my_order: true,
+        offline: true,
+        bookingMode: "MARKETPLACE_REQUEST",
+      })
+    ).toBe(false);
+  });
+
+  test("summarizeFilteredOrders fee lines ignore Admin calendar bookings in a mixed table", () => {
+    const fee = (gross, platform) => ({
+      grossMinor: gross * 100,
+      platformAmountMinor: platform * 100,
+      supplierBalanceMinor: (gross - platform) * 100,
+      marketplaceBookingFeeBps: 1000,
+    });
+    const s = summarizeFilteredOrders([
+      {
+        my_order: true,
+        totalPrice: 50,
+        bookingMode: "MARKETPLACE_REQUEST",
+        authoritativePrice: fee(50, 5),
+      },
+      {
+        my_order: false,
+        totalPrice: 100,
+        bookingMode: "MARKETPLACE_REQUEST",
+        authoritativePrice: fee(100, 10),
+      },
+      {
+        my_order: false,
+        totalPrice: 50,
+        bookingMode: "MARKETPLACE_REQUEST",
+        authoritativePrice: fee(50, 5),
+      },
+      {
+        my_order: true,
+        totalPrice: 150,
+        bookingMode: "MARKETPLACE_REQUEST",
+        authoritativePrice: fee(150, 15),
+      },
+      {
+        my_order: true,
+        totalPrice: 237,
+        bookingMode: "MARKETPLACE_REQUEST",
+        authoritativePrice: fee(237, 23.7),
+      },
+    ]);
+    expect(s.sum).toBe(587);
+    expect(s.marketplaceCount).toBe(3);
+    expect(s.commission).toBe(43.7);
+    expect(s.remaining).toBe(393.3);
   });
 });

@@ -3,8 +3,6 @@
  */
 import { getOrderColor, getOrderType } from "@/domain/orders/getOrderColor";
 import { isOrderDateBlocking } from "@/domain/orders/isOrderDateBlocking";
-import { ORDER_COLORS } from "@/config/orderColors";
-import { ORDER_STATUS } from "@/domain/orders/orderStatus";
 
 describe("offline order helpers", () => {
   test("isOrderDateBlocking is true for offline or confirmed", () => {
@@ -14,26 +12,31 @@ describe("offline order helpers", () => {
     expect(isOrderDateBlocking(null)).toBe(false);
   });
 
-  test("getOrderColor returns OFFLINE before confirmed matrix", () => {
+  test("internal blocks use source, not the offline colour", () => {
     const color = getOrderColor({
       offline: true,
       confirmed: true,
+      my_order: false,
+      source: "INTERNAL",
+    });
+    expect(color.key).toBe("INTERNAL");
+    expect(color.problem).toBeUndefined();
+  });
+
+  test("a platform problem keeps the paid tone and adds a red accent", () => {
+    const color = getOrderColor({
       my_order: true,
+      source: "PLATFORM",
+      bookingStatus: "BOOKING_CONFIRMED",
+      hasProblem: true,
     });
-    expect(color.key).toBe(ORDER_COLORS.OFFLINE.key);
-    expect(color.hatch).toBe(true);
+    expect(color.key).toBe("CONFIRMED_PAID");
+    expect(color.problem).toBe(true);
   });
 
-  test("paid-and-closed still wins over offline", () => {
-    const color = getOrderColor({
-      offline: true,
-      confirmed: true,
-      status: ORDER_STATUS.PAID_AND_CLOSED,
-    });
-    expect(color.key).toBe(ORDER_COLORS.PAID_AND_CLOSED.key);
-  });
-
-  test("getOrderType returns offline", () => {
-    expect(getOrderType({ offline: true, confirmed: true })).toBe("offline");
+  test("getOrderType follows the calendar tone", () => {
+    expect(getOrderType({ offline: true, confirmed: true, my_order: false })).toBe(
+      "INTERNAL"
+    );
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Stack, Switch, Tooltip, Typography } from "@mui/material";
+import { Button, Stack, Tooltip, Typography } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import {
   PLATFORM_BOOKING_STATUS,
@@ -25,20 +25,13 @@ export default function PlatformStatusCell({
 
   if (!isClient) {
     return (
-      <Tooltip
-        title={
-          order.confirmed ? t("table.unconfirm") : t("table.confirmBooking")
-        }
-      >
-        <span>
-          <Switch
-            checked={order.confirmed || false}
-            onChange={onToggleConfirm}
-            disabled={busy}
-            size="small"
-            color="primary"
-          />
-        </span>
+      <Tooltip title={t("table.internalOrderHint")}>
+        <Typography
+          variant="caption"
+          sx={{ fontWeight: 600, color: "text.secondary", maxWidth: 88 }}
+        >
+          {t("table.internalNotRovaro")}
+        </Typography>
       </Tooltip>
     );
   }

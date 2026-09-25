@@ -7,6 +7,7 @@ import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { checkFieldAccess } from "@/middleware/withOrderAccess";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { assignOfflineFlag } from "@/domain/admin/rovaroContractorAdmin";
 import { getActionFromChangedFields } from "@/domain/orders/orderNotificationPolicy";
 import { notifyOrderAction } from "@/domain/orders/orderNotificationDispatcher";
 import { getBusinessRentalDaysByMinutes } from "@/domain/orders/numberOfDays";
@@ -914,11 +915,7 @@ export const PATCH = async (request, { params }) => {
               if (payload.Whatsapp !== undefined) order.Whatsapp = payload.Whatsapp;
               if (payload.Telegram !== undefined) order.Telegram = payload.Telegram;
               if (payload.offline !== undefined) {
-                order.offline = Boolean(payload.offline);
-                if (order.offline) {
-                  order.confirmed = true;
-                  order.my_order = false;
-                }
+                assignOfflineFlag(order, payload.offline);
               }
               if (payload.flightNumber !== undefined)
                 order.flightNumber = payload.flightNumber;
@@ -1056,11 +1053,7 @@ export const PATCH = async (request, { params }) => {
         if (payload.Whatsapp !== undefined) order.Whatsapp = payload.Whatsapp;
         if (payload.Telegram !== undefined) order.Telegram = payload.Telegram;
         if (payload.offline !== undefined) {
-          order.offline = Boolean(payload.offline);
-          if (order.offline) {
-            order.confirmed = true;
-            order.my_order = false;
-          }
+          assignOfflineFlag(order, payload.offline);
         }
         if (payload.flightNumber !== undefined)
           order.flightNumber = payload.flightNumber;
@@ -1168,11 +1161,7 @@ export const PATCH = async (request, { params }) => {
       if (payload.Whatsapp !== undefined) order.Whatsapp = payload.Whatsapp;
       if (payload.Telegram !== undefined) order.Telegram = payload.Telegram;
       if (payload.offline !== undefined) {
-        order.offline = Boolean(payload.offline);
-        if (order.offline) {
-          order.confirmed = true;
-          order.my_order = false;
-        }
+        assignOfflineFlag(order, payload.offline);
       }
       if (payload.flightNumber !== undefined)
         order.flightNumber = payload.flightNumber;

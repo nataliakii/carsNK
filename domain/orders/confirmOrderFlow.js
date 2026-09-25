@@ -9,7 +9,7 @@
  * 2. OrderContext built inline (no createOrderContext dependency)
  * 3. getOrderAccess(ctx)
  * 4. isConfirming = !order.confirmed
- * 5. If UNCONFIRMING internal → allow immediately
+ * 5. If UNCONFIRMING internal (company admin) → allow immediately
  * 6. If !access.canConfirm → return 403
  * 7. If CONFIRMING: fetch orders, analyzeConfirmationConflicts, 409 or save+notify+200/202
  * 8. If UNCONFIRMING: save+notify+200
@@ -79,8 +79,9 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
   // Internal = not client (matches policy: isClientOrder = order.my_order === true; undefined/false = internal)
   const isInternal = order.my_order !== true;
 
-  // 5. If UNCONFIRMING internal order → allow immediately (exact same logic)
-  if (!isConfirming && isInternal) {
+  // 5. Company admin unconfirming internal → allow immediately.
+  // Platform superadmin must not confirm/unconfirm company-calendar bookings.
+  if (!isConfirming && isInternal && ctx.role !== "SUPERADMIN") {
     // allow: no check needed
   } else if (!access.canConfirm) {
     // 6. If access.canConfirm === false → return 403 response (exact payload)

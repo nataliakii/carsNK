@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next";
 // Импорт helpers и hooks
 // ============================================
 import { getOrderColor } from "@/domain/orders/getOrderColor";
+import { isInternalBooking, isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { isOrderDateBlocking } from "@/domain/orders/isOrderDateBlocking";
 import { MOVE_MODE_COLORS, getOfflineHatchBackground } from "@/config/orderColors";
 import OrderHoverPreview from "./OrderHoverPreview";
@@ -621,26 +622,26 @@ export default function CarTableRow({
         (order) =>
           formatDate(order.rentalStartDate, "YYYY-MM-DD") === dateStr &&
           order.confirmed === true &&
-          order.my_order === false
+          isInternalBooking(order)
       );
       const prevGreenOrder = carOrders.find(
         (order) =>
           formatDate(order.rentalEndDate, "YYYY-MM-DD") === dateStr &&
           order.confirmed === true &&
-          order.my_order === true
+          isPlatformBooking(order)
       );
 
       const lastRedOrder = carOrders.find(
         (order) =>
           formatDate(order.rentalEndDate, "YYYY-MM-DD") === dateStr &&
           order.confirmed === true &&
-          order.my_order === false
+          isInternalBooking(order)
       );
       const nextGreenOrder = carOrders.find(
         (order) =>
           formatDate(order.rentalStartDate, "YYYY-MM-DD") === dateStr &&
           order.confirmed === true &&
-          order.my_order === true
+          isPlatformBooking(order)
       );
 
       // Функция для создания желтого overlay для первого/последнего дня перемещения
@@ -805,6 +806,7 @@ export default function CarTableRow({
       let backgroundColor = "transparent";
       let color = "inherit";
       let hatchBackground = null;
+      let problemAccent = false;
       
       if (cellState.isConfirmed) {
         // Blocking = confirmed OR offline
@@ -815,6 +817,7 @@ export default function CarTableRow({
           const orderColor = getOrderColor(confirmedOrder);
           backgroundColor = orderColor.main;
           color = "white";
+          if (orderColor.problem) problemAccent = true;
           if (orderColor.hatch) {
             hatchBackground = getOfflineHatchBackground(orderColor.main);
           }
@@ -828,13 +831,16 @@ export default function CarTableRow({
           const orderColor = getOrderColor(pendingOrder);
           backgroundColor = orderColor.main;
           color = "text.primary";
+          if (orderColor.problem) problemAccent = true;
           if (orderColor.hatch) {
             hatchBackground = getOfflineHatchBackground(orderColor.main);
           }
         }
       }
       let borderRadius = "1px";
-      let border = `1px solid ${theme.palette.divider || "#e0e0e0"}`;
+      let border = problemAccent
+        ? `2px solid ${theme.palette.error.main}`
+        : `1px solid ${theme.palette.divider}`;
       let width;
 
       // =======================

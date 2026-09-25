@@ -202,6 +202,48 @@ describe("evaluateRentalAvailability", () => {
     expect(result.conflictType).toBe(CONFLICT_TYPE.INVALID_RANGE);
   });
 
+  test("internal company block hides the car from public search until it is removed", () => {
+    const open = evalAvail("2026-06-10 12:00", "2026-06-11 12:00", [
+      order({
+        id: "pending-platform",
+        confirmed: false,
+        start: "2026-06-10 10:00",
+        end: "2026-06-12 10:00",
+        bookingStatus: BOOKING_STATUS.PENDING_SUPPLIER_CONFIRMATION,
+      }),
+    ]);
+    expect(open.hardConflict).toBe(false);
+
+    const internalOrder = {
+      ...order({
+        id: "int",
+        confirmed: false,
+        start: "2026-06-10 10:00",
+        end: "2026-06-12 10:00",
+      }),
+      my_order: false,
+      source: "INTERNAL",
+    };
+    const held = evalAvail("2026-06-10 12:00", "2026-06-11 12:00", [internalOrder], {
+      bookingMode: BOOKING_MODES.MARKETPLACE_REQUEST,
+    });
+    expect(held.available).toBe(false);
+    expect(held.hardConflict).toBe(true);
+
+    const released = evalAvail("2026-06-10 12:00", "2026-06-11 12:00", [], {
+      bookingMode: BOOKING_MODES.MARKETPLACE_REQUEST,
+    });
+    expect(released.available).toBe(true);
+
+    const optedOut = evalAvail(
+      "2026-06-10 12:00",
+      "2026-06-11 12:00",
+      [{ ...internalOrder, blocksAvailability: false }],
+      { bookingMode: BOOKING_MODES.MARKETPLACE_REQUEST }
+    );
+    expect(optedOut.hardConflict).toBe(false);
+  });
+
   test("serializePublicBlockedIntervals has no PII", () => {
     const intervals = serializePublicBlockedIntervals(
       [order({ id: "a", confirmed: true, customerName: "Hidden" })],

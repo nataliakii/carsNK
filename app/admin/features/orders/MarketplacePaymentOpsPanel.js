@@ -16,6 +16,7 @@ import {
   Checkbox,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 import { PAYMENT_LINK_REISSUE_REASONS } from "@/domain/orders/paymentLinkReissueReasons";
 import {
@@ -75,6 +76,20 @@ function Row({ label, value }) {
 }
 
 export default function MarketplacePaymentOpsPanel({ order, isSuperAdmin }) {
+  if (!isPlatformBooking(order)) {
+    return (
+      <Alert severity="info" sx={{ mt: 1.5 }}>
+        Internal company booking. No Rovaro fee, no payouts, and superadmin
+        cannot change it.
+      </Alert>
+    );
+  }
+  return (
+    <MarketplacePaymentOpsBody order={order} isSuperAdmin={isSuperAdmin} />
+  );
+}
+
+function MarketplacePaymentOpsBody({ order, isSuperAdmin }) {
   const orderId = order?._id ? String(order._id) : "";
   const marketplace = isMarketplaceRequestMode(order?.bookingMode);
   const [view, setView] = useState(null);

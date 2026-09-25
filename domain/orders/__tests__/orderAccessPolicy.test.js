@@ -13,7 +13,8 @@
  * | ADMIN      | Client   | ❌        | ✅   | ✅      | ❌      | ❌        | ❌  |
  * | ADMIN      | Internal | any       | ❌   | ✅      | ✅      | ✅        | ✅  |
  * | ADMIN      | Internal | any       | ✅   | ✅      | ❌      | ❌        | ✅  |
- * | SUPERADMIN | any      | any       | any  | ✅      | ✅      | ✅        | ✅  |
+ * | SUPERADMIN | Client   | any       | any  | ✅      | ✅      | ✅        | ✅  |
+ * | SUPERADMIN | Internal | any       | any  | ✅      | ❌      | ❌        | ✅  |
  * 
  * * edit = только return / insurance
  */
@@ -50,7 +51,7 @@ describe("orderAccessPolicy", () => {
       expect(access.isViewOnly).toBe(false);
     });
 
-    it("has full access to internal order", () => {
+    it("cannot mutate internal company bookings", () => {
       const access = getOrderAccess({
         role: "SUPERADMIN",
         isClientOrder: false,
@@ -60,8 +61,14 @@ describe("orderAccessPolicy", () => {
       });
 
       expect(access.canView).toBe(true);
-      expect(access.canEdit).toBe(true);
+      expect(access.canEdit).toBe(false);
+      expect(access.canDelete).toBe(false);
+      expect(access.canConfirm).toBe(false);
+      expect(access.canEditPricing).toBe(false);
+      expect(access.canCorrectMarketplacePrice).toBe(false);
       expect(access.canSeeClientPII).toBe(true);
+      expect(access.isViewOnly).toBe(true);
+      expect(access.reasons.internal).toMatch(/outside Rovaro/);
     });
   });
 
@@ -87,6 +94,30 @@ describe("orderAccessPolicy", () => {
       expect(access.canEditReturn).toBe(true);
       expect(access.canSeeClientPII).toBe(false); // 🔥 KEY TEST
       expect(access.isViewOnly).toBe(true);
+    });
+
+    it("hides client PII from company admin until marketplace fee is paid", () => {
+      const unpaid = getOrderAccess({
+        role: "ADMIN",
+        isClientOrder: true,
+        confirmed: true,
+        isPast: false,
+        timeBucket: "FUTURE",
+        bookingMode: "MARKETPLACE_REQUEST",
+        paymentStatus: "pending",
+      });
+      expect(unpaid.canSeeClientPII).toBe(false);
+
+      const paid = getOrderAccess({
+        role: "ADMIN",
+        isClientOrder: true,
+        confirmed: true,
+        isPast: false,
+        timeBucket: "FUTURE",
+        bookingMode: "MARKETPLACE_REQUEST",
+        paymentStatus: "paid",
+      });
+      expect(paid.canSeeClientPII).toBe(true);
     });
 
     it("CONFIRMED + FUTURE: limited edit (only return), sees PII, notifies superadmin", () => {

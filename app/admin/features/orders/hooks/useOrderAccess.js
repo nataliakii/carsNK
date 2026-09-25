@@ -32,6 +32,7 @@ import {
 import { isOrderPaidAndClosed } from "@/domain/orders/orderStatus";
 import { getTimeBucket, athensNow } from "@/domain/time/athensTime";
 import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 
 // Extend dayjs
 dayjs.extend(utc);
@@ -85,7 +86,7 @@ function createContext(order, session) {
 
   return {
     role: isSuperAdmin ? "SUPERADMIN" : "ADMIN",
-    isClientOrder: order.my_order === true,
+    isClientOrder: isPlatformBooking(order),
     confirmed: order.confirmed === true,
     isPast,
     isClosed: isOrderPaidAndClosed(order.status),
@@ -183,12 +184,12 @@ export function getAccessRestrictionReason(access, order) {
     if (isOrderPast(order)) {
       return "Прошлый заказ — только просмотр";
     }
-    if (order?.my_order && !order?.confirmed) {
+    if (isPlatformBooking(order) && !order?.confirmed) {
       return "Неподтверждённый клиентский заказ — только просмотр";
     }
   }
   
-  if ((!access.canEditPickupDate && !access.canEditReturnDate) && order?.my_order) {
+  if ((!access.canEditPickupDate && !access.canEditReturnDate) && isPlatformBooking(order)) {
     return "Даты клиентского заказа нельзя изменять";
   }
   

@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { assertBookingSourceUnchanged } from "@/domain/admin/rovaroContractorAdmin";
 
 export const PUT = async (req) => {
   try {
@@ -51,10 +52,22 @@ export const PUT = async (req) => {
 
     // Filter the update to only include allowed fields
     const updateFields = {};
+    if (typeof my_order === "boolean") {
+      const gate = assertBookingSourceUnchanged(existingOrder, { my_order });
+      if (!gate.ok) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            code: "SOURCE_IMMUTABLE",
+            message: "Booking source cannot be changed after creation.",
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
     if (phone) updateFields.phone = phone;
     if (email) updateFields.email = email;
     if (customerName) updateFields.customerName = customerName;
-    if (typeof my_order === "boolean") updateFields.my_order = my_order;
     // Allow updating flightNumber (accept empty string as a valid value)
     if (flightNumber !== undefined) updateFields.flightNumber = flightNumber;
     if (typeof Viber === "boolean") updateFields.Viber = Viber;

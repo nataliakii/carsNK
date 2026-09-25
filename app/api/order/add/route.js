@@ -38,6 +38,7 @@ import { pickCompanyRentalTermsForLanguage } from "@/domain/company/customerRent
 import { buildBookingLegalSnapshot } from "@/domain/legal/bookingLegalSnapshot";
 import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
 import { resolveDocumentForDisplay } from "@/domain/legal/documentService";
+import { sourceForNewOrder, BOOKING_SOURCE } from "@/domain/admin/rovaroContractorAdmin";
 import {
   canonicalizeBookingLocation,
   isAllowedBookingLocation,
@@ -78,7 +79,7 @@ import {
 } from "@/domain/orders/authoritativeLocationQuote";
 import { parseLocationQuoteInput } from "@/domain/orders/locationQuoteInput";
 import { orderFieldsFromSnapshot } from "@/domain/orders/locationSnapshot";
-import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { BOOKING_MODES, isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 import {
   PRICE_BREAKDOWN_CUSTOMER_MESSAGE,
   PRICE_BREAKDOWN_MISMATCH,
@@ -520,6 +521,10 @@ async function postOrderAddHandler(request) {
     // Публичный POST /order/add без админ-сессии: всегда клиентский заказ и неподтверждённый.
     // Иначе в JSON default my_order=false / подделка confirmed=true отключали уведомления CREATE.
     const myOrderToSave = isAdminSession ? Boolean(my_order) : true;
+    const bookingSource = sourceForNewOrder({
+      isPublicRequest: !isAdminSession,
+      my_order: myOrderToSave,
+    });
     const offlineToSave = isAdminSession ? Boolean(offline) : false;
     const confirmedToSave = isAdminSession
       ? Boolean(confirmed) || offlineToSave
@@ -689,7 +694,8 @@ async function postOrderAddHandler(request) {
     const clientLangEarly = normalizeLocale(clientLocale);
     let termsAcceptanceToSave;
     let legalSnapshotToSave;
-    const skipBookingTerms = isAdminSession || offlineToSave;
+    const skipBookingTerms =
+      isAdminSession || offlineToSave || bookingSource === BOOKING_SOURCE.INTERNAL;
     if (!skipBookingTerms) {
       const { doc: platformDoc } = await resolveDocumentForDisplay({
         documentType: LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS,
@@ -784,8 +790,14 @@ async function postOrderAddHandler(request) {
       countryCode: ownerCompany?.country || getSiteCountryCode(),
       forNewOrder: true,
     });
-    const { timezone, bookingMode, currency, countryCode, initialBookingStatus } =
-      rentalContext;
+    const { timezone, currency, countryCode } = rentalContext;
+    // Company-calendar bookings are not Rovaro marketplace: no booking fee, no payouts.
+    let bookingMode = rentalContext.bookingMode;
+    let initialBookingStatus = rentalContext.initialBookingStatus;
+    if (!isCustomerSelfServiceBooking) {
+      bookingMode = BOOKING_MODES.OPS_CALENDAR;
+      initialBookingStatus = undefined;
+    }
 
     const startDate = toBusinessDateTime(startDateSource, timezone);
     const endDate = toBusinessDateTime(endDateSource, timezone);
@@ -1318,6 +1330,8 @@ async function postOrderAddHandler(request) {
       date: dayjs().tz(timezone).toDate(),
       confirmed: confirmedToSave,
       my_order: myOrderToSave,
+      source: bookingSource,
+      blocksAvailability: true,
       offline: offlineToSave,
       ChildSeats,
       insurance,

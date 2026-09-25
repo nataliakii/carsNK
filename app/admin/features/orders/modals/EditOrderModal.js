@@ -85,6 +85,7 @@ import {
 } from "@/domain/orders/orderPriceHelpers";
 import DrivingLicenceImageGallery from "@/app/components/ui/inputs/DrivingLicenceImageGallery";
 import DrivingLicenceUploadField from "@/app/components/ui/inputs/DrivingLicenceUploadField";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 
 // Extend dayjs with plugins
 dayjs.extend(utc);
@@ -710,6 +711,7 @@ const EditOrderModal = ({
   const handleSendConfirmationEmail = async () => {
     if (isSendingConfirmation) return;
     if (!isCurrentUserSuperAdmin) return;
+    if ((editedOrder ?? order)?.my_order !== true) return;
     if (!canSendConfirmationEmail) return;
 
     const orderId = editedOrder?._id || order?._id;
@@ -1015,8 +1017,8 @@ const EditOrderModal = ({
   );
 
   // Проверка, заблокирована ли кнопка подтверждения
-  // Unconfirm (true→false): суперадмин может снять подтверждение с любых заказов; блокируем только для админа + клиентский текущий подтверждённый
-  const isClientOrder = order?.my_order === true;
+  // Unconfirm (true→false): company admin may unconfirm internals; platform superadmin cannot mutate internals.
+  const isClientOrder = isPlatformBooking(order);
   const isConfirmationDisabled =
     permissions.viewOnly ||
     !permissions.canConfirm ||
@@ -1754,7 +1756,7 @@ const EditOrderModal = ({
                     flexDirection: { xs: "column", sm: "row" },
                   }}
                 >
-                  {(isCurrentUserSuperAdmin || !isClientOrder) && (
+                  {access?.canConfirm && (
                   <ActionButton
                     fullWidth
                     onClick={handleConfirmationToggle}
@@ -1788,7 +1790,7 @@ const EditOrderModal = ({
                     }}
                   />
                   )}
-                  {isCurrentUserSuperAdmin && (
+                  {isCurrentUserSuperAdmin && isClientOrder && (
                     <ActionButton
                       fullWidth
                       onClick={handleSendConfirmationEmail}
@@ -1829,15 +1831,21 @@ const EditOrderModal = ({
                   control={
                     <Checkbox
                       checked={Boolean(editedOrder?.offline)}
-                      disabled={isPaidAndClosed}
+                      disabled={isPaidAndClosed || Boolean(access?.isViewOnly)}
                       onChange={(e) => {
                         const offline = e.target.checked;
-                        setEditedOrder((prev) => ({
-                          ...prev,
-                          offline,
-                          confirmed: offline ? true : prev.confirmed,
-                          my_order: offline ? false : prev.my_order,
-                        }));
+                        setEditedOrder((prev) => {
+                          if (!prev) return prev;
+                          if (offline && isPlatformBooking(prev)) {
+                            return { ...prev, offline };
+                          }
+                          return {
+                            ...prev,
+                            offline,
+                            confirmed: offline ? true : prev.confirmed,
+                            my_order: offline ? false : prev.my_order,
+                          };
+                        });
                       }}
                       size="small"
                     />

@@ -10,12 +10,13 @@
  * ❗ UI и backend — тупые потребители.
  *
  * ROLES:
- * - SUPERADMIN: полный доступ ко всему
+ * - SUPERADMIN: полный доступ к клиентским / Rovaro заказам;
+ *   внутренние брони компании — только просмотр (не комиссия, не выплаты, не правки)
  * - ADMIN: ограниченный доступ согласно правилам ниже
  *
  * ORDER TYPES:
- * - Client order (my_order === true): заказ от клиента
- * - Internal order (my_order === false): внутренний заказ админа
+ * - Client order (my_order === true): заказ от клиента (Rovaro)
+ * - Internal order (my_order !== true): внутренний заказ компании, вне Rovaro
  *
  * TIME BUCKETS (only policy computes these):
  * - PAST: rentalEndDate < today → только просмотр
@@ -27,6 +28,7 @@ import { ROLE } from "@models/user";
 import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import { isOrderPaidAndClosed } from "@/domain/orders/orderStatus";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 
 // ════════════════════════════════════════════════════════════════
 // TYPES (JSDoc for JS, but structured like TS)
@@ -73,6 +75,12 @@ import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
  * @property {{ clientPII?: string }} reasons - Human-readable restriction reasons
  */
 
+function marketplaceClientPiiVisible(ctx) {
+  if (!ctx?.isClientOrder) return null;
+  if (!isMarketplaceRequestMode(ctx?.bookingMode)) return null;
+  return ctx?.paymentStatus === "paid";
+}
+
 function marketplacePriceLocked(ctx) {
   if (!isMarketplaceRequestMode(ctx?.bookingMode)) return false;
   if (ctx?.role === "ADMIN") return true;
@@ -81,6 +89,16 @@ function marketplacePriceLocked(ctx) {
     ctx?.paymentStatus === "paid" ||
     ctx?.confirmed === true
   );
+}
+
+function applyMarketplacePiiGate(access, ctx) {
+  if (ctx?.role === "SUPERADMIN") return access;
+  if (marketplaceClientPiiVisible(ctx) !== false) return access;
+  return {
+    ...access,
+    canSeeClientPII: false,
+    canEditClientPII: false,
+  };
 }
 
 function withDerivedOrderActionAccess(access, ctx) {
@@ -97,23 +115,27 @@ function withDerivedOrderActionAccess(access, ctx) {
     !ctx?.isClosed;
 
   if (marketplacePriceLocked(ctx)) {
-    return {
-      ...access,
-      canEditPricing: false,
-      canEditTotalPrice: false,
-      canResetToAutoPrice: false,
-      canCorrectMarketplacePrice,
-    };
+    return applyMarketplacePiiGate(
+      {
+        ...access,
+        canEditPricing: false,
+        canEditTotalPrice: false,
+        canResetToAutoPrice: false,
+        canCorrectMarketplacePrice,
+      },
+      ctx
+    );
   }
 
-  return {
-    ...access,
-    // Separate totalPrice permission from generic pricing so policy can
-    // unlock manual total price editing without widening other pricing fields.
-    canEditTotalPrice: canUseConfirmedPricingActions,
-    canResetToAutoPrice: canUseConfirmedPricingActions,
-    canCorrectMarketplacePrice,
-  };
+  return applyMarketplacePiiGate(
+    {
+      ...access,
+      canEditTotalPrice: canUseConfirmedPricingActions,
+      canResetToAutoPrice: canUseConfirmedPricingActions,
+      canCorrectMarketplacePrice,
+    },
+    ctx
+  );
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -140,13 +162,42 @@ export function getOrderAccess(ctx) {
   const bucket = timeBucket;
 
   // ════════════════════════════════════════════════════════════════
-  // 🟣 SUPERADMIN — полный доступ ко всему
+  // 🟣 SUPERADMIN — полный доступ к Rovaro / client заказам
   // ════════════════════════════════════════════════════════════════
   const REASON_CLIENT_PII =
     "Client contact data can only be edited by Superadmin";
+  const REASON_INTERNAL =
+    "Internal company booking is outside Rovaro operations";
+
+  // Platform superadmin must not mutate company-calendar bookings.
+  // Company ADMIN (including view-as-company) still manages them.
+  if (role === "SUPERADMIN" && !isClientOrder) {
+    return withDerivedOrderActionAccess(
+      {
+        canView: true,
+        canEdit: false,
+        canDelete: false,
+        canEditPickupDate: false,
+        canEditReturnDate: false,
+        canEditPickupPlace: false,
+        canEditReturn: false,
+        canEditInsurance: false,
+        canEditFranchise: false,
+        canEditPricing: false,
+        canConfirm: false,
+        canSeeClientPII: true,
+        canEditClientPII: false,
+        notifySuperadminOnEdit: false,
+        isViewOnly: true,
+        isPast,
+        reasons: { clientPII: REASON_CLIENT_PII, internal: REASON_INTERNAL },
+      },
+      { ...ctx, bookingMode: "" }
+    );
+  }
 
   // Terminal status: PAID_AND_CLOSED locks order edits for all roles.
-  // Superadmin can still delete closed orders as an operational override.
+  // Superadmin can still delete closed client/Rovaro orders as an operational override.
   if (isClosed) {
     const isSuper = role === "SUPERADMIN";
     return withDerivedOrderActionAccess(
@@ -378,7 +429,7 @@ export function createOrderContext(order, user, isPastFn, timeBucket) {
 
   return {
     role: isSuperAdmin ? "SUPERADMIN" : "ADMIN",
-    isClientOrder: order.my_order === true,
+    isClientOrder: isPlatformBooking(order),
     confirmed: order.confirmed === true,
     isPast,
     isClosed: isOrderPaidAndClosed(order.status),

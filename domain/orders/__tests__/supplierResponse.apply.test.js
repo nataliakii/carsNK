@@ -18,6 +18,13 @@ jest.mock("@/domain/booking/analyzeConfirmationConflicts", () => ({
 }));
 jest.mock("@/domain/booking/bookingMode", () => ({
   resolveBookingMode: jest.fn(() => "GREECE"),
+  isMarketplaceRequestMode: jest.fn(() => false),
+}));
+jest.mock("@/domain/orders/startMarketplacePaymentAfterAvailability", () => ({
+  startMarketplacePaymentAfterAvailability: jest.fn().mockResolvedValue({
+    ok: true,
+    skipped: true,
+  }),
 }));
 
 import { ROLE } from "@models/user";

@@ -11,6 +11,7 @@ import { Car } from "@models/car";
 import { Order } from "@models/order";
 import { ROLE } from "@models/user";
 import { COMPANY_ID } from "@config/company";
+import { BOOKING_SOURCE } from "@/domain/admin/rovaroContractorAdmin";
 import { generateOrderNumber } from "@/domain/time/athensTime";
 import {
   getBusinessRentalDaysByMinutes,
@@ -124,6 +125,8 @@ export async function createOfflineOrderStub(row, ctx) {
       date: dayjs().tz(BUSINESS_TZ).toDate(),
       confirmed: true,
       my_order: false,
+      source: BOOKING_SOURCE.INTERNAL,
+      blocksAvailability: true,
       offline: true,
       ChildSeats: Number(row?.ChildSeats) || 0,
       insurance: String(row?.insurance || "TPL").trim() || "TPL",
@@ -137,6 +140,7 @@ export async function createOfflineOrderStub(row, ctx) {
       createdByAdminId,
       ownerId,
       secondDriver: Boolean(row?.secondDriver),
+      bookingMode: "OPS_CALENDAR",
     });
 
     await order.save();

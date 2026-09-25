@@ -78,6 +78,7 @@ describe("payment-ops permissions", () => {
     jest.clearAllMocks();
     Order.findById.mockResolvedValue({
       _id: "o1",
+      my_order: true,
       bookingMode: "MARKETPLACE_REQUEST",
       payment: { checkoutUrl: "https://pay", providerPaymentId: "cs_1" },
       toObject: () => ({ _id: "o1" }),
@@ -268,5 +269,25 @@ describe("payment-ops permissions", () => {
         actorEmail: "root@rovaro.autos",
       })
     );
+  });
+
+  test("superadmin cannot run payment-ops on internal company bookings", async () => {
+    Order.findById.mockResolvedValue({
+      _id: "o1",
+      my_order: false,
+      bookingMode: "OPS_CALENDAR",
+    });
+    requireSuperAdmin.mockResolvedValue({
+      session: { user: { email: "root@rovaro.autos", role: ROLE.SUPERADMIN } },
+      errorResponse: null,
+    });
+    const res = await POST(
+      request("POST", { action: "reissue", reason: "payment_link_expired" }),
+      { params: Promise.resolve({ orderId: "o1" }) }
+    );
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.code).toBe("internal_company_booking");
+    expect(reissueMarketplacePaymentLink).not.toHaveBeenCalled();
   });
 });

@@ -7,6 +7,8 @@
 | Документ | Описание |
 |----------|----------|
 | [ORDER_FLOW.md](./ORDER_FLOW.md) | Полное описание flow создания заказа |
+| [../domain/booking/ROVARO_MARKETPLACE_WORKFLOW.md](../domain/booking/ROVARO_MARKETPLACE_WORKFLOW.md) | **Канон marketplace:** заявка → подрядчик → Stripe Booking Fee → оплата → контакты |
+| [../domain/admin/ROVARO_CONTRACTOR_ADMIN.md](../domain/admin/ROVARO_CONTRACTOR_ADMIN.md) | **Канон админки подрядчика:** Platform vs Internal, календарь, таблица, раздельные итоги |
 | [ORDER_IMPROVEMENTS.md](./ORDER_IMPROVEMENTS.md) | Руководство по улучшениям системы |
 | [TIMEZONE_GUIDE.md](./TIMEZONE_GUIDE.md) | Работа с временными зонами |
 | [EDIT_ORDER_MODAL.md](./EDIT_ORDER_MODAL.md) | **Последняя рабочая версия EditOrderModal** ⭐ |

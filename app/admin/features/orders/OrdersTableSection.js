@@ -72,6 +72,14 @@ import {
   resolveOrderOwnerId,
   summarizeFilteredOrders,
 } from "@/domain/orders/ordersTableStats";
+import {
+  contractorOrderMoneyRow,
+  contractorTableStatusLabelKey,
+  isInternalBooking,
+  isPlatformBooking,
+  matchesBookingSourceFilter,
+  buildContractorOrdersExport,
+} from "@/domain/admin/rovaroContractorAdmin";
 import { extractArraysOfStartEndConfPending } from "@/domain/calendar";
 import EditOrderModal from "@/app/admin/features/orders/modals/EditOrderModal";
 import OrderUnsavedCloseDialog from "@/app/admin/features/orders/components/OrderUnsavedCloseDialog";
@@ -153,8 +161,8 @@ export default function OrdersTableSection() {
   const [priceHistoryUi, setPriceHistoryUi] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
-  /** Status + car + pickup + return + customer + price + supplier (+ company for platform) (+ platform status). */
-  const tableColCount = isPlatformAdmin ? 9 : 7;
+  /** Status + source + car + pickup + return + customer + price + fee + due + supplier (+ company) (+ platform). */
+  const tableColCount = isPlatformAdmin ? 12 : 10;
 
   // ─────────────────────────────────────────────────────────────
   // CONFLICT STATE (persistent, per-order)
@@ -405,11 +413,18 @@ export default function OrdersTableSection() {
   const [dateTo, setDateTo] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [originFilter, setOriginFilter] = useState("all");
+  const sourceDefaultApplied = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   /** Если true — не показываем заказы, у которых возврат уже в прошлом. */
   const [hidePastOrders, setHidePastOrders] = useState(false);
 
-  // Companies for owner filter (superadmin API; fallback from cars)
+  useEffect(() => {
+    if (sourceDefaultApplied.current) return;
+    if (!session?.user) return;
+    if (isPlatformAdmin) setOriginFilter("platform");
+    sourceDefaultApplied.current = true;
+  }, [session, isPlatformAdmin]);
+
   useEffect(() => {
     let cancelled = false;
     if (!showSuperAdminFilters) {
@@ -547,9 +562,7 @@ export default function OrdersTableSection() {
       if (statusFilter === "confirmed" && !order.confirmed) return false;
       if (statusFilter === "pending" && order.confirmed) return false;
 
-      // 3. Origin filter (my_order: client=true, admin=false)
-      if (originFilter === "client" && !order.my_order) return false;
-      if (originFilter === "admin" && order.my_order) return false;
+      if (!matchesBookingSourceFilter(order, originFilter)) return false;
 
       // 4. Date range filter (overlap: orderPickup <= filterEnd AND orderReturn >= filterStart)
       // If only dateFrom is set, show orders that end on or after dateFrom
@@ -637,7 +650,6 @@ export default function OrdersTableSection() {
     () => summarizeFilteredOrders(filteredOrders),
     [filteredOrders]
   );
-  const filteredSum = filteredSummary.sum;
 
   // ─────────────────────────────────────────────────────────────
   // PAGINATED ORDERS
@@ -1187,46 +1199,44 @@ export default function OrdersTableSection() {
 
   const handleExportExcel = useCallback(async () => {
     try {
+      const exported = buildContractorOrdersExport(filteredOrders);
       const headers = [
-        t("table.status"),
+        t("table.status", { defaultValue: "Status" }),
+        t("table.filterByOrigin", { defaultValue: "Source" }),
         ...(isPlatformAdmin ? [t("table.company")] : []),
-        t("table.carModel"),
-        t("table.pickup"),
-        t("table.return"),
-        t("table.customerName"),
-        t("table.phone"),
-        t("table.email"),
-        t("table.price"),
-        t("table.days"),
-        t("table.supplierResponse"),
-        t("table.platformStatus"),
-        t("table.origin"),
+        t("table.orderNumber", { defaultValue: "Order #" }),
+        t("table.price", { defaultValue: "Rental total" }),
+        t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" }),
+        t("table.dueToCompany", { defaultValue: "Due to company" }),
       ];
-      const rows = filteredOrders.map((order) => [
-        order.confirmed ? t("table.confirmed") : t("table.pending"),
+      const rows = filteredOrders.map((order, index) => {
+        const row = exported.rows[index];
+        return [
+        t(row.statusKey, { defaultValue: row.statusKey }),
+        row.source === "PLATFORM"
+          ? t("table.sourceRovaroShort", { defaultValue: "Rovaro" })
+          : row.source === "INTERNAL"
+            ? t("table.sourceInternalShort", { defaultValue: "Internal" })
+            : t("table.toneUnresolved", { defaultValue: "Needs review" }),
         ...(isPlatformAdmin ? [resolveOrderCompanyName(order)] : []),
-        order.car?.model || order.carModel || "",
-        formatDateTime(order.rentalStartDate, order.timeIn),
-        formatDateTime(order.rentalEndDate, order.timeOut),
-        order.customerName || "",
-        order.phone || "",
-        order.email || "",
-        getEffectivePrice(order),
-        getOrderNumberOfDaysOrZero(order),
-        order.companyEmailDecision === "accepted" || order.partnerConfirmedAt
-          ? t("table.vehicleAvailable")
-          : order.companyEmailDecision === "rejected"
-            ? t("table.cannotProvide")
-            : t("table.awaitingSupplier"),
-        order.confirmed ? t("table.platformConfirmed") : t("table.platformPending"),
-        order.my_order ? t("table.clientOrder") : t("table.adminOrder"),
-      ]);
-      const colCount = headers.length;
-      const priceColIndex = isPlatformAdmin ? 8 : 7;
-      const totalRow = Array(colCount).fill("");
-      totalRow[0] = t("table.sumTotal");
-      totalRow[priceColIndex] = filteredSum;
-      const aoa = [headers, ...rows, totalRow];
+        row.orderNumber,
+        row.rentalTotal,
+        row.bookingFee,
+        row.dueToCompany,
+      ];
+      });
+      const blank = Array(headers.length).fill("");
+      const platformRow = [...blank];
+      platformRow[0] = t("table.rovaroBookingsTitle", { defaultValue: "Rovaro bookings" });
+      platformRow[headers.length - 3] = exported.totals.platformBookingValue;
+      platformRow[headers.length - 2] = exported.totals.rovaroBookingFees;
+      platformRow[headers.length - 1] = exported.totals.supplierPlatformAmount;
+      const internalRow = [...blank];
+      internalRow[0] = t("table.internalBookingsTitle", { defaultValue: "Internal bookings" });
+      internalRow[headers.length - 3] = exported.totals.internalBookingValue;
+      internalRow[headers.length - 2] = 0;
+      internalRow[headers.length - 1] = exported.totals.internalBookingValue;
+      const aoa = [headers, ...rows, platformRow, internalRow];
       const stamp = dayjs().tz(ATHENS_TZ).format("YYYY-MM-DD_HH-mm");
       await downloadOrdersTableXlsx(aoa, {
         filename: `orders_${stamp}.xlsx`,
@@ -1239,8 +1249,6 @@ export default function OrdersTableSection() {
     }
   }, [
     filteredOrders,
-    filteredSum,
-    formatDateTime,
     isPlatformAdmin,
     resolveOrderCompanyName,
     t,
@@ -1376,15 +1384,15 @@ export default function OrdersTableSection() {
 
             {/* Origin Filter */}
             <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>{t("table.filterByOrigin")}</InputLabel>
+              <InputLabel>{t("table.filterByOrigin", { defaultValue: "Source" })}</InputLabel>
               <Select
                 value={originFilter}
                 onChange={(e) => handleFilterChange(setOriginFilter)(e.target.value)}
-                label={t("table.filterByOrigin")}
+                label={t("table.filterByOrigin", { defaultValue: "Source" })}
               >
-                <MenuItem value="all">{t("table.all")}</MenuItem>
-                <MenuItem value="client">{t("table.clientOrder")}</MenuItem>
-                <MenuItem value="admin">{t("table.adminOrder")}</MenuItem>
+                <MenuItem value="all">{t("table.sourceAll", { defaultValue: "All" })}</MenuItem>
+                <MenuItem value="platform">{t("table.sourceRovaro", { defaultValue: "Rovaro bookings" })}</MenuItem>
+                <MenuItem value="internal">{t("table.sourceInternal", { defaultValue: "Internal bookings" })}</MenuItem>
               </Select>
             </FormControl>
 
@@ -1473,23 +1481,49 @@ export default function OrdersTableSection() {
           <Typography variant="body2" color="text.secondary">
             {t("table.allOrders")}: {filteredOrders.length} / {orders.length}
           </Typography>
-          <Typography variant="body2" fontWeight={600} color="text.primary">
-            {t("table.filteredSum")}: €{filteredSum.toFixed(2)}
-          </Typography>
           <Stack spacing={0.25}>
-            {filteredSummary.marketplaceCount > 0 ? (
-              <>
-                <Typography variant="body2" fontWeight={600} color="primary.main">
-                  Rovaro Booking Fee paid online = €
-                  {filteredSummary.commission.toFixed(2)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Remaining balance paid directly to the rental supplier = €
-                  {filteredSummary.remaining.toFixed(2)}
-                </Typography>
-              </>
-            ) : null}
+            <Typography variant="body2" fontWeight={700}>
+              {t("table.rovaroBookingsTitle", { defaultValue: "Rovaro bookings" })}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t("table.rovaroBookingCount", {
+                defaultValue: "{{count}} bookings",
+                count: filteredSummary.platformCount,
+              })}
+              {" · "}
+              {t("table.platformBookingValue", { defaultValue: "Rental value" })} €
+              {filteredSummary.platformBookingValue.toFixed(2)}
+            </Typography>
+            <Typography variant="body2" color="primary.main">
+              {t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })} €
+              {filteredSummary.rovaroBookingFees.toFixed(2)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t("table.dueToCompany", { defaultValue: "Due to company" })} €
+              {filteredSummary.supplierPlatformAmount.toFixed(2)}
+            </Typography>
           </Stack>
+          <Stack spacing={0.25}>
+            <Typography variant="body2" fontWeight={700}>
+              {t("table.internalBookingsTitle", { defaultValue: "Internal bookings" })}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t("table.rovaroBookingCount", {
+                defaultValue: "{{count}} bookings",
+                count: filteredSummary.internalCount,
+              })}
+              {" · "}
+              {t("table.internalBookingValue", { defaultValue: "Internal booking value" })} €
+              {filteredSummary.internalBookingValue.toFixed(2)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t("table.noRovaroFee", { defaultValue: "No Rovaro fee" })}
+            </Typography>
+          </Stack>
+          <Typography variant="caption" color="text.secondary">
+            {t("table.combinedCalendarValue", { defaultValue: "Combined calendar value" })} €
+            {filteredSummary.combinedCalendarValue.toFixed(2)}
+          </Typography>
         </Box>
       </Paper>
 
@@ -1508,6 +1542,9 @@ export default function OrdersTableSection() {
               <TableRow>
                 <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>
                   {t("table.status")}
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, minWidth: 100 }}>
+                  {t("table.filterByOrigin", { defaultValue: "Source" })}
                 </TableCell>
                 {isPlatformAdmin ? (
                   <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>
@@ -1528,6 +1565,12 @@ export default function OrdersTableSection() {
                 </TableCell>
                 <TableCell sx={{ fontWeight: 700, minWidth: 80, textAlign: "right" }}>
                   {t("table.price")}
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, minWidth: 90, textAlign: "right" }}>
+                  {t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })}
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, minWidth: 90, textAlign: "right" }}>
+                  {t("table.dueToCompany", { defaultValue: "Due to company" })}
                 </TableCell>
                 <TableCell sx={{ fontWeight: 700, minWidth: 160, textAlign: "center" }}>
                   {t("table.supplierResponse")}
@@ -1560,6 +1603,12 @@ export default function OrdersTableSection() {
               ) : (
                 paginatedOrders.map((order) => {
                   const orderColor = getOrderColor(order);
+                  const money = contractorOrderMoneyRow(order);
+                  const statusLabel = t(contractorTableStatusLabelKey(order), {
+                    defaultValue: isInternalBooking(order)
+                      ? "Internal booking"
+                      : "Rovaro",
+                  });
                   const isBlocked = pendingConfirmBlockById?.[order._id];
                   const carDisplay = order.car?.model || order.carModel || "-";
                   const carRegNumber = order.car?.regNumber || order.carNumber || "";
@@ -1648,7 +1697,7 @@ export default function OrdersTableSection() {
                         <Stack direction="column" spacing={0.5} alignItems="flex-start">
                           <Stack direction="row" spacing={0.5} alignItems="center">
                             <Chip
-                              label={order.confirmed ? t("table.confirmed") : t("table.pending")}
+                              label={statusLabel}
                               size="small"
                               sx={{
                                 backgroundColor: orderColor.bg,
@@ -1658,7 +1707,7 @@ export default function OrdersTableSection() {
                                 height: 22,
                               }}
                             />
-                            {/* Lock icon for orders admin cannot edit */}
+                            {/* Lock icon for orders the current role cannot edit */}
                             {!orderCanEdit && isClient && (
                               <Tooltip title="Admin cannot edit client orders">
                                 <LockIcon 
@@ -1671,18 +1720,32 @@ export default function OrdersTableSection() {
                                 />
                               </Tooltip>
                             )}
+                            {!orderCanEdit && !isClient && isPlatformAdmin && (
+                              <Tooltip title={t("table.internalOrderLock")}>
+                                <LockIcon
+                                  fontSize="small"
+                                  sx={{
+                                    color: palette.neutral.gray500,
+                                    fontSize: 14,
+                                    ml: 0.5,
+                                  }}
+                                />
+                              </Tooltip>
+                            )}
                           </Stack>
-                          <Chip
-                            label={order.my_order ? t("table.clientOrder") : t("table.adminOrder")}
-                            size="small"
-                            variant="outlined"
-                            sx={{
-                              fontSize: "0.65rem",
-                              height: 20,
-                              borderColor: palette.neutral.gray400,
-                              color: palette.neutral.gray600,
-                            }}
-                          />
+                          {orderColor.problem ? (
+                            <Chip
+                              label={t("calendar.legend.PROBLEM", { defaultValue: "Problem" })}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                fontSize: "0.65rem",
+                                height: 20,
+                                borderColor: "error.main",
+                                color: "error.main",
+                              }}
+                            />
+                          ) : null}
                           <Typography
                             variant="caption"
                             sx={{
@@ -1706,6 +1769,27 @@ export default function OrdersTableSection() {
                             </Tooltip>
                           )}
                         </Stack>
+                      </TableCell>
+
+                      <TableCell>
+                        <Chip
+                          label={
+                            isPlatformBooking(order)
+                              ? t("table.sourceRovaroShort", { defaultValue: "Rovaro" })
+                              : isInternalBooking(order)
+                                ? t("table.sourceInternalShort", { defaultValue: "Internal" })
+                                : t("table.toneUnresolved", { defaultValue: "Needs review" })
+                          }
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            fontSize: "0.7rem",
+                            height: 22,
+                            borderColor: isInternalBooking(order)
+                              ? "secondary.main"
+                              : "divider",
+                          }}
+                        />
                       </TableCell>
 
                       {isPlatformAdmin ? (
@@ -1996,6 +2080,13 @@ export default function OrdersTableSection() {
                             </Stack>
                           );
                         })()}
+                      </TableCell>
+
+                      <TableCell align="right">
+                        €{money.bookingFee.toFixed(2)}
+                      </TableCell>
+                      <TableCell align="right">
+                        €{money.dueToCompany.toFixed(2)}
                       </TableCell>
 
                       {/* Supplier response (never the platform Confirmed switch for client orders) */}

@@ -105,33 +105,33 @@ describe("orderPermissions RBAC", () => {
   // ─────────────────────────────────────────────────────────────
   
   describe("Superadmin permissions (always allowed)", () => {
-    test("canEditOrder: superadmin can edit any order", () => {
+    test("canEditOrder: superadmin can edit Rovaro/client orders only", () => {
       expect(canEditOrder(clientOrder, superadmin).allowed).toBe(true);
-      expect(canEditOrder(adminOrder, superadmin).allowed).toBe(true);
-      expect(canEditOrder(superadminOrder, superadmin).allowed).toBe(true);
+      expect(canEditOrder(adminOrder, superadmin).allowed).toBe(false);
+      expect(canEditOrder(superadminOrder, superadmin).allowed).toBe(false);
     });
     
-    test("canDeleteOrder: superadmin can delete any order", () => {
+    test("canDeleteOrder: superadmin can delete client orders, not internals", () => {
       expect(canDeleteOrder(clientOrder, superadmin).allowed).toBe(true);
-      expect(canDeleteOrder(adminOrder, superadmin).allowed).toBe(true);
-      expect(canDeleteOrder(superadminOrder, superadmin).allowed).toBe(true);
-      expect(canDeleteOrder(pastConfirmedOrder, superadmin).allowed).toBe(true);
-      expect(canDeleteOrder(pastPendingOrder, superadmin).allowed).toBe(true);
+      expect(canDeleteOrder(adminOrder, superadmin).allowed).toBe(false);
+      expect(canDeleteOrder(superadminOrder, superadmin).allowed).toBe(false);
+      expect(canDeleteOrder(pastConfirmedOrder, superadmin).allowed).toBe(false);
+      expect(canDeleteOrder(pastPendingOrder, superadmin).allowed).toBe(false);
     });
     
-    test("canEditOrderField: superadmin can edit any field of any order", () => {
+    test("canEditOrderField: superadmin cannot edit internal company bookings", () => {
       const fields = ["customerName", "phone", "email", "rentalStartDate", "rentalEndDate", "timeIn", "timeOut", "totalPrice"];
       fields.forEach((field) => {
         expect(canEditOrderField(clientOrder, superadmin, field).allowed).toBe(true);
-        expect(canEditOrderField(adminOrder, superadmin, field).allowed).toBe(true);
-        expect(canEditOrderField(superadminOrder, superadmin, field).allowed).toBe(true);
+        expect(canEditOrderField(adminOrder, superadmin, field).allowed).toBe(false);
+        expect(canEditOrderField(superadminOrder, superadmin, field).allowed).toBe(false);
       });
     });
     
-    test("canConfirmOrder: superadmin can always toggle confirmation", () => {
+    test("canConfirmOrder: superadmin cannot toggle internal company bookings", () => {
       expect(canConfirmOrder(clientOrder, superadmin).allowed).toBe(true);
-      expect(canConfirmOrder(adminOrder, superadmin).allowed).toBe(true);
-      expect(canConfirmOrder(superadminOrder, superadmin).allowed).toBe(true);
+      expect(canConfirmOrder(adminOrder, superadmin).allowed).toBe(false);
+      expect(canConfirmOrder(superadminOrder, superadmin).allowed).toBe(false);
     });
   });
 
@@ -315,9 +315,9 @@ describe("orderPermissions RBAC", () => {
       expect(canConfirmOrder(adminOrder, admin).allowed).toBe(true);
     });
 
-    test("SUPERADMIN can confirm any orders", () => {
+    test("SUPERADMIN cannot confirm internal company bookings", () => {
       expect(canConfirmOrder(clientOrder, superadmin).allowed).toBe(true);
-      expect(canConfirmOrder(adminOrder, superadmin).allowed).toBe(true);
+      expect(canConfirmOrder(adminOrder, superadmin).allowed).toBe(false);
     });
   });
 

@@ -4,6 +4,12 @@ import { withOrderVisibility } from "@/middleware/withOrderVisibility";
 import { ensureOrdersPulledFromOldDb } from "@/domain/sync/oldOrdersSync";
 import { getServerSessionWithViewAs } from "@lib/adminAuth";
 import { buildOrdersOwnerFilter } from "@/domain/owners/ownerScope";
+import { ROLE } from "@models/user";
+import {
+  isInternalBooking,
+  isPlatformBooking,
+  summarizeContractorAdminTotals,
+} from "@/domain/admin/rovaroContractorAdmin";
 
 /**
  * GET /api/admin/orders
@@ -43,7 +49,22 @@ async function handler(request) {
       .sort({ createdAt: -1 })
       .lean();
 
-    const formattedOrders = orders.map((order) => ({
+    const sourceQuery = String(
+      new URL(request.url).searchParams.get("source") || ""
+    ).toLowerCase();
+    const isSuper = Number(session.user?.role) === ROLE.SUPERADMIN;
+    let visible = orders;
+    if (isSuper) {
+      if (sourceQuery === "internal") {
+        visible = orders.filter((order) => isInternalBooking(order));
+      } else if (sourceQuery === "all" || sourceQuery === "support") {
+        visible = orders;
+      } else {
+        visible = orders.filter((order) => isPlatformBooking(order));
+      }
+    }
+
+    const formattedOrders = visible.map((order) => ({
       _id: order._id,
       orderNumber: order.orderNumber,
       car: order.car
@@ -83,6 +104,12 @@ async function handler(request) {
         : null,
       status: order.status,
       my_order: order.my_order,
+      source: order.source || null,
+      blocksAvailability: order.blocksAvailability !== false,
+      bookingMode: order.bookingMode || "",
+      authoritativePrice: order.authoritativePrice || null,
+      hasProblem: order.hasProblem === true,
+      problemReportedAt: order.problemReportedAt || null,
       createdByRole: order.createdByRole ?? 0,
       createdByAdminId: order.createdByAdminId || null,
       totalPrice: order.totalPrice,
@@ -108,6 +135,7 @@ async function handler(request) {
         success: true,
         data: formattedOrders,
         count: formattedOrders.length,
+        totals: summarizeContractorAdminTotals(visible),
         adminRole,
       }),
       {

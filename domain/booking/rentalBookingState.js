@@ -6,18 +6,23 @@
  * lifecycle used by the customer-facing and partner-facing workflow, plus a
  * mapping in both directions so blocking behaviour is unchanged.
  *
- * Spain MARKETPLACE_REQUEST stored statuses (P0):
- *   REQUESTED          → PENDING_SUPPLIER_CONFIRMATION
- *   DECLINED           → SUPPLIER_DECLINED
- *   PARTNER_CONFIRMED  → CONFIRMED_AWAITING_PAYMENT  (brief; hold acquired)
- *   PAYMENT_PENDING    → PAYMENT_PROCESSING          (checkout created; user-facing "PAYMENT_PENDING")
- *   PAYMENT_EXPIRED    → PAYMENT_EXPIRED
- *   CONFIRMED          → BOOKING_CONFIRMED           (Stripe webhook only)
- *   CANCELLED          → CUSTOMER_CANCELLED
+ * Canonical marketplace product rule (do not skip stages, do not treat
+ * `order.confirmed` as a second confirmation):
+ *   domain/booking/ROVARO_MARKETPLACE_WORKFLOW.md
+ *   domain/booking/rovaroMarketplaceWorkflow.js
  *
- * Do not store the string "PAYMENT_PENDING" on `order.bookingStatus`.
- * The lifecycle name is PAYMENT_PENDING; the persisted constant is
- * BOOKING_STATUS.PAYMENT_PROCESSING.
+ * Spain MARKETPLACE_REQUEST stored statuses:
+ *   REQUESTED          → PENDING_SUPPLIER_CONFIRMATION   (AWAITING_SUPPLIER_RESPONSE)
+ *   DECLINED           → SUPPLIER_DECLINED
+ *   PARTNER_CONFIRMED  → CONFIRMED_AWAITING_PAYMENT      (brief hold)
+ *   PAYMENT_PENDING    → PAYMENT_PROCESSING              (AWAITING_CUSTOMER_PAYMENT)
+ *   PAYMENT_EXPIRED    → PAYMENT_EXPIRED
+ *   CONFIRMED          → BOOKING_CONFIRMED               (Stripe webhook paid only)
+ *   CANCELLED          → CUSTOMER_CANCELLED
+ *   COMPLETED          → COMPLETED
+ *
+ * Do not store the string "PAYMENT_PENDING" or "AWAITING_CUSTOMER_PAYMENT"
+ * on `order.bookingStatus`.
  */
 
 import {

@@ -7,6 +7,10 @@ import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
 import { formatDate } from "@utils/businessTime";
 import { getOrderColor } from "@/domain/orders/getOrderColor";
+import {
+  contractorCalendarDetailKey,
+  hasCalendarProblem,
+} from "@/domain/admin/rovaroContractorAdmin";
 
 const cardEnter = keyframes`
   from {
@@ -97,6 +101,11 @@ export default function OrderHoverPreview({ order, conflictHint = false }) {
   const statusLabel = oc?.key
     ? t(`calendar.legend.${oc.key}`, { defaultValue: oc.label })
     : oc?.label ?? "—";
+  const detailKey = contractorCalendarDetailKey(order);
+  const detailLabel = t(`calendar.detail.${detailKey}`, {
+    defaultValue: detailKey,
+  });
+  const problem = hasCalendarProblem(order);
   const startStr = formatDate(order.rentalStartDate, "DD.MM.YYYY");
   const endStr = formatDate(order.rentalEndDate, "DD.MM.YYYY");
 
@@ -109,6 +118,9 @@ export default function OrderHoverPreview({ order, conflictHint = false }) {
         p: 1.25,
         pointerEvents: "none",
         animation: `${cardEnter} 0.18s ease-out`,
+        border: problem ? 2 : 0,
+        borderColor: problem ? "error.main" : "transparent",
+        borderStyle: "solid",
       }}
     >
       <Box
@@ -161,6 +173,10 @@ export default function OrderHoverPreview({ order, conflictHint = false }) {
           {statusLabel}
         </Box>
       </Box>
+
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+        {detailLabel}
+      </Typography>
 
       <Typography
         variant="body2"

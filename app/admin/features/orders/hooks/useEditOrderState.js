@@ -50,6 +50,7 @@ import { updateOrder, calculateTotalPrice, deleteOrder } from "@utils/action";
 import { canUpdateStartDate } from "./startDateAccess";
 import i18n from "@locales/i18n";
 import { parseCustomerPhone } from "@/domain/validation/customerPhone";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import {
   parseOptionalCustomerEmail,
   parseRequiredCustomerEmail,
@@ -1063,7 +1064,7 @@ export function useEditOrderState({
 
       // Offline (off-site) flag — always send current value for admin edits
       payload.offline = Boolean(o.offline);
-      if (payload.offline) {
+      if (payload.offline && !isPlatformBooking(o)) {
         payload.confirmed = true;
         payload.my_order = false;
       }

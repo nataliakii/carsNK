@@ -119,6 +119,15 @@ export const palette = {
   },
 };
 
+palette.contractorBooking = {
+  newRequest: palette.brand.yellow,
+  awaitingPayment: palette.triadic.greenLight,
+  confirmedPaid: palette.triadic.greenDark,
+  internal: "#5E35B1",
+  muted: palette.neutral.gray400,
+  problem: palette.status.error,
+};
+
 // ============================================
 // СВЕТЛАЯ ТЕМА
 // ============================================
@@ -518,6 +527,7 @@ export const lightTheme = createTheme({
     brand: palette.brand,
     analogous: palette.analogous,
     triadic: palette.triadic,
+    contractorBooking: palette.contractorBooking,
     neutral: palette.neutral,
     // Контрастные фоны с предопределёнными цветами
     backgroundDark1: palette.backgroundDark1,
@@ -599,6 +609,7 @@ export const darkTheme = createTheme({
       ...palette.triadic,
       yellowBright: palette.triadic.yellowBright,
     },
+    contractorBooking: palette.contractorBooking,
     analogous: {
       ...palette.analogous,
       amberBright: palette.analogous.amberBright,
@@ -645,6 +656,7 @@ export const darkTheme = createTheme({
     brand: palette.brand,
     analogous: palette.analogous,
     triadic: palette.triadic,
+    contractorBooking: palette.contractorBooking,
     neutral: palette.neutral,
     // Контрастные фоны
     backgroundDark1: palette.backgroundDark1,

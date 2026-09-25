@@ -17,6 +17,7 @@
  * - Как отправляем → orderNotificationDispatcher.js
  */
 
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { ORDER_FIELD_KEYS } from "./orderPermissions";
 
 // ════════════════════════════════════════════════════════════════
@@ -114,7 +115,7 @@ export function getOrderNotifications(params) {
   /** @type {Notification[]} */
   const notifications = [];
   
-  const isClientOrder = order.my_order === true;
+  const isClientOrder = isPlatformBooking(order);
   const isConfirmed = order.confirmed === true;
   const intent = ACTION_INTENT[action] || "UNKNOWN";
 

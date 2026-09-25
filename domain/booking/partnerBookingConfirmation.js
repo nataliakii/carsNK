@@ -26,7 +26,6 @@ import {
   hashConfirmationToken,
 } from "./partnerConfirmationToken";
 import { recordAuditEvent } from "@/domain/legal/auditTrail";
-import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
 import {
   notifyBookingAccepted,
   notifyBookingDeclined,
@@ -49,21 +48,12 @@ import {
 } from "@/domain/booking/rentalBookingState";
 import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
 import {
-  acquireMarketplaceHold,
-  attachStripeSessionToHold,
-  markHoldForRetry,
   releaseMarketplaceHold,
 } from "@/domain/booking/bookingHold";
-import {
-  clampStripeExpiresMinutes,
-  createRentalCheckoutSession,
-  expireRentalCheckoutSession,
-} from "@/domain/orders/rentalStripeCheckout";
+import { expireRentalCheckoutSession } from "@/domain/orders/rentalStripeCheckout";
 import { computePriceSnapshotChecksum } from "@/domain/orders/priceSnapshotChecksum";
-import {
-  sendCustomerDeclineEmail,
-  sendCustomerPaymentRequestEmail,
-} from "@/domain/orders/marketplaceBookingEmails";
+import { sendCustomerDeclineEmail } from "@/domain/orders/marketplaceBookingEmails";
+import { startMarketplacePaymentAfterAvailability } from "@/domain/orders/startMarketplacePaymentAfterAvailability";
 import {
   AVAILABILITY_PURPOSE,
   evaluateRentalAvailability,
@@ -466,99 +456,19 @@ async function finalizePartnerAccept({
   actorEmail,
 }) {
   const now = new Date();
-  const settings = await loadLegalSettings().catch(() => ({
-    paymentLinkExpirationMinutes: 60,
-  }));
-  const expireMinutes = clampStripeExpiresMinutes(
-    settings.paymentLinkExpirationMinutes
-  );
-  const holdExpiresAt = new Date(now.getTime() + expireMinutes * 60 * 1000);
   const priceChecksum = computePriceSnapshotChecksum(order);
-
-  const toConfirmed = applyRentalStateTransition(
+  const issued = await startMarketplacePaymentAfterAvailability({
     order,
-    RENTAL_STATE.PARTNER_CONFIRMED
-  );
-  if (!toConfirmed.ok && resolveRentalState(order) !== RENTAL_STATE.PARTNER_CONFIRMED) {
-    return {
-      ok: false,
-      status: 409,
-      code: toConfirmed.code || "illegal_transition",
-      message: "This booking cannot be confirmed in its current state.",
-    };
-  }
-
-  const hold = await acquireMarketplaceHold({
-    carId: order.car,
-    orderId: order._id,
-    companyId: order.ownerId,
-    pickupAtUtc: order.pickupAtUtc || order.timeIn,
-    returnAtUtc: order.returnAtUtc || order.timeOut,
-    holdExpiresAt,
-    timezone: order.timezone,
-    bookingMode: order.bookingMode,
+    actorEmail,
+    ipAddress,
+    userAgent,
   });
-
-  if (!hold.ok) {
-    await recordAuditEvent({
-      action: "BOOKING_HOLD_CONFLICT",
-      severity: "high",
-      result: "failure",
-      orderData: { orderId: order._id, orderNumber: order.orderNumber },
-      metadata: { code: hold.code, message: hold.message },
-    });
-    return {
-      ok: false,
-      status: 409,
-      code: hold.code,
-      message: hold.message,
-    };
-  }
-
-  const checkout = await createRentalCheckoutSession(String(order._id), {
-    company: order.ownerId
-      ? await Company.findById(order.ownerId)
-          .select("name email rentalPayments prepaymentPercent")
-          .lean()
-      : null,
-    emailCustomer: false,
-  });
-
-  if (!checkout.ok || !checkout.url) {
-    await markHoldForRetry(order._id, { reason: checkout.code || "checkout_failed" });
-    await recordAuditEvent({
-      action: "RENTAL_CHECKOUT_FAILED",
-      severity: "critical",
-      result: "failure",
-      orderData: { orderId: order._id, orderNumber: order.orderNumber },
-      metadata: { code: checkout.code, message: checkout.message },
-    });
-    try {
-      await notifySuperadmin({
-        title: `⚠️ Checkout failed after partner confirm — order #${order.orderNumber || order._id}`,
-        bodyLines: [
-          checkout.message || checkout.code || "Checkout failed",
-          "No payment email was sent. Hold marked for retry.",
-        ],
-        meta: { orderId: order._id },
-      });
-    } catch (err) {
-      console.error("[partner-confirm] checkout fail notify", err?.message || err);
-    }
-    return {
-      ok: false,
-      status: 502,
-      code: checkout.code || "checkout_failed",
-      message:
-        "Availability was recorded but the payment link could not be created. Rovaro has been notified.",
-    };
-  }
+  if (!issued.ok) return issued;
 
   const reloaded = await Order.findById(order._id);
-  if (resolveRentalState(reloaded) === RENTAL_STATE.REQUESTED) {
-    applyRentalStateTransition(reloaded, RENTAL_STATE.PARTNER_CONFIRMED);
+  if (!reloaded) {
+    return { ok: false, status: 404, message: "Order not found." };
   }
-  applyRentalStateTransition(reloaded, RENTAL_STATE.PAYMENT_PENDING);
   reloaded.companyEmailDecision = "accepted";
   reloaded.companyEmailDecisionAt = now;
   reloaded.partnerConfirmedAt = now;
@@ -576,17 +486,6 @@ async function finalizePartnerAccept({
     { strict: false }
   );
   await reloaded.save();
-  await attachStripeSessionToHold(reloaded._id, checkout.sessionId);
-
-  const mailed = await sendCustomerPaymentRequestEmail({
-    order: reloaded.toObject(),
-    paymentUrl: checkout.url,
-    expiresAt: checkout.expiresAt,
-    stripeSessionId: checkout.sessionId,
-  });
-  if (!mailed.ok && !mailed.deduped) {
-    console.error("[partner-confirm] payment email failed", mailed);
-  }
 
   await recordAuditEvent({
     action: "BOOKING_PARTNER_CONFIRMED",
@@ -609,8 +508,7 @@ async function finalizePartnerAccept({
       ),
       agreementRef: consumed.agreementRef,
       priceChecksum,
-      sessionId: checkout.sessionId,
-      reusedCheckout: Boolean(checkout.reused),
+      paymentUrl: issued.paymentUrl || "",
     },
   });
 
@@ -618,11 +516,11 @@ async function finalizePartnerAccept({
 
   return {
     ok: true,
-    idempotent: Boolean(checkout.reused),
+    idempotent: Boolean(issued.skipped),
     decision: "accepted",
     orderId: String(reloaded._id),
     bookingStatus: reloaded.bookingStatus,
-    paymentUrl: checkout.url,
+    paymentUrl: issued.paymentUrl || reloaded.payment?.checkoutUrl || "",
     message: "Availability confirmed. The customer will receive a payment link.",
   };
 }
