@@ -93,28 +93,68 @@ describe("parseLocalInTimezone", () => {
     expect(pickup.utc.toISOString()).toBe("2026-06-01T21:00:00.000Z");
   });
 
-  test("ambiguous DST fall-back times that cannot round-trip are rejected; explicit 01:30 or 03:00 are used instead", () => {
+  /**
+   * Madrid puts its clocks back at 03:00 CEST on 2026-10-25, so local 02:00–02:59
+   * happens twice. 02:30 is ambiguous, not nonexistent: refusing it would refuse a
+   * time the customer can legitimately read off the clock. It is resolved to the
+   * first (still-DST, UTC+02:00) occurrence and displays back as 02:30, so a
+   * pickup written on the clock-change day is never shown an hour out.
+   */
+  test("an ambiguous fall-back time is accepted at its first occurrence and displays unchanged", () => {
     const ambiguous = parseLocalInTimezone(
       "2026-10-25",
       "02:30",
       "Europe/Madrid"
     );
-    expect(ambiguous.ok).toBe(false);
 
-    const dstOccurrence = parseLocalInTimezone(
+    expect(ambiguous.ok).toBe(true);
+    expect(ambiguous.utc.toISOString()).toBe("2026-10-25T00:30:00.000Z");
+    expect(ambiguous.local.utcOffset()).toBe(120);
+    expect(
+      fromUtcInTimezone(ambiguous.utc, "Europe/Madrid").format("YYYY-MM-DD HH:mm")
+    ).toBe("2026-10-25 02:30");
+  });
+
+  test("every minute of the repeated hour round-trips to the time that was entered", () => {
+    for (const time of ["02:00", "02:15", "02:30", "02:45", "02:59"]) {
+      const parsed = parseLocalInTimezone("2026-10-25", time, "Europe/Madrid");
+      expect(`${time}:${parsed.ok}`).toBe(`${time}:true`);
+      expect(
+        `${time}:${fromUtcInTimezone(parsed.utc, "Europe/Madrid").format("HH:mm")}`
+      ).toBe(`${time}:${time}`);
+    }
+  });
+
+  test("the hours either side of the fall-back keep their own offsets", () => {
+    const beforeChange = parseLocalInTimezone(
       "2026-10-25",
       "01:30",
       "Europe/Madrid"
     );
-    const standardOccurrence = parseLocalInTimezone(
+    const afterChange = parseLocalInTimezone(
       "2026-10-25",
       "03:00",
       "Europe/Madrid"
     );
-    expect(dstOccurrence.ok).toBe(true);
-    expect(standardOccurrence.ok).toBe(true);
-    expect(dstOccurrence.utc.toISOString()).not.toBe(
-      standardOccurrence.utc.toISOString()
-    );
+
+    expect(beforeChange.ok).toBe(true);
+    expect(afterChange.ok).toBe(true);
+    expect(beforeChange.utc.toISOString()).toBe("2026-10-24T23:30:00.000Z");
+    expect(afterChange.utc.toISOString()).toBe("2026-10-25T02:00:00.000Z");
+    expect(beforeChange.local.utcOffset()).toBe(120);
+    expect(afterChange.local.utcOffset()).toBe(60);
+  });
+
+  /**
+   * The spring-forward gap is the case that genuinely has to be refused, and it
+   * must stay refused: 02:30 does not exist on 2026-03-29, so accepting it would
+   * silently store 03:30 and show the customer an hour they did not choose.
+   */
+  test("a nonexistent spring-forward time is never quietly shifted into a real one", () => {
+    const parsed = parseLocalInTimezone("2026-03-29", "02:30", "Europe/Madrid");
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe(DATETIME_ERROR.NONEXISTENT_LOCAL_TIME);
+    expect(parsed.utc).toBeUndefined();
   });
 });
