@@ -10,10 +10,18 @@ export function useAdminViewAs() {
   const isSuperAdmin = session?.user?.role === ROLE.SUPERADMIN;
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(false);
+  /**
+   * The company context lives in a cookie, so it is unknown until the first
+   * fetch answers. Callers that decide something consequential from it — whether
+   * a new order is this company's own record or a brokered platform request —
+   * must wait rather than read the not-in-a-company default.
+   */
+  const [ready, setReady] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!isSuperAdmin) {
       setCompany(null);
+      setReady(true);
       return null;
     }
     try {
@@ -29,6 +37,8 @@ export function useAdminViewAs() {
     } catch {
       setCompany(null);
       return null;
+    } finally {
+      setReady(true);
     }
   }, [isSuperAdmin]);
 
@@ -84,6 +94,7 @@ export function useAdminViewAs() {
     isSuperAdmin,
     active: Boolean(company),
     company,
+    ready,
     loading,
     enter,
     exit,

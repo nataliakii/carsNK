@@ -1,175 +1,169 @@
 /**
- * View model for the public car booking panel.
- * A complete date range shows BOOK! above the month, plus the quote total
- * from the existing price action. Clearing the range hides both.
+ * View model for one car's public booking panel.
+ *
+ * It describes a single car's CTA and price summary from that car's own
+ * dates and quote. It holds no global state and knows nothing about any other
+ * car, so a card can only ever render the quote it was given.
+ *
+ * Copy is returned as i18n keys plus an English fallback; the component
+ * translates. The CTA never contains "!" or "?".
  */
 
 import dayjs from "dayjs";
 import "dayjs/locale/en";
+import { hasCompleteRange, isDateKey } from "./publicBookingMode";
+
+export const PANEL_STATUS = Object.freeze({
+  EMPTY: "empty",
+  LOADING: "loading",
+  READY: "ready",
+  UNAVAILABLE: "unavailable",
+  ERROR: "error",
+});
+
+export const PANEL_COPY = Object.freeze({
+  selectDates: { key: "catalog.booking.selectDates", fallback: "Select dates" },
+  calculating: {
+    key: "catalog.booking.calculatingPrice",
+    fallback: "Calculating price…",
+  },
+  book: { key: "catalog.booking.book", fallback: "BOOK" },
+  unavailable: {
+    key: "catalog.booking.rangeUnavailable",
+    fallback: "Not available for these dates",
+  },
+  error: {
+    key: "catalog.booking.quoteFailed",
+    fallback: "Could not check availability",
+  },
+  retry: { key: "catalog.booking.retry", fallback: "Try again" },
+});
 
 export function hasValidBookingRange(start, end) {
-  if (!start || !end) return false;
-  const startKey = String(start);
-  const endKey = String(end);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(startKey) || !/^\d{4}-\d{2}-\d{2}$/.test(endKey)) {
-    return false;
-  }
-  return endKey >= startKey;
+  return hasCompleteRange(start, end);
 }
 
-/** "29 Sep – 30 Sep 2026" */
-export function formatBookingDateRange(start, end) {
-  if (!hasValidBookingRange(start, end)) return "";
-  const startLabel = dayjs(start).locale("en").format("D MMM").replace(/\./g, "");
-  const endLabel = dayjs(end).locale("en").format("D MMM YYYY").replace(/\./g, "");
-  return `${startLabel} – ${endLabel}`;
-}
-
-/** `1 day` / `2 days` — never `1 days`. */
-export function formatRentalDayCount(days) {
-  const count = Number(days);
-  if (!Number.isFinite(count) || count <= 0) return "";
-  const whole = Math.round(count);
-  return whole === 1 ? "1 day" : `${whole} days`;
-}
-
-/** Compact plate amount: `105€`. */
-export function formatPlatePrice(amount) {
+/** `€105` — whole euros stay whole, cents only when they exist. */
+export function formatEuroAmount(amount) {
   const value = Number(amount);
   if (!Number.isFinite(value)) return "";
   const rounded = Math.round(value * 100) / 100;
-  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
-  return `${text}€`;
-}
-
-/** Always `€105.00` when a precise caption is needed. */
-export function formatEuroTotal(amount) {
-  const value = Number(amount);
-  if (!Number.isFinite(value)) return "";
-  return `€${value.toFixed(2)}`;
-}
-
-export function priceCaption(priceKind) {
-  return priceKind === "estimated" ? "Estimated total" : "Rental total";
+  return `€${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}`;
 }
 
 /**
- * @param {{ start?: string|null, end?: string|null, editing?: boolean, quote?: object }} input
+ * Compact human range.
+ *   same month  → `20–24 October`
+ *   cross month → `28 October – 2 November`
+ *   cross year  → `28 December 2026 – 2 January 2027`
  */
-function quoteForSelectedRange(start, end, quote) {
-  const raw = quote || {};
-  if (!hasValidBookingRange(start, end)) return raw;
-  const rangeKey = `${start}|${end}`;
-  if (raw.rangeKey && raw.rangeKey !== rangeKey) {
-    return { status: "checking", priceKind: raw.priceKind, rangeKey };
+export function formatCompactDateRange(start, end, locale = "en") {
+  if (!hasCompleteRange(start, end)) return "";
+  const from = dayjs(start).locale(locale);
+  const to = dayjs(end).locale(locale);
+  if (!from.isValid() || !to.isValid()) return "";
+
+  if (from.year() !== to.year()) {
+    return `${from.format("D MMMM YYYY")} – ${to.format("D MMMM YYYY")}`;
   }
-  return raw;
+  if (from.month() !== to.month()) {
+    return `${from.format("D MMMM")} – ${to.format("D MMMM")}`;
+  }
+  return `${from.format("D")}–${to.format("D MMMM")}`;
 }
 
+/** Billable rental days between two date keys. */
+export function rentalDayCount(start, end) {
+  if (!hasCompleteRange(start, end)) return 0;
+  const from = dayjs(`${start}T00:00:00Z`);
+  const to = dayjs(`${end}T00:00:00Z`);
+  const days = to.diff(from, "day");
+  return days > 0 ? days : 0;
+}
+
+/**
+ * A quote only belongs to the range it was requested for. A late response for
+ * an abandoned range is discarded rather than shown against new dates.
+ */
+function quoteForRange(start, end, quote) {
+  if (!quote) return null;
+  const rangeKey = `${start}|${end}`;
+  if (quote.rangeKey && quote.rangeKey !== rangeKey) return null;
+  return quote;
+}
+
+function resolveStatus(hasDates, quote, quoteStatus) {
+  if (!hasDates) return PANEL_STATUS.EMPTY;
+  if (quoteStatus === "error" || quote?.status === "error") {
+    return PANEL_STATUS.ERROR;
+  }
+  if (quote?.available === false || quote?.status === "unavailable") {
+    return PANEL_STATUS.UNAVAILABLE;
+  }
+  if (quoteStatus === "ready" && Number(quote?.totalPrice) > 0) {
+    return PANEL_STATUS.READY;
+  }
+  return PANEL_STATUS.LOADING;
+}
+
+/**
+ * @param {{ start?: string|null, end?: string|null, quote?: object|null,
+ *   quoteStatus?: string, priceKind?: "estimated"|"rental", locale?: string }} input
+ */
 export function buildCarBookingPanelView(input) {
-  const start = input?.start || null;
-  const end = input?.end || null;
-  const hasDates = hasValidBookingRange(start, end);
-  const quote = quoteForSelectedRange(start, end, input?.quote);
-  const status = !hasDates ? "empty" : quote.status || "checking";
-  const showPrice =
-    hasDates &&
-    (status === "available" || status === "priceChanged") &&
-    quote.totalPrice != null;
-  const showApprox = Boolean(showPrice && quote.priceKind === "estimated");
-  // A complete range keeps BOOK! visible while the existing quote loads.
-  // An unavailable range is not bookable, so the button stays hidden.
-  const showBook = hasDates && status !== "unavailable";
+  const start = isDateKey(input?.start) ? input.start : null;
+  const end = isDateKey(input?.end) ? input.end : null;
+  const hasDates = hasCompleteRange(start, end);
+  const quote = hasDates ? quoteForRange(start, end, input?.quote) : null;
+  const quoteStatus = quote ? input?.quoteStatus || "idle" : "idle";
+  const status = resolveStatus(hasDates, quote, quoteStatus);
+  const locale = input?.locale || "en";
+
+  const isReady = status === PANEL_STATUS.READY;
+  const priceText = isReady ? formatEuroAmount(quote.totalPrice) : "";
+  const approx = Boolean(isReady && input?.priceKind !== "rental");
+  const days = rentalDayCount(start, end);
+
+  let ctaCopy = PANEL_COPY.selectDates;
+  if (status === PANEL_STATUS.LOADING) ctaCopy = PANEL_COPY.calculating;
+  else if (isReady) ctaCopy = PANEL_COPY.book;
+  else if (status === PANEL_STATUS.UNAVAILABLE) ctaCopy = PANEL_COPY.unavailable;
+  else if (status === PANEL_STATUS.ERROR) ctaCopy = PANEL_COPY.retry;
 
   return {
-    state: hasDates ? "selected" : "empty",
-    hasDates,
-    // Keep the mini calendar on the search card at all times.
-    calendarOpen: true,
-    showChooseDates: !hasDates,
-    showBook,
-    showPrice,
-    showBookPlate: showBook,
-    showApprox,
     status,
-    statusText: statusText(status, quote.message),
-    dateRangeLabel: hasDates ? formatBookingDateRange(start, end) : "",
-    durationLabel: showPrice ? formatRentalDayCount(quote.days) : "",
-    priceCaption: priceCaption(quote.priceKind),
-    priceText: showPrice ? formatEuroTotal(quote.totalPrice) : "",
-    platePriceText: showPrice ? formatPlatePrice(quote.totalPrice) : "",
-    bookLabel: "BOOK!",
-    continueDisabled: !showBook,
+    hasDates,
+    // Only a priced, available range may open the booking modal.
+    canBook: isReady,
+    cta: {
+      disabled: !isReady,
+      labelKey: ctaCopy.key,
+      labelFallback: ctaCopy.fallback,
+      // Rendered as a second line on the button: `Approx. €105`.
+      priceKey: approx ? "catalog.booking.approxPrice" : "catalog.booking.totalPrice",
+      priceText,
+      showPrice: isReady,
+      showApprox: approx,
+    },
+    summary: {
+      show: isReady,
+      rangeText: hasDates ? formatCompactDateRange(start, end, locale) : "",
+      days,
+      // Separate keys rather than i18next plurals: this project interpolates
+      // counts directly, and "1 rental days" must never appear.
+      daysKey:
+        days === 1 ? "catalog.booking.rentalDay" : "catalog.booking.rentalDays",
+      priceText,
+      showApprox: approx,
+    },
+    statusMessage:
+      status === PANEL_STATUS.UNAVAILABLE
+        ? PANEL_COPY.unavailable
+        : status === PANEL_STATUS.ERROR
+          ? PANEL_COPY.error
+          : null,
     canonicalStart: hasDates ? start : null,
     canonicalEnd: hasDates ? end : null,
-    continueLabel: "BOOK!",
+    quoteId: isReady ? quote?.quoteId || `${start}|${end}` : null,
   };
-}
-
-function statusText(status, message) {
-  if (message && status === "unavailable") return message;
-  if (status === "checking") return "Checking availability…";
-  if (status === "available") return "";
-  if (status === "unavailable") return "Not available for these dates";
-  if (status === "priceChanged") return "";
-  if (status === "error") return message || "Could not check availability";
-  return "";
-}
-
-/**
- * Calendar is always the editor. These transitions keep one date range.
- */
-export function reduceBookingPanel(state, action) {
-  const current = {
-    start: state?.start || null,
-    end: state?.end || null,
-    editing: Boolean(state?.editing),
-    previous: state?.previous || null,
-  };
-
-  switch (action?.type) {
-    case "changeDates":
-      if (!hasValidBookingRange(current.start, current.end)) return current;
-      return {
-        ...current,
-        editing: true,
-        previous: { start: current.start, end: current.end },
-      };
-    case "cancel": {
-      const restore = current.previous;
-      if (restore?.start && restore?.end) {
-        return {
-          start: restore.start,
-          end: restore.end,
-          editing: false,
-          previous: null,
-        };
-      }
-      return { ...current, editing: false, previous: null };
-    }
-    case "commit": {
-      const start = action.start || null;
-      const end = action.end || null;
-      if (!hasValidBookingRange(start, end)) {
-        return { start: null, end: null, editing: true, previous: current.previous };
-      }
-      return { start, end, editing: false, previous: null };
-    }
-    case "unavailable":
-      return { ...current, editing: true };
-    case "clear":
-      return { start: null, end: null, editing: false, previous: null };
-    case "externalDates": {
-      const start = action.start || null;
-      const end = action.end || null;
-      return {
-        start,
-        end,
-        editing: false,
-        previous: null,
-      };
-    }
-    default:
-      return current;
-  }
 }

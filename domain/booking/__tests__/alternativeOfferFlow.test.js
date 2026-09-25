@@ -111,7 +111,12 @@ import { assertPartnerCanOperate } from "@/domain/legal/partnerOperatingPolicy";
 import {
   decideAlternativeVehicle,
   offerAlternativeVehicle,
+  offerUnlistedEquivalent,
 } from "../alternativeVehicle";
+import {
+  GUARANTEED_EQUIVALENT_MODEL,
+  REPLACEMENT_SOURCE,
+} from "../equivalentReplacementCopy";
 
 function carDoc(id, overrides = {}) {
   return {
@@ -624,6 +629,238 @@ describe("customer decision", () => {
     expect(result.status).toBe(404);
     expect(result.message).toBe("Offer not found");
     expect(JSON.stringify(result)).not.toMatch(/AGREEMENT_OUTDATED|COMPLIANCE/);
+    expect(createRentalCheckoutSession).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The guaranteed equivalent: the supplier commits to the booking's own
+ * specification rather than describing a car. Typing nothing is the fast path,
+ * so nothing typed may be what the promise depends on.
+ */
+describe("guaranteed equivalent replacement", () => {
+  const actor = { role: 1, ownerId: "company-a", email: "admin@a.test" };
+
+  const requested = {
+    vehicleSnapshot: {
+      carId: "car-a",
+      displayName: "Seat Leon",
+      class: "compact",
+      transmission: "automatic",
+      seats: 5,
+      luggage: 2,
+    },
+  };
+
+  const bareProposal = {
+    replacementSource: REPLACEMENT_SOURCE.GUARANTEED_EQUIVALENT,
+    supplierMessage: "The booked car is in the workshop.",
+  };
+
+  /** Run the supplier side and hand back exactly what was stored. */
+  async function offerGuaranteed({ order, proposal = bareProposal } = {}) {
+    AlternativeVehicleOffer.findOne.mockImplementation(() => thenable(null));
+    Order.findById.mockResolvedValue(order || orderDoc(requested));
+    const result = await offerUnlistedEquivalent({
+      orderId: "order-1",
+      proposal,
+      actor,
+    });
+    const stored = AlternativeVehicleOffer.create.mock.calls[0]?.[0] || null;
+    return { result, stored };
+  }
+
+  /**
+   * The offer the customer later sees, built by the supplier path rather than
+   * hand-written, so its checksum is the one the module itself computed.
+   */
+  async function storedGuaranteedOffer(mutate) {
+    const { stored } = await offerGuaranteed();
+    expect(stored).toBeTruthy();
+    jest.clearAllMocks();
+    const row = offerDoc({
+      ...stored,
+      status: "OFFERED",
+      expiresAt: new Date(Date.now() + 3600_000),
+    });
+    if (typeof mutate === "function") mutate(row);
+    return row;
+  }
+
+  function serveOffer(row) {
+    AlternativeVehicleOffer.findOne.mockImplementation(() => thenable(row));
+    AlternativeVehicleOffer.findOneAndUpdate.mockResolvedValue({
+      ...row,
+      status: "ACCEPTED",
+      toObject() {
+        return { ...this };
+      },
+    });
+    Order.findById.mockResolvedValue(
+      orderDoc({ ...requested, bookingStatus: BOOKING_STATUS.ALTERNATIVE_PROPOSED })
+    );
+    Order.findOneAndUpdate.mockResolvedValue(
+      orderDoc({
+        ...requested,
+        bookingStatus: BOOKING_STATUS.ALTERNATIVE_ACCEPTED_AWAITING_PAYMENT,
+      })
+    );
+  }
+
+  test("an empty form still records every guarantee, derived from the booking", async () => {
+    const { result, stored } = await offerGuaranteed();
+
+    expect(result.ok).toBe(true);
+    expect(stored.replacementSource).toBe(REPLACEMENT_SOURCE.GUARANTEED_EQUIVALENT);
+    expect(stored.replacementProposal.guarantees).toMatchObject({
+      classAtLeast: "compact",
+      transmission: "automatic",
+      seatsAtLeast: 5,
+      luggageAtLeast: 2,
+      totalPriceAtMost: 1000,
+      datesUnchanged: true,
+      locationsUnchanged: true,
+      noSurcharge: true,
+    });
+    expect(stored.replacementProposal.derivedFromOriginal).toEqual([
+      "class",
+      "luggage",
+      "seats",
+      "totalPrice",
+      "transmission",
+    ]);
+    expect(stored.vehicle).toMatchObject({
+      model: GUARANTEED_EQUIVALENT_MODEL,
+      category: "compact",
+      transmission: "automatic",
+      seats: 5,
+      luggage: 2,
+    });
+    expect(stored.priceMinor).toBe(100000);
+    expect(stored.proposedCarId).toBeNull();
+    expect(acquireMarketplaceHold).not.toHaveBeenCalled();
+    expect(createRentalCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  test("the promise is read from the booking snapshot, not from today's fleet record", async () => {
+    // The live car was re-classified to a higher class after the booking.
+    Car.findById.mockImplementation(async (id) =>
+      carDoc(String(id), { class: "suv", transmission: "manual", seats: 7 })
+    );
+
+    const { stored } = await offerGuaranteed();
+
+    expect(stored.replacementProposal.guarantees).toMatchObject({
+      classAtLeast: "compact",
+      transmission: "automatic",
+      seatsAtLeast: 5,
+    });
+  });
+
+  test("the Booking Fee comes from the booking's own rate, not a fixed 10%", async () => {
+    const { stored } = await offerGuaranteed({
+      order: orderDoc({ ...requested, marketplaceBookingFeeBps: 3000 }),
+    });
+
+    expect(stored.marketplaceBookingFeeBps).toBe(3000);
+    expect(stored.prepaymentMinor).toBe(30000);
+    expect(stored.balanceMinor).toBe(70000);
+  });
+
+  test("a typed downgrade is refused even though the fields are optional", async () => {
+    const { result } = await offerGuaranteed({
+      proposal: { ...bareProposal, category: "economy" },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("category_downgrade");
+    expect(AlternativeVehicleOffer.create).not.toHaveBeenCalled();
+  });
+
+  test("a supplier comment is still required", async () => {
+    const { result } = await offerGuaranteed({
+      proposal: { replacementSource: REPLACEMENT_SOURCE.GUARANTEED_EQUIVALENT },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("reason_required");
+    expect(AlternativeVehicleOffer.create).not.toHaveBeenCalled();
+  });
+
+  test("the customer can accept it: no car to hold, straight to payment", async () => {
+    serveOffer(await storedGuaranteedOffer());
+
+    const result = await decideAlternativeVehicle({
+      offerId: "ALT-ABCDEF0123456789",
+      accept: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe("ACCEPTED");
+    expect(result.paymentUrl).toContain("cs_test_alt");
+    expect(acquireMarketplaceHold).not.toHaveBeenCalled();
+    const update = Order.findOneAndUpdate.mock.calls[0][1].$set;
+    expect(update.pendingReplacementProposal).toMatchObject({
+      version: 2,
+      guarantees: expect.objectContaining({
+        classAtLeast: "compact",
+        transmission: "automatic",
+        seatsAtLeast: 5,
+      }),
+    });
+    expect(update.replacementDisclosure).toContain("automatic");
+    expect(update.replacementDisclosure).toContain("5");
+  });
+
+  test("a row written under either merged-away kind still resolves", async () => {
+    for (const legacy of ["EXTERNAL_VEHICLE", "GUARANTEED_CLASS"]) {
+      const row = await storedGuaranteedOffer((doc) => {
+        doc.replacementSource = legacy;
+      });
+      serveOffer(row);
+
+      const result = await decideAlternativeVehicle({
+        offerId: "ALT-ABCDEF0123456789",
+        accept: true,
+      });
+
+      expect(`${legacy}:${result.ok}`).toBe(`${legacy}:true`);
+      expect(acquireMarketplaceHold).not.toHaveBeenCalled();
+    }
+  });
+
+  test("an altered stored promise cannot be accepted", async () => {
+    const row = await storedGuaranteedOffer((doc) => {
+      doc.replacementProposal = {
+        ...doc.replacementProposal,
+        guarantees: { ...doc.replacementProposal.guarantees, classAtLeast: "mini" },
+      };
+    });
+    serveOffer(row);
+
+    const result = await decideAlternativeVehicle({
+      offerId: "ALT-ABCDEF0123456789",
+      accept: true,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("snapshot_mismatch");
+    expect(createRentalCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  test("a promise stripped of its checksum cannot be accepted either", async () => {
+    const row = await storedGuaranteedOffer((doc) => {
+      delete doc.replacementProposal.checksum;
+    });
+    serveOffer(row);
+
+    const result = await decideAlternativeVehicle({
+      offerId: "ALT-ABCDEF0123456789",
+      accept: true,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("snapshot_mismatch");
     expect(createRentalCheckoutSession).not.toHaveBeenCalled();
   });
 });

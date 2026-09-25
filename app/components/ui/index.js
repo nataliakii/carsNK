@@ -31,6 +31,12 @@ export * from "./media";
 // Layout
 export { default as CollapsibleSection } from "./CollapsibleSection";
 export { default as SummaryField, SummaryList } from "./SummaryField";
+export {
+  default as FieldGroup,
+  FieldGroupStack,
+  FieldRow,
+} from "./FieldGroup";
+export { default as PriceTag } from "./PriceTag";
 
 // Modals
 export { ModalLayout, ConfirmModal, OrdersByDateModal, DialogLayout } from "./modals";

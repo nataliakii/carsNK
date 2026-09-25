@@ -47,6 +47,7 @@ const CarDetailsModal = lazy(() => import("./CarDetailsModal"));
 import { useTranslation } from "react-i18next";
 import CarPhotoCarousel from "./CarPhotoCarousel";
 import CarBookingPanel from "./CarBookingPanel";
+import { useCarCalendarSlice } from "@/app/hooks/useCarCalendar";
 import CarCitiesSummary from "./CarCitiesSummary";
 import { resolveCarOperatingZones } from "@/domain/cars/carOperatingZones";
 import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
@@ -205,6 +206,8 @@ const CarItemComponent = React.memo(function CarItemComponent({
   isFirstCar = false, // Only first car above-the-fold gets priority loading
   presetSearchDates = null,
   searchPrice = null,
+  searchRequest = null,
+  onQuote,
 }) {
   const { t, i18n } = useTranslation();
   const pathname = usePathname();
@@ -233,8 +236,16 @@ const CarItemComponent = React.memo(function CarItemComponent({
   });
   const [calculatedPrice, setCalculatedPrice] = useState(null); // Просчитанная цена из календаря
 
-  // Состояние для передачи месяца из календаря:
-  const [currentCalendarDate, setCurrentCalendarDate] = useState(dayjs());
+  // Month shown by *this* car's calendar. Read from the car's own slice, so
+  // paging another card's calendar cannot move this card's pricing tiers.
+  const calendarSlice = useCarCalendarSlice(car?._id);
+  const currentCalendarDate = React.useMemo(
+    () =>
+      calendarSlice.displayMonth
+        ? dayjs(`${calendarSlice.displayMonth}-01`)
+        : dayjs(),
+    [calendarSlice.displayMonth]
+  );
 
   // Оптимизация: деструктурируем только нужные поля из контекста
   // и мемоизируем carOrders, чтобы избежать лишних ре-рендеров
@@ -262,10 +273,12 @@ const CarItemComponent = React.memo(function CarItemComponent({
     return ordersByCarId(car._id);
   }, [ordersByCarId, car._id]);
 
-  const handleBookingComplete = (selectionFromCalendar) => {
-    const normalized = normalizeBookingDateSelection(
-      selectionFromCalendar || bookDates
-    );
+  // Receives this car's booking draft: `{ sourceMode, carId, startDate,
+  // endDate, quoteId }`. The carId guard makes it impossible to open the
+  // modal from another card's dates, even if a stale handler were reused.
+  const handleBookingComplete = (draft) => {
+    if (draft?.carId && String(draft.carId) !== String(car?._id)) return;
+    const normalized = normalizeBookingDateSelection(draft || bookDates);
     if (!normalized) {
       if (lastSnackRef.current) closeSnackbar(lastSnackRef.current);
       lastSnackRef.current = enqueueSnackbar(
@@ -279,31 +292,16 @@ const CarItemComponent = React.memo(function CarItemComponent({
     // Commit the calendar's latest range before mounting the modal so
     // BookingModal never receives null/stale dates on first paint.
     setBookedDates({ start: normalized.start, end: normalized.end });
+    setSelectedTimes({
+      start: draft?.boundaryTimes?.start || null,
+      end: draft?.boundaryTimes?.end || null,
+    });
     setBookingModalMounted(true);
     setModalOpen(true);
   };
 
-  // ДОБАВИТЬ ЭТУ ФУНКЦИЮ для передачи месяца из календаря:
-  const handleCurrentDateChange = (newDate) => {
-    // console.log(
-    //   "CarItemComponent получил новую дату:",
-    //   newDate.format("YYYY-MM-DD")
-    // );
-    setCurrentCalendarDate(newDate);
-  };
-
   // ref для контейнера изображения
   const carImageRef = useRef(null);
-
-  // Добавляем обработчик для CalendarPicker
-  const handleDateChange = ({ type, message }) => {
-    // Закрыть предыдущий снэк, если есть
-    if (lastSnackRef.current) {
-      closeSnackbar(lastSnackRef.current);
-    }
-    // Показать новый снэк и сохранить его id
-    lastSnackRef.current = enqueueSnackbar(message, { variant: type });
-  };
 
   return (
     <StyledCarItem elevation={3}>
@@ -393,6 +391,8 @@ const CarItemComponent = React.memo(function CarItemComponent({
               car={car}
               orders={carOrders}
               onContinue={handleBookingComplete}
+              searchRequest={searchRequest}
+              onQuote={onQuote}
             />
             {/* Информация о дискаунте с логикой как в PricingTiers */}
             {(() => {
@@ -512,6 +512,11 @@ const CarItemComponent = React.memo(function CarItemComponent({
   const carChanged = prevProps.car?._id !== nextProps.car?._id;
   const discountChanged = prevProps.discount !== nextProps.discount;
   const isFirstCarChanged = prevProps.isFirstCar !== nextProps.isFirstCar;
+  // Compared by value: the grid rebuilds this object on every render, but the
+  // card must only re-render when the requested range actually changes.
+  const searchRequestChanged =
+    prevProps.searchRequest?.startDate !== nextProps.searchRequest?.startDate ||
+    prevProps.searchRequest?.endDate !== nextProps.searchRequest?.endDate;
   const searchPriceChanged =
     prevProps.searchPrice?.loading !== nextProps.searchPrice?.loading ||
     prevProps.searchPrice?.totalPrice !== nextProps.searchPrice?.totalPrice ||
@@ -525,7 +530,7 @@ const CarItemComponent = React.memo(function CarItemComponent({
     prevProps.discountEnd?.valueOf() !== nextProps.discountEnd?.valueOf();
   
   // Возвращаем true если ничего не изменилось (не нужно ре-рендерить)
-  return !carChanged && !discountChanged && !discountStartChanged && !discountEndChanged && !isFirstCarChanged && !searchPriceChanged;
+  return !carChanged && !discountChanged && !discountStartChanged && !discountEndChanged && !isFirstCarChanged && !searchPriceChanged && !searchRequestChanged;
 });
 
 CarItemComponent.displayName = "CarItemComponent";

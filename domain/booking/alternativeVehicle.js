@@ -58,8 +58,13 @@ import {
 } from "@/domain/orders/marketplacePriceCorrection";
 import { calculateDeliveryPrice } from "@/domain/delivery/calculateDeliveryPrice";
 import { computePriceSnapshotChecksum } from "@/domain/orders/priceSnapshotChecksum";
-import { fromMinorUnits } from "@/domain/money/minorUnits";
-import { equivalentReplacementDisclosure } from "@/domain/booking/equivalentReplacementCopy";
+import { fromMinorUnits, toMinorUnits } from "@/domain/money/minorUnits";
+import {
+  equivalentReplacementDisclosure,
+  REPLACEMENT_SOURCE,
+  resolveReplacementSource,
+} from "@/domain/booking/equivalentReplacementCopy";
+import { readVehicleSnapshot } from "@/domain/orders/vehicleSnapshot";
 import { LOCATION_KIND } from "@/domain/orders/locationSnapshot";
 import {
   archiveStripeSession,
@@ -217,6 +222,22 @@ function originalVehicleFromOrder(order, car) {
     luggage: car?.luggage ?? car?.luggageCapacity,
     photos: [],
   };
+}
+
+/**
+ * The total the customer was already shown, in minor units. Null when the
+ * booking carries no usable figure: nothing can promise "no more than before"
+ * against an unknown before.
+ */
+function replacementOriginalGrossMinor(order) {
+  for (const candidate of [
+    order?.authoritativePrice?.grossMinor,
+    toMinorUnits(order?.totalPrice, "EUR"),
+  ]) {
+    const minor = Number(candidate);
+    if (Number.isFinite(minor) && minor > 0) return Math.round(minor);
+  }
+  return null;
 }
 
 async function loadCompany(order) {
@@ -914,7 +935,7 @@ export async function offerUnlistedEquivalent({
   expiresInHours,
 }) {
   await connectToDB();
-  const { evaluateEquivalentReplacement, REPLACEMENT_SOURCE } = await import(
+  const { evaluateEquivalentReplacement } = await import(
     "@/domain/booking/equivalentReplacement"
   );
   const order = await Order.findById(orderId);
@@ -923,15 +944,24 @@ export async function offerUnlistedEquivalent({
   if (!eligibility.ok) return eligibility;
 
   const originalCar = await loadOriginalCar(order);
+  // The guarantees are measured against what the customer asked for, so they
+  // are read from the booking's own captured specification first. A live Car
+  // document keeps changing after the booking was taken.
+  const { vehicle: requestedVehicle } = readVehicleSnapshot(
+    order.toObject ? order.toObject() : order
+  );
+  const originalGrossMinor = replacementOriginalGrossMinor(order);
   const original = {
     carId: originalCar?._id,
-    model: order.carModel || originalCar?.model,
-    category: originalCar?.class,
-    transmission: originalCar?.transmission,
-    seats: originalCar?.seats,
-    luggage: originalCar?.luggageCapacity ?? originalCar?.luggage,
-    fuel: originalCar?.fueltype,
-    totalPrice: order.totalPrice,
+    model: requestedVehicle?.displayName || order.carModel || originalCar?.model,
+    category: requestedVehicle?.class || originalCar?.class,
+    transmission: requestedVehicle?.transmission || originalCar?.transmission,
+    seats: requestedVehicle?.seats ?? originalCar?.seats,
+    luggage:
+      requestedVehicle?.luggage ?? originalCar?.luggageCapacity ?? originalCar?.luggage,
+    fuel: requestedVehicle?.fuelType || originalCar?.fueltype,
+    totalPrice:
+      originalGrossMinor == null ? null : fromMinorUnits(originalGrossMinor, "EUR"),
     rentalStartDate: order.rentalStartDate,
     rentalEndDate: order.rentalEndDate,
     placeIn: order.placeIn,
@@ -967,14 +997,15 @@ export async function offerUnlistedEquivalent({
     car: originalCar,
     company: await loadCompany(order),
   });
-  const grossMinor =
-    Number(order.authoritativePrice?.grossMinor) || Math.round(Number(order.totalPrice) * 100);
-  const feeBps = Number(order.marketplaceBookingFeeBps) || 1000;
-  const prepaymentMinor = Math.round((grossMinor * feeBps) / 10000);
-  const model =
-    check.snapshot.replacementSource === REPLACEMENT_SOURCE.GUARANTEED_CLASS
-      ? "Guaranteed same or higher class"
-      : check.snapshot.replacement.model;
+  // The Booking Fee rate is per company and frozen on the booking. The cap is
+  // what keeps a proposal from ever costing the customer more than the price
+  // already shown, whatever the supplier typed.
+  const feeSnapshot = snapshotMarketplaceBookingFeeBps(order);
+  const cap = applyReplacementPriceCap({
+    calculatedGrossMinor: toMinorUnits(check.snapshot.totalPrice, "EUR"),
+    originalGrossMinor,
+    feeBps: feeSnapshot.bps,
+  });
 
   const offer = await AlternativeVehicleOffer.create({
     offerId,
@@ -983,27 +1014,32 @@ export async function offerUnlistedEquivalent({
     proposedCarId: null,
     originalCarId: originalRequest.carId || null,
     replacementSource: check.snapshot.replacementSource,
+    replacementProposal: check.snapshot,
     supplierMessage: reasonCheck.reason,
     createdBy: resolvedActor.userId || resolvedActor.email || "",
     vehicle: {
       make: check.snapshot.replacement.make,
-      model,
+      model: check.snapshot.replacement.model,
       category: check.snapshot.replacement.class,
       transmission: check.snapshot.replacement.transmission,
       seats: check.snapshot.replacement.seats,
       luggage: check.snapshot.replacement.luggage,
       fuel: check.snapshot.replacement.fuel,
     },
-    priceMinor: grossMinor,
+    priceMinor: cap.offeredGrossMinor,
     currency: "EUR",
-    originalPriceMinor: grossMinor,
+    originalPriceMinor: cap.originalGrossMinor,
+    offeredGrossMinor: cap.offeredGrossMinor,
+    calculatedAlternativeGrossMinor: cap.calculatedGrossMinor,
+    replacementDiscountMinor: cap.replacementDiscountMinor,
+    marketplaceBookingFeeBps: cap.marketplaceBookingFeeBps,
     reasonForReplacement: reasonCheck.reason,
     expiresAt,
     offeredByEmail: resolvedActor.email || "",
     afterPayment: false,
     originalRequest,
-    prepaymentMinor,
-    balanceMinor: grossMinor - prepaymentMinor,
+    prepaymentMinor: cap.prepaymentMinor,
+    balanceMinor: cap.balanceMinor,
     snapshotChecksum: check.snapshot.checksum,
     termsChanged: false,
   });
@@ -1055,10 +1091,32 @@ async function reopenOrderForAnotherOffer(order) {
 }
 
 async function acceptDisclosedReplacement({ offer, order, now, ipAddress, userAgent }) {
+  const proposal = offer.replacementProposal || null;
+  // A guaranteed replacement carries its own immutable proposal instead of a
+  // priced fleet car, so it is that body — not the fleet offer payload — which
+  // has to still hash to the checksum the customer is accepting.
+  if (proposal) {
+    const { verifyReplacementProposalSnapshot } = await import(
+      "@/domain/booking/equivalentReplacement"
+    );
+    const verified = verifyReplacementProposalSnapshot(proposal, {
+      expectedChecksum: offer.snapshotChecksum,
+    });
+    if (!verified.ok) {
+      return {
+        ok: false,
+        status: 409,
+        code: ALTERNATIVE_OFFER_CODE.SNAPSHOT_MISMATCH,
+        message: verified.message,
+      };
+    }
+  }
+  const guarantees = proposal?.guarantees || {};
   const disclosure = equivalentReplacementDisclosure({
-    vehicle: order.carModel || "vehicle",
-    transmission: offer.vehicle?.transmission || "the same",
-    seats: offer.vehicle?.seats ?? "the booked",
+    vehicle: proposal?.originalVehicle?.model || order.carModel || "vehicle",
+    transmission:
+      guarantees.transmission || offer.vehicle?.transmission || "the same",
+    seats: guarantees.seatsAtLeast ?? offer.vehicle?.seats ?? "the booked",
   });
   const casOffer = await AlternativeVehicleOffer.findOneAndUpdate(
     { offerId: offer.offerId, status: "OFFERED", expiresAt: { $gt: now } },
@@ -1100,7 +1158,8 @@ async function acceptDisclosedReplacement({ offer, order, now, ipAddress, userAg
         pendingReplacementProposal: {
           offerId: casOffer.offerId,
           checksum: casOffer.snapshotChecksum,
-          version: 1,
+          version: Number(proposal?.version) || 1,
+          guarantees,
         },
         replacementDisclosure: disclosure,
       },
@@ -1342,8 +1401,18 @@ async function acceptAlternativeOffer({
     };
   }
 
-  const checksum = verifyOfferChecksum(offer.toObject ? offer.toObject() : offer);
-  if (!checksum.ok) return { ok: false, status: 409, ...checksum };
+  const disclosedReplacement =
+    !offer.proposedCarId &&
+    resolveReplacementSource(offer.replacementSource) ===
+      REPLACEMENT_SOURCE.GUARANTEED_EQUIVALENT;
+
+  // The fleet-offer checksum covers a proposed car, its location snapshot and
+  // its recalculated price. A guaranteed equivalent has none of those and is
+  // verified against its own stored proposal instead.
+  if (!disclosedReplacement) {
+    const checksum = verifyOfferChecksum(offer.toObject ? offer.toObject() : offer);
+    if (!checksum.ok) return { ok: false, status: 409, ...checksum };
+  }
 
   const order = await Order.findById(offer.orderId);
   if (!order) {
@@ -1370,11 +1439,7 @@ async function acceptAlternativeOffer({
     };
   }
 
-  if (
-    !offer.proposedCarId &&
-    (offer.replacementSource === "EXTERNAL_VEHICLE" ||
-      offer.replacementSource === "GUARANTEED_CLASS")
-  ) {
+  if (disclosedReplacement) {
     return acceptDisclosedReplacement({ offer, order, now, ipAddress, userAgent });
   }
 

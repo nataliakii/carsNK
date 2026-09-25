@@ -11,6 +11,10 @@ import {
   mulMinor,
   roundToIncrement,
 } from "@/domain/money/minorUnits";
+import {
+  normalizeMarketCountry,
+  resolveMarketCountry,
+} from "@/domain/platform/marketCountry";
 import { locationDisplayName } from "@/domain/transfers/locationSnapshot";
 import { selectVehicleCategory } from "@/domain/transfers/vehicleCapacity";
 import { getCachedDrivingRoute } from "@/domain/transfers/routeCache";
@@ -360,7 +364,8 @@ function buildSnapshot({
  * Priority: FIXED_ROUTE → ZONE_PAIR → CITY_FORMULA → MANUAL.
  */
 export async function calculateTransferQuote(input = {}) {
-  const country = String(input.country || "GR").toUpperCase();
+  const country =
+    normalizeMarketCountry(input.country) || resolveMarketCountry();
   const datetime = input.datetime ? new Date(input.datetime) : new Date();
   const isReturn = Boolean(input.isReturn);
   const adults = Number(input.adults ?? input.passengers ?? 1) || 1;

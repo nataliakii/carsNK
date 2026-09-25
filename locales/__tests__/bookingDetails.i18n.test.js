@@ -20,6 +20,14 @@ const MODAL = path.join(
 );
 const VIEW = path.join(process.cwd(), "domain/booking/bookingDetailsView.js");
 
+/**
+ * i18next stores a counted noun under one key per plural category, so
+ * `t("…header.days", { count })` is answered by `header.days_one`,
+ * `header.days_few`, `header.days_many` and so on. Slavic languages need more of
+ * these than English does, which is correct translation, not a missing key.
+ */
+const PLURAL_SUFFIXES = ["zero", "one", "two", "few", "many", "other"];
+
 function flatten(node, prefix = "") {
   return Object.entries(node).flatMap(([key, value]) => {
     const p = prefix ? `${prefix}.${key}` : key;
@@ -29,6 +37,74 @@ function flatten(node, prefix = "") {
 
 function lookup(tree, key) {
   return key.split(".").reduce((node, part) => node?.[part], tree);
+}
+
+function stripPluralSuffix(key) {
+  const suffix = PLURAL_SUFFIXES.find((s) => key.endsWith(`_${s}`));
+  return suffix ? key.slice(0, -(suffix.length + 1)) : key;
+}
+
+/** Plural forms stored for a counted key, in PLURAL_SUFFIXES order. */
+function pluralFormsOf(tree, key) {
+  const parts = key.split(".");
+  const leaf = parts.pop();
+  const parent = parts.length ? lookup(tree, parts.join(".")) : tree;
+  if (!parent || typeof parent !== "object") return [];
+  return PLURAL_SUFFIXES.filter((s) => typeof parent[`${leaf}_${s}`] === "string");
+}
+
+/**
+ * Every string a key resolves to. A subtree prefix such as `…kinds` is completed
+ * at runtime by a template literal, so all of its leaves must be translated; a
+ * counted noun resolves through its plural forms instead of a flat value.
+ */
+function translationsFor(tree, key) {
+  const node = lookup(tree, key);
+  if (node && typeof node === "object") {
+    return flatten(node).map((leaf) => lookup(node, leaf));
+  }
+  if (node !== undefined) return [node];
+
+  const parts = key.split(".");
+  const leaf = parts.pop();
+  const parent = lookup(tree, parts.join("."));
+  return pluralFormsOf(tree, key).map((s) => parent[`${leaf}_${s}`]);
+}
+
+/** Key set with plural forms collapsed onto the key the source actually calls. */
+function translatableKeys(tree) {
+  return [...new Set(flatten(tree).map(stripPluralSuffix))].sort();
+}
+
+/** Keys stored as plural forms rather than as one flat string. */
+function countedKeys(tree) {
+  return [
+    ...new Set(
+      flatten(tree)
+        .map((key) => [key, stripPluralSuffix(key)])
+        .filter(([key, base]) => base !== key)
+        .map(([, base]) => base)
+    ),
+  ].sort();
+}
+
+/**
+ * Categories a counted noun must be translated into: every one an integer count
+ * can select, plus `other`, which i18next falls back to. Polish needs one/few/
+ * many/other, Romanian one/few/other, German one/other.
+ */
+function requiredPluralCategories(code) {
+  const rules = new Intl.PluralRules(code);
+  const needed = new Set(["other"]);
+  for (let n = 0; n <= 200; n += 1) needed.add(rules.select(n));
+  return PLURAL_SUFFIXES.filter((s) => needed.has(s));
+}
+
+/** Categories the language has at all — a form outside these is a mistake. */
+function allowedPluralCategories(code) {
+  const categories = new Intl.PluralRules(code).resolvedOptions()
+    .pluralCategories;
+  return PLURAL_SUFFIXES.filter((s) => categories.includes(s));
 }
 
 /** Literal `bookingDetails.*` keys mentioned anywhere in the modal or the view. */
@@ -46,27 +122,45 @@ describe("booking details i18n", () => {
     expect(keys.length).toBeGreaterThan(50);
     for (const [code, tree] of Object.entries(LOCALES)) {
       for (const key of keys) {
-        // A prefix such as `...kinds` is completed at runtime by a template
-        // literal, so its whole subtree has to be translated.
-        const node = lookup(tree, key);
-        const leaves =
-          node && typeof node === "object"
-            ? flatten(node).map((leaf) => lookup(node, leaf))
-            : [node];
-        expect(`${code}:${key}:${leaves.every((v) => typeof v === "string")}`).toBe(
+        const translations = translationsFor(tree, key);
+        expect(`${code}:${key}:${translations.length > 0}`).toBe(
           `${code}:${key}:true`
         );
-        expect(`${code}:${key}:${leaves.length > 0}`).toBe(`${code}:${key}:true`);
+        expect(
+          `${code}:${key}:${translations.every((v) => typeof v === "string")}`
+        ).toBe(`${code}:${key}:true`);
       }
     }
   });
 
   it("no locale is missing a key another locale has", () => {
-    const reference = flatten(en.bookingDetails).sort();
+    const reference = translatableKeys(en.bookingDetails);
     for (const [code, tree] of Object.entries(LOCALES)) {
-      expect(`${code}:${flatten(tree.bookingDetails).sort().join(",")}`).toBe(
+      expect(`${code}:${translatableKeys(tree.bookingDetails).join(",")}`).toBe(
         `${code}:${reference.join(",")}`
       );
+    }
+  });
+
+  it("a counted noun carries every plural form its language needs", () => {
+    const counted = countedKeys(en.bookingDetails);
+    expect(counted.length).toBeGreaterThan(0);
+
+    for (const [code, tree] of Object.entries(LOCALES)) {
+      const allowed = allowedPluralCategories(code);
+      for (const base of counted) {
+        const present = pluralFormsOf(tree.bookingDetails, base);
+        const missing = requiredPluralCategories(code).filter(
+          (s) => !present.includes(s)
+        );
+        const unused = present.filter((s) => !allowed.includes(s));
+        expect(`${code}:${base}:missing=${missing.join("|")}`).toBe(
+          `${code}:${base}:missing=`
+        );
+        expect(`${code}:${base}:unused=${unused.join("|")}`).toBe(
+          `${code}:${base}:unused=`
+        );
+      }
     }
   });
 

@@ -1,9 +1,19 @@
-import { COUNTRY_CODES, getSiteCountryCode } from "@config/siteCountry";
-import { omitUntrustedTransferMetrics } from "@/domain/transfers/createTransferOrder";
+import {
+  normalizeMarketCountry,
+  resolveMarketCountry,
+} from "@/domain/platform/marketCountry";
+import {
+  assertTransferPlacesInMarket,
+  OUT_OF_MARKET_CODE,
+} from "@/domain/transfers/marketTransferLocations";
+import {
+  MAX_PUBLIC_ADDITIONAL_STOPS,
+  pickPublicTransferPayload,
+} from "@/domain/transfers/transferPayloadPolicy";
 
 export const QUOTE_MAX_PLACE_LEN = 200;
 export const QUOTE_MAX_CITY_LEN = 100;
-export const QUOTE_MAX_STOPS = 8;
+export const QUOTE_MAX_STOPS = MAX_PUBLIC_ADDITIONAL_STOPS;
 export const QUOTE_TIMEOUT_MS = Number(
   process.env.TRANSFER_QUOTE_TIMEOUT_MS || 10000
 );
@@ -43,25 +53,30 @@ export function assertValidCoordinates(latRaw, lngRaw, label) {
   return { ok: true, lat, lng };
 }
 
-function allowedCountry(raw) {
-  const code = String(raw || "")
-    .trim()
-    .toUpperCase();
-  if (!code) return getSiteCountryCode();
-  if (!COUNTRY_CODES.includes(code)) return null;
-  return code;
+/** Only this deployment's market is quotable; anything else is refused. */
+function allowedCountry(raw, marketCountry) {
+  const code = String(raw || "").trim();
+  if (!code) return marketCountry;
+  return normalizeMarketCountry(code) === marketCountry ? marketCountry : null;
 }
 
 /**
  * Validate and normalise a public transfer-quote body.
- * Drops client distance/price. Does not call Google.
+ * Reduces the body to the public allow-list (so client distance, price and any
+ * admin-only field are gone) and pins the request to one market.
+ * Does not call Google.
+ *
+ * @param {object} raw
+ * @param {{ marketCountry?: string }} [context]
  */
-export function validatePublicQuoteRequest(raw = {}) {
+export function validatePublicQuoteRequest(raw = {}, context = {}) {
+  const marketCountry =
+    normalizeMarketCountry(context.marketCountry) || resolveMarketCountry();
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return { ok: false, message: "Invalid JSON" };
   }
 
-  const payload = omitUntrustedTransferMetrics(raw);
+  const payload = pickPublicTransferPayload(raw);
   const from = clip(payload.from || payload.origin?.placeName, QUOTE_MAX_PLACE_LEN);
   const to = clip(payload.to || payload.destination?.placeName, QUOTE_MAX_PLACE_LEN);
   if (!from || !to) {
@@ -77,10 +92,23 @@ export function validatePublicQuoteRequest(raw = {}) {
   }
 
   const country = allowedCountry(
-    payload.country || payload.origin?.country || payload.destination?.country
+    payload.country || payload.origin?.country || payload.destination?.country,
+    marketCountry
   );
   if (!country) {
     return { ok: false, message: "Unsupported country" };
+  }
+
+  const placeCheck = assertTransferPlacesInMarket(
+    { ...payload, from, to },
+    marketCountry
+  );
+  if (!placeCheck.ok) {
+    return {
+      ok: false,
+      code: OUT_OF_MARKET_CODE,
+      message: placeCheck.message,
+    };
   }
 
   const originCoords = assertValidCoordinates(
@@ -97,10 +125,10 @@ export function validatePublicQuoteRequest(raw = {}) {
   if (!destCoords.ok) return destCoords;
 
   const originCountry = payload.origin?.country
-    ? allowedCountry(payload.origin.country)
+    ? allowedCountry(payload.origin.country, marketCountry)
     : country;
   const destCountry = payload.destination?.country
-    ? allowedCountry(payload.destination.country)
+    ? allowedCountry(payload.destination.country, marketCountry)
     : country;
   if (!originCountry || !destCountry) {
     return { ok: false, message: "Unsupported country" };

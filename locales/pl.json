@@ -72,7 +72,30 @@
     "bookingDetailsSeats": "Miejsca",
     "bookingDetailsSearch": "Szukaj",
     "bookingDetailsEdit": "Zmień filtry",
-    "bookingDetailsClose": "Zamknij"
+    "bookingDetailsClose": "Zamknij",
+    "booking": {
+      "selectDates": "Wybierz daty",
+      "calculatingPrice": "Obliczanie ceny…",
+      "book": "REZERWUJ",
+      "approxPrice": "Ok. {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 dzień najmu",
+      "rentalDays": "Dni najmu: {{days}}",
+      "rangeUnavailable": "Niedostępne w tych terminach",
+      "quoteFailed": "Nie udało się sprawdzić dostępności",
+      "retry": "Spróbuj ponownie",
+      "showCalendar": "Sprawdź dostępność",
+      "hideCalendar": "Ukryj kalendarz",
+      "clearDates": "Wyczyść daty",
+      "previousMonth": "Poprzedni miesiąc",
+      "nextMonth": "Następny miesiąc",
+      "legendAvailable": "Dostępne",
+      "legendUnavailable": "Niedostępne",
+      "legendSelected": "Wybrane",
+      "sortLabel": "Sortuj według",
+      "sortPriceAsc": "Cena: od najniższej",
+      "sortPriceDesc": "Cena: od najwyższej"
+    }
   },
   "basic": {
     "close": "zamknąć",
@@ -180,6 +203,13 @@
     "returnDate": "Data powrotu",
     "pickupTime": "Czas odbioru",
     "returnTime": "Czas powrotu",
+    "sections": {
+      "pickup": "Odbiór",
+      "return": "Zwrot",
+      "extras": "Ubezpieczenie i dodatki",
+      "price": "Cena",
+      "customer": "Klient"
+    },
     "CompleteBook": "Dokończ rezerwację",
     "orderConfirmed": "Zamówienie potwierdzone",
     "orderNotConfirmed": "Zamówienie niepotwierdzone",
@@ -190,6 +220,7 @@
     "confirmationEmailFailed": "Nie udało się wysłać e-maila z potwierdzeniem",
     "confirmationEmailHistoryTitle": "Historia e-maili potwierdzających",
     "confirmationEmailHistoryEmpty": "Nie wysłano jeszcze żadnych e-maili z potwierdzeniem",
+    "confirmationEmailHistoryInternal": "Rovaro nie wysyła e-maili dla rezerwacji wewnętrznych.",
     "confirmationEmailHistoryShow": "Pokazywać",
     "confirmationEmailHistoryHide": "Ukrywać",
     "confirmationEmailHistoryCollapsed": "Wysłano: {{count}}",
@@ -233,7 +264,13 @@
     "licenceExpiresBeforeReturn": "Prawo jazdy traci ważność przed końcem wynajmu. Użyj prawa jazdy ważnego przez cały okres wynajmu.",
     "licenceIssueDateRequired": "Podaj datę wydania prawa jazdy.",
     "licenceIssueDateInvalid": "Data wydania musi być w przeszłości i wcześniejsza niż data ważności.",
-    "licenceNotProvided": "Nie podano"
+    "licenceNotProvided": "Nie podano",
+    "platformRequest": {
+      "title": "Zapytanie platformy Rovaro",
+      "notice": "To zamówienie tworzy Rovaro dla innej firmy. Wychodzi jako rezerwacja platformy i trafia do kolejki tej firmy jako nowe zapytanie oczekujące na jej potwierdzenie.",
+      "offlineUnavailable": "Wpisu offline nie można utworzyć w imieniu innej firmy, dlatego opcja offline nie jest tu dostępna.",
+      "priceLocked": "Rovaro wylicza tę cenę, a opłata rezerwacyjna jest jej procentem, dlatego sumy nie można tu edytować."
+    }
   },
   "car": {
     "viewDetails": "Zobacz więcej szczegółów",
@@ -295,7 +332,14 @@
       "beige": "Beżowy",
       "gold": "Złoty",
       "orange": "Pomarańczowy",
-      "yellow": "Żółty"
+      "yellow": "Żółty",
+      "mini": "Mini",
+      "intermediate": "Średnia",
+      "standard": "Standard",
+      "fullsize": "Duża",
+      "suv": "SUV",
+      "van": "Van",
+      "luxury": "Luksusowa"
     }
   },
   "bookMesssages": {
@@ -337,6 +381,39 @@
     "sureDelCar": "Czy na pewno chcesz usunąć"
   },
   "table": {
+    "actionRequired": "Wymagane działanie",
+    "confirmVehicle": "Potwierdź pojazd",
+    "otherResponses": "Inne odpowiedzi",
+    "rowActions": "Akcje wiersza",
+    "recordRemainingPayment": "Zapisz pozostałą płatność",
+    "remainingAmountPaid": "Pozostała kwota zapłacona",
+    "clientOrderLock": "Rezerwacji Rovaro nie można tu edytować",
+    "conflictCount": "konflikty: {{count}}",
+    "conflictMore": "+{{count}} więcej",
+    "conflictRelatedRow": "Ta rezerwacja koliduje z próbą zmiany powyżej",
+    "clearConflict": "Ukryj komunikat o konflikcie",
+    "bookingFee": "Opłata Rovaro",
+    "dueToCompany": "Dla firmy",
+    "company": "Firma",
+    "sourceRovaroShort": "Rovaro",
+    "sourceInternalShort": "Wewnętrzna",
+    "toneUnresolved": "Do weryfikacji",
+    "priceSystem": "System",
+    "priceSavedAuto": "Zapisana auto",
+    "priceRecalcTooltip": "Przelicz cenę systemową i zapisz (usuwa ręczną korektę)",
+    "priceHistory": "Historia cen",
+    "priceManual": "Ręczna",
+    "confirmRequestedVehicle": "Potwierdź wskazany pojazd",
+    "supplierReplacementOffered": "Zaproponowano równorzędny pojazd",
+    "supplierRequestedConfirmed": "Wskazany pojazd potwierdzony",
+    "toneDeclined": "Odrzucona",
+    "toneNewRequest": "Nowe zapytanie",
+    "toneAwaitingPayment": "Oczekuje płatności",
+    "toneConfirmedPaid": "Potwierdzona",
+    "toneCompleted": "Zakończona",
+    "toneExpired": "Płatność wygasła",
+    "toneCancelled": "Anulowana",
+    "customerAwaitingAcceptance": "Oczekuje akceptacji klienta",
     "allOrders": "Pokaż wszystkie zamówienia",
     "activOrders": "Aktywny (bez przeszłości)",
     "startToday": "Zaczynając dzisiaj",
@@ -656,7 +733,9 @@
     "close": "Zamknij",
     "success": "Dziękujemy! Otrzymaliśmy prośbę o transfer i wkrótce się odezwiemy.",
     "submitError": "Nie udało się wysłać. Spróbuj ponownie.",
-    "cityPlaceholder": "Wybierz miejscowość na Chalkidiki",
+    "cityPlaceholder": "Wybierz miejscowość lub adres",
+    "locationsUnavailable": "Transfery nie są jeszcze dostępne w tym kraju.",
+    "outOfMarket": "To miejsce jest poza obsługiwanym obszarem. Wybierz miejsce z listy.",
     "distance": "Dystans: {{km}} km · ~{{minutes}} min",
     "distanceError": "Nie udało się obliczyć dystansu",
     "distanceUnavailable": "Dystans niedostępny",
@@ -692,6 +771,7 @@
     "close": "Zamknij",
     "back": "Wstecz",
     "privacyNotice": "Dane kontaktowe klienta i dokumenty prawa jazdy stają się dostępne po otrzymaniu opłaty rezerwacyjnej.",
+    "platformSupportNotice": "Dostęp wsparcia platformy. Dostawca nie widzi tych danych kontaktowych do czasu otrzymania płatności za rezerwację.",
     "errors": {
       "generic": "Coś poszło nie tak. Spróbuj ponownie."
     },
@@ -734,7 +814,15 @@
       "transmission": "Skrzynia biegów",
       "seats": "Miejsca",
       "luggage": "Bagaż",
-      "fuel": "Rodzaj paliwa"
+      "fuel": "Rodzaj paliwa",
+      "doors": "Drzwi",
+      "airConditioning": "Klimatyzacja",
+      "modelYear": "Rocznik",
+      "includedMileage": "Limit kilometrów w cenie",
+      "deposit": "Kaucja",
+      "fleetCode": "Kod we flocie",
+      "registration": "Numer rejestracyjny",
+      "legacyNotice": "Ta rezerwacja pochodzi sprzed migawek pojazdu. Pokazano bieżący wpis floty, który może różnić się od uzgodnionego."
     },
     "dates": {
       "pickup": "Data i godzina odbioru",
@@ -782,7 +870,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Otwórz czat"
+      "openChat": "Otwórz czat",
+      "copyPhone": "Kopiuj telefon",
+      "copyEmail": "Kopiuj e-mail",
+      "copied": "Skopiowano"
     },
     "documents": {
       "holder": "Posiadacz prawa jazdy",
@@ -795,7 +886,6 @@
       "confirm": "Potwierdź zamówiony pojazd",
       "replace": "Zaproponuj równorzędny zamiennik",
       "decline": "Odrzuć zapytanie",
-      "contactCustomer": "Skontaktuj się z klientem",
       "contactRovaro": "Skontaktuj się z Rovaro",
       "reportProblem": "Zgłoś problem",
       "amend": "Zmień rezerwację"
@@ -833,9 +923,8 @@
       "intro": "Zamówiony pojazd pozostaje bez zmian. Twoja propozycja trafia do klienta, który akceptuje ją, płacąc.",
       "kind": "Rodzaj zamiennika",
       "kinds": {
-        "COMPANY_VEHICLE": "Pojazd z Twojej floty",
-        "EXTERNAL_VEHICLE": "Pojazd spoza Twojej floty",
-        "GUARANTEED_CLASS": "Gwarantowana klasa, model do potwierdzenia"
+        "COMPANY_VEHICLE": "Konkretny pojazd z Twojej floty",
+        "GUARANTEED_EQUIVALENT": "Gwarantowany pojazd równorzędny, model potwierdzony później"
       },
       "model": "Pojazd zastępczy",
       "category": "Klasa",
@@ -843,11 +932,24 @@
       "transmission": "Skrzynia biegów",
       "transmissionHelp": "Musi odpowiadać zamówionej skrzyni biegów.",
       "seats": "Miejsca",
+      "seatsHelp": "Nigdy mniej niż w zamówionym pojeździe.",
       "luggage": "Bagaż",
-      "totalPrice": "Łączna cena wynajmu",
-      "totalPriceHelp": "Taka sama lub niższa niż zamówiona cena.",
+      "luggageHelp": "Nigdy mniej niż w zamówionym pojeździe.",
       "comment": "Komentarz dla klienta",
-      "submit": "Wyślij propozycję"
+      "submit": "Wyślij propozycję",
+      "fleetPlaceholder": "Wybierz pojazd",
+      "internalFleet": "(wewnętrzny) {{name}}",
+      "notOfferable": "Niedostępne dla tej rezerwacji:",
+      "guaranteeTitle": "Gwarantujesz",
+      "guaranteeClass": "{{class}} lub wyższa",
+      "guaranteeTransmission": "{{transmission}}, bez zmian",
+      "guaranteeSeats": "Co najmniej {{seats}}",
+      "guaranteePrice": "{{price}}, bez zmian",
+      "guaranteeUnavailable": "Rovaro nie ma pełnej specyfikacji zamówionego pojazdu, dlatego nie można tu zagwarantować pojazdu równorzędnego. Zaproponuj pojazd ze swojej floty lub skontaktuj się z Rovaro.",
+      "guaranteeSummary": "Gwarantujesz tę samą lub wyższą klasę, tę samą skrzynię biegów, nie mniej miejsc i tę samą cenę całkowitą. Dokładny model można potwierdzić później.",
+      "optionalIntro": "Poniższe dane są opcjonalne. Wszystko, co pozostawisz puste, jest gwarantowane na podstawie pierwotnej rezerwacji.",
+      "asRequested": "Jak w zamówieniu",
+      "modelHelp": "Opcjonalnie. Pozostaw puste, jeśli dokładny model potwierdzisz później."
     },
     "amendDialog": {
       "notice": "Każda zmiana jest zapisywana wraz z powodem oraz stanem przed i po. Istotny warunek opłaconej rezerwacji nie może się zmienić bez zgody klienta.",
@@ -869,6 +971,16 @@
       "messageSent": "Wiadomość wysłana do Rovaro.",
       "replacementOffered": "Propozycja zamiennika wysłana.",
       "amended": "Zmiana zapisana."
+    },
+    "header": {
+      "sourcePlatform": "Rezerwacja Rovaro",
+      "sourceInternal": "Wewnętrzna",
+      "awaitingPayment": "Oczekiwanie na płatność klienta",
+      "paymentReceived": "Płatność za rezerwację otrzymana",
+      "days_one": "{{count}} dzień",
+      "days_few": "{{count}} dni",
+      "days_many": "{{count}} dni",
+      "days_other": "{{count}} dni"
     }
   }
 }

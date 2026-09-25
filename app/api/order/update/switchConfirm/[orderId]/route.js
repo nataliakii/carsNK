@@ -3,6 +3,7 @@ import Company from "@models/company";
 import { COMPANY_ID } from "@config/company";
 import { connectToDB } from "@lib/database";
 import { requireAdmin, requirePlatformAdmin } from "@/lib/adminAuth";
+import { orderOwnershipResponse } from "@/domain/orders/orderOwnershipGuard";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { confirmOrderFlow } from "@/domain/orders/confirmOrderFlow";
 import { orderMessages } from "@/domain/messages";
@@ -32,6 +33,10 @@ export const PATCH = async (request, { params }) => {
         { status: 404, headers: JSON_HEADERS }
       );
     }
+
+    // Role and state are not company scope: check whose booking this is.
+    const foreign = orderOwnershipResponse(session.user, order);
+    if (foreign) return foreign;
 
     if (order.my_order === true || isPlatformBooking(order)) {
       const platformGate = await requirePlatformAdmin(request);

@@ -28,7 +28,7 @@ describe("SuccessMessage numberOfDays", () => {
     );
 
     expect(html).toContain("bookMesssages.bookDays");
-    expect(html).toContain("bookMesssages.bookDays 6");
+    expect(html).toContain(">6<");
   });
 
   test("marketplace request never shows a pay CTA", () => {

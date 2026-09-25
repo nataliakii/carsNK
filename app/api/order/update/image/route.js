@@ -3,9 +3,14 @@ import cloudinary, {
   ensureCloudinaryConfigured,
 } from "@utils/cloudinary";
 import { getCloudinaryCarsFolder } from "@config/cloudinary";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export async function POST(req) {
   try {
+    // An upload endpoint with no session check is an open file drop.
+    const { errorResponse } = await requireAdmin(req);
+    if (errorResponse) return errorResponse;
+
     const cfg = ensureCloudinaryConfigured();
     if (!cfg.ok) {
       return NextResponse.json(

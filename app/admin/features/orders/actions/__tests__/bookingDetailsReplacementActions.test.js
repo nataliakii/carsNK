@@ -51,27 +51,56 @@ describe("booking details replacement actions", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("keeps manual proposals on the unlisted replacement path", async () => {
+  it("sends the specifications a supplier chose to state", async () => {
     offerEquivalentReplacement.mockResolvedValue({ ok: true });
 
     await proposeEquivalentReplacement("order-1", {
-      replacementSource: REPLACEMENT_KIND.EXTERNAL_VEHICLE,
+      replacementSource: REPLACEMENT_KIND.GUARANTEED_EQUIVALENT,
       model: "Toyota Yaris",
       category: "economy",
       transmission: "manual",
       seats: 5,
       luggage: 2,
-      totalPrice: 200,
       supplierMessage: "Unlisted substitute.",
     });
 
     expect(suggestAlternativeVehicle).not.toHaveBeenCalled();
-    expect(offerEquivalentReplacement).toHaveBeenCalledWith(
-      "order-1",
-      expect.objectContaining({
-        replacementSource: REPLACEMENT_KIND.EXTERNAL_VEHICLE,
-        model: "Toyota Yaris",
-      })
-    );
+    expect(offerEquivalentReplacement).toHaveBeenCalledWith("order-1", {
+      replacementSource: REPLACEMENT_KIND.GUARANTEED_EQUIVALENT,
+      model: "Toyota Yaris",
+      category: "economy",
+      transmission: "manual",
+      seats: 5,
+      luggage: 2,
+      supplierMessage: "Unlisted substitute.",
+    });
+  });
+
+  it("omits an unstated specification rather than sending a zero for it", async () => {
+    offerEquivalentReplacement.mockResolvedValue({ ok: true });
+
+    await proposeEquivalentReplacement("order-1", {
+      replacementSource: REPLACEMENT_KIND.GUARANTEED_EQUIVALENT,
+      model: "",
+      category: "",
+      transmission: "",
+      seats: "",
+      luggage: "",
+      supplierMessage: "The booked car is in the workshop.",
+    });
+
+    // An empty seat box must not reach the rules as "0 seats", and an empty
+    // price box must not reach them as a free rental.
+    expect(offerEquivalentReplacement).toHaveBeenCalledWith("order-1", {
+      replacementSource: REPLACEMENT_KIND.GUARANTEED_EQUIVALENT,
+      supplierMessage: "The booked car is in the workshop.",
+    });
+  });
+
+  it("no longer knows a third kind of replacement", () => {
+    expect(Object.keys(REPLACEMENT_KIND)).toEqual([
+      "COMPANY_VEHICLE",
+      "GUARANTEED_EQUIVALENT",
+    ]);
   });
 });

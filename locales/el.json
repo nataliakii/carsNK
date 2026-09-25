@@ -372,7 +372,30 @@
     "bookingDetailsEdit": "Επεξεργασία φίλτρων",
     "bookingDetailsClose": "Κλείσιμο",
     "bookingDetailsApply": "Εφαρμογή",
-    "bookingDetailsCancel": "Ακύρωση"
+    "bookingDetailsCancel": "Ακύρωση",
+    "booking": {
+      "selectDates": "Επιλέξτε ημερομηνίες",
+      "calculatingPrice": "Υπολογισμός τιμής…",
+      "book": "ΚΡΑΤΗΣΗ",
+      "approxPrice": "Περίπου {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 ημέρα ενοικίασης",
+      "rentalDays": "{{days}} ημέρες ενοικίασης",
+      "rangeUnavailable": "Μη διαθέσιμο για αυτές τις ημερομηνίες",
+      "quoteFailed": "Δεν ήταν δυνατός ο έλεγχος διαθεσιμότητας",
+      "retry": "Δοκιμάστε ξανά",
+      "showCalendar": "Έλεγχος διαθεσιμότητας",
+      "hideCalendar": "Απόκρυψη ημερολογίου",
+      "clearDates": "Καθαρισμός ημερομηνιών",
+      "previousMonth": "Προηγούμενος μήνας",
+      "nextMonth": "Επόμενος μήνας",
+      "legendAvailable": "Διαθέσιμο",
+      "legendUnavailable": "Μη διαθέσιμο",
+      "legendSelected": "Επιλεγμένο",
+      "sortLabel": "Ταξινόμηση",
+      "sortPriceAsc": "Τιμή: από χαμηλή σε υψηλή",
+      "sortPriceDesc": "Τιμή: από υψηλή σε χαμηλή"
+    }
   },
   "basic": {
     "close": "κλείσιμο",
@@ -507,8 +530,21 @@
     "returnDate": "Ημερομηνία επιστροφής",
     "pickupTime": "Ώρα παραλαβής",
     "returnTime": "Ώρα επιστροφής",
+    "sections": {
+      "pickup": "Παραλαβή",
+      "return": "Επιστροφή",
+      "extras": "Ασφάλιση και πρόσθετα",
+      "price": "Τιμή",
+      "customer": "Πελάτης"
+    },
     "CompleteBook": "Ολοκλήρωση κράτησης",
     "offline": "Offline (όχι μέσω ιστοσελίδας)",
+    "platformRequest": {
+      "title": "Αίτημα πλατφόρμας Rovaro",
+      "notice": "Αυτή η παραγγελία δημιουργείται από τη Rovaro για άλλη εταιρεία. Αποστέλλεται ως κράτηση πλατφόρμας και φτάνει στη λίστα αυτής της εταιρείας ως νέο αίτημα που περιμένει την επιβεβαίωσή της.",
+      "offlineUnavailable": "Δεν μπορεί να δημιουργηθεί εκτός σύνδεσης εγγραφή για λογαριασμό άλλης εταιρείας, γι' αυτό η επιλογή offline δεν είναι διαθέσιμη εδώ.",
+      "priceLocked": "Η Rovaro υπολογίζει αυτή την τιμή και η χρέωση κράτησης είναι ποσοστό της, γι' αυτό το σύνολο δεν μπορεί να αλλάξει εδώ."
+    },
     "waitForPriceCalc": "Περιμένετε τον υπολογισμό τιμής",
     "startDateNotBeforeToday": "Η ημερομηνία παραλαβής δεν μπορεί να είναι πριν από σήμερα",
     "addedSuccess": "Η παραγγελία προστέθηκε επιτυχώς",
@@ -527,6 +563,7 @@
     "confirmationEmailFailed": "Αποτυχία αποστολής email επιβεβαίωσης",
     "confirmationEmailHistoryTitle": "Ιστορικό email επιβεβαίωσης",
     "confirmationEmailHistoryEmpty": "Δεν έχουν σταλεί ακόμη email επιβεβαίωσης",
+    "confirmationEmailHistoryInternal": "Η Rovaro δεν στέλνει email για εσωτερικές κρατήσεις.",
     "confirmationEmailHistoryShow": "Εμφάνιση",
     "confirmationEmailHistoryHide": "Απόκρυψη",
     "confirmationEmailHistoryCollapsed": "Στάλθηκαν: {{count}}",
@@ -714,7 +751,14 @@
       "beige": "Μπεζ",
       "gold": "Χρυσό",
       "orange": "Πορτοκαλί",
-      "yellow": "Κίτρινο"
+      "yellow": "Κίτρινο",
+      "mini": "Μίνι",
+      "intermediate": "Μεσαία",
+      "standard": "Στάνταρ",
+      "fullsize": "Μεγάλη",
+      "suv": "SUV",
+      "van": "Βαν",
+      "luxury": "Πολυτελείας"
     }
   },
   "bookMesssages": {
@@ -765,6 +809,33 @@
     "pricePerDay": "Τιμή ανά ημέρα"
   },
   "table": {
+    "actionRequired": "Απαιτείται ενέργεια",
+    "confirmVehicle": "Επιβεβαίωση οχήματος",
+    "otherResponses": "Άλλες απαντήσεις",
+    "rowActions": "Ενέργειες γραμμής",
+    "recordRemainingPayment": "Καταγραφή υπόλοιπης πληρωμής",
+    "remainingAmountPaid": "Το υπόλοιπο πληρώθηκε",
+    "clientOrderLock": "Μια κράτηση Rovaro δεν επεξεργάζεται εδώ",
+    "conflictCount": "{{count}} συγκρούσεις",
+    "conflictMore": "+{{count}} ακόμη",
+    "conflictRelatedRow": "Αυτή η κράτηση συγκρούεται με την παραπάνω απόπειρα αλλαγής",
+    "clearConflict": "Απόρριψη ειδοποίησης σύγκρουσης",
+    "bookingFee": "Τέλος Rovaro",
+    "dueToCompany": "Προς την εταιρεία",
+    "sourceRovaroShort": "Rovaro",
+    "sourceInternalShort": "Εσωτερική",
+    "toneUnresolved": "Προς έλεγχο",
+    "confirmRequestedVehicle": "Επιβεβαίωση του ζητούμενου οχήματος",
+    "supplierReplacementOffered": "Προτάθηκε ισοδύναμη αντικατάσταση",
+    "supplierRequestedConfirmed": "Το ζητούμενο όχημα επιβεβαιώθηκε",
+    "toneDeclined": "Απορρίφθηκε",
+    "toneNewRequest": "Νέο αίτημα",
+    "toneAwaitingPayment": "Αναμονή πληρωμής",
+    "toneConfirmedPaid": "Επιβεβαιωμένη",
+    "toneCompleted": "Ολοκληρώθηκε",
+    "toneExpired": "Έληξε η πληρωμή",
+    "toneCancelled": "Ακυρώθηκε",
+    "customerAwaitingAcceptance": "Αναμονή αποδοχής από τον πελάτη",
     "allOrders": "Εμφάνιση Όλων των Παραγγελιών",
     "activOrders": "Ενεργές (χωρίς παρελθούσες)",
     "startToday": "Ξεκινούν Σήμερα",
@@ -1535,7 +1606,9 @@
     "close": "Κλείσιμο",
     "success": "Ευχαριστούμε! Λάβαμε το αίτημα μεταφοράς και θα επικοινωνήσουμε σύντομα.",
     "submitError": "Αποτυχία αποστολής. Δοκιμάστε ξανά.",
-    "cityPlaceholder": "Επιλέξτε πόλη στη Χαλκιδική",
+    "cityPlaceholder": "Επιλέξτε πόλη ή διεύθυνση",
+    "locationsUnavailable": "Οι μεταφορές δεν είναι ακόμη διαθέσιμες σε αυτή τη χώρα.",
+    "outOfMarket": "Αυτή η τοποθεσία είναι εκτός της περιοχής που εξυπηρετούμε. Επιλέξτε ένα σημείο από τη λίστα.",
     "distance": "Απόσταση: {{km}} km · ~{{minutes}} λεπτά",
     "distanceError": "Αποτυχία υπολογισμού απόστασης",
     "distanceUnavailable": "Η απόσταση δεν είναι διαθέσιμη",
@@ -1645,6 +1718,7 @@
     "close": "Κλείσιμο",
     "back": "Πίσω",
     "privacyNotice": "Τα στοιχεία επικοινωνίας του πελάτη και τα έγγραφα οδήγησης γίνονται διαθέσιμα μετά την είσπραξη της πληρωμής κράτησης.",
+    "platformSupportNotice": "Πρόσβαση υποστήριξης πλατφόρμας. Ο προμηθευτής δεν βλέπει αυτά τα στοιχεία επικοινωνίας μέχρι να ληφθεί η πληρωμή της κράτησης.",
     "errors": {
       "generic": "Κάτι πήγε στραβά. Δοκιμάστε ξανά."
     },
@@ -1687,7 +1761,15 @@
       "transmission": "Κιβώτιο ταχυτήτων",
       "seats": "Θέσεις",
       "luggage": "Αποσκευές",
-      "fuel": "Τύπος καυσίμου"
+      "fuel": "Τύπος καυσίμου",
+      "doors": "Πόρτες",
+      "airConditioning": "Κλιματισμός",
+      "modelYear": "Έτος μοντέλου",
+      "includedMileage": "Περιλαμβανόμενα χιλιόμετρα",
+      "deposit": "Εγγύηση",
+      "fleetCode": "Κωδικός στόλου",
+      "registration": "Πινακίδα",
+      "legacyNotice": "Η κράτηση αυτή προηγείται των στιγμιοτύπων οχήματος. Εμφανίζεται η σημερινή εγγραφή στόλου, που μπορεί να διαφέρει από τη συμφωνηθείσα."
     },
     "dates": {
       "pickup": "Ημερομηνία και ώρα παραλαβής",
@@ -1735,7 +1817,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Άνοιγμα συνομιλίας"
+      "openChat": "Άνοιγμα συνομιλίας",
+      "copyPhone": "Αντιγραφή τηλεφώνου",
+      "copyEmail": "Αντιγραφή email",
+      "copied": "Αντιγράφηκε"
     },
     "documents": {
       "holder": "Κάτοχος άδειας",
@@ -1748,7 +1833,6 @@
       "confirm": "Επιβεβαίωση ζητούμενου οχήματος",
       "replace": "Πρόταση ισοδύναμης αντικατάστασης",
       "decline": "Απόρριψη αιτήματος",
-      "contactCustomer": "Επικοινωνία με τον πελάτη",
       "contactRovaro": "Επικοινωνία με τη Rovaro",
       "reportProblem": "Αναφορά προβλήματος",
       "amend": "Τροποποίηση κράτησης"
@@ -1786,9 +1870,8 @@
       "intro": "Το ζητούμενο όχημα παραμένει ως έχει. Η πρότασή σας αποστέλλεται στον πελάτη, ο οποίος την αποδέχεται πληρώνοντας.",
       "kind": "Τύπος αντικατάστασης",
       "kinds": {
-        "COMPANY_VEHICLE": "Όχημα από τον στόλο σας",
-        "EXTERNAL_VEHICLE": "Όχημα εκτός του στόλου σας",
-        "GUARANTEED_CLASS": "Εγγυημένη κατηγορία, το μοντέλο θα επιβεβαιωθεί"
+        "COMPANY_VEHICLE": "Συγκεκριμένο όχημα από τον στόλο σας",
+        "GUARANTEED_EQUIVALENT": "Εγγυημένο αντίστοιχο όχημα, το μοντέλο επιβεβαιώνεται αργότερα"
       },
       "model": "Όχημα αντικατάστασης",
       "category": "Κατηγορία",
@@ -1796,11 +1879,24 @@
       "transmission": "Κιβώτιο ταχυτήτων",
       "transmissionHelp": "Πρέπει να ταιριάζει με το ζητούμενο κιβώτιο.",
       "seats": "Θέσεις",
+      "seatsHelp": "Ποτέ λιγότερες από το ζητούμενο όχημα.",
       "luggage": "Αποσκευές",
-      "totalPrice": "Συνολική τιμή ενοικίασης",
-      "totalPriceHelp": "Ίδια ή χαμηλότερη από τη ζητούμενη τιμή.",
+      "luggageHelp": "Ποτέ λιγότερες από το ζητούμενο όχημα.",
       "comment": "Σχόλιο προς τον πελάτη",
-      "submit": "Αποστολή πρότασης"
+      "submit": "Αποστολή πρότασης",
+      "fleetPlaceholder": "Επιλέξτε όχημα",
+      "internalFleet": "(εσωτερικό) {{name}}",
+      "notOfferable": "Μη διαθέσιμα για αυτή την κράτηση:",
+      "guaranteeTitle": "Εγγυάστε",
+      "guaranteeClass": "{{class}} ή ανώτερη",
+      "guaranteeTransmission": "{{transmission}}, χωρίς αλλαγή",
+      "guaranteeSeats": "Τουλάχιστον {{seats}}",
+      "guaranteePrice": "{{price}}, χωρίς αλλαγή",
+      "guaranteeUnavailable": "Η Rovaro δεν έχει τα πλήρη χαρακτηριστικά του ζητούμενου οχήματος, γι' αυτό δεν μπορεί να εγγυηθεί αντίστοιχο όχημα εδώ. Προσφέρετε όχημα από τον στόλο σας ή επικοινωνήστε με τη Rovaro.",
+      "guaranteeSummary": "Εγγυάστε ίδια ή ανώτερη κατηγορία, ίδιο κιβώτιο ταχυτήτων, όχι λιγότερες θέσεις και ίδια συνολική τιμή. Το ακριβές μοντέλο μπορεί να επιβεβαιωθεί αργότερα.",
+      "optionalIntro": "Τα παρακάτω στοιχεία είναι προαιρετικά. Ό,τι αφήσετε κενό εγγυάται από την αρχική κράτηση.",
+      "asRequested": "Όπως ζητήθηκε",
+      "modelHelp": "Προαιρετικό. Αφήστε το κενό αν θα επιβεβαιώσετε το ακριβές μοντέλο αργότερα."
     },
     "amendDialog": {
       "notice": "Κάθε τροποποίηση καταγράφεται με την αιτία της και στιγμιότυπο πριν και μετά. Ουσιώδης όρος πληρωμένης κράτησης δεν αλλάζει χωρίς τη συγκατάθεση του πελάτη.",
@@ -1822,6 +1918,14 @@
       "messageSent": "Το μήνυμα στάλθηκε στη Rovaro.",
       "replacementOffered": "Η πρόταση αντικατάστασης στάλθηκε.",
       "amended": "Η τροποποίηση αποθηκεύτηκε."
+    },
+    "header": {
+      "sourcePlatform": "Κράτηση Rovaro",
+      "sourceInternal": "Εσωτερική",
+      "awaitingPayment": "Αναμένεται πληρωμή από τον πελάτη",
+      "paymentReceived": "Η πληρωμή της κράτησης ελήφθη",
+      "days_one": "{{count}} ημέρα",
+      "days_other": "{{count}} ημέρες"
     }
   }
 }

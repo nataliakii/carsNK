@@ -26,7 +26,11 @@ import {
   resolveEligibleOffices,
 } from "@/domain/company/officeRecord";
 import { hashRentalTermsSource } from "@/domain/company/customerRentalTerms";
+import { VEHICLE_CLASS_RANK, classRank } from "./vehicleClassLadder";
 import crypto from "crypto";
+
+/** The ranking itself is client-safe and lives in `vehicleClassLadder`. */
+export { VEHICLE_CLASS_RANK, classRank };
 
 export const ALTERNATIVE_OFFER_CODE = Object.freeze({
   NOT_FOUND: "not_found",
@@ -59,26 +63,6 @@ export const ALTERNATIVE_OFFER_CODE = Object.freeze({
   NOT_DECIDABLE: "not_decidable",
   HOLD_CONFLICT: "hold_conflict",
 });
-
-/** Same ranking as `alternativeVehicle.js`, plus stored Car.class values. */
-export const VEHICLE_CLASS_RANK = Object.freeze([
-  "mini",
-  "economy",
-  "compact",
-  "combi",
-  "convertible",
-  "intermediate",
-  "standard",
-  "fullsize",
-  "crossover",
-  "suv",
-  "van",
-  "minibus",
-  "premium",
-  "luxury",
-  "limousine",
-  "race car",
-]);
 
 /** Prefix for customer capability IDs. Public routes never use Mongo `_id`. */
 export const OFFER_ID_PREFIX = "ALT-";
@@ -136,11 +120,6 @@ function iso(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-export function classRank(value) {
-  const idx = VEHICLE_CLASS_RANK.indexOf(String(value || "").trim().toLowerCase());
-  return idx === -1 ? null : idx;
 }
 
 export function isOrderPaid(order) {

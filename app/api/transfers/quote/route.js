@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectToDB } from "@lib/database";
 import { previewTransferQuote } from "@/domain/transfers/createTransferOrder";
+import { resolveMarketCountry } from "@/domain/platform/marketCountry";
 import {
   QUOTE_TIMEOUT_MS,
   validatePublicQuoteRequest,
@@ -44,9 +45,13 @@ export async function POST(request) {
     return json({ success: false, message: "Invalid JSON" }, 400);
   }
 
-  const validated = validatePublicQuoteRequest(payload);
+  const marketCountry = resolveMarketCountry(request);
+  const validated = validatePublicQuoteRequest(payload, { marketCountry });
   if (!validated.ok) {
-    return json({ success: false, message: validated.message }, 400);
+    return json(
+      { success: false, message: validated.message, code: validated.code },
+      400
+    );
   }
 
   try {
@@ -58,7 +63,7 @@ export async function POST(request) {
     if (limited) return json(limited.body, limited.status);
 
     const result = await withTimeout(
-      previewTransferQuote(validated.payload),
+      previewTransferQuote(validated.payload, { marketCountry }),
       QUOTE_TIMEOUT_MS
     );
     if (!result.ok) {

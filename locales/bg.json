@@ -72,7 +72,30 @@
     "bookingDetailsSeats": "Места",
     "bookingDetailsSearch": "Търсене",
     "bookingDetailsEdit": "Промяна на филтрите",
-    "bookingDetailsClose": "Затвори"
+    "bookingDetailsClose": "Затвори",
+    "booking": {
+      "selectDates": "Изберете дати",
+      "calculatingPrice": "Изчисляване на цената…",
+      "book": "РЕЗЕРВИРАЙ",
+      "approxPrice": "Около {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 ден наем",
+      "rentalDays": "{{days}} дни наем",
+      "rangeUnavailable": "Не е налично за тези дати",
+      "quoteFailed": "Наличността не можа да бъде проверена",
+      "retry": "Опитайте отново",
+      "showCalendar": "Проверка на наличност",
+      "hideCalendar": "Скриване на календара",
+      "clearDates": "Изчистване на датите",
+      "previousMonth": "Предишен месец",
+      "nextMonth": "Следващ месец",
+      "legendAvailable": "Свободно",
+      "legendUnavailable": "Заето",
+      "legendSelected": "Избрано",
+      "sortLabel": "Подреждане",
+      "sortPriceAsc": "Цена: ниска към висока",
+      "sortPriceDesc": "Цена: висока към ниска"
+    }
   },
   "basic": {
     "close": "затвори",
@@ -180,6 +203,13 @@
     "returnDate": "Дата на връщане",
     "pickupTime": "Час на получаване",
     "returnTime": "Час на връщане",
+    "sections": {
+      "pickup": "Получаване",
+      "return": "Връщане",
+      "extras": "Застраховка и екстри",
+      "price": "Цена",
+      "customer": "Клиент"
+    },
     "CompleteBook": "Завърши резервацията",
     "orderConfirmed": "Поръчката е потвърдена",
     "orderNotConfirmed": "Поръчката не е потвърдена",
@@ -190,6 +220,7 @@
     "confirmationEmailFailed": "Неуспешно изпращане на имейл за потвърждение",
     "confirmationEmailHistoryTitle": "История на имейлите за потвърждение",
     "confirmationEmailHistoryEmpty": "Все още няма изпратени имейли за потвърждение",
+    "confirmationEmailHistoryInternal": "Rovaro не изпраща имейли за вътрешни резервации.",
     "confirmationEmailHistoryShow": "Покажи",
     "confirmationEmailHistoryHide": "Скрий",
     "confirmationEmailHistoryCollapsed": "Изпратени: {{count}}",
@@ -238,7 +269,13 @@
     "licenceExpiresBeforeReturn": "Свидетелството изтича преди края на наема. Използвайте свидетелство, валидно за целия период на наема.",
     "licenceIssueDateRequired": "Въведете датата на издаване на свидетелството за управление.",
     "licenceIssueDateInvalid": "Датата на издаване трябва да е в миналото и преди датата на изтичане.",
-    "licenceNotProvided": "Не е предоставено"
+    "licenceNotProvided": "Не е предоставено",
+    "platformRequest": {
+      "title": "Заявка от платформата Rovaro",
+      "notice": "Тази заявка се създава от Rovaro за друга компания. Тя излиза като резервация на платформата и постъпва в опашката на тази компания като нова заявка, очакваща потвърждението ѝ.",
+      "offlineUnavailable": "Офлайн запис не може да се създава от името на друга компания, затова опцията офлайн не е достъпна тук.",
+      "priceLocked": "Rovaro изчислява тази цена, а таксата за резервация е процент от нея, затова общата сума не може да се променя тук."
+    }
   },
   "car": {
     "viewDetails": "Повече детайли",
@@ -300,7 +337,14 @@
       "beige": "Бежов",
       "gold": "Златист",
       "orange": "Оранжев",
-      "yellow": "Жълт"
+      "yellow": "Жълт",
+      "mini": "Мини",
+      "intermediate": "Среден",
+      "standard": "Стандарт",
+      "fullsize": "Голям",
+      "suv": "Джип",
+      "van": "Ван",
+      "luxury": "Луксозен"
     }
   },
   "bookMesssages": {
@@ -499,7 +543,9 @@
     "close": "Затвори",
     "success": "Благодарим! Получихме заявката за трансфер и скоро ще се свържем.",
     "submitError": "Неуспешно изпращане. Опитайте отново.",
-    "cityPlaceholder": "Изберете град в Халкидики",
+    "cityPlaceholder": "Изберете град или адрес",
+    "locationsUnavailable": "Трансферите все още не са достъпни в тази държава.",
+    "outOfMarket": "Това място е извън зоната, която обслужваме. Изберете място от списъка.",
     "distance": "Разстояние: {{km}} км · ~{{minutes}} мин",
     "distanceError": "Неуспешен калкулаж на разстояние",
     "distanceUnavailable": "Разстоянието не е налично",
@@ -559,6 +605,51 @@
     "save": "Save"
   },
   "table": {
+    "actionRequired": "Изисква се действие",
+    "confirmVehicle": "Потвърди автомобила",
+    "otherResponses": "Други отговори",
+    "rowActions": "Действия за реда",
+    "recordRemainingPayment": "Отбележи остатъка като платен",
+    "remainingAmountPaid": "Остатъкът е платен",
+    "clientOrderLock": "Резервация на Rovaro не се редактира тук",
+    "conflictCount": "конфликти: {{count}}",
+    "conflictMore": "+още {{count}}",
+    "conflictRelatedRow": "Тази резервация е в конфликт с опита за промяна по-горе",
+    "clearConflict": "Скрий съобщението за конфликт",
+    "status": "Статус",
+    "carModel": "Автомобил",
+    "pickup": "Получаване",
+    "return": "Връщане",
+    "customer": "Клиент",
+    "price": "Обща цена",
+    "bookingFee": "Такса Rovaro",
+    "dueToCompany": "Дължимо на фирмата",
+    "company": "Фирма",
+    "sourceRovaroShort": "Rovaro",
+    "sourceInternalShort": "Вътрешна",
+    "toneUnresolved": "За проверка",
+    "internalOrderLock": "Вътрешна резервация на фирмата — суперадминът не може да я редактира, потвърждава или обработва плащания.",
+    "priceSystem": "Системна",
+    "priceSavedAuto": "Записана авто",
+    "days": "Дни",
+    "priceRecalcTooltip": "Преизчисли системната цена и запиши (изчиства ръчната корекция)",
+    "priceHistory": "История на цените",
+    "priceManual": "Ръчна",
+    "confirmRequestedVehicle": "Потвърди заявения автомобил",
+    "reset": "Изчисти",
+    "supplierReplacementOffered": "Предложена е равностойна замяна",
+    "supplierRequestedConfirmed": "Заявеният автомобил е потвърден",
+    "toneDeclined": "Отказана",
+    "toneNewRequest": "Нова заявка",
+    "toneAwaitingPayment": "Очаква плащане",
+    "toneConfirmedPaid": "Потвърдена",
+    "toneCompleted": "Завършена",
+    "toneExpired": "Изтекло плащане",
+    "toneCancelled": "Отменена",
+    "customerAwaitingAcceptance": "Очаква съгласие от клиента",
+    "loadingOrders": "Зареждане на заявките...",
+    "noOrders": "Няма намерени заявки",
+    "rowsPerPage": "Редове на страница",
     "supplierResponse": "Отговор на доставчика",
     "platformStatus": "Статус на платформата",
     "vehicleAvailable": "Автомобилът е наличен",
@@ -599,6 +690,7 @@
     "close": "Затвори",
     "back": "Назад",
     "privacyNotice": "Данните за контакт на клиента и шофьорските документи стават достъпни след получаване на плащането за резервацията.",
+    "platformSupportNotice": "Достъп на поддръжката на платформата. Доставчикът не вижда тези контакти, докато плащането за резервацията не бъде получено.",
     "errors": {
       "generic": "Нещо се обърка. Опитайте отново."
     },
@@ -641,7 +733,15 @@
       "transmission": "Скоростна кутия",
       "seats": "Места",
       "luggage": "Багаж",
-      "fuel": "Вид гориво"
+      "fuel": "Вид гориво",
+      "doors": "Врати",
+      "airConditioning": "Климатик",
+      "modelYear": "Година на производство",
+      "includedMileage": "Включени километри",
+      "deposit": "Депозит",
+      "fleetCode": "Код в автопарка",
+      "registration": "Регистрационен номер",
+      "legacyNotice": "Тази резервация е отпреди снимките на автомобила. Показан е днешният запис от автопарка, който може да се различава от уговореното."
     },
     "dates": {
       "pickup": "Дата и час на получаване",
@@ -689,7 +789,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Отвори чата"
+      "openChat": "Отвори чата",
+      "copyPhone": "Копирай телефона",
+      "copyEmail": "Копирай имейла",
+      "copied": "Копирано"
     },
     "documents": {
       "holder": "Притежател на книжката",
@@ -702,7 +805,6 @@
       "confirm": "Потвърди заявения автомобил",
       "replace": "Предложи равностойна замяна",
       "decline": "Откажи заявката",
-      "contactCustomer": "Свържи се с клиента",
       "contactRovaro": "Свържи се с Rovaro",
       "reportProblem": "Съобщи за проблем",
       "amend": "Промени резервацията"
@@ -740,9 +842,8 @@
       "intro": "Заявеният автомобил остава непроменен. Вашето предложение се изпраща на клиента, който го приема с плащане.",
       "kind": "Вид замяна",
       "kinds": {
-        "COMPANY_VEHICLE": "Автомобил от вашия парк",
-        "EXTERNAL_VEHICLE": "Автомобил извън вашия парк",
-        "GUARANTEED_CLASS": "Гарантиран клас, моделът предстои да се потвърди"
+        "COMPANY_VEHICLE": "Конкретен автомобил от вашия парк",
+        "GUARANTEED_EQUIVALENT": "Гарантиран равностоен автомобил, моделът се потвърждава по-късно"
       },
       "model": "Заместващ автомобил",
       "category": "Клас",
@@ -750,11 +851,24 @@
       "transmission": "Скоростна кутия",
       "transmissionHelp": "Трябва да съвпада със заявената скоростна кутия.",
       "seats": "Места",
+      "seatsHelp": "Никога по-малко от заявения автомобил.",
       "luggage": "Багаж",
-      "totalPrice": "Обща цена на наема",
-      "totalPriceHelp": "Същата или по-ниска от заявената цена.",
+      "luggageHelp": "Никога по-малко от заявения автомобил.",
       "comment": "Коментар за клиента",
-      "submit": "Изпрати предложението"
+      "submit": "Изпрати предложението",
+      "fleetPlaceholder": "Изберете автомобил",
+      "internalFleet": "(вътрешен) {{name}}",
+      "notOfferable": "Не могат да бъдат предложени за тази резервация:",
+      "guaranteeTitle": "Вие гарантирате",
+      "guaranteeClass": "{{class}} или по-висок",
+      "guaranteeTransmission": "{{transmission}}, без промяна",
+      "guaranteeSeats": "Най-малко {{seats}}",
+      "guaranteePrice": "{{price}}, без промяна",
+      "guaranteeUnavailable": "Rovaro не разполага с пълните характеристики на заявения автомобил, затова тук не може да се гарантира равностоен. Предложете автомобил от своя парк или се свържете с Rovaro.",
+      "guaranteeSummary": "Гарантирате същия или по-висок клас, същата скоростна кутия, не по-малко места и същата обща цена. Точният модел може да се потвърди по-късно.",
+      "optionalIntro": "Полетата по-долу са незадължителни. Всичко, което оставите празно, се гарантира по първоначалната резервация.",
+      "asRequested": "Като заявеното",
+      "modelHelp": "Незадължително. Оставете празно, ако ще потвърдите точния модел по-късно."
     },
     "amendDialog": {
       "notice": "Всяка промяна се записва с причината си и със състоянието преди и след. Съществено условие на платена резервация не може да се промени без съгласието на клиента.",
@@ -776,6 +890,14 @@
       "messageSent": "Съобщението е изпратено до Rovaro.",
       "replacementOffered": "Предложението за замяна е изпратено.",
       "amended": "Промяната е запазена."
+    },
+    "header": {
+      "sourcePlatform": "Резервация Rovaro",
+      "sourceInternal": "Вътрешна",
+      "awaitingPayment": "Очаква плащане от клиента",
+      "paymentReceived": "Плащането за резервацията е получено",
+      "days_one": "{{count}} ден",
+      "days_other": "{{count}} дни"
     }
   }
 }

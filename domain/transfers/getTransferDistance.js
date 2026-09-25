@@ -60,7 +60,11 @@ export async function getTransferDistance({ from, to, country }) {
     lastGoogleMessage = google.message || "";
   }
 
-  const estimate = estimateTransferDistanceFromCatalog(originName, destName);
+  const estimate = estimateTransferDistanceFromCatalog(
+    originName,
+    destName,
+    country
+  );
   if (estimate.ok) {
     return {
       ok: true,
@@ -113,7 +117,7 @@ export async function getDistanceFromBase({ baseCoords, place, country }) {
     if (google.ok) return google;
   }
 
-  const curatedKm = getCuratedDistanceKm(placeName);
+  const curatedKm = getCuratedDistanceKm(placeName, country);
   if (curatedKm != null) {
     return {
       ok: true,

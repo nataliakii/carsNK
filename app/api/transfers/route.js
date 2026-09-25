@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { connectToDB } from "@lib/database";
 import { sendTelegramDirect } from "@/lib/telegram/sendDirect";
 import { notifyTransferEmails } from "@/domain/transfers/notifyTransferEmails";
-import {
-  createTransferOrder,
-  omitUntrustedTransferMetrics,
-} from "@/domain/transfers/createTransferOrder";
+import { createTransferOrder } from "@/domain/transfers/createTransferOrder";
+import { pickPublicTransferPayload } from "@/domain/transfers/transferPayloadPolicy";
+import { resolveMarketCountry } from "@/domain/platform/marketCountry";
 import { BRAND } from "@config/brand";
 import { formatMinor } from "@/domain/money/minorUnits";
 import {
@@ -61,7 +60,7 @@ export async function POST(request) {
     return json({ success: false, message: "Invalid JSON" }, 400);
   }
 
-  const safePayload = omitUntrustedTransferMetrics(payload);
+  const safePayload = pickPublicTransferPayload(payload);
 
   try {
     await connectToDB();
@@ -70,7 +69,9 @@ export async function POST(request) {
       transferRateLimitOptions()
     );
     if (limited) return json(limited.body, limited.status);
-    const result = await createTransferOrder(safePayload);
+    const result = await createTransferOrder(safePayload, {
+      marketCountry: resolveMarketCountry(request),
+    });
     if (!result.ok) {
       return json(
         { success: false, message: result.message, code: result.code },

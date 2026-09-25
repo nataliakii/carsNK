@@ -8,35 +8,42 @@ import { COMPANY_ID } from "@config/company";
 import { buildLocationSnapshot } from "@/domain/transfers/locationSnapshot";
 import { calculateTransferQuote } from "@/domain/transfers/pricingEngine";
 import { getTransferBaseDistances } from "@/domain/transfers/getTransferDistance";
-import { getSiteCountryCode } from "@config/siteCountry";
 import { getSiteCountryConfig } from "@config/siteCountry";
+import {
+  normalizeMarketCountry,
+  resolveMarketCountry,
+} from "@/domain/platform/marketCountry";
+import {
+  assertTransferPlacesInMarket,
+  OUT_OF_MARKET_CODE,
+  outOfMarketMessage,
+} from "@/domain/transfers/marketTransferLocations";
 import { parseRequiredCustomerEmail } from "@/domain/validation/customerEmail";
+import {
+  MAX_PUBLIC_ADDITIONAL_STOPS,
+  pickPublicTransferPayload,
+} from "@/domain/transfers/transferPayloadPolicy";
 
 /**
- * Drop client-supplied distance, duration, and price fields.
- * Server always recomputes via getTransferDistance / pricing engine.
+ * Create a transfer order with server-side quote (never trust browser
+ * distance/price) inside one market (never trust the browser's country).
+ *
+ * The submitted body only ever supplies customer-chosen fields: it is reduced to
+ * the public allow-list, so a price override, a payout or an admin actor cannot
+ * arrive in it. Admin authority comes from `context`, which only server-side
+ * code that has already checked the session can set.
+ *
+ * @param {object} rawPayload
+ * @param {{
+ *   marketCountry?: string,
+ *   actor?: "customer"|"admin",
+ *   adminOverride?: { customerPriceMinor: number, supplierPayoutMinor?: number|null, reason: string },
+ * }} [context]
  */
-export function omitUntrustedTransferMetrics(payload) {
-  const {
-    distanceKm: _d,
-    durationMinutes: _dm,
-    baseFromDistanceKm: _bf,
-    baseFromDurationMinutes: _bfm,
-    baseToDistanceKm: _bt,
-    baseToDurationMinutes: _btm,
-    quoteSnapshot: _q,
-    customerPriceMinor: _c,
-    supplierPayoutMinor: _s,
-    ...safePayload
-  } = payload || {};
-  return safePayload;
-}
-
-/**
- * Create a transfer order with server-side quote (never trust browser distance/price).
- */
-export async function createTransferOrder(rawPayload = {}) {
-  const payload = omitUntrustedTransferMetrics(rawPayload);
+export async function createTransferOrder(rawPayload = {}, context = {}) {
+  const payload = pickPublicTransferPayload(rawPayload);
+  const actor = context.actor === "admin" ? "admin" : "customer";
+  const adminOverride = actor === "admin" ? context.adminOverride : null;
   const from = String(payload?.from || payload?.origin?.placeName || "").trim();
   const to = String(payload?.to || payload?.destination?.placeName || "").trim();
   const notes = String(payload?.notes || "").trim();
@@ -81,18 +88,46 @@ export async function createTransferOrder(rawPayload = {}) {
   if (!datetime || Number.isNaN(datetime.getTime())) {
     return { ok: false, message: "datetime is required", status: 400 };
   }
+  if (
+    Array.isArray(payload.additionalStops) &&
+    payload.additionalStops.length > MAX_PUBLIC_ADDITIONAL_STOPS
+  ) {
+    return { ok: false, message: "Too many additional stops", status: 400 };
+  }
 
-  const country = String(
-    payload?.country || payload?.origin?.country || getSiteCountryCode()
-  )
-    .trim()
-    .toUpperCase();
+  // The market is the deployment's, never the submitter's.
+  const country =
+    normalizeMarketCountry(context.marketCountry) || resolveMarketCountry();
+  const claimedCountry = String(
+    payload?.country ||
+      payload?.origin?.country ||
+      payload?.destination?.country ||
+      ""
+  ).trim();
+  if (claimedCountry && normalizeMarketCountry(claimedCountry) !== country) {
+    return {
+      ok: false,
+      code: OUT_OF_MARKET_CODE,
+      message: outOfMarketMessage(claimedCountry, country),
+      status: 422,
+    };
+  }
+
+  const placeCheck = assertTransferPlacesInMarket(payload, country);
+  if (!placeCheck.ok) {
+    return {
+      ok: false,
+      code: placeCheck.code,
+      message: placeCheck.message,
+      status: 422,
+    };
+  }
 
   const origin = buildLocationSnapshot({
     ...(payload.origin || {}),
     placeName: payload.origin?.placeName || from,
     rawInput: from,
-    country: payload.origin?.country || country,
+    country,
     city: payload.origin?.city || payload.pickupCity || "",
     locationType: payload.origin?.locationType,
     iataCode: payload.origin?.iataCode,
@@ -102,7 +137,7 @@ export async function createTransferOrder(rawPayload = {}) {
     ...(payload.destination || {}),
     placeName: payload.destination?.placeName || to,
     rawInput: to,
-    country: payload.destination?.country || country,
+    country,
     city: payload.destination?.city || payload.destinationCity || "",
     locationType: payload.destination?.locationType,
     hotelName: payload.destination?.hotelName,
@@ -153,16 +188,16 @@ export async function createTransferOrder(rawPayload = {}) {
     ? TRANSFER_STATUS.MANUAL_QUOTE_REQUIRED
     : TRANSFER_STATUS.OPEN_FOR_CLAIM;
 
-  // Admin may override price with mandatory reason
+  // An admin may override the price, with a mandatory reason. The override is
+  // only ever read from the trusted context — never from the submitted body.
   let quoteSnapshot = quoteResult.quote;
-  if (
-    payload.adminPriceOverrideMinor != null &&
-    payload.adminOverrideReason
-  ) {
-    const customerPriceMinor = Math.round(Number(payload.adminPriceOverrideMinor));
+  if (adminOverride?.reason && adminOverride.customerPriceMinor != null) {
+    const customerPriceMinor = Math.round(
+      Number(adminOverride.customerPriceMinor)
+    );
     const supplierPayoutMinor =
-      payload.adminSupplierPayoutMinor != null
-        ? Math.round(Number(payload.adminSupplierPayoutMinor))
+      adminOverride.supplierPayoutMinor != null
+        ? Math.round(Number(adminOverride.supplierPayoutMinor))
         : quoteSnapshot.supplierPayoutMinor;
     quoteSnapshot = {
       ...quoteSnapshot,
@@ -172,7 +207,7 @@ export async function createTransferOrder(rawPayload = {}) {
         customerPriceMinor -
         supplierPayoutMinor -
         Number(quoteSnapshot.paymentProcessingAmountMinor || 0),
-      adminOverrideReason: String(payload.adminOverrideReason),
+      adminOverrideReason: String(adminOverride.reason),
       isProvisional: false,
     };
   }
@@ -272,7 +307,7 @@ export async function createTransferOrder(rawPayload = {}) {
         from: "",
         to: status,
         at: new Date(),
-        actor: payload.createdByAdmin ? "admin" : "customer",
+        actor,
         actorEmail: normalizedEmail,
       },
     ],
@@ -287,19 +322,22 @@ export async function createTransferOrder(rawPayload = {}) {
 }
 
 /**
- * Public quote preview — no persistence.
+ * Quote preview — no persistence.
+ *
+ * Public callers must pass a payload already scoped by
+ * validatePublicQuoteRequest; admin callers may quote any served market.
+ *
  * @param {object} payload
- * @param {{ includeInternal?: boolean }} [opts]
+ * @param {{ includeInternal?: boolean, marketCountry?: string }} [opts]
  */
 export async function previewTransferQuote(
   payload = {},
-  { includeInternal = false } = {}
+  { includeInternal = false, marketCountry } = {}
 ) {
-  const country = String(
-    payload?.country || payload?.origin?.country || getSiteCountryCode()
-  )
-    .trim()
-    .toUpperCase();
+  const country =
+    normalizeMarketCountry(marketCountry) ||
+    normalizeMarketCountry(payload?.country || payload?.origin?.country) ||
+    resolveMarketCountry();
   const from = String(payload?.from || payload?.origin?.placeName || "").trim();
   const to = String(payload?.to || payload?.destination?.placeName || "").trim();
   const origin = buildLocationSnapshot({

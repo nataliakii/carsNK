@@ -40,10 +40,24 @@ export const BOOKING_CAPABILITY = Object.freeze({
   AMEND_PLATFORM_BOOKING: "AMEND_PLATFORM_BOOKING",
   EDIT_INTERNAL_BOOKING: "EDIT_INTERNAL_BOOKING",
   /**
-   * The second driver is a paid Rovaro extra, not a supplier upsell. Only the
-   * platform superadmin may add it, on any source, at any stage.
+   * On a PLATFORM booking the second driver is a paid Rovaro extra sold to the
+   * customer, so only the platform superadmin may add it, at any stage. An
+   * INTERNAL booking is the contractor's own offline record that the platform
+   * does not mediate, so its owner adds the second driver freely.
    */
   ADD_SECOND_DRIVER: "ADD_SECOND_DRIVER",
+  /**
+   * Put a Stripe payment link in front of the customer by hand, outside the
+   * automatic sequencing that follows a supplier confirmation. Rehoming a
+   * declined booking is manual, so Rovaro needs to choose the moment. The
+   * supplier never sells Rovaro's booking payment, so this is platform-only.
+   */
+  ISSUE_CUSTOMER_PAYMENT_LINK: "ISSUE_CUSTOMER_PAYMENT_LINK",
+  /**
+   * Revise the gross total of a PLATFORM booking under audit. The supplier is
+   * never allowed to set the price of a brokered booking, at any stage.
+   */
+  CORRECT_PLATFORM_BOOKING_PRICE: "CORRECT_PLATFORM_BOOKING_PRICE",
 });
 
 export const BOOKING_ROLE = Object.freeze({
@@ -144,7 +158,9 @@ export function resolveBookingCapabilities({
       [BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS]: true,
       [BOOKING_CAPABILITY.CONTACT_CUSTOMER]: true,
       [BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]: !isSuper,
-      [BOOKING_CAPABILITY.ADD_SECOND_DRIVER]: isSuper,
+      // Nobody reaches this branch without either owning the record or being
+      // the superadmin, and the platform does not mediate it.
+      [BOOKING_CAPABILITY.ADD_SECOND_DRIVER]: true,
     });
   }
 
@@ -164,6 +180,10 @@ export function resolveBookingCapabilities({
       [BOOKING_CAPABILITY.REPORT_PROBLEM]: paid,
       [BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]: !closed,
       [BOOKING_CAPABILITY.ADD_SECOND_DRIVER]: true,
+      // A paid booking already has the customer's money; a second link could
+      // only take it twice.
+      [BOOKING_CAPABILITY.ISSUE_CUSTOMER_PAYMENT_LINK]: !closed && !paid,
+      [BOOKING_CAPABILITY.CORRECT_PLATFORM_BOOKING_PRICE]: !closed,
     });
   }
 

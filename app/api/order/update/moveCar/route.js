@@ -3,6 +3,7 @@ import { Car } from "@models/car";
 import { connectToDB } from "@lib/database";
 import { requireAdmin } from "@/lib/adminAuth";
 import { ROLE } from "@models/user";
+import { orderOwnershipResponse } from "@/domain/orders/orderOwnershipGuard";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -136,14 +137,9 @@ export const PUT = async (request) => {
       );
     }
 
-    // Multi-tenant check (if applicable)
-    // If your app has companyId, uncomment and adjust:
-    // if (order.companyId && session.user.companyId && order.companyId.toString() !== session.user.companyId.toString()) {
-    //   return new Response(
-    //     JSON.stringify({ message: "Forbidden: Order belongs to different company" }),
-    //     { status: 403, headers: { "Content-Type": "application/json" } }
-    //   );
-    // }
+    // Role and state are not company scope: check whose booking this is.
+    const foreignOrder = orderOwnershipResponse(session.user, order);
+    if (foreignOrder) return foreignOrder;
 
     // Verify new car exists
     const newCar = await Car.findById(newCarId);
@@ -153,6 +149,11 @@ export const PUT = async (request) => {
         { status: 404, headers: { "Content-Type": "application/json" } }
       );
     }
+
+    // The destination has to be in the same fleet, or this becomes a way to
+    // park a booking on another company's vehicle.
+    const foreignCar = orderOwnershipResponse(session.user, newCar);
+    if (foreignCar) return foreignCar;
 
     // No-op check: if order is already on the target car
     if (String(order.car._id || order.car) === String(newCarId)) {

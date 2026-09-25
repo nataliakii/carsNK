@@ -72,7 +72,30 @@
     "bookingDetailsSeats": "Sedišta",
     "bookingDetailsSearch": "Pretraga",
     "bookingDetailsEdit": "Izmeni filtere",
-    "bookingDetailsClose": "Zatvori"
+    "bookingDetailsClose": "Zatvori",
+    "booking": {
+      "selectDates": "Izaberite datume",
+      "calculatingPrice": "Izračunavanje cene…",
+      "book": "REZERVIŠI",
+      "approxPrice": "Oko {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 dan najma",
+      "rentalDays": "{{days}} dana najma",
+      "rangeUnavailable": "Nije dostupno za ove datume",
+      "quoteFailed": "Dostupnost nije mogla da se proveri",
+      "retry": "Pokušajte ponovo",
+      "showCalendar": "Proveri dostupnost",
+      "hideCalendar": "Sakrij kalendar",
+      "clearDates": "Obriši datume",
+      "previousMonth": "Prethodni mesec",
+      "nextMonth": "Sledeći mesec",
+      "legendAvailable": "Dostupno",
+      "legendUnavailable": "Nedostupno",
+      "legendSelected": "Izabrano",
+      "sortLabel": "Sortiraj po",
+      "sortPriceAsc": "Cena: rastuće",
+      "sortPriceDesc": "Cena: opadajuće"
+    }
   },
   "basic": {
     "close": "zatvori",
@@ -180,6 +203,13 @@
     "returnDate": "Datum vraćanja",
     "pickupTime": "Vreme preuzimanja",
     "returnTime": "Vreme vraćanja",
+    "sections": {
+      "pickup": "Preuzimanje",
+      "return": "Vraćanje",
+      "extras": "Osiguranje i dodaci",
+      "price": "Cena",
+      "customer": "Klijent"
+    },
     "CompleteBook": "Završi rezervaciju",
     "orderConfirmed": "Narudžbina potvrđena",
     "orderNotConfirmed": "Narudžbina nije potvrđena",
@@ -190,6 +220,7 @@
     "confirmationEmailFailed": "Slanje emaila potvrde nije uspelo",
     "confirmationEmailHistoryTitle": "Istorija email potvrda",
     "confirmationEmailHistoryEmpty": "Još nema poslatih email potvrda",
+    "confirmationEmailHistoryInternal": "Rovaro ne šalje email za interne rezervacije.",
     "confirmationEmailHistoryShow": "Prikaži",
     "confirmationEmailHistoryHide": "Sakrij",
     "confirmationEmailHistoryCollapsed": "Poslato: {{count}}",
@@ -238,7 +269,13 @@
     "licenceExpiresBeforeReturn": "Vozačka dozvola ističe pre završetka najma. Koristite dozvolu koja važi tokom celog najma.",
     "licenceIssueDateRequired": "Unesite datum izdavanja vozačke dozvole.",
     "licenceIssueDateInvalid": "Datum izdavanja mora biti u prošlosti i pre datuma isteka.",
-    "licenceNotProvided": "Nije dostavljeno"
+    "licenceNotProvided": "Nije dostavljeno",
+    "platformRequest": {
+      "title": "Zahtev Rovaro platforme",
+      "notice": "Ovu porudžbinu kreira Rovaro za drugu kompaniju. Ide kao rezervacija platforme i dolazi u listu te kompanije kao novi zahtev koji čeka njenu potvrdu.",
+      "offlineUnavailable": "Oflajn zapis se ne može kreirati u ime druge kompanije, zato opcija oflajn ovde nije dostupna.",
+      "priceLocked": "Rovaro izračunava ovu cenu, a naknada za rezervaciju je procenat od nje, zato se ukupan iznos ovde ne može menjati."
+    }
   },
   "car": {
     "viewDetails": "Više detalja",
@@ -300,7 +337,14 @@
       "beige": "Bež",
       "gold": "Zlatna",
       "orange": "Narandžasta",
-      "yellow": "Žuta"
+      "yellow": "Žuta",
+      "mini": "Mini",
+      "intermediate": "Srednja",
+      "standard": "Standard",
+      "fullsize": "Velika",
+      "suv": "SUV",
+      "van": "Van",
+      "luxury": "Luksuzna"
     }
   },
   "bookMesssages": {
@@ -499,7 +543,9 @@
     "close": "Zatvori",
     "success": "Hvala! Primili smo zahtev za transfer i uskoro ćemo vas kontaktirati.",
     "submitError": "Zahtev nije poslat. Pokušajte ponovo.",
-    "cityPlaceholder": "Izaberite mesto na Halkidikiju",
+    "cityPlaceholder": "Izaberite mesto ili adresu",
+    "locationsUnavailable": "Transferi još nisu dostupni u ovoj zemlji.",
+    "outOfMarket": "Ta lokacija je izvan područja koje pokrivamo. Izaberite mesto sa liste.",
     "distance": "Udaljenost: {{km}} km · ~{{minutes}} min",
     "distanceError": "Nije moguće izračunati udaljenost",
     "distanceUnavailable": "Udaljenost nije dostupna",
@@ -559,6 +605,51 @@
     "save": "Save"
   },
   "table": {
+    "actionRequired": "Potrebna radnja",
+    "confirmVehicle": "Potvrdi vozilo",
+    "otherResponses": "Ostali odgovori",
+    "rowActions": "Radnje za red",
+    "recordRemainingPayment": "Zabeleži preostalu uplatu",
+    "remainingAmountPaid": "Preostali iznos je plaćen",
+    "clientOrderLock": "Rovaro rezervacija se ne može menjati ovde",
+    "conflictCount": "{{count}} konflikata",
+    "conflictMore": "+još {{count}}",
+    "conflictRelatedRow": "Ova rezervacija je u konfliktu sa izmenom iznad",
+    "clearConflict": "Sakrij obaveštenje o konfliktu",
+    "status": "Status",
+    "carModel": "Vozilo",
+    "pickup": "Preuzimanje",
+    "return": "Vraćanje",
+    "customer": "Klijent",
+    "price": "Ukupna cena",
+    "bookingFee": "Rovaro naknada",
+    "dueToCompany": "Pripada firmi",
+    "company": "Firma",
+    "sourceRovaroShort": "Rovaro",
+    "sourceInternalShort": "Interna",
+    "toneUnresolved": "Za proveru",
+    "internalOrderLock": "Interna rezervacija firme — superadmin ne može da je menja, potvrdi ni da obradi plaćanja.",
+    "priceSystem": "Sistem",
+    "priceSavedAuto": "Sačuvano auto",
+    "days": "Dani",
+    "priceRecalcTooltip": "Ponovo izračunaj sistemsku cenu i sačuvaj (briše ručnu korekciju)",
+    "priceHistory": "Istorija cena",
+    "priceManual": "Ručno",
+    "confirmRequestedVehicle": "Potvrdi zatraženo vozilo",
+    "reset": "Poništi",
+    "supplierReplacementOffered": "Ponuđena je ekvivalentna zamena",
+    "supplierRequestedConfirmed": "Zatraženo vozilo je potvrđeno",
+    "toneDeclined": "Odbijena",
+    "toneNewRequest": "Novi zahtev",
+    "toneAwaitingPayment": "Čeka uplatu",
+    "toneConfirmedPaid": "Potvrđena",
+    "toneCompleted": "Završena",
+    "toneExpired": "Rok za uplatu je istekao",
+    "toneCancelled": "Otkazana",
+    "customerAwaitingAcceptance": "Čeka prihvatanje klijenta",
+    "loadingOrders": "Učitavanje rezervacija...",
+    "noOrders": "Nema pronađenih rezervacija",
+    "rowsPerPage": "Redova po strani",
     "supplierResponse": "Odgovor dobavljača",
     "platformStatus": "Status platforme",
     "vehicleAvailable": "Vozilo je dostupno",
@@ -599,6 +690,7 @@
     "close": "Затвори",
     "back": "Назад",
     "privacyNotice": "Контакт подаци клијента и возачка документа постају доступни након примљене уплате за резервацију.",
+    "platformSupportNotice": "Pristup podrške platforme. Dobavljač ne vidi ove kontakt podatke dok uplata rezervacije ne bude primljena.",
     "errors": {
       "generic": "Нешто је пошло наопако. Покушајте поново."
     },
@@ -641,7 +733,15 @@
       "transmission": "Мењач",
       "seats": "Седишта",
       "luggage": "Пртљаг",
-      "fuel": "Врста горива"
+      "fuel": "Врста горива",
+      "doors": "Vrata",
+      "airConditioning": "Klima uređaj",
+      "modelYear": "Godište",
+      "includedMileage": "Uključena kilometraža",
+      "deposit": "Depozit",
+      "fleetCode": "Šifra u voznom parku",
+      "registration": "Registarska oznaka",
+      "legacyNotice": "Ova rezervacija je starija od snimaka vozila. Prikazan je današnji zapis voznog parka, koji može da se razlikuje od dogovorenog."
     },
     "dates": {
       "pickup": "Датум и време преузимања",
@@ -689,7 +789,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Отвори ћаскање"
+      "openChat": "Отвори ћаскање",
+      "copyPhone": "Kopiraj telefon",
+      "copyEmail": "Kopiraj email",
+      "copied": "Kopirano"
     },
     "documents": {
       "holder": "Власник дозволе",
@@ -702,7 +805,6 @@
       "confirm": "Потврди тражено возило",
       "replace": "Понуди равноправну замену",
       "decline": "Одбиј захтев",
-      "contactCustomer": "Контактирај клијента",
       "contactRovaro": "Контактирај Rovaro",
       "reportProblem": "Пријави проблем",
       "amend": "Измени резервацију"
@@ -740,9 +842,8 @@
       "intro": "Тражено возило остаје непромењено. Ваш предлог се шаље клијенту, који га прихвата плаћањем.",
       "kind": "Врста замене",
       "kinds": {
-        "COMPANY_VEHICLE": "Возило из вашег возног парка",
-        "EXTERNAL_VEHICLE": "Возило ван вашег возног парка",
-        "GUARANTEED_CLASS": "Гарантована класа, модел се накнадно потврђује"
+        "COMPANY_VEHICLE": "Određeno vozilo iz vašeg voznog parka",
+        "GUARANTEED_EQUIVALENT": "Garantovano ekvivalentno vozilo, model se potvrđuje kasnije"
       },
       "model": "Возило за замену",
       "category": "Класа",
@@ -750,11 +851,24 @@
       "transmission": "Мењач",
       "transmissionHelp": "Мора да одговара траженом мењачу.",
       "seats": "Седишта",
+      "seatsHelp": "Nikada manje od traženog vozila.",
       "luggage": "Пртљаг",
-      "totalPrice": "Укупна цена изнајмљивања",
-      "totalPriceHelp": "Иста или нижа од тражене цене.",
+      "luggageHelp": "Nikada manje od traženog vozila.",
       "comment": "Коментар за клијента",
-      "submit": "Пошаљи предлог"
+      "submit": "Пошаљи предлог",
+      "fleetPlaceholder": "Изаберите возило",
+      "internalFleet": "(интерно) {{name}}",
+      "notOfferable": "Не могу се понудити за ову резервацију:",
+      "guaranteeTitle": "Garantujete",
+      "guaranteeClass": "{{class}} ili viša",
+      "guaranteeTransmission": "{{transmission}}, nepromenjen",
+      "guaranteeSeats": "Najmanje {{seats}}",
+      "guaranteePrice": "{{price}}, nepromenjena",
+      "guaranteeUnavailable": "Rovaro nema pune specifikacije traženog vozila, pa se ekvivalentno vozilo ovde ne može garantovati. Ponudite vozilo iz svog voznog parka ili kontaktirajte Rovaro.",
+      "guaranteeSummary": "Garantujete istu ili višu klasu, isti menjač, ne manje sedišta i istu ukupnu cenu. Tačan model se može potvrditi kasnije.",
+      "optionalIntro": "Podaci ispod su opcioni. Sve što ostavite prazno garantuje se na osnovu prvobitne rezervacije.",
+      "asRequested": "Kao što je traženo",
+      "modelHelp": "Opciono. Ostavite prazno ako ćete tačan model potvrditi kasnije."
     },
     "amendDialog": {
       "notice": "Свака измена се бележи са разлогом и стањем пре и после. Суштински услов плаћене резервације не може да се промени без сагласности клијента.",
@@ -776,6 +890,15 @@
       "messageSent": "Порука је послата Rovaro.",
       "replacementOffered": "Предлог замене је послат.",
       "amended": "Измена је сачувана."
+    },
+    "header": {
+      "sourcePlatform": "Rovaro rezervacija",
+      "sourceInternal": "Interna",
+      "awaitingPayment": "Čeka se uplata kupca",
+      "paymentReceived": "Uplata rezervacije primljena",
+      "days_one": "{{count}} dan",
+      "days_few": "{{count}} dana",
+      "days_other": "{{count}} dana"
     }
   }
 }

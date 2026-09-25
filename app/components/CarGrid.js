@@ -15,6 +15,10 @@ import { useMainContext } from "../Context";
 import CarItemComponent from "./CarComponent/CarItemComponent";
 import { carMatchesSearchQuery } from "@utils/carSearch";
 import { isCarAvailableForSearchDates } from "@utils/carDateSearch";
+import CatalogSortControl from "./ui/booking/CatalogSortControl";
+import { useCatalogSort } from "@/app/hooks/useActiveCalendarCar";
+import { sortCarsByQuotedTotal } from "@/domain/booking/carResultSorting";
+import { quoteCoordinator } from "@/app/hooks/useCarCalendar";
 import dayjs from "dayjs";
 
 const Section = styled("section")(({ theme }) => ({
@@ -38,9 +42,20 @@ function CarGrid() {
     platform,
   } = useMainContext();
   const deferredSearchQuery = useDeferredValue(carSearchQuery || "");
+  const { sort, setSort } = useCatalogSort();
 
   const skipScrollOnFilterMount = useRef(true);
   const hasActiveDateSearch = Boolean(searchDates?.start && searchDates?.end);
+
+  // The immutable SEARCH_FIRST request handed to every result card. Rebuilt
+  // only when the searched range changes, never on a calendar click.
+  const searchRequest = useMemo(
+    () =>
+      hasActiveDateSearch
+        ? { startDate: searchDates.start, endDate: searchDates.end }
+        : null,
+    [hasActiveDateSearch, searchDates?.start, searchDates?.end]
+  );
   // Scroll to top for class/transmission/location/text filters only — not when
   // searchDates change from a car card (shared global range).
   useEffect(() => {
@@ -147,6 +162,42 @@ function CarGrid() {
     platform,
   ]);
 
+  // Quoted totals reported by the result cards, used only for ordering.
+  const [quotesByCarId, setQuotesByCarId] = useState({});
+  const reportQuote = useCallback((carId, quote) => {
+    if (!carId) return;
+    setQuotesByCarId((prev) =>
+      prev[carId]?.totalPrice === quote?.totalPrice
+        ? prev
+        : { ...prev, [carId]: quote }
+    );
+  }, []);
+
+  const searchKey = searchRequest
+    ? `${searchRequest.startDate}|${searchRequest.endDate}`
+    : "";
+
+  // A new search invalidates the previous run's totals.
+  useEffect(() => {
+    setQuotesByCarId({});
+  }, [searchKey]);
+
+  // Ordering is recomputed only when the customer changes the sort control,
+  // runs a new search, or the result set itself changes — never as individual
+  // quotes stream in, so the list cannot reshuffle under the pointer.
+  const quotesRef = useRef(quotesByCarId);
+  quotesRef.current = quotesByCarId;
+  const allQuoted =
+    filteredCars.length > 0 &&
+    filteredCars.every((car) => quotesByCarId[String(car._id)]);
+
+  const orderedCars = useMemo(() => {
+    if (!searchRequest) return filteredCars;
+    return sortCarsByQuotedTotal(filteredCars, quotesRef.current, sort);
+    // `allQuoted` flips once per search, giving exactly one settle-and-sort.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredCars, sort, searchRequest, allQuoted]);
+
   const noCarsMatchFilters =
     Array.isArray(cars) && cars.length > 0 && filteredCars.length === 0;
 
@@ -195,6 +246,7 @@ function CarGrid() {
                 })}
               </Typography>
             ) : null}
+            <CatalogSortControl value={sort} onChange={setSort} />
           </Box>
         ) : null}
         <Grid
@@ -222,7 +274,7 @@ function CarGrid() {
               </Typography>
             </Grid>
           ) : null}
-          {filteredCars?.map((car, index) => {
+          {orderedCars?.map((car, index) => {
             return (
               <Grid item xs={12} sx={{ padding: 2, width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }} key={car._id}>
                 <CarItemComponent
@@ -231,6 +283,8 @@ function CarGrid() {
                   discountStart={discountStart}
                   discountEnd={discountEnd}
                   isFirstCar={index === 0}
+                  searchRequest={searchRequest}
+                  onQuote={reportQuote}
                 />
               </Grid>
             );

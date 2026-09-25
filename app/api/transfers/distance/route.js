@@ -5,7 +5,8 @@ import { COMPANY_ID } from "@config/company";
 import { getCachedDrivingRoute } from "@/domain/transfers/routeCache";
 import { buildLocationSnapshot } from "@/domain/transfers/locationSnapshot";
 import { getTransferBaseDistances } from "@/domain/transfers/getTransferDistance";
-import { getSiteCountryCode } from "@config/siteCountry";
+import { resolveMarketCountry } from "@/domain/platform/marketCountry";
+import { assertTransferPlacesInMarket } from "@/domain/transfers/marketTransferLocations";
 import {
   consumePublicPostOrError,
   transferRateLimitOptions,
@@ -15,19 +16,6 @@ export const runtime = "nodejs";
 
 function json(body, status = 200) {
   return NextResponse.json(body, { status });
-}
-
-function resolveCountry(payload, company) {
-  return String(
-    payload?.country ||
-      payload?.origin?.country ||
-      payload?.destination?.country ||
-      company?.country ||
-      getSiteCountryCode() ||
-      ""
-  )
-    .trim()
-    .toUpperCase();
 }
 
 export async function POST(request) {
@@ -44,6 +32,15 @@ export async function POST(request) {
     return json({ success: false, message: "from and to are required" }, 400);
   }
 
+  const country = resolveMarketCountry(request);
+  const placeCheck = assertTransferPlacesInMarket({ ...payload, from, to }, country);
+  if (!placeCheck.ok) {
+    return json(
+      { success: false, message: placeCheck.message, code: placeCheck.code },
+      422
+    );
+  }
+
   await connectToDB();
   const limited = await consumePublicPostOrError(
     request,
@@ -51,7 +48,6 @@ export async function POST(request) {
   );
   if (limited) return json(limited.body, limited.status);
   const company = await Company.findById(COMPANY_ID).lean();
-  const country = resolveCountry(payload, company);
   const baseCoords = {
     lat: company?.coords?.lat,
     lon: company?.coords?.lon,
@@ -61,13 +57,13 @@ export async function POST(request) {
     ...(payload.origin || {}),
     placeName: payload.origin?.placeName || from,
     rawInput: from,
-    country: payload.origin?.country || country,
+    country,
   });
   const destination = buildLocationSnapshot({
     ...(payload.destination || {}),
     placeName: payload.destination?.placeName || to,
     rawInput: to,
-    country: payload.destination?.country || country,
+    country,
   });
 
   const [result, baseResult] = await Promise.all([

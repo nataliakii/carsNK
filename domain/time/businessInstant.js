@@ -7,12 +7,14 @@
  *   → also keep local date/time + timezone snapshot for display/audit
  *   → display converts from UTC using the stored timezone
  *
- * DST:
- *   - Nonexistent local times (spring-forward gap) are rejected (round-trip).
- *   - Ambiguous fall-back times: if dayjs's chosen offset does not round-trip
- *     to the same wall-clock, the time is rejected (NONEXISTENT_LOCAL_TIME).
- *     Callers must pick an explicit occurrence (e.g. 01:30 DST or 03:00 STD).
- *     This is deterministic: we never guess which overlap occurrence was meant.
+ * DST — the rule is the round-trip, so what is stored always displays as what
+ * was entered:
+ *   - Nonexistent local times (the spring-forward gap) do not round-trip and are
+ *     rejected with NONEXISTENT_LOCAL_TIME, rather than being shifted an hour.
+ *   - Ambiguous fall-back times (the hour that happens twice) do round-trip and
+ *     are accepted at their first, still-DST occurrence. That choice is
+ *     deterministic, and either occurrence shows the same wall clock, so a
+ *     clock-change pickup is never displayed an hour out.
  *
  * Uses the existing dayjs + timezone plugin. No extra date library.
  */

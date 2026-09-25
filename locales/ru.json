@@ -379,7 +379,30 @@
     "bookingDetailsEdit": "Изменить в фильтрах",
     "bookingDetailsClose": "Закрыть",
     "bookingDetailsApply": "Применить",
-    "bookingDetailsCancel": "Отмена"
+    "bookingDetailsCancel": "Отмена",
+    "booking": {
+      "selectDates": "Выберите даты",
+      "calculatingPrice": "Расчёт цены…",
+      "book": "ЗАБРОНИРОВАТЬ",
+      "approxPrice": "Примерно {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 день аренды",
+      "rentalDays": "Дней аренды: {{days}}",
+      "rangeUnavailable": "Недоступно на эти даты",
+      "quoteFailed": "Не удалось проверить доступность",
+      "retry": "Повторить",
+      "showCalendar": "Проверить доступность",
+      "hideCalendar": "Скрыть календарь",
+      "clearDates": "Сбросить даты",
+      "previousMonth": "Предыдущий месяц",
+      "nextMonth": "Следующий месяц",
+      "legendAvailable": "Свободно",
+      "legendUnavailable": "Занято",
+      "legendSelected": "Выбрано",
+      "sortLabel": "Сортировка",
+      "sortPriceAsc": "Цена: по возрастанию",
+      "sortPriceDesc": "Цена: по убыванию"
+    }
   },
   "basic": {
     "close": "закрыть",
@@ -514,8 +537,21 @@
     "returnDate": "Дата возврата",
     "pickupTime": "Время получения",
     "returnTime": "Время возврата",
+    "sections": {
+      "pickup": "Получение",
+      "return": "Возврат",
+      "extras": "Страховка и опции",
+      "price": "Стоимость",
+      "customer": "Клиент"
+    },
     "CompleteBook": "Завершить бронирование",
     "offline": "Офлайн (не через сайт)",
+    "platformRequest": {
+      "title": "Заявка платформы Rovaro",
+      "notice": "Этот заказ создаёт Rovaro для другой компании. Он уходит как заказ платформы и попадает в очередь этой компании как новая заявка, ожидающая её подтверждения.",
+      "offlineUnavailable": "Офлайн-запись нельзя создать от имени другой компании, поэтому опция «офлайн» здесь недоступна.",
+      "priceLocked": "Эту цену рассчитывает Rovaro, и сервисный сбор — процент от неё, поэтому итог здесь изменить нельзя."
+    },
     "waitForPriceCalc": "Дождитесь расчёта стоимости",
     "startDateNotBeforeToday": "Дата начала аренды не может быть раньше сегодняшнего дня",
     "addedSuccess": "Заказ успешно добавлен",
@@ -534,6 +570,7 @@
     "confirmationEmailFailed": "Не удалось отправить письмо-подтверждение",
     "confirmationEmailHistoryTitle": "История писем подтверждения",
     "confirmationEmailHistoryEmpty": "Письма подтверждения еще не отправлялись",
+    "confirmationEmailHistoryInternal": "Rovaro не отправляет письма по внутренним бронированиям.",
     "confirmationEmailHistoryShow": "Развернуть",
     "confirmationEmailHistoryHide": "Свернуть",
     "confirmationEmailHistoryCollapsed": "Отправлено: {{count}}",
@@ -719,7 +756,14 @@
       "beige": "Бежевый",
       "gold": "Золотой",
       "orange": "Оранжевый",
-      "yellow": "Жёлтый"
+      "yellow": "Жёлтый",
+      "mini": "Мини",
+      "intermediate": "Средний",
+      "standard": "Стандарт",
+      "fullsize": "Большой",
+      "suv": "Внедорожник",
+      "van": "Вэн",
+      "luxury": "Люкс"
     }
   },
   "bookMesssages": {
@@ -770,6 +814,21 @@
     "pricePerDay": "Цена за день"
   },
   "table": {
+    "actionRequired": "Требуется действие",
+    "confirmVehicle": "Подтвердить автомобиль",
+    "otherResponses": "Другие ответы",
+    "rowActions": "Действия со строкой",
+    "recordRemainingPayment": "Отметить остаток оплаченным",
+    "remainingAmountPaid": "Остаток оплачен",
+    "clientOrderLock": "Бронь Rovaro нельзя редактировать здесь",
+    "conflictCount": "конфликтов: {{count}}",
+    "conflictMore": "ещё {{count}}",
+    "conflictRelatedRow": "Эта бронь конфликтует с попыткой изменения выше",
+    "clearConflict": "Скрыть сообщение о конфликте",
+    "confirmRequestedVehicle": "Подтвердить запрошенный автомобиль",
+    "supplierReplacementOffered": "Предложена равноценная замена",
+    "supplierRequestedConfirmed": "Запрошенный автомобиль подтверждён",
+    "customerAwaitingAcceptance": "Ожидает согласия клиента",
     "allOrders": "Показать Все Заказы",
     "activOrders": "Активные заказы",
     "startToday": "Начинающиеся Сегодня",
@@ -1581,7 +1640,9 @@
     "close": "Закрыть",
     "success": "Спасибо! Мы получили заявку на трансфер и скоро свяжемся с вами.",
     "submitError": "Не удалось отправить заявку. Попробуйте ещё раз.",
-    "cityPlaceholder": "Выберите город в Халкидики",
+    "cityPlaceholder": "Выберите город или адрес",
+    "locationsUnavailable": "Трансферы в этой стране пока недоступны.",
+    "outOfMarket": "Это место за пределами обслуживаемой зоны. Выберите пункт из списка.",
     "distance": "Расстояние: {{km}} км · ~{{minutes}} мин",
     "distanceError": "Не удалось рассчитать расстояние",
     "distanceUnavailable": "Расстояние недоступно (нужен серверный Google Maps API key)",
@@ -1691,6 +1752,7 @@
     "close": "Закрыть",
     "back": "Назад",
     "privacyNotice": "Контакты клиента и водительские документы становятся доступны после получения платежа за бронирование.",
+    "platformSupportNotice": "Доступ службы поддержки платформы. Поставщик не видит эти контакты до получения оплаты бронирования.",
     "errors": {
       "generic": "Что-то пошло не так. Попробуйте ещё раз."
     },
@@ -1733,7 +1795,15 @@
       "transmission": "Коробка передач",
       "seats": "Мест",
       "luggage": "Багаж",
-      "fuel": "Тип топлива"
+      "fuel": "Тип топлива",
+      "doors": "Двери",
+      "airConditioning": "Кондиционер",
+      "modelYear": "Год выпуска",
+      "includedMileage": "Включённый пробег",
+      "deposit": "Залог",
+      "fleetCode": "Код в автопарке",
+      "registration": "Госномер",
+      "legacyNotice": "Это бронирование создано до появления снимков автомобиля. Показана текущая запись автопарка, она может отличаться от согласованной."
     },
     "dates": {
       "pickup": "Дата и время выдачи",
@@ -1781,7 +1851,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Открыть чат"
+      "openChat": "Открыть чат",
+      "copyPhone": "Скопировать телефон",
+      "copyEmail": "Скопировать email",
+      "copied": "Скопировано"
     },
     "documents": {
       "holder": "Владелец прав",
@@ -1794,7 +1867,6 @@
       "confirm": "Подтвердить запрошенный автомобиль",
       "replace": "Предложить равноценную замену",
       "decline": "Отклонить запрос",
-      "contactCustomer": "Связаться с клиентом",
       "contactRovaro": "Связаться с Rovaro",
       "reportProblem": "Сообщить о проблеме",
       "amend": "Изменить бронирование"
@@ -1832,9 +1904,8 @@
       "intro": "Запрошенный автомобиль остаётся без изменений. Ваше предложение отправляется клиенту, который принимает его оплатой.",
       "kind": "Тип замены",
       "kinds": {
-        "COMPANY_VEHICLE": "Автомобиль из вашего парка",
-        "EXTERNAL_VEHICLE": "Автомобиль вне вашего парка",
-        "GUARANTEED_CLASS": "Гарантированный класс, модель уточняется"
+        "COMPANY_VEHICLE": "Конкретный автомобиль из вашего парка",
+        "GUARANTEED_EQUIVALENT": "Гарантированная равноценная машина, модель подтвердим позже"
       },
       "model": "Автомобиль на замену",
       "category": "Класс",
@@ -1842,11 +1913,24 @@
       "transmission": "Коробка передач",
       "transmissionHelp": "Должна совпадать с запрошенной.",
       "seats": "Мест",
+      "seatsHelp": "Не меньше, чем у запрошенного автомобиля.",
       "luggage": "Багаж",
-      "totalPrice": "Итого за аренду",
-      "totalPriceHelp": "Такая же или ниже запрошенной цены.",
+      "luggageHelp": "Не меньше, чем у запрошенного автомобиля.",
       "comment": "Комментарий для клиента",
-      "submit": "Отправить предложение"
+      "submit": "Отправить предложение",
+      "fleetPlaceholder": "Выберите автомобиль",
+      "internalFleet": "(внутренний) {{name}}",
+      "notOfferable": "Недоступно для этого бронирования:",
+      "guaranteeTitle": "Вы гарантируете",
+      "guaranteeClass": "{{class}} или выше",
+      "guaranteeTransmission": "{{transmission}}, без изменений",
+      "guaranteeSeats": "Не менее {{seats}}",
+      "guaranteePrice": "{{price}}, без изменений",
+      "guaranteeUnavailable": "У Rovaro нет полных характеристик запрошенного автомобиля, поэтому гарантировать равноценную замену здесь нельзя. Предложите автомобиль из своего парка или свяжитесь с Rovaro.",
+      "guaranteeSummary": "Вы гарантируете тот же или более высокий класс, ту же коробку передач, не меньше мест и ту же итоговую цену. Точную модель можно подтвердить позже.",
+      "optionalIntro": "Поля ниже необязательны. Всё, что вы оставите пустым, гарантируется по исходному заказу.",
+      "asRequested": "Как в заказе",
+      "modelHelp": "Необязательно. Оставьте пустым, если подтвердите точную модель позже."
     },
     "amendDialog": {
       "notice": "Каждое изменение фиксируется с причиной и снимком «до и после». Существенное условие оплаченного бронирования нельзя изменить без согласия клиента.",
@@ -1868,6 +1952,16 @@
       "messageSent": "Сообщение отправлено в Rovaro.",
       "replacementOffered": "Предложение о замене отправлено.",
       "amended": "Изменение сохранено."
+    },
+    "header": {
+      "sourcePlatform": "Бронирование Rovaro",
+      "sourceInternal": "Внутреннее",
+      "awaitingPayment": "Ожидается оплата клиентом",
+      "paymentReceived": "Оплата бронирования получена",
+      "days_one": "{{count}} день",
+      "days_few": "{{count}} дня",
+      "days_many": "{{count}} дней",
+      "days_other": "{{count}} дней"
     }
   }
 }

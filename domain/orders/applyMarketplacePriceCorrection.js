@@ -8,6 +8,7 @@ import { connectToDB } from "@lib/database";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 import { expireUnpaidMarketplacePayment } from "@/domain/booking/expireMarketplacePayment";
 import { expireRentalCheckoutSession } from "@/domain/orders/rentalStripeCheckout";
+import { computePriceSnapshotChecksum } from "@/domain/orders/priceSnapshotChecksum";
 import { recordAuditEvent } from "@/domain/legal/auditTrail";
 import { ROLE } from "@models/user";
 import {
@@ -96,6 +97,22 @@ export async function applyMarketplacePriceCorrection({
     order.set("paidMarketplaceFeeSnapshot", previousPaidSnapshot, {
       strict: false,
     });
+  }
+
+  // The stored checksum exists to catch a price that moved without an
+  // explanation. This revision *is* the explanation and it is recorded in
+  // priceRevisions, so the unpaid order carries the checksum of the price a
+  // customer would now be asked to pay. A paid order keeps the checksum of what
+  // was actually charged.
+  if (!preview.paid) {
+    order.set(
+      "payment",
+      {
+        ...(order.payment && typeof order.payment === "object" ? order.payment : {}),
+        priceChecksum: computePriceSnapshotChecksum(order),
+      },
+      { strict: false }
+    );
   }
 
   await order.save();

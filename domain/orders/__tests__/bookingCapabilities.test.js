@@ -2,8 +2,12 @@
  * @jest-environment node
  */
 
+import fs from "node:fs";
+import path from "node:path";
+
 import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
 import { BOOKING_MODES } from "@/domain/booking/bookingMode";
+import { evaluateDrivingLicenceAccess } from "@/domain/legal/drivingLicenceAccess";
 import {
   BOOKING_SOURCE,
   PLATFORM_WORKFLOW_STAGE,
@@ -13,10 +17,13 @@ import {
   BOOKING_ROLE,
   assertBookingCapability,
   checkBookingFieldWrites,
+  resolveActorCompanyId,
+  resolveActorRole,
   resolveBookingCapabilities,
   resolveOrderCapabilities,
   PLATFORM_LOCKED_FIELDS,
 } from "@/domain/orders/bookingCapabilities";
+import { decideOrderUpdate } from "@/domain/booking/resolveBookingCapabilities";
 
 const COMPANY = "64a000000000000000000001";
 const OTHER_COMPANY = "64a000000000000000000002";
@@ -153,6 +160,45 @@ describe("paid booking — read-only, but the supplier can finally reach the cus
     expect(late[BOOKING_CAPABILITY.VIEW_CUSTOMER_CONTACTS]).toBe(true);
     expect(late[BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS]).toBe(false);
   });
+
+  /**
+   * The licence policy is owned by `domain/legal/drivingLicenceAccess.js`.
+   * This pins the delegation so a second, quietly diverging rule cannot grow
+   * inside the capability resolver.
+   */
+  test("VIEW_DRIVING_DOCUMENTS is exactly what the licence policy answers", () => {
+    const cases = [
+      { order: paidOrder, user: companyAdmin, now },
+      { order: paidOrder, user: otherCompanyAdmin, now },
+      { order: paidOrder, user: superadmin, now },
+      { order: paidOrder, user: companyAdmin, now: new Date("2026-10-10T10:00:00.000Z") },
+      { order: platform(), user: companyAdmin, now },
+    ];
+
+    for (const { order, user, now: at } of cases) {
+      const policy = evaluateDrivingLicenceAccess({
+        order,
+        isSuperadmin: resolveActorRole(user) === BOOKING_ROLE.SUPERADMIN,
+        sessionOwnerId: resolveActorCompanyId(user),
+        now: at,
+      });
+      const granted =
+        resolveOrderCapabilities(order, user, { now: at })[
+          BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS
+        ] === true;
+      // A capability the resolver withholds for another reason may still be
+      // false, but it must never exceed what the licence policy allows.
+      if (!policy.allowed) expect(granted).toBe(false);
+    }
+
+    const resolver = fs.readFileSync(
+      path.join(process.cwd(), "domain/orders/bookingCapabilities.js"),
+      "utf8"
+    );
+    expect(resolver).toContain("evaluateDrivingLicenceAccess");
+    // No hand-rolled window arithmetic next to the delegation.
+    expect(resolver).not.toMatch(/ACCESS_WINDOW|getTime\(\)|60 \* 60 \* 1000/);
+  });
 });
 
 describe("superadmin", () => {
@@ -192,7 +238,17 @@ describe("the second driver is a platform extra", () => {
     PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED,
   ];
 
-  test("no company admin can add it, at any stage or source", () => {
+  function internalCaps(actorCompany, bookingCompany, role = BOOKING_ROLE.ADMIN) {
+    return resolveBookingCapabilities({
+      source: BOOKING_SOURCE.INTERNAL,
+      status: "",
+      role,
+      companyId: actorCompany,
+      orderCompanyId: bookingCompany,
+    });
+  }
+
+  test("no company admin can add it to a PLATFORM booking, at any stage", () => {
     for (const stage of stages) {
       const company = caps(stage);
       expect(company[BOOKING_CAPABILITY.ADD_SECOND_DRIVER]).toBe(false);
@@ -204,25 +260,35 @@ describe("the second driver is a platform extra", () => {
         }).allowed
       ).toBe(false);
     }
-    const internal = resolveBookingCapabilities({
-      source: BOOKING_SOURCE.INTERNAL,
-      status: "",
-      role: BOOKING_ROLE.ADMIN,
-      companyId: COMPANY,
-      orderCompanyId: COMPANY,
-    });
+  });
+
+  test("a company admin can add it to an INTERNAL booking it owns", () => {
+    const internal = internalCaps(COMPANY, COMPANY);
     expect(internal[BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]).toBe(true);
-    expect(internal[BOOKING_CAPABILITY.ADD_SECOND_DRIVER]).toBe(false);
+    expect(internal[BOOKING_CAPABILITY.ADD_SECOND_DRIVER]).toBe(true);
     expect(
       checkBookingFieldWrites({
         capabilities: internal,
         source: BOOKING_SOURCE.INTERNAL,
         fields: ["secondDriver"],
       }).allowed
+    ).toBe(true);
+  });
+
+  test("a company admin cannot add it to another company's INTERNAL booking", () => {
+    const foreign = internalCaps(OTHER_COMPANY, COMPANY);
+    expect(foreign[BOOKING_CAPABILITY.VIEW_BOOKING]).toBe(false);
+    expect(foreign[BOOKING_CAPABILITY.ADD_SECOND_DRIVER]).toBe(false);
+    expect(
+      checkBookingFieldWrites({
+        capabilities: foreign,
+        source: BOOKING_SOURCE.INTERNAL,
+        fields: ["secondDriver"],
+      }).allowed
     ).toBe(false);
   });
 
-  test("a superadmin can", () => {
+  test("a superadmin can, on both sources", () => {
     const platformCaps = caps(
       PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION,
       BOOKING_ROLE.SUPERADMIN
@@ -235,6 +301,90 @@ describe("the second driver is a platform extra", () => {
         fields: ["secondDriver"],
       }).allowed
     ).toBe(true);
+
+    const internal = internalCaps(null, COMPANY, BOOKING_ROLE.SUPERADMIN);
+    expect(internal[BOOKING_CAPABILITY.ADD_SECOND_DRIVER]).toBe(true);
+    // Rovaro adds the extra but still does not take over the company's own
+    // editing flow.
+    expect(internal[BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]).toBe(false);
+  });
+});
+
+describe("the update route enforces the second-driver rule by source", () => {
+  function internalOrder(overrides = {}) {
+    return {
+      _id: "64a0000000000000000000bb",
+      source: BOOKING_SOURCE.INTERNAL,
+      my_order: false,
+      ownerId: COMPANY,
+      ...overrides,
+    };
+  }
+
+  test("a company admin adding it to a PLATFORM booking is refused with 403", () => {
+    const decision = decideOrderUpdate({
+      order: platform(),
+      user: companyAdmin,
+      payload: { secondDriver: true },
+    });
+    expect(decision.ok).toBe(false);
+    expect(decision.status).toBe(403);
+    expect(decision.code).toBe("CAPABILITY_DENIED");
+    expect(decision.fields).toEqual(["secondDriver"]);
+  });
+
+  test("the owning company admin may add it to its own INTERNAL booking", () => {
+    const decision = decideOrderUpdate({
+      order: internalOrder(),
+      user: companyAdmin,
+      payload: { secondDriver: true },
+    });
+    expect(decision.ok).toBe(true);
+  });
+
+  test("another company is refused on an INTERNAL booking too", () => {
+    const decision = decideOrderUpdate({
+      order: internalOrder(),
+      user: otherCompanyAdmin,
+      payload: { secondDriver: true },
+    });
+    expect(decision.ok).toBe(false);
+    expect(decision.status).toBe(403);
+    expect(decision.code).toBe("CAPABILITY_DENIED");
+  });
+
+  test("another company is refused on a PLATFORM booking too", () => {
+    const decision = decideOrderUpdate({
+      order: platform(),
+      user: otherCompanyAdmin,
+      payload: { timeOut: "2026-02-01T10:00:00.000Z" },
+    });
+    expect(decision.ok).toBe(false);
+    expect(decision.status).toBe(403);
+  });
+
+  test("a superadmin may add it on either source", () => {
+    expect(
+      decideOrderUpdate({
+        order: internalOrder(),
+        user: superadmin,
+        payload: { secondDriver: true },
+      }).ok
+    ).toBe(true);
+    // On a platform booking this is a material change, so it travels through
+    // the audited amendment path rather than a bare field write, and the
+    // acting user has to be identifiable.
+    const onPlatform = decideOrderUpdate({
+      order: platform(),
+      user: { ...superadmin, id: "64a00000000000000000000f", email: "ops@rovaro.com" },
+      payload: {
+        secondDriver: true,
+        amendmentReason: "Customer asked to add a second driver",
+        amendmentRequestedBy: "CUSTOMER",
+      },
+    });
+    expect(onPlatform.ok).toBe(true);
+    expect(onPlatform.audit.fieldsChanged).toContain("secondDriver");
   });
 });
 

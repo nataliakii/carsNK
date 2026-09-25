@@ -39,6 +39,16 @@ const WWW_TO_APEX_BY_COUNTRY = {
   },
 };
 
+/**
+ * Hosts that belong to a market but are not served/canonical from here.
+ * rovaro.es is the Spanish-language domain of the same ES market
+ * (see config/legalEntity.js `spanishDomain`).
+ */
+const ALIAS_HOSTS_BY_COUNTRY = {
+  GR: [],
+  ES: ["rovaro.es"],
+};
+
 function countryCode() {
   try {
     return getSiteCountryCode();
@@ -162,6 +172,26 @@ export function isServingHost(hostname) {
 /** Peer mirror host (not SEO canonical). */
 export function isPeerMirrorHost(hostname) {
   return peerHosts().has(normalizeHost(hostname));
+}
+
+function marketHostsFor(code) {
+  const alias = ALIAS_HOSTS_BY_COUNTRY[code] || [];
+  return [
+    ...(SERVING_APEX_BY_COUNTRY[code] || []),
+    ...Object.keys(WWW_TO_APEX_BY_COUNTRY[code] || {}),
+    ...alias,
+    ...alias.map((host) => `www.${host}`),
+  ].map(normalizeHost);
+}
+
+/** Deployment country a hostname belongs to, or "" when the host is unknown. */
+export function getMarketCountryForHost(hostname) {
+  const host = normalizeHost(hostname).replace(/:\d+$/, "");
+  if (!host) return "";
+  for (const code of Object.keys(SERVING_APEX_BY_COUNTRY)) {
+    if (marketHostsFor(code).includes(host)) return code;
+  }
+  return "";
 }
 
 /** @deprecated use getBaseUrl() — GR default kept for older imports */

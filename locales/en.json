@@ -433,7 +433,30 @@
     "bookingDetailsEdit": "Edit filters",
     "bookingDetailsClose": "Close",
     "bookingDetailsApply": "Apply",
-    "bookingDetailsCancel": "Cancel"
+    "bookingDetailsCancel": "Cancel",
+    "booking": {
+      "selectDates": "Select dates",
+      "calculatingPrice": "Calculating price…",
+      "book": "BOOK",
+      "approxPrice": "Approx. {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 rental day",
+      "rentalDays": "{{days}} rental days",
+      "rangeUnavailable": "Not available for these dates",
+      "quoteFailed": "Could not check availability",
+      "retry": "Try again",
+      "showCalendar": "Check availability",
+      "hideCalendar": "Hide calendar",
+      "clearDates": "Clear dates",
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "legendAvailable": "Available",
+      "legendUnavailable": "Unavailable",
+      "legendSelected": "Selected",
+      "sortLabel": "Sort by",
+      "sortPriceAsc": "Price: low to high",
+      "sortPriceDesc": "Price: high to low"
+    }
   },
   "basic": {
     "close": "close",
@@ -571,8 +594,21 @@
     "returnDate": "Return date",
     "pickupTime": "Pick-up time",
     "returnTime": "Return time",
+    "sections": {
+      "pickup": "Pick-up",
+      "return": "Return",
+      "extras": "Insurance and extras",
+      "price": "Price",
+      "customer": "Customer"
+    },
     "CompleteBook": "Complete booking",
     "offline": "Offline (not via website)",
+    "platformRequest": {
+      "title": "Rovaro platform request",
+      "notice": "This order is created by Rovaro for another company. It is sent as a platform booking and arrives in that company's queue as a new request awaiting their confirmation.",
+      "offlineUnavailable": "An offline record cannot be created on another company's behalf, so the offline option is not available here.",
+      "priceLocked": "Rovaro calculates this price and the booking fee is a percentage of it, so the total cannot be edited here."
+    },
     "waitForPriceCalc": "Wait until the price is calculated",
     "startDateNotBeforeToday": "Pick-up date cannot be earlier than today",
     "addedSuccess": "Order added successfully",
@@ -591,6 +627,7 @@
     "confirmationEmailFailed": "Failed to send confirmation email",
     "confirmationEmailHistoryTitle": "Confirmation emails history",
     "confirmationEmailHistoryEmpty": "No confirmation emails sent yet",
+    "confirmationEmailHistoryInternal": "Rovaro does not send email for internal bookings.",
     "confirmationEmailHistoryShow": "Show",
     "confirmationEmailHistoryHide": "Hide",
     "confirmationEmailHistoryCollapsed": "Sent: {{count}}",
@@ -796,7 +833,14 @@
       "beige": "Beige",
       "gold": "Gold",
       "orange": "Orange",
-      "yellow": "Yellow"
+      "yellow": "Yellow",
+      "mini": "Mini",
+      "intermediate": "Intermediate",
+      "standard": "Standard",
+      "fullsize": "Full-size",
+      "suv": "SUV",
+      "van": "Van",
+      "luxury": "Luxury"
     }
   },
   "bookMesssages": {
@@ -847,6 +891,17 @@
     "sureDelCar": "Are you sure you want to delete "
   },
   "table": {
+    "actionRequired": "Action required",
+    "confirmVehicle": "Confirm vehicle",
+    "otherResponses": "Other responses",
+    "rowActions": "Row actions",
+    "recordRemainingPayment": "Record remaining payment",
+    "remainingAmountPaid": "Remaining amount paid",
+    "clientOrderLock": "A Rovaro booking cannot be edited here",
+    "conflictCount": "{{count}} conflicts",
+    "conflictMore": "+{{count}} more",
+    "conflictRelatedRow": "This booking conflicts with the update attempted above",
+    "clearConflict": "Dismiss conflict notice",
     "allOrders": "Show All Orders",
     "activOrders": "Active (without past)",
     "startToday": "Starting Today",
@@ -1675,7 +1730,9 @@
     "close": "Close",
     "success": "Thank you! We received your transfer request and will contact you shortly.",
     "submitError": "Could not send the request. Please try again.",
-    "cityPlaceholder": "Select a town in Halkidiki",
+    "cityPlaceholder": "Select a town or address",
+    "locationsUnavailable": "Transfers are not available in this country yet.",
+    "outOfMarket": "That location is outside the area we serve here. Choose a place from the list.",
     "distance": "Distance: {{km}} km · ~{{minutes}} min",
     "distanceError": "Could not calculate distance",
     "distanceUnavailable": "Distance unavailable (check Google Maps API key)",
@@ -1827,6 +1884,7 @@
     "close": "Close",
     "back": "Back",
     "privacyNotice": "Customer contact details and driving documents become available after the booking payment is received.",
+    "platformSupportNotice": "Platform support access. The supplier cannot see these contact details until the booking payment is received.",
     "errors": {
       "generic": "Something went wrong. Please try again."
     },
@@ -1869,7 +1927,15 @@
       "transmission": "Transmission",
       "seats": "Seats",
       "luggage": "Luggage",
-      "fuel": "Fuel type"
+      "fuel": "Fuel type",
+      "doors": "Doors",
+      "airConditioning": "Air conditioning",
+      "modelYear": "Model year",
+      "includedMileage": "Included mileage",
+      "deposit": "Deposit",
+      "fleetCode": "Fleet code",
+      "registration": "Registration",
+      "legacyNotice": "This booking predates vehicle snapshots. The fleet record is shown as it is today, which may differ from what was agreed."
     },
     "dates": {
       "pickup": "Pickup date and time",
@@ -1917,7 +1983,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Open chat"
+      "openChat": "Open chat",
+      "copyPhone": "Copy phone",
+      "copyEmail": "Copy email",
+      "copied": "Copied"
     },
     "documents": {
       "holder": "Licence holder",
@@ -1930,7 +1999,6 @@
       "confirm": "Confirm requested vehicle",
       "replace": "Offer equivalent replacement",
       "decline": "Decline request",
-      "contactCustomer": "Contact customer",
       "contactRovaro": "Contact Rovaro",
       "reportProblem": "Report a problem",
       "amend": "Amend booking"
@@ -1968,9 +2036,8 @@
       "intro": "The requested vehicle stays as it is. Your proposal is sent to the customer, who accepts it by paying.",
       "kind": "Replacement type",
       "kinds": {
-        "COMPANY_VEHICLE": "A vehicle from your fleet",
-        "EXTERNAL_VEHICLE": "A vehicle not listed in your fleet",
-        "GUARANTEED_CLASS": "Guaranteed class, model to be confirmed"
+        "COMPANY_VEHICLE": "A specific vehicle from your fleet",
+        "GUARANTEED_EQUIVALENT": "A guaranteed equivalent, model confirmed later"
       },
       "model": "Replacement vehicle",
       "category": "Class",
@@ -1978,14 +2045,24 @@
       "transmission": "Transmission",
       "transmissionHelp": "Must match the requested transmission.",
       "seats": "Seats",
+      "seatsHelp": "Never fewer than the requested vehicle.",
       "luggage": "Luggage",
-      "totalPrice": "Total rental price",
-      "totalPriceHelp": "Same or lower than the requested price.",
+      "luggageHelp": "Never less than the requested vehicle.",
       "comment": "Comment for the customer",
       "submit": "Send proposal",
       "fleetPlaceholder": "Choose a vehicle",
       "internalFleet": "(internal) {{name}}",
-      "notOfferable": "Not offerable for this booking:"
+      "notOfferable": "Not offerable for this booking:",
+      "guaranteeTitle": "You guarantee",
+      "guaranteeClass": "{{class}} or higher",
+      "guaranteeTransmission": "{{transmission}}, unchanged",
+      "guaranteeSeats": "At least {{seats}}",
+      "guaranteePrice": "{{price}}, unchanged",
+      "guaranteeUnavailable": "Rovaro does not hold the full specification of the requested vehicle, so an equivalent cannot be guaranteed here. Offer a vehicle from your fleet or contact Rovaro.",
+      "guaranteeSummary": "You guarantee the same or a higher class, the same transmission, no fewer seats and the same total price. The exact model can be confirmed later.",
+      "optionalIntro": "The details below are optional. Anything you leave empty is guaranteed from the original booking.",
+      "asRequested": "Same as requested",
+      "modelHelp": "Optional. Leave it empty if you will confirm the exact model later."
     },
     "amendDialog": {
       "notice": "Every amendment is recorded with its reason and a before-and-after snapshot. A material term of a paid booking cannot change without the customer's consent.",
@@ -2007,6 +2084,14 @@
       "messageSent": "Message sent to Rovaro.",
       "replacementOffered": "Replacement proposal sent.",
       "amended": "Amendment saved."
+    },
+    "header": {
+      "sourcePlatform": "Rovaro booking",
+      "sourceInternal": "Internal",
+      "awaitingPayment": "Awaiting customer payment",
+      "paymentReceived": "Booking payment received",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
     }
   }
 }

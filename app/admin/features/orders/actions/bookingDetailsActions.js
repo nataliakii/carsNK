@@ -7,6 +7,7 @@
  */
 
 import { SUPPLIER_RESPONSE_PAYLOAD } from "@/domain/orders/supplierResponseStatus";
+import { REPLACEMENT_SOURCE } from "@/domain/booking/equivalentReplacementCopy";
 
 import { updateOrder, updateOrderSupplierResponse } from "@utils/action";
 
@@ -21,12 +22,12 @@ import { reportPlatformBookingProblem } from "./bookingCompletionActions";
 export { loadAdminOrder } from "./loadAdminOrder";
 export { loadSignedDrivingLicence } from "./drivingLicenceDocuments";
 
-/** Replacement kinds accepted by the equivalent-replacement rules. */
-export const REPLACEMENT_KIND = Object.freeze({
-  COMPANY_VEHICLE: "COMPANY_VEHICLE",
-  EXTERNAL_VEHICLE: "EXTERNAL_VEHICLE",
-  GUARANTEED_CLASS: "GUARANTEED_CLASS",
-});
+/**
+ * Replacement kinds accepted by the equivalent-replacement rules. The dialog
+ * shares the domain enum so a kind cannot exist in the form and nowhere else.
+ */
+export const REPLACEMENT_KIND = REPLACEMENT_SOURCE;
+export { REPLACEMENT_SOURCES as REPLACEMENT_KINDS } from "@/domain/booking/equivalentReplacementCopy";
 
 /** Who asked for a superadmin amendment. */
 export const AMENDMENT_REQUESTER = Object.freeze({
@@ -85,6 +86,22 @@ export async function loadReplacementFleetCars(orderId) {
   return loadAlternativeCars(orderId);
 }
 
+/** A specification the supplier did not state is omitted, never sent as 0. */
+function statedSpecifications(proposal) {
+  const stated = {};
+  for (const field of ["model", "category", "transmission"]) {
+    const value = String(proposal[field] ?? "").trim();
+    if (value) stated[field] = value;
+  }
+  for (const field of ["seats", "luggage"]) {
+    const raw = proposal[field];
+    if (raw === "" || raw == null) continue;
+    const value = Number(raw);
+    if (Number.isFinite(value)) stated[field] = value;
+  }
+  return stated;
+}
+
 export async function proposeEquivalentReplacement(orderId, proposal) {
   const source = proposal.replacementSource;
   if (source === REPLACEMENT_KIND.COMPANY_VEHICLE) {
@@ -100,14 +117,12 @@ export async function proposeEquivalentReplacement(orderId, proposal) {
     return { ok: result?.ok === true, message: result?.message || "" };
   }
 
+  // The class, transmission, seats, luggage and price the customer is promised
+  // are derived server-side from the original booking, so nothing here has to
+  // be typed and nothing typed here can weaken them.
   const result = await offerEquivalentReplacement(orderId, {
     replacementSource: source,
-    model: proposal.model,
-    category: proposal.category,
-    transmission: proposal.transmission,
-    seats: Number(proposal.seats) || 0,
-    luggage: proposal.luggage === "" ? null : Number(proposal.luggage),
-    totalPrice: Number(proposal.totalPrice),
+    ...statedSpecifications(proposal),
     supplierMessage: proposal.supplierMessage,
   });
   return { ok: result?.ok === true, message: result?.message || "" };
