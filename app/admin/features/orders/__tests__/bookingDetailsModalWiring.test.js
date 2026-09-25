@@ -49,7 +49,10 @@ describe("booking details modal wiring", () => {
   it("the modal makes no API call of its own", () => {
     expect(MODAL).not.toContain("fetch(");
     expect(MODAL).toContain("actions/bookingDetailsActions");
-    expect(MODAL).toContain("loadReplacementFleetCars");
+    // Replacement is a guaranteed-class acknowledgement; fleet picker was removed.
+    expect(MODAL).toContain("proposeEquivalentReplacement");
+    expect(MODAL).toContain("guaranteeAck");
+    expect(MODAL).not.toContain("loadReplacementFleetCars");
     // The support task reuses the endpoint that already exists.
     expect(read("app/admin/features/orders/actions/supplierBookingActions.js")).toContain(
       "ask-rovaro"

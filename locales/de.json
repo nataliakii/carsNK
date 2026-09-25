@@ -1094,7 +1094,8 @@
       "options": "Mietoptionen",
       "price": "Preisübersicht",
       "customer": "Kundendaten",
-      "documents": "Führerscheindokumente"
+      "documents": "Führerscheindokumente",
+      "activity": "Activity"
     },
     "status": {
       "newRequest": {
@@ -1193,7 +1194,9 @@
       "number": "Führerscheinnummer",
       "country": "Ausstellungsland",
       "expires": "Gültig bis",
-      "preview": "Führerschein"
+      "preview": "Führerschein",
+      "onFile": "Driving licence is on file. Open the preview once images load.",
+      "noneUploaded": "No driving licence was uploaded for this booking."
     },
     "actions": {
       "confirm": "Angefragtes Fahrzeug bestätigen",
@@ -1205,7 +1208,9 @@
     },
     "confirmDialog": {
       "title": "Angefragtes Fahrzeug bestätigen",
-      "intro": "Sie verpflichten sich zu diesen Bedingungen:"
+      "intro": "Sie verpflichten sich zu diesen Bedingungen:",
+      "obligation": "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+      "confirm": "Yes, I commit to provide this vehicle"
     },
     "declineDialog": {
       "title": "Anfrage ablehnen",
@@ -1253,7 +1258,13 @@
       "submit": "Vorschlag senden",
       "fleetPlaceholder": "Fahrzeug auswählen",
       "internalFleet": "(intern) {{name}}",
-      "notOfferable": "Für diese Buchung nicht anbietbar:"
+      "notOfferable": "Für diese Buchung nicht anbietbar:",
+      "reminderTitle": "Requested vehicle terms",
+      "reminderClass": "Class: {{class}}",
+      "reminderTransmission": "Transmission: {{transmission}}",
+      "reminderPrice": "Total price ceiling: {{price}}",
+      "guaranteeAck": "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
+      "commentHelp": "Optional note for the customer."
     },
     "amendDialog": {
       "notice": "Jede Änderung wird mit Grund sowie Vorher-Nachher-Stand protokolliert. Eine wesentliche Bedingung einer bezahlten Buchung kann sich nicht ohne Zustimmung des Kunden ändern.",
@@ -1283,6 +1294,11 @@
       "paymentReceived": "Buchungszahlung eingegangen",
       "days_one": "{{count}} Tag",
       "days_other": "{{count}} Tage"
+    },
+    "activity": {
+      "empty": "No activity recorded yet.",
+      "loadFailed": "Could not load activity.",
+      "relocated": "Calendar relocate{{car}}"
     }
   }
 }

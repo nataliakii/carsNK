@@ -1876,7 +1876,9 @@
       "number": "Номер прав",
       "country": "Страна выдачи",
       "expires": "Действительны до",
-      "preview": "Водительское удостоверение"
+      "preview": "Водительское удостоверение",
+      "onFile": "Driving licence is on file. Open the preview once images load.",
+      "noneUploaded": "No driving licence was uploaded for this booking."
     },
     "actions": {
       "confirm": "Подтвердить запрошенный автомобиль",
@@ -1888,7 +1890,9 @@
     },
     "confirmDialog": {
       "title": "Подтвердить запрошенный автомобиль",
-      "intro": "Вы принимаете на себя эти условия:"
+      "intro": "Вы принимаете на себя эти условия:",
+      "obligation": "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+      "confirm": "Yes, I commit to provide this vehicle"
     },
     "declineDialog": {
       "title": "Отклонить запрос",

@@ -641,7 +641,8 @@
       "options": "Опции на наема",
       "price": "Обобщение на цената",
       "customer": "Информация за клиента",
-      "documents": "Шофьорски документи"
+      "documents": "Шофьорски документи",
+      "activity": "Activity"
     },
     "status": {
       "newRequest": {
@@ -740,7 +741,9 @@
       "number": "Номер на книжката",
       "country": "Държава на издаване",
       "expires": "Валидна до",
-      "preview": "Шофьорска книжка"
+      "preview": "Шофьорска книжка",
+      "onFile": "Driving licence is on file. Open the preview once images load.",
+      "noneUploaded": "No driving licence was uploaded for this booking."
     },
     "actions": {
       "confirm": "Потвърди заявения автомобил",
@@ -752,7 +755,9 @@
     },
     "confirmDialog": {
       "title": "Потвърди заявения автомобил",
-      "intro": "Поемате ангажимент по следните условия:"
+      "intro": "Поемате ангажимент по следните условия:",
+      "obligation": "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+      "confirm": "Yes, I commit to provide this vehicle"
     },
     "declineDialog": {
       "title": "Откажи заявката",
@@ -800,7 +805,13 @@
       "submit": "Изпрати предложението",
       "fleetPlaceholder": "Изберете автомобил",
       "internalFleet": "(вътрешен) {{name}}",
-      "notOfferable": "Не могат да бъдат предложени за тази резервация:"
+      "notOfferable": "Не могат да бъдат предложени за тази резервация:",
+      "reminderTitle": "Requested vehicle terms",
+      "reminderClass": "Class: {{class}}",
+      "reminderTransmission": "Transmission: {{transmission}}",
+      "reminderPrice": "Total price ceiling: {{price}}",
+      "guaranteeAck": "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
+      "commentHelp": "Optional note for the customer."
     },
     "amendDialog": {
       "notice": "Всяка промяна се записва с причината си и със състоянието преди и след. Съществено условие на платена резервация не може да се промени без съгласието на клиента.",
@@ -830,6 +841,11 @@
       "paymentReceived": "Плащането за резервацията е получено",
       "days_one": "{{count}} ден",
       "days_other": "{{count}} дни"
+    },
+    "activity": {
+      "empty": "No activity recorded yet.",
+      "loadFailed": "Could not load activity.",
+      "relocated": "Calendar relocate{{car}}"
     }
   }
 }

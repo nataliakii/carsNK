@@ -1962,7 +1962,9 @@
       "number": "Número de permiso",
       "country": "País de expedición",
       "expires": "Fecha de caducidad",
-      "preview": "Permiso de conducir"
+      "preview": "Permiso de conducir",
+      "onFile": "Driving licence is on file. Open the preview once images load.",
+      "noneUploaded": "No driving licence was uploaded for this booking."
     },
     "actions": {
       "confirm": "Confirmar el vehículo solicitado",
@@ -1974,7 +1976,9 @@
     },
     "confirmDialog": {
       "title": "Confirmar el vehículo solicitado",
-      "intro": "Te comprometes a estas condiciones:"
+      "intro": "Te comprometes a estas condiciones:",
+      "obligation": "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+      "confirm": "Yes, I commit to provide this vehicle"
     },
     "declineDialog": {
       "title": "Rechazar la solicitud",

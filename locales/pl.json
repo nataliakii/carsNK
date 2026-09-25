@@ -734,7 +734,8 @@
       "options": "Opcje wynajmu",
       "price": "Podsumowanie ceny",
       "customer": "Dane klienta",
-      "documents": "Dokumenty prawa jazdy"
+      "documents": "Dokumenty prawa jazdy",
+      "activity": "Activity"
     },
     "status": {
       "newRequest": {
@@ -833,7 +834,9 @@
       "number": "Numer prawa jazdy",
       "country": "Kraj wydania",
       "expires": "Data ważności",
-      "preview": "Prawo jazdy"
+      "preview": "Prawo jazdy",
+      "onFile": "Driving licence is on file. Open the preview once images load.",
+      "noneUploaded": "No driving licence was uploaded for this booking."
     },
     "actions": {
       "confirm": "Potwierdź zamówiony pojazd",
@@ -845,7 +848,9 @@
     },
     "confirmDialog": {
       "title": "Potwierdź zamówiony pojazd",
-      "intro": "Zobowiązujesz się do tych warunków:"
+      "intro": "Zobowiązujesz się do tych warunków:",
+      "obligation": "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+      "confirm": "Yes, I commit to provide this vehicle"
     },
     "declineDialog": {
       "title": "Odrzuć zapytanie",
@@ -893,7 +898,13 @@
       "submit": "Wyślij propozycję",
       "fleetPlaceholder": "Wybierz pojazd",
       "internalFleet": "(wewnętrzny) {{name}}",
-      "notOfferable": "Niedostępne dla tej rezerwacji:"
+      "notOfferable": "Niedostępne dla tej rezerwacji:",
+      "reminderTitle": "Requested vehicle terms",
+      "reminderClass": "Class: {{class}}",
+      "reminderTransmission": "Transmission: {{transmission}}",
+      "reminderPrice": "Total price ceiling: {{price}}",
+      "guaranteeAck": "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
+      "commentHelp": "Optional note for the customer."
     },
     "amendDialog": {
       "notice": "Każda zmiana jest zapisywana wraz z powodem oraz stanem przed i po. Istotny warunek opłaconej rezerwacji nie może się zmienić bez zgody klienta.",
@@ -925,6 +936,11 @@
       "days_few": "{{count}} dni",
       "days_many": "{{count}} dni",
       "days_other": "{{count}} dni"
+    },
+    "activity": {
+      "empty": "No activity recorded yet.",
+      "loadFailed": "Could not load activity.",
+      "relocated": "Calendar relocate{{car}}"
     }
   }
 }

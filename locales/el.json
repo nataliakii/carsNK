@@ -1687,7 +1687,8 @@
       "options": "Επιλογές ενοικίασης",
       "price": "Σύνοψη τιμής",
       "customer": "Στοιχεία πελάτη",
-      "documents": "Έγγραφα οδήγησης"
+      "documents": "Έγγραφα οδήγησης",
+      "activity": "Activity"
     },
     "status": {
       "newRequest": {
@@ -1786,7 +1787,9 @@
       "number": "Αριθμός άδειας",
       "country": "Χώρα έκδοσης",
       "expires": "Ημερομηνία λήξης",
-      "preview": "Άδεια οδήγησης"
+      "preview": "Άδεια οδήγησης",
+      "onFile": "Driving licence is on file. Open the preview once images load.",
+      "noneUploaded": "No driving licence was uploaded for this booking."
     },
     "actions": {
       "confirm": "Επιβεβαίωση ζητούμενου οχήματος",
@@ -1798,7 +1801,9 @@
     },
     "confirmDialog": {
       "title": "Επιβεβαίωση ζητούμενου οχήματος",
-      "intro": "Δεσμεύεστε στους παρακάτω όρους:"
+      "intro": "Δεσμεύεστε στους παρακάτω όρους:",
+      "obligation": "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+      "confirm": "Yes, I commit to provide this vehicle"
     },
     "declineDialog": {
       "title": "Απόρριψη αιτήματος",
@@ -1846,7 +1851,13 @@
       "submit": "Αποστολή πρότασης",
       "fleetPlaceholder": "Επιλέξτε όχημα",
       "internalFleet": "(εσωτερικό) {{name}}",
-      "notOfferable": "Μη διαθέσιμα για αυτή την κράτηση:"
+      "notOfferable": "Μη διαθέσιμα για αυτή την κράτηση:",
+      "reminderTitle": "Requested vehicle terms",
+      "reminderClass": "Class: {{class}}",
+      "reminderTransmission": "Transmission: {{transmission}}",
+      "reminderPrice": "Total price ceiling: {{price}}",
+      "guaranteeAck": "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
+      "commentHelp": "Optional note for the customer."
     },
     "amendDialog": {
       "notice": "Κάθε τροποποίηση καταγράφεται με την αιτία της και στιγμιότυπο πριν και μετά. Ουσιώδης όρος πληρωμένης κράτησης δεν αλλάζει χωρίς τη συγκατάθεση του πελάτη.",
@@ -1876,6 +1887,11 @@
       "paymentReceived": "Η πληρωμή της κράτησης ελήφθη",
       "days_one": "{{count}} ημέρα",
       "days_other": "{{count}} ημέρες"
+    },
+    "activity": {
+      "empty": "No activity recorded yet.",
+      "loadFailed": "Could not load activity.",
+      "relocated": "Calendar relocate{{car}}"
     }
   }
 }

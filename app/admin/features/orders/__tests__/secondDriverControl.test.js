@@ -125,7 +125,9 @@ describe("the second-driver control follows the booking source", () => {
     );
     expect(modal).toContain("bookingDetails.options.secondDriver");
     expect(modal).not.toMatch(/secondDriver.*onChange/);
-    expect(modal).not.toContain("Checkbox");
+    // Replacement guarantee uses Checkbox; second driver must stay read-only text.
+    expect(modal).not.toMatch(/options\.secondDriver[\s\S]{0,200}Checkbox/);
+    expect(modal).not.toMatch(/<Checkbox[\s\S]{0,200}secondDriver/);
     expect(modal).not.toContain("Switch");
   });
 

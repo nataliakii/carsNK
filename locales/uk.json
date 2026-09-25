@@ -1191,7 +1191,8 @@
       "options": "Опції оренди",
       "price": "Вартість",
       "customer": "Інформація про клієнта",
-      "documents": "Водійські документи"
+      "documents": "Водійські документи",
+      "activity": "Activity"
     },
     "status": {
       "newRequest": {
@@ -1290,7 +1291,9 @@
       "number": "Номер посвідчення",
       "country": "Країна видачі",
       "expires": "Дійсне до",
-      "preview": "Водійське посвідчення"
+      "preview": "Водійське посвідчення",
+      "onFile": "Driving licence is on file. Open the preview once images load.",
+      "noneUploaded": "No driving licence was uploaded for this booking."
     },
     "actions": {
       "confirm": "Підтвердити запитаний автомобіль",
@@ -1302,7 +1305,9 @@
     },
     "confirmDialog": {
       "title": "Підтвердити запитаний автомобіль",
-      "intro": "Ви приймаєте на себе ці умови:"
+      "intro": "Ви приймаєте на себе ці умови:",
+      "obligation": "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+      "confirm": "Yes, I commit to provide this vehicle"
     },
     "declineDialog": {
       "title": "Відхилити запит",
@@ -1350,7 +1355,13 @@
       "submit": "Надіслати пропозицію",
       "fleetPlaceholder": "Оберіть автомобіль",
       "internalFleet": "(внутрішній) {{name}}",
-      "notOfferable": "Недоступно для цього бронювання:"
+      "notOfferable": "Недоступно для цього бронювання:",
+      "reminderTitle": "Requested vehicle terms",
+      "reminderClass": "Class: {{class}}",
+      "reminderTransmission": "Transmission: {{transmission}}",
+      "reminderPrice": "Total price ceiling: {{price}}",
+      "guaranteeAck": "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
+      "commentHelp": "Optional note for the customer."
     },
     "amendDialog": {
       "notice": "Кожну зміну фіксують із причиною та знімком «до і після». Істотну умову оплаченого бронювання не можна змінити без згоди клієнта.",
@@ -1382,6 +1393,11 @@
       "days_few": "{{count}} дні",
       "days_many": "{{count}} днів",
       "days_other": "{{count}} днів"
+    },
+    "activity": {
+      "empty": "No activity recorded yet.",
+      "loadFailed": "Could not load activity.",
+      "relocated": "Calendar relocate{{car}}"
     }
   }
 }

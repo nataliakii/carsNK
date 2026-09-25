@@ -641,7 +641,8 @@
       "options": "Опције изнајмљивања",
       "price": "Преглед цене",
       "customer": "Подаци о клијенту",
-      "documents": "Возачка документа"
+      "documents": "Возачка документа",
+      "activity": "Activity"
     },
     "status": {
       "newRequest": {
@@ -740,7 +741,9 @@
       "number": "Број дозволе",
       "country": "Земља издавања",
       "expires": "Важи до",
-      "preview": "Возачка дозвола"
+      "preview": "Возачка дозвола",
+      "onFile": "Driving licence is on file. Open the preview once images load.",
+      "noneUploaded": "No driving licence was uploaded for this booking."
     },
     "actions": {
       "confirm": "Потврди тражено возило",
@@ -752,7 +755,9 @@
     },
     "confirmDialog": {
       "title": "Потврди тражено возило",
-      "intro": "Обавезујете се на следеће услове:"
+      "intro": "Обавезујете се на следеће услове:",
+      "obligation": "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+      "confirm": "Yes, I commit to provide this vehicle"
     },
     "declineDialog": {
       "title": "Одбиј захтев",
@@ -800,7 +805,13 @@
       "submit": "Пошаљи предлог",
       "fleetPlaceholder": "Изаберите возило",
       "internalFleet": "(интерно) {{name}}",
-      "notOfferable": "Не могу се понудити за ову резервацију:"
+      "notOfferable": "Не могу се понудити за ову резервацију:",
+      "reminderTitle": "Requested vehicle terms",
+      "reminderClass": "Class: {{class}}",
+      "reminderTransmission": "Transmission: {{transmission}}",
+      "reminderPrice": "Total price ceiling: {{price}}",
+      "guaranteeAck": "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
+      "commentHelp": "Optional note for the customer."
     },
     "amendDialog": {
       "notice": "Свака измена се бележи са разлогом и стањем пре и после. Суштински услов плаћене резервације не може да се промени без сагласности клијента.",
@@ -831,6 +842,11 @@
       "days_one": "{{count}} dan",
       "days_few": "{{count}} dana",
       "days_other": "{{count}} dana"
+    },
+    "activity": {
+      "empty": "No activity recorded yet.",
+      "loadFailed": "Could not load activity.",
+      "relocated": "Calendar relocate{{car}}"
     }
   }
 }

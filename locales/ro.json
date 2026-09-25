@@ -641,7 +641,8 @@
       "options": "Opțiuni de închiriere",
       "price": "Sumar de preț",
       "customer": "Informații despre client",
-      "documents": "Documente de conducere"
+      "documents": "Documente de conducere",
+      "activity": "Activity"
     },
     "status": {
       "newRequest": {
@@ -740,7 +741,9 @@
       "number": "Numărul permisului",
       "country": "Țara emitentă",
       "expires": "Data expirării",
-      "preview": "Permis de conducere"
+      "preview": "Permis de conducere",
+      "onFile": "Driving licence is on file. Open the preview once images load.",
+      "noneUploaded": "No driving licence was uploaded for this booking."
     },
     "actions": {
       "confirm": "Confirmă vehiculul solicitat",
@@ -752,7 +755,9 @@
     },
     "confirmDialog": {
       "title": "Confirmă vehiculul solicitat",
-      "intro": "Vă angajați la aceste condiții:"
+      "intro": "Vă angajați la aceste condiții:",
+      "obligation": "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+      "confirm": "Yes, I commit to provide this vehicle"
     },
     "declineDialog": {
       "title": "Respinge cererea",
@@ -800,7 +805,13 @@
       "submit": "Trimite propunerea",
       "fleetPlaceholder": "Alegeți un vehicul",
       "internalFleet": "(intern) {{name}}",
-      "notOfferable": "Nu pot fi oferite pentru această rezervare:"
+      "notOfferable": "Nu pot fi oferite pentru această rezervare:",
+      "reminderTitle": "Requested vehicle terms",
+      "reminderClass": "Class: {{class}}",
+      "reminderTransmission": "Transmission: {{transmission}}",
+      "reminderPrice": "Total price ceiling: {{price}}",
+      "guaranteeAck": "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
+      "commentHelp": "Optional note for the customer."
     },
     "amendDialog": {
       "notice": "Fiecare modificare este înregistrată cu motivul ei și cu starea dinainte și de după. O condiție esențială a unei rezervări plătite nu se poate schimba fără acordul clientului.",
@@ -831,6 +842,11 @@
       "days_one": "{{count}} zi",
       "days_few": "{{count}} zile",
       "days_other": "{{count}} de zile"
+    },
+    "activity": {
+      "empty": "No activity recorded yet.",
+      "loadFailed": "Could not load activity.",
+      "relocated": "Calendar relocate{{car}}"
     }
   }
 }

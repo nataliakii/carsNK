@@ -2014,7 +2014,9 @@
       "number": "Licence number",
       "country": "Issuing country",
       "expires": "Expiry date",
-      "preview": "Driving licence"
+      "preview": "Driving licence",
+      "onFile": "Driving licence is on file. Open the preview once images load.",
+      "noneUploaded": "No driving licence was uploaded for this booking."
     },
     "actions": {
       "confirm": "Confirm requested vehicle",
