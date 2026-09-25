@@ -229,15 +229,22 @@ export default function PartnerLegalProfileSection({
       </Typography>
       )}
       {companyView ? (
-        <Typography variant="body2" sx={{ mb: 2, fontWeight: 700 }}>
-          {profile?.rejectionDecision === "changes_requested"
-            ? t("partnerLegal.status.CHANGES_REQUESTED.label", {
-                defaultValue: "Changes requested",
-              })
-            : t(
-                `partnerLegal.companyPage.${companyLegalStatusKey(profile)}`
-              )}
-        </Typography>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {profile?.rejectionDecision === "changes_requested"
+              ? t("partnerLegal.status.CHANGES_REQUESTED.label", {
+                  defaultValue: "Changes requested",
+                })
+              : t(
+                  `partnerLegal.companyPage.${companyLegalStatusKey(profile)}`
+                )}
+          </Typography>
+          {companyLegalStatusKey(profile) === "verified" ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1 }}>
+              {t("partnerLegal.companyPage.verifiedHint")}
+            </Typography>
+          ) : null}
+        </Box>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           {t("partnerLegal.subtitle")}

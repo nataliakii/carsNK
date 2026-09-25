@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef, useCallback, startTransition } from
 import {
   Box,
   Typography,
-  IconButton,
   useMediaQuery,
   useTheme,
   Grid,
 } from "@mui/material";
+import IconButton from "@mui/material/IconButton";
 import { Calendar, ConfigProvider } from "antd";
 import enUS from "antd/locale/en_US";
 import esES from "antd/locale/es_ES";

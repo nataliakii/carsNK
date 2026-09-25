@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { Slide, IconButton, Snackbar as MuiSnackbar } from "@mui/material";
+import { Slide, Snackbar as MuiSnackbar } from "@mui/material";
+import IconButton from "@mui/material/IconButton";
 import {
   Close as CloseIcon,
   Warning as WarningIcon,

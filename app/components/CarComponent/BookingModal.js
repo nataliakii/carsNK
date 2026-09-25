@@ -10,9 +10,9 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  IconButton,
   Grow,
 } from "@mui/material";
+import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
 import {
   ConfirmButton,

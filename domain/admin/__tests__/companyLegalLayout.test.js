@@ -59,6 +59,20 @@ describe("company legal shared layout", () => {
     expect(section).toContain("CompanyRentalTermsPanel");
     expect(section).toContain("CompanyTermsPanel");
     expect(section).toContain("data-testid=\"company-legal-details\"");
+    expect(section).toContain("data-testid=\"company-legal-next-step\"");
+    expect(section).toContain("preparingTitle");
+    expect(section).toContain("COMPANY_TERMS_PUBLICATION.ACCEPTED");
+    expect(section).not.toContain("return null");
+    expect(section.indexOf("company-legal-terms-form")).toBeLessThan(
+      section.indexOf('panel="details"')
+    );
+    const detailsAt = section.indexOf('data-testid="company-legal-details"');
+    expect(section.indexOf("CompanyLegalNextStep", detailsAt)).toBeGreaterThan(
+      detailsAt
+    );
+    expect(section.indexOf("CompanyLegalNextStep", detailsAt)).toBeLessThan(
+      section.indexOf('panel="details"')
+    );
     expect(section).not.toContain("BookingFeeOutcomesTable");
     expect(section).toContain("Divider");
     expect(rental).toContain("Add your own rental terms");

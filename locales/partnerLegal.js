@@ -103,8 +103,8 @@ export const partnerLegalEn = {
     },
     VERIFIED: {
       label: "Verified",
-      title: "Verified",
-      body: "The profile has been verified. Editing it will stop trading until Rovaro reviews the change.",
+      title: "Company identity verified",
+      body: "Rovaro has checked this company. That is not a signature of Rovaro Terms.",
     },
     SUSPENDED: {
       label: "Suspended",
@@ -135,10 +135,10 @@ export const partnerLegalEn = {
     goToAgreement: "Rovaro Terms",
     rejectedReopen:
       "The previous application was rejected. Update the fields or documents that were refused and submit again.",
-    unlockToEdit: "Update company details",
-    updateDetails: "Update company details",
+    unlockToEdit: "Edit company details (optional)",
+    updateDetails: "Edit company details (optional)",
     updateDetailsBody:
-      "Changes to verified legal details may need review before they take effect.",
+      "This form is not a signature. Changes to verified identity may need review before they take effect.",
     readOnlyTitle: "This profile is read-only",
     readOnlyVerified:
       "Verified details stay active. Use Update company details to propose a change.",
@@ -505,12 +505,26 @@ export const partnerLegalEn = {
     details: "Company details",
     documents: "Documents",
     terms: "Terms",
+    rentalTermsTab: "Rental terms",
+    rovaroTerms: "Rovaro Terms",
     draft: "Draft",
     submitted: "Submitted",
     underReview: "Under review",
-    verified: "Verified",
+    verified: "Company identity verified — not a signature",
+    verifiedHint:
+      "These fields are company identity. You do not sign anything here. If Rovaro Terms are ready, they appear above this form on this same tab (not on Rental terms).",
     rejected: "Rejected",
     suspended: "Suspended",
+    nextStep: {
+      preparingTitle: "Nothing to sign yet",
+      preparingBody:
+        "Rovaro is still preparing Rovaro Terms, Partner Operating Rules and the Data Protection Schedule. You will accept them here when they are ready.",
+      signTitle: "Still to sign on this page",
+      signBody:
+        "Open and accept these three documents: Rovaro Terms, Partner Operating Rules, and Data Protection Schedule. The Rental terms tab is only your customer rental conditions, not this agreement.",
+      doneBody:
+        "Nothing further to sign unless Rovaro publishes a new version.",
+    },
     standardApply: "Standard Rovaro Terms apply",
     standardTerms: "Standard terms",
     customAgreement: "Custom agreement",
@@ -621,8 +635,8 @@ export const partnerLegalEs = {
     },
     VERIFIED: {
       label: "Verificado",
-      title: "Verificado",
-      body: "El perfil está verificado. Editarlo detendrá la actividad hasta que Rovaro revise el cambio.",
+      title: "Identidad de la empresa verificada",
+      body: "Rovaro ha comprobado esta empresa. Eso no es la firma de las Condiciones de Rovaro.",
     },
     SUSPENDED: {
       label: "Suspendido",
@@ -653,13 +667,13 @@ export const partnerLegalEs = {
     goToAgreement: "Condiciones de Rovaro",
     rejectedReopen:
       "La solicitud anterior fue rechazada. Actualiza los campos o documentos rechazados y vuelve a enviarlo.",
-    unlockToEdit: "Actualizar datos de la empresa",
-    updateDetails: "Actualizar datos de la empresa",
+    unlockToEdit: "Editar datos de la empresa (opcional)",
+    updateDetails: "Editar datos de la empresa (opcional)",
     updateDetailsBody:
       "Los cambios en los datos legales verificados pueden necesitar revisión antes de aplicarse.",
     readOnlyTitle: "Este perfil es de solo lectura",
     readOnlyVerified:
-      "Los datos verificados siguen activos. Usa Actualizar datos de la empresa para proponer un cambio.",
+      "Los datos verificados siguen activos. Usa Editar datos de la empresa (opcional) para proponer un cambio.",
     readOnlyPending:
       "El perfil está en revisión por Rovaro y no se puede cambiar hasta que termine esa revisión.",
     unlockWarningTitle: "Edición de un perfil verificado",
@@ -1027,10 +1041,14 @@ export const partnerLegalEs = {
     details: "Datos de la empresa",
     documents: "Documentos",
     terms: "Condiciones",
+    rentalTermsTab: "Condiciones de alquiler",
+    rovaroTerms: "Condiciones Rovaro",
     draft: "Borrador",
     submitted: "Enviado",
     underReview: "En revisión",
-    verified: "Verificado",
+    verified: "Identidad de la empresa verificada — no es una firma",
+    verifiedHint:
+      "Estos campos son la identidad de la empresa. Aquí no se firma nada. Si las Condiciones de Rovaro están listas, aparecen encima de este formulario en la misma pestaña (no en Condiciones de alquiler).",
     rejected: "Rechazado",
     suspended: "Suspendido",
     standardApply: "Se aplican las Condiciones estándar de Rovaro",
@@ -1040,6 +1058,16 @@ export const partnerLegalEs = {
     acceptTerms: "Aceptar condiciones",
     termsAccepted: "Condiciones de Rovaro aceptadas",
     termsUpdated: "Las Condiciones de Rovaro actualizadas requieren aceptación",
+    nextStep: {
+      preparingTitle: "Aún no hay nada que firmar",
+      preparingBody:
+        "Rovaro sigue preparando el Acuerdo de Partner, las Normas de funcionamiento y el Anexo de protección de datos. Los aceptarás aquí cuando estén listos.",
+      signTitle: "Pendiente de firmar en esta página",
+      signBody:
+        "Abre y acepta estos tres documentos: Condiciones Rovaro, Normas de funcionamiento del partner y Anexo de protección de datos. La pestaña Condiciones de alquiler es solo para tus condiciones al cliente, no este acuerdo.",
+      doneBody:
+        "No hay nada más que firmar salvo que Rovaro publique una versión nueva.",
+    },
     preparing:
       "Las Condiciones de Rovaro se están preparando. Puedes seguir configurando tu empresa y enviando documentos.",
     documentTypes: {
@@ -1162,6 +1190,21 @@ export const partnerLegalRu = {
   },
   companyPage: {
     ...partnerLegalEn.companyPage,
+    rentalTermsTab: "Условия аренды",
+    rovaroTerms: "Условия Rovaro",
+    verified: "Данные компании проверены — это не подпись",
+    verifiedHint:
+      "Эти поля — данные компании, здесь ничего не подписывается. Если условия Rovaro готовы, они на этой же вкладке выше формы (не во вкладке «Условия аренды»).",
+    nextStep: {
+      preparingTitle: "Пока нечего подписывать",
+      preparingBody:
+        "Rovaro ещё готовит партнёрский договор, правила работы и приложение о защите данных. Когда они будут готовы, принять их нужно здесь.",
+      signTitle: "На этой странице ещё нужно подписать",
+      signBody:
+        "Откройте и примите три документа: Условия Rovaro, Правила работы партнёра и Приложение о защите данных. Вкладка «Условия аренды» — это ваши условия для клиентов, не этот договор.",
+      doneBody:
+        "Больше ничего подписывать не нужно, пока Rovaro не опубликует новую версию.",
+    },
     preparing:
       "Условия Rovaro готовятся. Вы можете продолжать настройку компании и загрузку документов.",
     documentTypes: {

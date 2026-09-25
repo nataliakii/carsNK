@@ -10,7 +10,6 @@ import {
   DialogContentText,
   DialogTitle,
   Divider,
-  IconButton,
   List,
   ListItemButton,
   ListItemIcon,
@@ -20,6 +19,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import IconButton from "@mui/material/IconButton";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useSession, signOut } from "next-auth/react";

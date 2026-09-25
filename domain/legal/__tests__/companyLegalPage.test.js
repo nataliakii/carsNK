@@ -435,7 +435,7 @@ describe("company terms screen", () => {
       "Rovaro Terms are being prepared. You can continue setting up your company and submitting documents."
     );
     const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
-    expect(panel).toContain("partnerLegal.companyPage.terms");
+    expect(panel).toContain("partnerLegal.companyPage.rovaroTerms");
     expect(panel).toContain("partnerLegal.companyPage.preparing");
   });
 

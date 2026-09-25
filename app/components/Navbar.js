@@ -16,7 +16,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  IconButton,
   Popover,
   MenuItem,
   TextField,
@@ -25,6 +24,7 @@ import {
   InputAdornment,
   Tooltip,
 } from "@mui/material";
+import IconButton from "@mui/material/IconButton";
 import { useTranslation } from "react-i18next";
 import { useSession } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";

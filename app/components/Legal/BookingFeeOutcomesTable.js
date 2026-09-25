@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   Box,
   Collapse,
-  IconButton,
   Table,
   TableBody,
   TableCell,
@@ -13,6 +12,7 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
+import IconButton from "@mui/material/IconButton";
 import { useTheme } from "@mui/material/styles";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 

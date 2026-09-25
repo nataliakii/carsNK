@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useMemo } from "react";
-import { Box, CircularProgress, Divider, Stack } from "@mui/material";
+import { Alert, AlertTitle, Box, CircularProgress, Divider, Stack } from "@mui/material";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 
@@ -9,10 +9,53 @@ import CompanySettingsLayout from "@/app/admin/company/CompanySettingsLayout";
 import { COMPANY_SETTINGS_FORM_MAX_WIDTH } from "@/domain/admin/companySettingsLayout";
 import PartnerLegalProfileSection from "@/app/admin/legal-profile/PartnerLegalProfileSection";
 import usePartnerLegalStatus from "@/app/admin/legal-profile/_components/usePartnerLegalStatus";
-import { COMPANY_LEGAL_TABS } from "@/domain/legal/companyLegalPage";
+import {
+  COMPANY_LEGAL_TABS,
+  COMPANY_TERMS_PUBLICATION,
+} from "@/domain/legal/companyLegalPage";
 
 import CompanyTermsPanel from "./CompanyTermsPanel";
 import CompanyRentalTermsPanel from "./CompanyRentalTermsPanel";
+
+const TAB_LABEL_KEY = {
+  details: "details",
+  documents: "documents",
+  terms: "rentalTermsTab",
+};
+
+function CompanyLegalNextStep({ publication }) {
+  const { t } = useTranslation();
+  if (publication === COMPANY_TERMS_PUBLICATION.READY_TO_ACCEPT) {
+    return (
+      <Alert severity="warning" sx={{ mb: 2 }} data-testid="company-legal-next-step">
+        <AlertTitle>{t("partnerLegal.companyPage.nextStep.signTitle")}</AlertTitle>
+        {t("partnerLegal.companyPage.nextStep.signBody")}
+      </Alert>
+    );
+  }
+  if (publication === COMPANY_TERMS_PUBLICATION.UPDATE_REQUIRED) {
+    return (
+      <Alert severity="warning" sx={{ mb: 2 }} data-testid="company-legal-next-step">
+        <AlertTitle>{t("partnerLegal.companyPage.termsUpdated")}</AlertTitle>
+        {t("partnerLegal.companyPage.nextStep.signBody")}
+      </Alert>
+    );
+  }
+  if (publication === COMPANY_TERMS_PUBLICATION.ACCEPTED) {
+    return (
+      <Alert severity="success" sx={{ mb: 2 }} data-testid="company-legal-next-step">
+        <AlertTitle>{t("partnerLegal.companyPage.termsAccepted")}</AlertTitle>
+        {t("partnerLegal.companyPage.nextStep.doneBody")}
+      </Alert>
+    );
+  }
+  return (
+    <Alert severity="info" sx={{ mb: 2 }} data-testid="company-legal-next-step">
+      <AlertTitle>{t("partnerLegal.companyPage.nextStep.preparingTitle")}</AlertTitle>
+      {t("partnerLegal.companyPage.nextStep.preparingBody")}
+    </Alert>
+  );
+}
 
 function tabFromSearch(searchParams) {
   const tab = searchParams?.get("step") || searchParams?.get("tab");
@@ -52,7 +95,7 @@ function CompanyLegalInner({ viewMode }) {
     () =>
       COMPANY_LEGAL_TABS.map((id) => ({
         id,
-        label: t(`partnerLegal.companyPage.${id}`),
+        label: t(`partnerLegal.companyPage.${TAB_LABEL_KEY[id] || id}`),
       })),
     [t]
   );
@@ -97,12 +140,7 @@ function CompanyLegalInner({ viewMode }) {
             overflow: "visible",
           }}
         >
-          <PartnerLegalProfileSection
-            variant="company"
-            panel="details"
-            viewMode={viewMode}
-            termsPublication={publication}
-          />
+          <CompanyLegalNextStep publication={publication} />
           <Box
             data-testid="company-legal-terms-form"
             sx={{
@@ -117,6 +155,12 @@ function CompanyLegalInner({ viewMode }) {
               onAccepted={reload}
             />
           </Box>
+          <PartnerLegalProfileSection
+            variant="company"
+            panel="details"
+            viewMode={viewMode}
+            termsPublication={publication}
+          />
         </Stack>
       )}
     </CompanySettingsLayout>

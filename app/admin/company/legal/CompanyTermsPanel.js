@@ -198,7 +198,7 @@ export default function CompanyTermsPanel({
           </Alert>
         ) : null}
         <Typography component="h2" variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-          {t("partnerLegal.companyPage.terms")}
+          {t("partnerLegal.companyPage.rovaroTerms")}
         </Typography>
         <Typography variant="body1">
           {t("partnerLegal.companyPage.preparing")}
