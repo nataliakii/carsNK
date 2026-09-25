@@ -177,8 +177,8 @@ export const CAR_BRAND_MODELS = {
   BYD: ["Atto 3", "Dolphin", "Seal", "Seal U"],
   Alpine: ["A110"],
   Lexus: ["UX", "NX", "RX", "LBX"],
-  Land Rover: ["Discovery Sport", "Range Rover Evoque", "Range Rover Velar"],
-  Alfa Romeo: ["Giulia", "Stelvio", "Tonale", "Junior"],
+  "Land Rover": ["Discovery Sport", "Range Rover Evoque", "Range Rover Velar"],
+  "Alfa Romeo": ["Giulia", "Stelvio", "Tonale", "Junior"],
 };
 
 /** Flat list of "Brand Model" and brand-only options for Autocomplete. */
