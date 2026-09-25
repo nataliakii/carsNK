@@ -683,7 +683,8 @@
       "deposit": "Depozit",
       "fleetCode": "Šifra u voznom parku",
       "registration": "Registarska oznaka",
-      "legacyNotice": "Ova rezervacija je starija od snimaka vozila. Prikazan je današnji zapis voznog parka, koji može da se razlikuje od dogovorenog."
+      "legacyNotice": "Ova rezervacija je starija od snimaka vozila. Prikazan je današnji zapis voznog parka, koji može da se razlikuje od dogovorenog.",
+      "seatsShort": "{{count}} seats"
     },
     "dates": {
       "pickup": "Датум и време преузимања",

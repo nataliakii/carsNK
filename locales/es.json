@@ -1904,7 +1904,8 @@
       "deposit": "Fianza",
       "fleetCode": "Código de flota",
       "registration": "Matrícula",
-      "legacyNotice": "Esta reserva es anterior a las instantáneas de vehículo. Se muestra el registro actual de la flota, que puede diferir de lo acordado."
+      "legacyNotice": "Esta reserva es anterior a las instantáneas de vehículo. Se muestra el registro actual de la flota, que puede diferir de lo acordado.",
+      "seatsShort": "{{count}} plazas"
     },
     "dates": {
       "pickup": "Fecha y hora de recogida",

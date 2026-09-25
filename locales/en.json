@@ -1947,6 +1947,7 @@
       "class": "Class",
       "transmission": "Transmission",
       "seats": "Seats",
+      "seatsShort": "{{count}} seats",
       "luggage": "Luggage",
       "fuel": "Fuel type",
       "doors": "Doors",

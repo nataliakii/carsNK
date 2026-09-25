@@ -14,10 +14,13 @@ import {
   FormControlLabel,
   IconButton,
   MenuItem,
+  Stack,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
 } from "@mui/material";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { styled, useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
 import { useSession } from "next-auth/react";
@@ -120,23 +123,6 @@ const SectionPanel = styled(Box)(({ theme }) => ({
 const GridFullWidth = styled(Box)({
   gridColumn: "1 / -1",
 });
-
-/**
- * Specs share one dense two-column list. Nested SummaryField rows stay stacked
- * (label above value) so class/transmission values are not crushed.
- */
-const VehicleSpecGrid = styled(SummaryList)(({ theme }) => ({
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  columnGap: theme.spacing(1),
-  rowGap: 0,
-  "& > *": {
-    gridTemplateColumns: "1fr !important",
-    gap: theme.spacing(0.05),
-    alignItems: "start",
-    maxWidth: "none",
-  },
-}));
 
 const PriceLayout = styled(Box)(({ theme }) => ({
   display: "grid",
@@ -515,78 +501,102 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                     : "bookingDetails.sections.vehicle"
                 )}
               </SectionTitle>
-              {view.vehicleIsLegacy ? (
-                <Alert severity="warning" data-testid="vehicle-legacy-notice">
-                  {t("bookingDetails.vehicle.legacyNotice")}
-                </Alert>
-              ) : null}
-              <SummaryField
-                label={t("bookingDetails.vehicle.requested")}
-                value={vehicle.displayName}
-                strong
-              />
-              <VehicleSpecGrid component="dl">
-                <SummaryField
-                  label={t("bookingDetails.vehicle.class")}
-                  value={vehicle.class}
-                />
-                <SummaryField
-                  label={t("bookingDetails.vehicle.transmission")}
-                  value={vehicle.transmission}
-                />
-                <SummaryField
-                  label={t("bookingDetails.vehicle.fuel")}
-                  value={vehicle.fuelType}
-                />
-                <SummaryField
-                  label={t("bookingDetails.vehicle.seats")}
-                  value={vehicle.seats}
-                />
-                <SummaryField
-                  label={t("bookingDetails.vehicle.doors")}
-                  value={vehicle.doors}
-                />
-                <SummaryField
-                  label={t("bookingDetails.vehicle.luggage")}
-                  value={vehicle.luggage}
-                />
-                {/* Absence is not the same as "no air conditioning", so
-                    the row appears only when the answer was recorded. */}
-                {typeof vehicle.airConditioning === "boolean" ? (
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.airConditioning")}
-                    value={t(
-                      vehicle.airConditioning
-                        ? "bookingDetails.options.yes"
-                        : "bookingDetails.options.no"
-                    )}
+              <Stack
+                direction="row"
+                spacing={0.5}
+                alignItems="flex-start"
+                sx={{ minWidth: 0 }}
+              >
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ fontWeight: 700, lineHeight: 1.3 }}
+                  >
+                    {vehicle.displayName}
+                  </Typography>
+                  {(() => {
+                    const bits = [
+                      vehicle.class,
+                      vehicle.transmission,
+                      vehicle.seats != null && vehicle.seats !== ""
+                        ? t("bookingDetails.vehicle.seatsShort", {
+                            defaultValue: "{{count}} seats",
+                            count: vehicle.seats,
+                          })
+                        : null,
+                      vehicle.fuelType,
+                    ].filter(Boolean);
+                    return bits.length ? (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block", lineHeight: 1.35 }}
+                      >
+                        {bits.join(" · ")}
+                      </Typography>
+                    ) : null;
+                  })()}
+                  {showFleetIdentity && vehicle.fleetCode ? (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", lineHeight: 1.35 }}
+                    >
+                      {t("bookingDetails.vehicle.fleetCode")}: {vehicle.fleetCode}
+                    </Typography>
+                  ) : null}
+                </Box>
+                <Tooltip
+                  title={
+                    <Box component="span" sx={{ display: "block", py: 0.25 }}>
+                      {[
+                        vehicle.class &&
+                          `${t("bookingDetails.vehicle.class")}: ${vehicle.class}`,
+                        vehicle.transmission &&
+                          `${t("bookingDetails.vehicle.transmission")}: ${vehicle.transmission}`,
+                        vehicle.fuelType &&
+                          `${t("bookingDetails.vehicle.fuel")}: ${vehicle.fuelType}`,
+                        vehicle.seats != null &&
+                          vehicle.seats !== "" &&
+                          `${t("bookingDetails.vehicle.seats")}: ${vehicle.seats}`,
+                        vehicle.doors != null &&
+                          vehicle.doors !== "" &&
+                          `${t("bookingDetails.vehicle.doors")}: ${vehicle.doors}`,
+                        typeof vehicle.airConditioning === "boolean" &&
+                          `${t("bookingDetails.vehicle.airConditioning")}: ${t(
+                            vehicle.airConditioning
+                              ? "bookingDetails.options.yes"
+                              : "bookingDetails.options.no"
+                          )}`,
+                        vehicle.modelYear &&
+                          `${t("bookingDetails.vehicle.modelYear")}: ${vehicle.modelYear}`,
+                        vehicle.deposit != null &&
+                          vehicle.deposit !== "" &&
+                          `${t("bookingDetails.vehicle.deposit")}: ${vehicle.deposit}`,
+                        showFleetIdentity &&
+                          vehicle.fleetCode &&
+                          `${t("bookingDetails.vehicle.fleetCode")}: ${vehicle.fleetCode}`,
+                      ]
+                        .filter(Boolean)
+                        .map((line) => (
+                          <Typography
+                            key={line}
+                            variant="caption"
+                            component="span"
+                            sx={{ display: "block", color: "inherit" }}
+                          >
+                            {line}
+                          </Typography>
+                        ))}
+                    </Box>
+                  }
+                >
+                  <InfoOutlinedIcon
+                    sx={{ fontSize: 16, color: "text.secondary", mt: 0.25, flexShrink: 0 }}
+                    data-testid="vehicle-specs-info"
                   />
-                ) : null}
-                <SummaryField
-                  label={t("bookingDetails.vehicle.modelYear")}
-                  value={vehicle.modelYear}
-                />
-                <SummaryField
-                  label={t("bookingDetails.vehicle.includedMileage")}
-                  value={vehicle.includedMileage ?? vehicle.mileagePolicy}
-                />
-                <SummaryField
-                  label={t("bookingDetails.vehicle.deposit")}
-                  value={vehicle.deposit}
-                />
-                {showFleetIdentity ? (
-                  <>
-                    <SummaryField
-                      label={t("bookingDetails.vehicle.fleetCode")}
-                      value={vehicle.fleetCode}
-                    />
-                    <SummaryField
-                      label={t("bookingDetails.vehicle.registration")}
-                      value={vehicle.registrationNumber}
-                    />
-                  </>
-                ) : null}
-              </VehicleSpecGrid>
+                </Tooltip>
+              </Stack>
             </SectionPanel>
           ) : null}
 

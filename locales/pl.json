@@ -776,7 +776,8 @@
       "deposit": "Kaucja",
       "fleetCode": "Kod we flocie",
       "registration": "Numer rejestracyjny",
-      "legacyNotice": "Ta rezerwacja pochodzi sprzed migawek pojazdu. Pokazano bieżący wpis floty, który może różnić się od uzgodnionego."
+      "legacyNotice": "Ta rezerwacja pochodzi sprzed migawek pojazdu. Pokazano bieżący wpis floty, który może różnić się od uzgodnionego.",
+      "seatsShort": "{{count}} seats"
     },
     "dates": {
       "pickup": "Data i godzina odbioru",
