@@ -46,6 +46,18 @@ export const BOOKING_CAPABILITY = Object.freeze({
    * does not mediate, so its owner adds the second driver freely.
    */
   ADD_SECOND_DRIVER: "ADD_SECOND_DRIVER",
+  /**
+   * Put a Stripe payment link in front of the customer by hand, outside the
+   * automatic sequencing that follows a supplier confirmation. Rehoming a
+   * declined booking is manual, so Rovaro needs to choose the moment. The
+   * supplier never sells Rovaro's booking payment, so this is platform-only.
+   */
+  ISSUE_CUSTOMER_PAYMENT_LINK: "ISSUE_CUSTOMER_PAYMENT_LINK",
+  /**
+   * Revise the gross total of a PLATFORM booking under audit. The supplier is
+   * never allowed to set the price of a brokered booking, at any stage.
+   */
+  CORRECT_PLATFORM_BOOKING_PRICE: "CORRECT_PLATFORM_BOOKING_PRICE",
 });
 
 export const BOOKING_ROLE = Object.freeze({
@@ -168,6 +180,10 @@ export function resolveBookingCapabilities({
       [BOOKING_CAPABILITY.REPORT_PROBLEM]: paid,
       [BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]: !closed,
       [BOOKING_CAPABILITY.ADD_SECOND_DRIVER]: true,
+      // A paid booking already has the customer's money; a second link could
+      // only take it twice.
+      [BOOKING_CAPABILITY.ISSUE_CUSTOMER_PAYMENT_LINK]: !closed && !paid,
+      [BOOKING_CAPABILITY.CORRECT_PLATFORM_BOOKING_PRICE]: !closed,
     });
   }
 

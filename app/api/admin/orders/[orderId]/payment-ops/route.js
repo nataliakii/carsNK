@@ -27,6 +27,17 @@ import {
 } from "@/domain/orders/invalidateMarketplaceCheckout";
 import { issueMarketplaceBookingFeeRefund } from "@/domain/orders/marketplaceBookingFeeRefund";
 import { applyMarketplacePriceCorrection } from "@/domain/orders/applyMarketplacePriceCorrection";
+import { sendSuperadminPaymentLink } from "@/domain/orders/sendSuperadminPaymentLink";
+import {
+  prefillManualPaymentLinkAmount,
+  resolvePriceOverrideNotice,
+  superadminAmountFromTrustedBody,
+} from "@/domain/orders/superadminPaymentLinkPolicy";
+import {
+  assertBookingCapability,
+  BOOKING_CAPABILITY,
+  resolveOrderCapabilities,
+} from "@/domain/orders/bookingCapabilities";
 import { toMinorUnits } from "@/domain/money/minorUnits";
 
 export const runtime = "nodejs";
@@ -64,11 +75,20 @@ export async function GET(request, { params }) {
 
   const view = await buildMarketplacePaymentOpsView(order);
   const isSuper = Number(session.user?.role) === ROLE.SUPERADMIN;
+  const capabilities = resolveOrderCapabilities(order.toObject(), session.user);
   return json({
     success: true,
     superadmin: isSuper,
     canIssueNewLink: isSuper && view.canIssueNewLink,
     canResendExisting: isSuper && view.canResendExisting,
+    // The manual send is its own capability: it does not need the supplier to
+    // have answered, which is the whole point of it.
+    canSendManualLink:
+      capabilities[BOOKING_CAPABILITY.ISSUE_CUSTOMER_PAYMENT_LINK] === true,
+    canCorrectPrice:
+      capabilities[BOOKING_CAPABILITY.CORRECT_PLATFORM_BOOKING_PRICE] === true,
+    manualLinkAmount: prefillManualPaymentLinkAmount(order.toObject()),
+    priceOverride: resolvePriceOverrideNotice(order.toObject()),
     view,
   });
 }
@@ -213,6 +233,47 @@ export async function POST(request, { params }) {
     });
   }
 
+  if (action === "send_payment_link") {
+    // The amount is read through the declared keys only, after the session and
+    // the capability have been checked. A body cannot name its own price.
+    const result = await sendSuperadminPaymentLink({
+      orderId,
+      actorUser: session.user,
+      amountOverride: superadminAmountFromTrustedBody(body),
+      confirmZeroSupplierBalance: body?.confirmZeroSupplierBalance === true,
+      reasonNote: String(body?.reasonNote || ""),
+      idempotencyKey: String(body?.idempotencyKey || ""),
+      ipAddress,
+      userAgent,
+    });
+    if (!result.ok) {
+      return json(
+        {
+          success: false,
+          code: result.code,
+          message: result.message,
+          prefill: result.prefill || null,
+          priceCorrected: Boolean(result.priceCorrected),
+        },
+        result.status || 400
+      );
+    }
+    const refreshed = await loadOrder(orderId);
+    return json({
+      success: true,
+      reused: Boolean(result.reused),
+      priceCorrected: Boolean(result.priceCorrected),
+      revision: result.revision || null,
+      amount: result.amount,
+      // Returned so she can pass the link on herself if the email bounces.
+      url: result.url,
+      expiresAt: result.expiresAt,
+      priceOverride: resolvePriceOverrideNotice(refreshed.toObject()),
+      manualLinkAmount: prefillManualPaymentLinkAmount(refreshed.toObject()),
+      view: await buildMarketplacePaymentOpsView(refreshed),
+    });
+  }
+
   if (action === "retry_invalidation") {
     const summary = await retryCheckoutInvalidationForOrder(order, {
       reason: String(body?.reason || order.payment?.invalidatedReason || "PROFILE_NOT_VERIFIED"),
@@ -239,6 +300,16 @@ export async function POST(request, { params }) {
   }
 
   if (action === "correct_price") {
+    const mayPrice = assertBookingCapability(
+      resolveOrderCapabilities(order.toObject(), session.user),
+      BOOKING_CAPABILITY.CORRECT_PLATFORM_BOOKING_PRICE
+    );
+    if (!mayPrice.ok) {
+      return json(
+        { success: false, code: mayPrice.code, message: mayPrice.message },
+        mayPrice.status
+      );
+    }
     const revisedGrossMinor =
       body?.revisedGrossMinor != null
         ? Math.round(Number(body.revisedGrossMinor))
