@@ -1,4 +1,5 @@
 import { getSiteCountryCode } from "@config/siteCountry";
+import { impliedLocationCountry } from "@/domain/orders/companyBookingCoverage";
 import {
   DEFAULT_SPAIN_BOOKING_LOCATION,
   SPAIN_CITY_OPTIONS,
@@ -10,26 +11,45 @@ export function isSpainBookingSite(countryCode = getSiteCountryCode()) {
   return String(countryCode || "").toUpperCase() === "ES";
 }
 
+function normalizeSiteCountry(countryCode) {
+  return String(countryCode || getSiteCountryCode() || "")
+    .trim()
+    .toUpperCase();
+}
+
+/** Drop legacy Halkidiki / Spain labels that belong to another deployment market. */
+export function isCatalogPlaceAllowedForSite(name, countryCode) {
+  const site = normalizeSiteCountry(countryCode);
+  const label = String(name || "").trim();
+  if (!label) return false;
+  const implied = impliedLocationCountry(label);
+  if (implied && site && implied !== site) return false;
+  return true;
+}
+
+function companyPlacesForSite(companyLocationNames, countryCode) {
+  return (Array.isArray(companyLocationNames) ? companyLocationNames : [])
+    .map((name) => String(name || "").trim())
+    .filter((name) => isCatalogPlaceAllowedForSite(name, countryCode));
+}
+
 /**
  * Catalog / booking place names for the current market.
  * Spain: curated cities (address later in order). Greece: company booking points.
  */
 export function resolveCatalogPlaceOptions(companyLocationNames, countryCode) {
-  if (isSpainBookingSite(countryCode)) {
+  const site = normalizeSiteCountry(countryCode);
+  const companyNames = companyPlacesForSite(companyLocationNames, site);
+
+  if (isSpainBookingSite(site)) {
     const curated = [...SPAIN_CITY_OPTIONS];
-    const extras = (Array.isArray(companyLocationNames)
-      ? companyLocationNames
-      : []
-    )
-      .map((name) => String(name || "").trim())
-      .filter(
-        (name) =>
-          name &&
-          !curated.some((c) => c.toLowerCase() === name.toLowerCase())
-      );
+    const extras = companyNames.filter(
+      (name) =>
+        !curated.some((c) => c.toLowerCase() === name.toLowerCase())
+    );
     return extras.length ? [...curated, ...extras] : curated;
   }
-  return Array.isArray(companyLocationNames) ? companyLocationNames : [];
+  return companyNames;
 }
 
 export function resolveCatalogDefaultPlace(companyDefaultName, countryCode) {

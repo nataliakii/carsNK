@@ -31,6 +31,32 @@ function lookup(tree, key) {
   return key.split(".").reduce((node, part) => node?.[part], tree);
 }
 
+/**
+ * i18next spells plurals as `key_one` / `key_few` / `key_many`, and how many
+ * forms a language needs is a property of that language. Russian and Polish
+ * legitimately carry forms English does not, so parity is compared per key
+ * family rather than per literal key.
+ */
+const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
+
+function keyFamilies(node) {
+  return [
+    ...new Set(flatten(node).map((key) => key.replace(PLURAL_SUFFIX, ""))),
+  ].sort();
+}
+
+/** The forms stored under a family name the source calls without a suffix. */
+function pluralForms(tree, key) {
+  const parts = key.split(".");
+  const leaf = parts.pop();
+  const parent = lookup(tree, parts.join("."));
+  if (!parent || typeof parent !== "object") return undefined;
+  const forms = Object.entries(parent)
+    .filter(([name]) => name.replace(PLURAL_SUFFIX, "") === leaf)
+    .map(([, value]) => value);
+  return forms.length ? forms : undefined;
+}
+
 /** Literal `bookingDetails.*` keys mentioned anywhere in the modal or the view. */
 function keysUsedInSource() {
   const source = [MODAL, VIEW]
@@ -48,7 +74,9 @@ describe("booking details i18n", () => {
       for (const key of keys) {
         // A prefix such as `...kinds` is completed at runtime by a template
         // literal, so its whole subtree has to be translated.
-        const node = lookup(tree, key);
+        // A pluralised key is stored as `key_one` / `key_other`; the source
+        // calls it by its family name and i18next picks the form.
+        const node = lookup(tree, key) ?? pluralForms(tree, key);
         const leaves =
           node && typeof node === "object"
             ? flatten(node).map((leaf) => lookup(node, leaf))
@@ -62,9 +90,9 @@ describe("booking details i18n", () => {
   });
 
   it("no locale is missing a key another locale has", () => {
-    const reference = flatten(en.bookingDetails).sort();
+    const reference = keyFamilies(en.bookingDetails);
     for (const [code, tree] of Object.entries(LOCALES)) {
-      expect(`${code}:${flatten(tree.bookingDetails).sort().join(",")}`).toBe(
+      expect(`${code}:${keyFamilies(tree.bookingDetails).join(",")}`).toBe(
         `${code}:${reference.join(",")}`
       );
     }

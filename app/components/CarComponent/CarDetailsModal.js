@@ -5,14 +5,13 @@ import { Modal, Box, Typography, Button, Divider } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { buildCarSpecGroups } from "@/domain/cars/carSpecs";
 import CarSpecSection from "./CarSpecList";
-import CarPhotoCarousel from "./CarPhotoCarousel";
-import { listCarPhotos } from "@/domain/cars/carPhotos";
 
 const CarDeliveryInfo = lazy(() => import("./CarDeliveryInfo"));
 
 /**
- * Detail sheet: photo, full specs, and delivery / available-in cities.
- * Spec rows come from buildCarSpecGroups so labels stay in sync with the card.
+ * Detail sheet: full specs and delivery / available-in cities (no photo —
+ * the card already shows the image). Spec rows come from buildCarSpecGroups
+ * so labels stay in sync with the card.
  */
 const CarDetailsModal = ({ open, onClose, car, company }) => {
   const { t } = useTranslation();
@@ -63,24 +62,6 @@ const CarDetailsModal = ({ open, onClose, car, company }) => {
         </Box>
 
         <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3, pt: 2 }}>
-          <Box
-            sx={{
-              position: "relative",
-              width: "100%",
-              aspectRatio: "3 / 2",
-              borderRadius: 1.5,
-              overflow: "hidden",
-              bgcolor: "action.hover",
-              mb: 2.5,
-            }}
-          >
-            <CarPhotoCarousel
-              photos={listCarPhotos(car)}
-              alt={car?.model || ""}
-              sizes="(max-width: 600px) 92vw, 480px"
-            />
-          </Box>
-
           {groups.map((group, index) => (
             <React.Fragment key={group.id}>
               {index > 0 ? <Divider sx={{ my: 1.75 }} /> : null}

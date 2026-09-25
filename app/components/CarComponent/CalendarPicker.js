@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef, useCallback, startTransition } from "react";
 import {
   Box,
@@ -46,6 +48,8 @@ import { useTranslation } from "react-i18next";
 import ClearIcon from "@mui/icons-material/Clear";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
+import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import "dayjs/locale/ru";
 import "dayjs/locale/el";
 import "dayjs/locale/es";
@@ -89,6 +93,8 @@ import { resolveDefaultInsurance } from "@/domain/orders/defaultInsurance";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+dayjs.extend(isSameOrAfter);
+dayjs.extend(isSameOrBefore);
 
 // DEBUG: укажите дату вида 'YYYY-MM-DD' и при необходимости конкретный carId,
 // чтобы включить точечные логи только для выбранной машины и даты.
@@ -99,7 +105,7 @@ const DEBUG_CAR_ID = null;
 
 const CalendarPicker = ({
   isLoading,
-  setBookedDates,
+  setBookedDates = () => {},
   onBookingComplete,
   orders,
   carId,
@@ -313,39 +319,8 @@ const CalendarPicker = ({
     priceIsApproximate,
   ]);
 
-  // After a complete range, bring the Book CTA (dates + total) into view.
-  // Skip the first click: showBookButton stays false until the end date is set.
-  // Wait until the CTA has a real box — it was display:none, and scrollIntoView
-  // on a 0×0 node jumps the page to the top instead of the price.
-  useEffect(() => {
-    if (!showBookButton || embedded) return;
-
-    let cancelled = false;
-    let frame = 0;
-    let attempts = 0;
-
-    const tryScroll = () => {
-      if (cancelled) return;
-      const button = bookButtonRef.current;
-      const rect = button?.getBoundingClientRect();
-      if (!rect || rect.width < 1 || rect.height < 1) {
-        if (attempts++ < 16) {
-          frame = requestAnimationFrame(tryScroll);
-        }
-        return;
-      }
-      button.scrollIntoView({
-        block: "center",
-        behavior: "smooth",
-      });
-    };
-
-    frame = requestAnimationFrame(tryScroll);
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
-    };
-  }, [showBookButton, embedded]);
+  // After a complete range the Book CTA is shown by the parent panel.
+  // Do not scroll the page to this calendar.
 
   // Modified onSelect to handle double clicks
   // const onSelect = (date) => {
@@ -512,13 +487,24 @@ const CalendarPicker = ({
       date.isSame(end, "day");
     // текущая дата вокруг которой будет рендер и которая будет сравниваться
     const dateStr = date.format("YYYY-MM-DD");
+    const cellTestId = `calendar-day-${dateStr}`;
 
     const isDisabled = disabledDate(date);
+    const pickDay = (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      if (isDisabled) return;
+      userPickedRef.current = true;
+      onSelect(date);
+    };
 
     // If the date is disabled, return it with no styles (transparent background)
     if (isDisabled) {
       return (
         <Box
+          data-testid={cellTestId}
+          data-state="past"
+          onClick={pickDay}
           sx={{
             height: "100%",
             width: "100%",
@@ -588,8 +574,19 @@ const CalendarPicker = ({
     //если мы тыкаем в ячейку то все предыдущие стили переписываются
     // If selected, these styles will override everything else
     if (isSelected) {
+      const selectedState =
+        start && end
+          ? date.isSame(start, "day")
+            ? "rangeStart"
+            : date.isSame(end, "day")
+              ? "rangeEnd"
+              : "rangeMiddle"
+          : "selectedSingle";
       return (
         <Box
+          data-testid={cellTestId}
+          data-state={selectedState}
+          onClick={pickDay}
           sx={{
             ...baseStyles,
             backgroundColor: "secondary.main", // Бирюзовый из темы
@@ -624,6 +621,10 @@ const CalendarPicker = ({
       return (
         <Tooltip title={tooltipMessage || ""} placement="top" arrow>
           <Box
+            data-testid={cellTestId}
+            data-state="unavailable"
+            aria-disabled="true"
+            onClick={pickDay}
             sx={{
               ...baseStyles,
               backgroundColor,
@@ -641,6 +642,9 @@ const CalendarPicker = ({
     if (isStartDate && !isEndDate && !isStartAndEndDateOverlap) {
       return (
         <Box
+          data-testid={cellTestId}
+          data-state="available"
+          onClick={pickDay}
           sx={{
             position: "relative",
             width: "100%",
@@ -688,6 +692,9 @@ const CalendarPicker = ({
     if (!isStartDate && isEndDate && !isStartAndEndDateOverlap) {
       return (
         <Box
+          data-testid={cellTestId}
+          data-state="available"
+          onClick={pickDay}
           sx={{
             border,
             position: "relative",
@@ -737,6 +744,8 @@ const CalendarPicker = ({
     if (isStartAndEndDateOverlap) {
       return (
         <Box
+          data-testid={cellTestId}
+          data-state="unavailable"
           sx={{
             border: border,
             position: "relative",
@@ -794,6 +803,9 @@ const CalendarPicker = ({
     //const { t } = useTranslation();
     return (
       <Box
+        data-testid={cellTestId}
+        data-state="available"
+        onClick={pickDay}
         sx={{
           ...baseStyles,
           backgroundColor,
@@ -1006,10 +1018,16 @@ const CalendarPicker = ({
           start: availableStart,
           end: availableEnd,
         });
+        const applyClock = (value, hour, minute) => {
+          if (typeof value?.hour !== "function") return value;
+          const h = Number(hour);
+          const m = Number(minute);
+          if (!Number.isFinite(h) || !Number.isFinite(m)) return value;
+          return value.hour(h).minute(m);
+        };
         setBookedDates({
-          // FIX: убран преждевременный перевод в UTC, храним локальные (Europe/Athens) даты
-          start: range[0].hour(hourStart).minute(minuteStart),
-          end: range[1].hour(hourEnd).minute(minuteEnd),
+          start: applyClock(range[0], hourStart, minuteStart),
+          end: applyClock(range[1], hourEnd, minuteEnd),
         });
         if (typeof onRangeCommitted === "function") {
           onRangeCommitted({
@@ -1072,10 +1090,15 @@ const CalendarPicker = ({
           justifyContent: "space-between",
         }}
       >
-        <IconButton onClick={goToPreviousMonth} color="inherit">
+        <IconButton
+          onClick={goToPreviousMonth}
+          color="inherit"
+          data-testid="calendar-prev-month"
+          aria-label="Previous month"
+        >
           <ArrowBackIosNewIcon />
         </IconButton>
-        <Typography variant="h6" sx={{ margin: 0 }}>
+        <Typography variant="h6" sx={{ margin: 0 }} data-testid="calendar-month">
           {`${month} ${year}`}
         </Typography>
         <Box sx={{ display: "flex", gap: 1 }}>
@@ -1093,7 +1116,12 @@ const CalendarPicker = ({
               <ClearIcon />
             </IconButton>
           )}
-          <IconButton onClick={goToNextMonth} color="inherit">
+          <IconButton
+            onClick={goToNextMonth}
+            color="inherit"
+            data-testid="calendar-next-month"
+            aria-label="Next month"
+          >
             <ArrowForwardIosIcon />
           </IconButton>
         </Box>
@@ -1160,8 +1188,8 @@ const CalendarPicker = ({
 
   return (
     <Box
-      // Capture phase: Ant Design calls onSelect from the cell during pointerdown,
-      // before this wrapper would see a bubble-phase pointerdown.
+      data-testid="mini-calendar"
+      data-car-id={String(carId || car?._id || "")}
       onPointerDownCapture={() => {
         userPickedRef.current = true;
       }}
@@ -1368,6 +1396,22 @@ const CalendarPicker = ({
             disabledDate={disabledDate}
           />
           </ConfigProvider>
+      <Box
+        data-testid="calendar-legend"
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          gap: 1,
+          mt: 0.75,
+          fontSize: "0.75rem",
+          color: "text.secondary",
+        }}
+      >
+        <span>{t("catalog.booking.legendAvailable", { defaultValue: "Available" })}</span>
+        <span>{t("catalog.booking.legendUnavailable", { defaultValue: "Unavailable" })}</span>
+        <span>{t("catalog.booking.legendSelected", { defaultValue: "Selected" })}</span>
+      </Box>
     </Box>
   );
 };

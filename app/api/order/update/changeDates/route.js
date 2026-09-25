@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { orderOwnershipResponse } from "@/domain/orders/orderOwnershipGuard";
 import { getBusinessRentalDaysByMinutes } from "@/domain/orders/numberOfDays";
 import { toBusinessStartOfDay, toStoredBusinessDate } from "@/domain/time/businessDate";
 import {
@@ -79,7 +80,11 @@ export const PUT = async (req) => {
         headers: { "Content-Type": "application/json" },
       });
     }
-    
+
+    // Role and state are not company scope: check whose booking this is.
+    const foreign = orderOwnershipResponse(session.user, order);
+    if (foreign) return foreign;
+
     // 🔧 FIXED: Check permissions using orderAccessPolicy (SSOT)
     const timeBucket = getTimeBucket(order);
     const isPast = timeBucket === "PAST";

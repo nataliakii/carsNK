@@ -6,7 +6,10 @@ import PlatformSettings from "@models/platformSettings";
 import Company from "@models/company";
 import { getSiteCountryConfig } from "@config/siteCountry";
 import { getEnvBusinessProfileDefaults } from "@config/legalEntity";
-import { normalizeEnabledLocales } from "@/domain/platform/uiLocales";
+import {
+  filterLocalesForCountry,
+  normalizeEnabledLocales,
+} from "@/domain/platform/uiLocales";
 import {
   DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
   parseMarketplaceBookingFeeBps,
@@ -87,9 +90,13 @@ export function readBusinessProfile(settingsDoc) {
 
 export function toPublicPlatformPayload(settingsDoc) {
   const country = getSiteCountryConfig();
-  const enabledLocales = normalizeEnabledLocales(
-    [...(settingsDoc?.enabledLocales || []), ...country.defaultLocales],
-    country.defaultLocales
+  // ES: drop bg/sr even if an older platform_settings doc still lists them.
+  const enabledLocales = filterLocalesForCountry(
+    normalizeEnabledLocales(
+      [...(settingsDoc?.enabledLocales || []), ...country.defaultLocales],
+      country.defaultLocales
+    ),
+    country.country
   );
   const feeBps =
     settingsDoc?.marketplaceBookingFeeBps == null

@@ -6,6 +6,7 @@ import {
   assertOfficeInCompanyCoverage,
   bookingCoverageQueryKey,
   deliveryPricingOfCompany,
+  impliedLocationCountry,
   predictionInsideCoverage,
   reconcileBookingSelection,
   resolveCompanyBookingCoverage,
@@ -73,6 +74,14 @@ const companyC = company({
       status: "active",
     },
   ],
+});
+
+describe("impliedLocationCountry", () => {
+  test("compound labels inherit market from embedded city name", () => {
+    expect(impliedLocationCountry("Thessaloniki Airport")).toBe("GR");
+    expect(impliedLocationCountry("Palma Airport")).toBe("ES");
+    expect(impliedLocationCountry("Custom Rovaro Hub")).toBe("");
+  });
 });
 
 describe("company booking coverage isolation", () => {

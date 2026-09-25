@@ -51,7 +51,10 @@ import {
   switchPathLocale,
   withLocalePrefix,
 } from "@domain/locationSeo/locationSeoService";
-import { ALL_UI_LOCALES } from "@/domain/platform/uiLocales";
+import {
+  ALL_UI_LOCALES,
+  filterLocalesForCountry,
+} from "@/domain/platform/uiLocales";
 import { translateCarEnumValue } from "@/domain/cars/translateCarEnum";
 import { getSiteCountryCode, getSiteCountryConfig } from "@config/siteCountry";
 import { resolveBookingLocationFromPathname } from "@/domain/orders/bookingLocationPathResolver";
@@ -599,9 +602,13 @@ export default function NavBar({
     },
   };
 
-  const enabledLocales = platform?.enabledLocales?.length
-    ? platform.enabledLocales
-    : getSiteCountryConfig().defaultLocales;
+  const siteCountryCode = getSiteCountryCode();
+  const enabledLocales = filterLocalesForCountry(
+    platform?.enabledLocales?.length
+      ? platform.enabledLocales
+      : getSiteCountryConfig().defaultLocales,
+    siteCountryCode
+  );
   const languageOptions = ALL_UI_LOCALES.filter((item) =>
     enabledLocales.includes(item.code)
   );
@@ -754,10 +761,6 @@ export default function NavBar({
     searchDates?.end,
     setSearchDates,
   ]);
-
-  useEffect(() => {
-    handleApplyDateSearch();
-  }, [handleApplyDateSearch]);
 
   const handleClearDateSearch = () => {
     setDraftSearchStart("");
@@ -1656,10 +1659,7 @@ export default function NavBar({
                   id="catalog-date-fields"
                   sx={{
                     ...filterPairRowSx,
-                    gridTemplateColumns:
-                      searchDates?.start || draftSearchStart
-                        ? "minmax(0, 1fr) minmax(0, 1fr) 40px"
-                        : "minmax(0, 1fr) minmax(0, 1fr)",
+                    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
                     alignItems: "end",
                   }}
                 >
@@ -1696,20 +1696,48 @@ export default function NavBar({
                         }}
                         sx={filterDateFieldSx}
                       />
-                      {(searchDates?.start || draftSearchStart) && (
-                        <IconButton
-                          size="small"
-                          aria-label={t("header.clearSearchDates")}
-                          onClick={handleClearDateSearch}
-                          sx={{
-                            height: 40,
-                            width: 40,
-                            color: "rgba(255,255,255,0.75)",
-                          }}
-                        >
-                          <ClearIcon fontSize="small" />
-                        </IconButton>
-                      )}
+                </Box>
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 1,
+                    width: "100%",
+                    minWidth: 0,
+                  }}
+                >
+                  <Button
+                    variant="contained"
+                    size="small"
+                    data-testid="catalog-search-submit"
+                    disabled={
+                      !draftSearchStart || !draftSearchEnd || datesOutOfOrder
+                    }
+                    onClick={handleApplyDateSearch}
+                    sx={{
+                      flex: 1,
+                      height: 40,
+                      textTransform: "none",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {t("header.applyDateSearch")}
+                  </Button>
+                  {(searchDates?.start || draftSearchStart) && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      data-testid="catalog-search-reset"
+                      onClick={handleClearDateSearch}
+                      sx={{
+                        height: 40,
+                        textTransform: "none",
+                        color: "rgba(255,255,255,0.85)",
+                        borderColor: "rgba(255,255,255,0.28)",
+                      }}
+                    >
+                      {t("header.resetDateSearch")}
+                    </Button>
+                  )}
                 </Box>
               </Stack>
             </Stack>

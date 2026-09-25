@@ -16,6 +16,10 @@
 
 import { useMemo } from "react";
 import { ORDER_FIELD_KEYS } from "@/domain/orders/orderPermissions";
+import {
+  BOOKING_CAPABILITY,
+  resolveOrderCapabilities,
+} from "@/domain/orders/bookingCapabilities";
 
 /**
  * Default access when useOrderAccess returns null (e.g. no session).
@@ -46,8 +50,8 @@ const DEFAULT_ACCESS = {
  * Hook: thin adapter from orderAccessPolicy (access) to UI shape.
  * Single source of truth: access. No orderPermissions, no dayjs.
  *
- * @param {Object} order - Order object (unused; kept for API compatibility)
- * @param {Object} currentUser - Current user (unused; kept for API compatibility)
+ * @param {Object} order - Order object; read only for the source-dependent rules
+ * @param {Object} currentUser - Current user; read only for the source-dependent rules
  * @param {boolean} isViewOnly - Unused; forceViewOnly is applied in useOrderAccess
  * @param {import("@/domain/orders/orderAccessPolicy").OrderAccess | null} access - From useOrderAccess
  * @returns {Object} fieldPermissions, canEdit, canDelete, canConfirm, viewOnly, isCurrentOrder
@@ -55,6 +59,16 @@ const DEFAULT_ACCESS = {
 export function useEditOrderPermissions(order, currentUser, isViewOnly = false, access = null) {
   const a = access ?? DEFAULT_ACCESS;
   const canEditTotalPrice = a.canEditTotalPrice === true;
+
+  // The one field whose rule depends on the booking source rather than on the
+  // edit window: Rovaro sells the second driver on a PLATFORM booking, while
+  // an INTERNAL record belongs to the company. Asked of the shared resolver
+  // that the update route asks, so the checkbox and the API cannot disagree.
+  const canAddSecondDriver =
+    a.canEdit === true &&
+    resolveOrderCapabilities(order, currentUser)[
+      BOOKING_CAPABILITY.ADD_SECOND_DRIVER
+    ] === true;
 
   const fieldPermissions = useMemo(
     () => ({
@@ -77,7 +91,7 @@ export function useEditOrderPermissions(order, currentUser, isViewOnly = false, 
       phone: a.canEditClientPII,
       email: a.canEditClientPII,
       drivingLicenceUrls: a.canEditClientPII,
-      [ORDER_FIELD_KEYS.SECOND_DRIVER]: a.canEdit,
+      [ORDER_FIELD_KEYS.SECOND_DRIVER]: canAddSecondDriver,
       Viber: a.canEditClientPII,
       Whatsapp: a.canEditClientPII,
       Telegram: a.canEditClientPII,
@@ -85,6 +99,7 @@ export function useEditOrderPermissions(order, currentUser, isViewOnly = false, 
     }),
     [
       a.canEdit,
+      canAddSecondDriver,
       a.canEditPickupDate,
       a.canEditReturnDate,
       a.canEditPickupPlace,

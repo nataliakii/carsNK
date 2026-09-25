@@ -7,6 +7,7 @@ import { PriceBreakdown } from "./PriceBreakdown";
 import { getBusinessRentalDaysByMinutes } from "@/domain/orders/numberOfDays";
 import { buildDeliveryBreakdownSlice } from "@/domain/delivery/buildDeliveryBreakdownSlice";
 import { ORDER_STATUS } from "@/domain/orders/orderStatus";
+import { buildVehicleSnapshot } from "@/domain/orders/vehicleSnapshot";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -612,6 +613,16 @@ const OrderSchema = new mongoose.Schema({
     default: null,
   },
 
+  /**
+   * The vehicle specification as captured when the booking was created.
+   * Immutable: the live Car document keeps changing, the agreed vehicle does
+   * not. Written once in the pre-save hook, never rewritten.
+   */
+  vehicleSnapshot: {
+    type: mongoose.Schema.Types.Mixed,
+    default: undefined,
+  },
+
   bookingMode: { type: String, default: undefined },
   countryCode: { type: String, default: "", uppercase: true, trim: true },
   currency: { type: String, default: "", uppercase: true, trim: true },
@@ -856,6 +867,13 @@ OrderSchema.pre("save", async function (next) {
     this.carNumber = car.carNumber;
     this.regNumber = car.regNumber || "";
     this.carModel = car.model;
+
+    // Captured once, here, so every creation path gets one. The three fields
+    // above are rewritten from the live car on later saves; the snapshot
+    // deliberately is not.
+    if (!this.vehicleSnapshot) {
+      this.vehicleSnapshot = buildVehicleSnapshot(car, this);
+    }
 
     const { total, breakdown } = await car.calculateTotalRentalPricePerDay(
       calculationStart,

@@ -951,35 +951,6 @@ const BookingModal = ({
   const returnDraftRef = useRef(null);
 
   useEffect(() => {
-    if (
-      open &&
-      !isSubmitted &&
-      name &&
-      email &&
-      phone &&
-      presetDates?.startDate &&
-      presetDates?.endDate &&
-      bookButtonRef.current
-    ) {
-      const timer = setTimeout(() => {
-        bookButtonRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [
-    open,
-    isSubmitted,
-    name,
-    email,
-    phone,
-    presetDates?.startDate,
-    presetDates?.endDate,
-  ]);
-
-  useEffect(() => {
     if (open) {
       resetForm(); // Сбросить форму при каждом открытии модального окна
       setInsurance(resolveDefaultInsurance(car));

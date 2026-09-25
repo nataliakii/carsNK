@@ -86,6 +86,10 @@ import {
 import SignedDrivingLicenceGallery from "@/app/admin/features/orders/components/SignedDrivingLicenceGallery";
 import DrivingLicenceUploadField from "@/app/components/ui/inputs/DrivingLicenceUploadField";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  BOOKING_CAPABILITY,
+  resolveOrderCapabilities,
+} from "@/domain/orders/bookingCapabilities";
 import OrderLiveStagePanel from "@/app/admin/features/orders/components/OrderLiveStagePanel";
 
 // Extend dayjs with plugins
@@ -950,6 +954,16 @@ const EditOrderModal = ({
   // Проверка, заблокирована ли кнопка подтверждения
   // Unconfirm (true→false): company admin may unconfirm internals; platform superadmin cannot mutate internals.
   const isClientOrder = isPlatformBooking(order);
+
+  // Everything Rovaro mediates — asking us a question, our mail thread, our
+  // support replies — exists only on a booking Rovaro is a party to.
+  const orderCapabilities = useMemo(
+    () => resolveOrderCapabilities(editedOrder || order, currentUser),
+    [editedOrder, order, currentUser]
+  );
+  const canContactRovaro =
+    orderCapabilities[BOOKING_CAPABILITY.CONTACT_ROVARO] === true;
+  const isPlatformMediated = isPlatformBooking(editedOrder || order);
   const isConfirmationDisabled =
     permissions.viewOnly ||
     !permissions.canConfirm ||
@@ -1138,7 +1152,7 @@ const EditOrderModal = ({
                   return "";
                 })()}
               </Typography>
-              {!isCurrentUserSuperAdmin && (order?._id || editedOrder?._id) ? (
+              {canContactRovaro && (order?._id || editedOrder?._id) ? (
                 <Box sx={{ mt: 0.75, mb: 0.5 }}>
                   <ContactRovaroSupportButton
                     orderId={String(order?._id || editedOrder?._id)}
@@ -1860,7 +1874,9 @@ const EditOrderModal = ({
                             color: "text.secondary",
                           }}
                         >
-                          {t("order.confirmationEmailHistoryEmpty")}
+                          {isPlatformMediated
+                            ? t("order.confirmationEmailHistoryEmpty")
+                            : t("order.confirmationEmailHistoryInternal")}
                         </Typography>
                       ) : !isHistoryExpanded ? (
                         <Typography
@@ -2009,19 +2025,22 @@ const EditOrderModal = ({
                   ))}
                 {editedOrder?._id ? (
                   <Box sx={{ mt: 1.5 }}>
-                    <PartnerSupportMessagesList
-                      orderId={String(editedOrder._id)}
-                      isSuperAdmin={isCurrentUserSuperAdmin}
-                    />
+                    {isPlatformMediated ? (
+                      <PartnerSupportMessagesList
+                        orderId={String(editedOrder._id)}
+                        isSuperAdmin={isCurrentUserSuperAdmin}
+                      />
+                    ) : null}
                     <MarketplacePaymentOpsPanel
                       order={editedOrder}
                       isSuperAdmin={isCurrentUserSuperAdmin}
                     />
                     <OfferAlternativePanel
                       order={editedOrder}
+                      currentUser={currentUser}
                       isSuperAdmin={isCurrentUserSuperAdmin}
                     />
-                    {isCurrentUserSuperAdmin ? (
+                    {isCurrentUserSuperAdmin && isPlatformMediated ? (
                       <>
                         <Typography
                           variant="caption"

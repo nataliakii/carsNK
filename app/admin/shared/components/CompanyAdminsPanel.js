@@ -39,7 +39,8 @@ import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 
 import { ROLE } from "@models/user";
-import { ALL_UI_LOCALES } from "@/domain/platform/uiLocales";
+import { getAvailableUiLocales } from "@/domain/platform/uiLocales";
+import { getSiteCountryCode } from "@config/siteCountry";
 import {
   ADMIN_STATUS,
   PARTNER_ADMIN_ROLE_OPTIONS,
@@ -179,7 +180,10 @@ export default function CompanyAdminsPanel({
     load();
   }, [load]);
 
-  const localeOptions = useMemo(() => ALL_UI_LOCALES, []);
+  const localeOptions = useMemo(
+    () => getAvailableUiLocales(getSiteCountryCode()),
+    []
+  );
 
   const closeMenu = () => setMenu({ anchor: null, row: null });
 

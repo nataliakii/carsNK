@@ -15,6 +15,10 @@ import { useMainContext } from "../Context";
 import CarItemComponent from "./CarComponent/CarItemComponent";
 import { carMatchesSearchQuery } from "@utils/carSearch";
 import { isCarAvailableForSearchDates } from "@utils/carDateSearch";
+import CatalogSortControl from "./ui/booking/CatalogSortControl";
+import { useCatalogSort } from "@/app/hooks/useActiveCalendarCar";
+import { sortCarsByQuotedTotal } from "@/domain/booking/carResultSorting";
+import { useSearchFirstCatalogQuotes } from "@/app/hooks/useSearchFirstCatalogQuotes";
 import dayjs from "dayjs";
 
 const Section = styled("section")(({ theme }) => ({
@@ -38,11 +42,22 @@ function CarGrid() {
     platform,
   } = useMainContext();
   const deferredSearchQuery = useDeferredValue(carSearchQuery || "");
+  const { sort, setSort } = useCatalogSort();
 
   const skipScrollOnFilterMount = useRef(true);
   const hasActiveDateSearch = Boolean(searchDates?.start && searchDates?.end);
-  // Scroll to top for class/transmission/location/text filters only — not when
-  // searchDates change from a car card (shared global range).
+
+  // The immutable SEARCH_FIRST request handed to every result card. Rebuilt
+  // only when the searched range changes, never on a calendar click.
+  const searchRequest = useMemo(
+    () =>
+      hasActiveDateSearch
+        ? { startDate: searchDates.start, endDate: searchDates.end }
+        : null,
+    [hasActiveDateSearch, searchDates?.start, searchDates?.end]
+  );
+  // Scroll to top for class/transmission/location/text filters only — never
+  // when a car card's calendar is used (those dates are not global).
   useEffect(() => {
     if (skipScrollOnFilterMount.current) {
       skipScrollOnFilterMount.current = false;
@@ -147,6 +162,37 @@ function CarGrid() {
     platform,
   ]);
 
+  // Quoted totals for SEARCH_FIRST ordering come from one catalog batch,
+  // not from each card reporting its own request.
+  const catalogQuotes = useSearchFirstCatalogQuotes({
+    cars: filteredCars,
+    startDate: searchRequest?.startDate,
+    endDate: searchRequest?.endDate,
+    placeIn: bookingPlaceIn,
+    placeOut: bookingPlaceOut,
+    enabled: Boolean(searchRequest),
+  });
+
+  const quotesByCarId = useMemo(() => {
+    const next = {};
+    Object.entries(catalogQuotes.byCarId || {}).forEach(([carId, entry]) => {
+      if (entry?.quote) next[carId] = entry.quote;
+    });
+    return next;
+  }, [catalogQuotes.byCarId]);
+
+  const allQuoted =
+    Boolean(searchRequest) &&
+    catalogQuotes.status === "ready" &&
+    filteredCars.length > 0 &&
+    filteredCars.every((car) => quotesByCarId[String(car._id)]);
+
+  const orderedCars = useMemo(() => {
+    if (!searchRequest) return filteredCars;
+    if (!allQuoted) return filteredCars;
+    return sortCarsByQuotedTotal(filteredCars, quotesByCarId, sort);
+  }, [filteredCars, sort, searchRequest, allQuoted, quotesByCarId]);
+
   const noCarsMatchFilters =
     Array.isArray(cars) && cars.length > 0 && filteredCars.length === 0;
 
@@ -195,6 +241,7 @@ function CarGrid() {
                 })}
               </Typography>
             ) : null}
+            <CatalogSortControl value={sort} onChange={setSort} />
           </Box>
         ) : null}
         <Grid
@@ -222,7 +269,7 @@ function CarGrid() {
               </Typography>
             </Grid>
           ) : null}
-          {filteredCars?.map((car, index) => {
+          {orderedCars?.map((car, index) => {
             return (
               <Grid item xs={12} sx={{ padding: 2, width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }} key={car._id}>
                 <CarItemComponent
@@ -231,6 +278,18 @@ function CarGrid() {
                   discountStart={discountStart}
                   discountEnd={discountEnd}
                   isFirstCar={index === 0}
+                  searchRequest={searchRequest}
+                  catalogQuote={
+                    searchRequest
+                      ? catalogQuotes.byCarId[String(car._id)] || {
+                          status:
+                            catalogQuotes.status === "error"
+                              ? "error"
+                              : "loading",
+                          quote: null,
+                        }
+                      : undefined
+                  }
                 />
               </Grid>
             );

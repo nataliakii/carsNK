@@ -21,6 +21,12 @@ export const BOOKING_DETAILS_SECTION_GRID_BREAKPOINT = "md";
 /** Number of columns for grouped detail sections on desktop. */
 export const BOOKING_DETAILS_SECTION_GRID_COLUMNS = 2;
 
+/**
+ * Height reserved below the last section so the sticky action footer never
+ * covers the end of the price summary.
+ */
+export const BOOKING_DETAILS_FOOTER_CLEARANCE = 72;
+
 /** Section ids, in render order. Mirrors sections A–I of the specification. */
 export const BOOKING_DETAILS_SECTION = Object.freeze({
   STATUS: "status",

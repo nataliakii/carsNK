@@ -28,6 +28,7 @@ export const API_PATHS = {
     `/api/order/update/switchConfirm/${orderId}`,
   ORDER_DELETE_ONE: (orderId) => `/api/order/deleteOne/${orderId}`,
   ORDER_CALC_TOTAL_PRICE: "/api/order/calcTotalPrice",
+  ORDER_CALC_CATALOG_QUOTES: "/api/order/calcTotalPrice/catalog",
 
   COMPANY: (id) => `/api/company/${id}`,
   COMPANY_BUFFER: (id) => `/api/company/buffer/${id}`,

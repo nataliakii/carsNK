@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { requireSuperAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
 import { getSiteCountryConfig } from "@config/siteCountry";
-import { ALL_UI_LOCALES, normalizeEnabledLocales } from "@/domain/platform/uiLocales";
+import {
+  filterLocalesForCountry,
+  getAvailableUiLocales,
+  normalizeEnabledLocales,
+} from "@/domain/platform/uiLocales";
 import {
   getOrCreatePlatformSettings,
   toPublicPlatformPayload,
@@ -31,10 +35,11 @@ export async function GET(request) {
   const url = new URL(request.url);
   const includeFee = url.searchParams.get("includeFee") === "1";
 
+  const siteCountry = getSiteCountryConfig();
   const body = {
     success: true,
-    availableLocales: ALL_UI_LOCALES,
-    country: getSiteCountryConfig(),
+    availableLocales: getAvailableUiLocales(siteCountry.country),
+    country: siteCountry,
     settings: payload,
     marketplaceBookingFeeBps:
       payload.marketplaceBookingFeeBps ?? DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
@@ -65,7 +70,11 @@ export async function PATCH(request) {
   const actorUserId = session?.user?.id || session?.user?._id || "";
 
   if (body?.enabledLocales) {
-    settings.enabledLocales = normalizeEnabledLocales(body.enabledLocales);
+    const siteCountry = getSiteCountryConfig();
+    settings.enabledLocales = filterLocalesForCountry(
+      normalizeEnabledLocales(body.enabledLocales),
+      siteCountry.country
+    );
   }
 
   if (Object.prototype.hasOwnProperty.call(body || {}, "marketplaceBookingFeeBps")) {
@@ -127,10 +136,11 @@ export async function PATCH(request) {
 
   await settings.save();
   const payload = toPublicPlatformPayload(settings);
+  const siteCountry = getSiteCountryConfig();
   return json({
     success: true,
-    availableLocales: ALL_UI_LOCALES,
-    country: getSiteCountryConfig(),
+    availableLocales: getAvailableUiLocales(siteCountry.country),
+    country: siteCountry,
     settings: payload,
     marketplaceBookingFeeBps:
       payload.marketplaceBookingFeeBps ?? DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,

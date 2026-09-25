@@ -29,6 +29,7 @@ const COUNTRY_PRESETS = {
     currency: "EUR",
     currencySymbol: "€",
     callingCode: "34",
+    // bg + sr paused for Spain for now (see SPAIN_PAUSED_UI_LOCALES).
     defaultLocales: [
       "en",
       "es",
@@ -40,6 +41,8 @@ const COUNTRY_PRESETS = {
       "it",
       "sv",
       "no",
+      // "bg",
+      // "sr",
     ],
     showLegacySeoLocations: false,
     defaultAddress: "Spain",

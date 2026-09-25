@@ -46,7 +46,9 @@
     "searchFrom": "Od",
     "searchTo": "Do",
     "searchDates": "Pretraga datuma",
-    "clearSearchDates": "Obriši datume"
+    "clearSearchDates": "Obriši datume",
+    "applyDateSearch": "Pretraži",
+    "resetDateSearch": "Reset"
   },
   "catalog": {
     "noCarsMatchFilters": "Nema auta za izabrane filtere. Promenite pretragu, region, klasu, menjač ili broj sedišta.",
@@ -72,7 +74,30 @@
     "bookingDetailsSeats": "Sedišta",
     "bookingDetailsSearch": "Pretraga",
     "bookingDetailsEdit": "Izmeni filtere",
-    "bookingDetailsClose": "Zatvori"
+    "bookingDetailsClose": "Zatvori",
+    "booking": {
+      "selectDates": "Izaberite datume",
+      "calculatingPrice": "Izračunavanje cene…",
+      "book": "REZERVIŠI",
+      "approxPrice": "Oko {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 dan najma",
+      "rentalDays": "{{days}} dana najma",
+      "rangeUnavailable": "Nije dostupno za ove datume",
+      "quoteFailed": "Dostupnost nije mogla da se proveri",
+      "retry": "Pokušajte ponovo",
+      "showCalendar": "Proveri dostupnost",
+      "hideCalendar": "Sakrij kalendar",
+      "clearDates": "Obriši datume",
+      "previousMonth": "Prethodni mesec",
+      "nextMonth": "Sledeći mesec",
+      "legendAvailable": "Dostupno",
+      "legendUnavailable": "Nedostupno",
+      "legendSelected": "Izabrano",
+      "sortLabel": "Sortiraj po",
+      "sortPriceAsc": "Cena: rastuće",
+      "sortPriceDesc": "Cena: opadajuće"
+    }
   },
   "basic": {
     "close": "zatvori",
@@ -190,6 +215,7 @@
     "confirmationEmailFailed": "Slanje emaila potvrde nije uspelo",
     "confirmationEmailHistoryTitle": "Istorija email potvrda",
     "confirmationEmailHistoryEmpty": "Još nema poslatih email potvrda",
+    "confirmationEmailHistoryInternal": "Rovaro ne šalje email za interne rezervacije.",
     "confirmationEmailHistoryShow": "Prikaži",
     "confirmationEmailHistoryHide": "Sakrij",
     "confirmationEmailHistoryCollapsed": "Poslato: {{count}}",
@@ -304,12 +330,18 @@
     }
   },
   "bookMesssages": {
-    "bookOK": "Rezervacija primljena. Hvala vam na rezervaciji!",
-    "bookRequestSent": "Zahtev je poslat. Iznajmljivač će proveriti dostupnost.",
-    "bookCompanyReview": "Kompanija koja poseduje ovaj automobil proveriće datume i potvrditi dostupnost. Plaćanje će biti potrebno tek nakon potvrde.",
-    "bookReceive": "Primili smo vašu rezervaciju za",
-    "bookDays": "Broj dana:",
-    "bookPrice": "Ukupna cena:",
+    "bookOK": "Sve je spremno. Hvala na rezervaciji.",
+    "bookRequestSent": "Skoro vaše. Iznajmljivač sada proverava dostupnost.",
+    "bookCompanyReview": "Sada gledaju vaše datume. Plaćanje tek posle potvrde.",
+    "bookReceive": "Datumi su rezervisani. Javićemo se uskoro.",
+    "bookRequestLead": "Držimo palčeve — upravo proveravaju te datume.",
+    "bookAwaiting": "Čekamo da",
+    "bookConfirmedBadge": "Potvrđeno",
+    "bookPickup": "Preuzimanje",
+    "bookReturn": "Vraćanje",
+    "bookDismiss": "Razumem",
+    "bookDays": "Dani",
+    "bookPrice": "Ukupno",
     "bookExcludesCityDelivery": "Bez dostave do grada.",
     "bookFinalize": "Kontaktiraćemo vas uskoro da potvrdimo detalje.",
     "bookPendingDates": "Datumi {{dates}} su rezervisani, ali još nisu potvrđeni od drugih korisnika. Kontaktiraćemo vas uskoro o dostupnosti."
@@ -599,6 +631,7 @@
     "close": "Затвори",
     "back": "Назад",
     "privacyNotice": "Контакт подаци клијента и возачка документа постају доступни након примљене уплате за резервацију.",
+    "platformSupportNotice": "Pristup podrške platforme. Dobavljač ne vidi ove kontakt podatke dok uplata rezervacije ne bude primljena.",
     "errors": {
       "generic": "Нешто је пошло наопако. Покушајте поново."
     },
@@ -641,7 +674,15 @@
       "transmission": "Мењач",
       "seats": "Седишта",
       "luggage": "Пртљаг",
-      "fuel": "Врста горива"
+      "fuel": "Врста горива",
+      "doors": "Vrata",
+      "airConditioning": "Klima uređaj",
+      "modelYear": "Godište",
+      "includedMileage": "Uključena kilometraža",
+      "deposit": "Depozit",
+      "fleetCode": "Šifra u voznom parku",
+      "registration": "Registarska oznaka",
+      "legacyNotice": "Ova rezervacija je starija od snimaka vozila. Prikazan je današnji zapis voznog parka, koji može da se razlikuje od dogovorenog."
     },
     "dates": {
       "pickup": "Датум и време преузимања",
@@ -689,7 +730,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Отвори ћаскање"
+      "openChat": "Отвори ћаскање",
+      "copyPhone": "Kopiraj telefon",
+      "copyEmail": "Kopiraj email",
+      "copied": "Kopirano"
     },
     "documents": {
       "holder": "Власник дозволе",
@@ -702,7 +746,6 @@
       "confirm": "Потврди тражено возило",
       "replace": "Понуди равноправну замену",
       "decline": "Одбиј захтев",
-      "contactCustomer": "Контактирај клијента",
       "contactRovaro": "Контактирај Rovaro",
       "reportProblem": "Пријави проблем",
       "amend": "Измени резервацију"
@@ -754,7 +797,10 @@
       "totalPrice": "Укупна цена изнајмљивања",
       "totalPriceHelp": "Иста или нижа од тражене цене.",
       "comment": "Коментар за клијента",
-      "submit": "Пошаљи предлог"
+      "submit": "Пошаљи предлог",
+      "fleetPlaceholder": "Изаберите возило",
+      "internalFleet": "(интерно) {{name}}",
+      "notOfferable": "Не могу се понудити за ову резервацију:"
     },
     "amendDialog": {
       "notice": "Свака измена се бележи са разлогом и стањем пре и после. Суштински услов плаћене резервације не може да се промени без сагласности клијента.",
@@ -776,6 +822,15 @@
       "messageSent": "Порука је послата Rovaro.",
       "replacementOffered": "Предлог замене је послат.",
       "amended": "Измена је сачувана."
+    },
+    "header": {
+      "sourcePlatform": "Rovaro rezervacija",
+      "sourceInternal": "Interna",
+      "awaitingPayment": "Čeka se uplata kupca",
+      "paymentReceived": "Uplata rezervacije primljena",
+      "days_one": "{{count}} dan",
+      "days_few": "{{count}} dana",
+      "days_other": "{{count}} dana"
     }
   }
 }

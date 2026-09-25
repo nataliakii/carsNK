@@ -1179,6 +1179,47 @@ export async function calculateTotalPrice(
 }
 
 /**
+ * SEARCH_FIRST: one POST prices every result for the same range.
+ * Callers must not fan this out per card — that is the 429 source.
+ */
+export async function calculateCatalogQuotes({
+  carIds,
+  rentalStartDate,
+  rentalEndDate,
+  kacko,
+  placeIn,
+  placeOut,
+} = {}) {
+  try {
+    const response = await fetch(getApiUrl(API_PATHS.ORDER_CALC_CATALOG_QUOTES), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        carIds,
+        rentalStartDate,
+        rentalEndDate,
+        ...(kacko ? { kacko } : {}),
+        placeIn,
+        placeOut,
+      }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        ok: false,
+        quotes: {},
+        error: errorData.message || "Failed to calculate catalog quotes",
+      };
+    }
+    const data = await response.json();
+    return { ok: true, quotes: data.quotes || {} };
+  } catch (error) {
+    return { ok: false, quotes: {}, error: error.message };
+  }
+}
+
+/**
  * Fetch orders for admin panel (requires authentication)
  * @returns {Promise<{success: boolean, data: Array, message?: string}>}
  */

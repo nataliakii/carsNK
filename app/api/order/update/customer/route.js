@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { orderOwnershipResponse } from "@/domain/orders/orderOwnershipGuard";
 import { parseCustomerPhone } from "@/domain/validation/customerPhone";
 import {
   parseOptionalCustomerEmail,
@@ -42,6 +43,10 @@ export const PUT = async (req) => {
         success: false,
       });
     }
+
+    // Role and state are not company scope: check whose booking this is.
+    const foreign = orderOwnershipResponse(session.user, existingOrder);
+    if (foreign) return foreign;
     
     // 🔧 FIXED: Check permissions using orderAccessPolicy (SSOT)
     const timeBucket = getTimeBucket(existingOrder);

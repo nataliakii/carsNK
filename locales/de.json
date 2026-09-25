@@ -60,7 +60,9 @@
     "searchDates": "Daten suchen",
     "searchDatesToggle": "Daten",
     "searchDatesToggleApplied": "{{from}} – {{to}}",
-    "clearSearchDates": "Daten löschen"
+    "clearSearchDates": "Daten löschen",
+    "applyDateSearch": "Suchen",
+    "resetDateSearch": "Zurücksetzen"
   },
   "catalog": {
     "noCarsMatchFilters": "Keine Autos passen zu den Filtern. Suche, Region, Klasse, Getriebe oder Sitze ändern.",
@@ -95,7 +97,30 @@
     "bookingDetailsEdit": "Filter ändern",
     "bookingDetailsClose": "Schließen",
     "bookingDetailsApply": "Übernehmen",
-    "bookingDetailsCancel": "Abbrechen"
+    "bookingDetailsCancel": "Abbrechen",
+    "booking": {
+      "selectDates": "Daten wählen",
+      "calculatingPrice": "Preis wird berechnet…",
+      "book": "BUCHEN",
+      "approxPrice": "Ca. {{price}}",
+      "totalPrice": "{{price}}",
+      "rentalDay": "1 Miettag",
+      "rentalDays": "{{days}} Miettage",
+      "rangeUnavailable": "Für diese Daten nicht verfügbar",
+      "quoteFailed": "Verfügbarkeit konnte nicht geprüft werden",
+      "retry": "Erneut versuchen",
+      "showCalendar": "Verfügbarkeit prüfen",
+      "hideCalendar": "Kalender ausblenden",
+      "clearDates": "Daten zurücksetzen",
+      "previousMonth": "Voriger Monat",
+      "nextMonth": "Nächster Monat",
+      "legendAvailable": "Verfügbar",
+      "legendUnavailable": "Nicht verfügbar",
+      "legendSelected": "Ausgewählt",
+      "sortLabel": "Sortieren nach",
+      "sortPriceAsc": "Preis: aufsteigend",
+      "sortPriceDesc": "Preis: absteigend"
+    }
   },
   "basic": {
     "close": "schließen",
@@ -239,6 +264,7 @@
     "confirmationEmailFailed": "Bestätigungs-E-Mail konnte nicht gesendet werden",
     "confirmationEmailHistoryTitle": "Verlauf der Bestätigungs-E-Mails",
     "confirmationEmailHistoryEmpty": "Es wurden noch keine Bestätigungs-E-Mails gesendet",
+    "confirmationEmailHistoryInternal": "Rovaro versendet keine E-Mails für interne Buchungen.",
     "confirmationEmailHistoryShow": "Anzeigen",
     "confirmationEmailHistoryHide": "Ausblenden",
     "confirmationEmailHistoryCollapsed": "Gesendet: {{count}}",
@@ -394,12 +420,18 @@
     }
   },
   "bookMesssages": {
-    "bookOK": "Buchung erhalten. Vielen Dank für Ihre Buchung!",
-    "bookRequestSent": "Anfrage gesendet. Das Mietunternehmen prüft die Verfügbarkeit.",
-    "bookCompanyReview": "Das Unternehmen, dem dieses Auto gehört, prüft Ihre Daten und bestätigt, ob das Fahrzeug verfügbar ist. Die Zahlung wird erst nach der Bestätigung angefordert.",
-    "bookReceive": "Wir haben Ihre Buchung für den",
-    "bookDays": "Anzahl der Tage:",
-    "bookPrice": "Gesamtpreis:",
+    "bookOK": "Sie sind dabei. Vielen Dank für Ihre Buchung.",
+    "bookRequestSent": "Fast Ihres. Das Mietunternehmen prüft gerade die Verfügbarkeit.",
+    "bookCompanyReview": "Ihre Daten werden gerade geprüft. Zahlen müssen Sie erst nach der Bestätigung.",
+    "bookReceive": "Ihre Daten sind gesichert. Wir melden uns in Kürze.",
+    "bookRequestLead": "Daumen drücken — sie schauen sich gerade diese Daten an.",
+    "bookAwaiting": "Warten auf ein Ja",
+    "bookConfirmedBadge": "Bestätigt",
+    "bookPickup": "Abholung",
+    "bookReturn": "Rückgabe",
+    "bookDismiss": "Verstanden",
+    "bookDays": "Tage",
+    "bookPrice": "Gesamt",
     "bookExcludesCityDelivery": "Ohne Lieferung in die Stadt.",
     "bookFinalize": "Wir werden Sie in Kürze kontaktieren, um die Details zu bestätigen.",
     "bookPendingDates": "Die Daten {{dates}} sind gebucht, aber noch nicht von anderen Benutzern bestätigt. Wir kontaktieren Sie in Kürze zur Verfügbarkeit.",
@@ -1052,6 +1084,7 @@
     "close": "Schließen",
     "back": "Zurück",
     "privacyNotice": "Kontaktdaten des Kunden und Führerscheindokumente werden nach Eingang der Buchungszahlung sichtbar.",
+    "platformSupportNotice": "Zugriff des Plattform-Supports. Der Anbieter sieht diese Kontaktdaten erst, wenn die Buchungszahlung eingegangen ist.",
     "errors": {
       "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen."
     },
@@ -1094,7 +1127,15 @@
       "transmission": "Getriebe",
       "seats": "Sitzplätze",
       "luggage": "Gepäck",
-      "fuel": "Kraftstoffart"
+      "fuel": "Kraftstoffart",
+      "doors": "Türen",
+      "airConditioning": "Klimaanlage",
+      "modelYear": "Baujahr",
+      "includedMileage": "Inbegriffene Kilometer",
+      "deposit": "Kaution",
+      "fleetCode": "Flottencode",
+      "registration": "Kennzeichen",
+      "legacyNotice": "Diese Buchung stammt aus der Zeit vor den Fahrzeug-Snapshots. Gezeigt wird der heutige Flotteneintrag, der vom Vereinbarten abweichen kann."
     },
     "dates": {
       "pickup": "Abholdatum und -zeit",
@@ -1142,7 +1183,10 @@
       "whatsapp": "WhatsApp",
       "viber": "Viber",
       "telegram": "Telegram",
-      "openChat": "Chat öffnen"
+      "openChat": "Chat öffnen",
+      "copyPhone": "Telefon kopieren",
+      "copyEmail": "E-Mail kopieren",
+      "copied": "Kopiert"
     },
     "documents": {
       "holder": "Führerscheininhaber",
@@ -1155,7 +1199,6 @@
       "confirm": "Angefragtes Fahrzeug bestätigen",
       "replace": "Gleichwertigen Ersatz anbieten",
       "decline": "Anfrage ablehnen",
-      "contactCustomer": "Kunden kontaktieren",
       "contactRovaro": "Rovaro kontaktieren",
       "reportProblem": "Problem melden",
       "amend": "Buchung ändern"
@@ -1207,7 +1250,10 @@
       "totalPrice": "Gesamtmietpreis",
       "totalPriceHelp": "Gleicher oder niedrigerer Preis als angefragt.",
       "comment": "Kommentar für den Kunden",
-      "submit": "Vorschlag senden"
+      "submit": "Vorschlag senden",
+      "fleetPlaceholder": "Fahrzeug auswählen",
+      "internalFleet": "(intern) {{name}}",
+      "notOfferable": "Für diese Buchung nicht anbietbar:"
     },
     "amendDialog": {
       "notice": "Jede Änderung wird mit Grund sowie Vorher-Nachher-Stand protokolliert. Eine wesentliche Bedingung einer bezahlten Buchung kann sich nicht ohne Zustimmung des Kunden ändern.",
@@ -1229,6 +1275,14 @@
       "messageSent": "Nachricht an Rovaro gesendet.",
       "replacementOffered": "Ersatzvorschlag gesendet.",
       "amended": "Änderung gespeichert."
+    },
+    "header": {
+      "sourcePlatform": "Rovaro-Buchung",
+      "sourceInternal": "Intern",
+      "awaitingPayment": "Zahlung des Kunden ausstehend",
+      "paymentReceived": "Buchungszahlung eingegangen",
+      "days_one": "{{count}} Tag",
+      "days_other": "{{count}} Tage"
     }
   }
 }

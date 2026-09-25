@@ -40,8 +40,10 @@ export const BOOKING_CAPABILITY = Object.freeze({
   AMEND_PLATFORM_BOOKING: "AMEND_PLATFORM_BOOKING",
   EDIT_INTERNAL_BOOKING: "EDIT_INTERNAL_BOOKING",
   /**
-   * The second driver is a paid Rovaro extra, not a supplier upsell. Only the
-   * platform superadmin may add it, on any source, at any stage.
+   * On a PLATFORM booking the second driver is a paid Rovaro extra sold to the
+   * customer, so only the platform superadmin may add it, at any stage. An
+   * INTERNAL booking is the contractor's own offline record that the platform
+   * does not mediate, so its owner adds the second driver freely.
    */
   ADD_SECOND_DRIVER: "ADD_SECOND_DRIVER",
 });
@@ -144,7 +146,9 @@ export function resolveBookingCapabilities({
       [BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS]: true,
       [BOOKING_CAPABILITY.CONTACT_CUSTOMER]: true,
       [BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]: !isSuper,
-      [BOOKING_CAPABILITY.ADD_SECOND_DRIVER]: isSuper,
+      // Nobody reaches this branch without either owning the record or being
+      // the superadmin, and the platform does not mediate it.
+      [BOOKING_CAPABILITY.ADD_SECOND_DRIVER]: true,
     });
   }
 

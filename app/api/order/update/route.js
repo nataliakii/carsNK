@@ -6,6 +6,7 @@ import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import { assertBookingSourceUnchanged } from "@/domain/admin/rovaroContractorAdmin";
+import { orderOwnershipResponse } from "@/domain/orders/orderOwnershipGuard";
 
 export const PUT = async (req) => {
   try {
@@ -27,7 +28,11 @@ export const PUT = async (req) => {
         { status: 404 }
       );
     }
-    
+
+    // Role and state are not company scope: check whose booking this is.
+    const foreign = orderOwnershipResponse(session.user, existingOrder);
+    if (foreign) return foreign;
+
     // 🔧 FIXED: Check permissions using orderAccessPolicy (SSOT)
     const timeBucket = getTimeBucket(existingOrder);
     const isPast = timeBucket === "PAST";
