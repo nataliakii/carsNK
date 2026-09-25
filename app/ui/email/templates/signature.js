@@ -5,6 +5,7 @@
 
 import { getBaseUrl, getCanonicalHost } from "@config/domain";
 import { getActiveBrand, isGreeceSite } from "@config/brand";
+import { getEmailStyle } from "@/app/ui/email/theme/nataliCarsEmailTheme";
 import {
   getPublicLegalEntity,
   getBusinessAddressLine,
@@ -23,6 +24,7 @@ import {
 function buildLegalFooter() {
   if (isGreeceSite()) return { html: "", text: "" };
 
+  const s = getEmailStyle();
   const entity = getPublicLegalEntity();
   const registration = getRegistrationLine();
   const address = getBusinessAddressLine();
@@ -37,7 +39,7 @@ function buildLegalFooter() {
 
   return {
     html: `
-    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #eeeeee; font-size: 11px; color: #9e9e9e; line-height: 1.7;">
+    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid ${s.border}; font-size: 11px; color: ${s.footerMuted}; line-height: 1.7;">
       ${lines.map((line) => line.replace(/&/g, "&amp;").replace(/</g, "&lt;")).join("<br />")}
     </div>`,
     text: `\n\n${lines.join("\n")}`,
@@ -55,20 +57,20 @@ function buildSignature() {
   const lineText = isGreeceSite()
     ? "Car rental aggregator in Greece · Halkidiki & Thessaloniki"
     : `${brand.tagline} · Spain`;
-  const accent = brand.primary || "#E9004F";
+  const s = getEmailStyle();
 
   return {
     html: `
-<div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e0e0e0;">
-  <div style="text-align: center; font-size: 13px; color: #616161; line-height: 1.8;">
+<div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid ${s.border};">
+  <div style="text-align: center; font-size: 13px; color: ${s.muted}; line-height: 1.8; font-family: ${s.fontSans};">
     <div style="margin-bottom: 8px;">
-      <strong style="color: #0A0A0A; font-size: 14px;">${brand.name} Support</strong>
+      <strong style="color: ${s.text}; font-size: 14px;">${brand.name} Support</strong>
     </div>
-    <div style="color: #757575; margin-bottom: 12px;">
+    <div style="color: ${s.muted}; margin-bottom: 12px;">
       ${line}
     </div>
     <div style="margin-top: 16px;">
-      <a href="${base}" style="color: ${accent}; text-decoration: none; margin: 0 12px;">
+      <a href="${base}" style="color: ${s.link}; text-decoration: none; margin: 0 12px;">
         🌐 ${host}
       </a>
     </div>

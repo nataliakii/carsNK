@@ -5,11 +5,46 @@
 
 import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
 
+/** Stored supplier decision. ACCEPTED and CONFIRMED are the same value. */
 export const SUPPLIER_RESPONSE = Object.freeze({
   AWAITING: "AWAITING_SUPPLIER_RESPONSE",
-  ACCEPTED: "SUPPLIER_ACCEPTED",
+  ACCEPTED: "CONFIRMED",
+  CONFIRMED: "CONFIRMED",
   DECLINED: "SUPPLIER_DECLINED",
 });
+
+export const SUPPLIER_AVAILABILITY_STATEMENT =
+  "We confirm that the requested vehicle is available for the shown dates, pickup and return locations, and confirmed price.";
+
+export const CUSTOMER_CONFIRMATION = Object.freeze({
+  NOT_REQUESTED: "NOT_REQUESTED",
+  AWAITING_ACCEPTANCE: "AWAITING_ACCEPTANCE",
+  AWAITING_PAYMENT: "AWAITING_PAYMENT",
+  CONFIRMED_BY_PAYMENT: "CONFIRMED_BY_PAYMENT",
+  PAYMENT_EXPIRED: "PAYMENT_EXPIRED",
+});
+
+export function resolveCustomerConfirmation(order) {
+  const stored = String(order?.customerConfirmation || "");
+  const paid =
+    stored === CUSTOMER_CONFIRMATION.CONFIRMED_BY_PAYMENT ||
+    String(order?.bookingFeePaymentStatus || "").toUpperCase() === "PAID" ||
+    String(order?.payment?.status || "").toLowerCase() === "paid";
+  if (paid) return CUSTOMER_CONFIRMATION.CONFIRMED_BY_PAYMENT;
+  const status = String(order?.bookingStatus || "");
+  if (status === "ALTERNATIVE_PROPOSED") {
+    return CUSTOMER_CONFIRMATION.AWAITING_ACCEPTANCE;
+  }
+  if (
+    status === "PAYMENT_PROCESSING" ||
+    status === "CONFIRMED_AWAITING_PAYMENT" ||
+    status === "ALTERNATIVE_ACCEPTED_AWAITING_PAYMENT"
+  ) {
+    return CUSTOMER_CONFIRMATION.AWAITING_PAYMENT;
+  }
+  if (status === "PAYMENT_EXPIRED") return CUSTOMER_CONFIRMATION.PAYMENT_EXPIRED;
+  return CUSTOMER_CONFIRMATION.NOT_REQUESTED;
+}
 
 export const SUPPLIER_RESPONSE_PAYLOAD = Object.freeze({
   ACCEPTED: "ACCEPTED",
@@ -23,8 +58,14 @@ export const PLATFORM_BOOKING_STATUS = Object.freeze({
 });
 
 export function getSupplierResponseStatus(order) {
+  const stored = String(order?.supplierResponse || "");
+  if (stored === SUPPLIER_RESPONSE.DECLINED) return SUPPLIER_RESPONSE.DECLINED;
   const decision = String(order?.companyEmailDecision || "").toLowerCase();
-  if (decision === "accepted" || order?.partnerConfirmedAt) {
+  if (
+    stored === SUPPLIER_RESPONSE.CONFIRMED ||
+    decision === "accepted" ||
+    order?.partnerConfirmedAt
+  ) {
     if (decision === "rejected") {
       const acceptedAt = order.partnerConfirmedAt
         ? new Date(order.partnerConfirmedAt).getTime()
@@ -56,13 +97,26 @@ export function getPlatformBookingStatus(order) {
 }
 
 export function isSupplierResponseLocked(order) {
+  const paid =
+    String(order?.payment?.status || order?.bookingFeePaymentStatus || "")
+      .toLowerCase() === "paid" ||
+    order?.customerConfirmation === CUSTOMER_CONFIRMATION.CONFIRMED_BY_PAYMENT;
+  if (paid) return true;
+  const bookingStatus = String(order?.bookingStatus || "");
+  if (
+    bookingStatus === "BOOKING_CONFIRMED" ||
+    bookingStatus === "COMPLETION_PENDING" ||
+    bookingStatus === "COMPLETED" ||
+    bookingStatus === "RENTAL_IN_PROGRESS"
+  ) {
+    return true;
+  }
   return getPlatformBookingStatus(order) === PLATFORM_BOOKING_STATUS.CONFIRMED;
 }
 
-export function canPlatformConfirmBooking(order) {
-  if (!order || order.confirmed === true) return false;
-  if (order.my_order !== true) return true;
-  return getSupplierResponseStatus(order) === SUPPLIER_RESPONSE.ACCEPTED;
+/** Rovaro does not confirm a booking for either party. Always false. */
+export function canPlatformConfirmBooking() {
+  return false;
 }
 
 export function validateSupplierResponsePayload(body) {

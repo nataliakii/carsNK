@@ -41,7 +41,10 @@ describe("pendingInbox", () => {
     const filter = buildPendingRentalsFilter({
       user: { isAdmin: true, role: ROLE.ADMIN, ownerId: "507f1f77bcf86cd799439011" },
     });
-    expect(filter.confirmed).toEqual({ $ne: true });
+    expect(filter.confirmed).toBeUndefined();
+    expect(filter.$and).toBeTruthy();
+    expect(JSON.stringify(filter)).not.toContain("PAYMENT_PROCESSING");
+    expect(JSON.stringify(filter)).toContain("PENDING_SUPPLIER_CONFIRMATION");
     expect(filter.ownerId).toBeTruthy();
   });
 

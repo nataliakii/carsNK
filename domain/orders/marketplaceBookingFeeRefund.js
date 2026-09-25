@@ -18,6 +18,7 @@ import { assertStripeReady, getStripeMode } from "@/lib/stripe";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 import { recordAuditEvent } from "@/domain/legal/auditTrail";
 import { computeNetPaidMinor } from "@/domain/orders/stripePaymentRefs";
+import { bookingFeeMinorForRefund } from "@/domain/orders/bookingFinancialSnapshot";
 import { sendCustomerBookingFeeRefundEmail } from "@/domain/orders/marketplaceBookingEmails";
 
 export const MARKETPLACE_FEE_NO_AUTO_REFUND = Object.freeze([
@@ -167,12 +168,14 @@ export async function issueMarketplaceBookingFeeRefund({
   }
 
   const trimmedReason = String(reason).trim().slice(0, 500);
+  const refundMinor = bookingFeeMinorForRefund(order);
   let refund;
   try {
     const stripe = assertStripeReady(getStripeMode());
     refund = await stripe.refunds.create(
       {
         ...target,
+        ...(refundMinor > 0 ? { amount: refundMinor } : {}),
         reason: "requested_by_customer",
         metadata: {
           kind: "rental_booking_fee",

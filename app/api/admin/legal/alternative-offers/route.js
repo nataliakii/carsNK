@@ -7,6 +7,7 @@ import { Order } from "@models/order";
 import { extractAuditContext } from "@/domain/legal/auditTrail";
 import {
   offerAlternativeVehicle,
+  offerUnlistedEquivalent,
   listOffersForOrder,
   listEligibleAlternativeCars,
   withdrawAlternativeOffer,
@@ -112,16 +113,24 @@ export async function POST(request) {
     return NextResponse.json({ success: true, status: result.status, offerId: result.offerId });
   }
 
-  const result = await offerAlternativeVehicle({
-    orderId,
-    proposedCarId: body?.proposedCarId || body?.alternative?.carId,
-    alternative: {
-      reasonForReplacement:
-        body?.reasonForReplacement || body?.alternative?.reasonForReplacement || "",
-    },
-    offeredByEmail: session.user?.email || "",
-    actor,
-  });
+  const replacementSource = String(body?.replacementSource || "COMPANY_VEHICLE");
+  const result =
+    replacementSource === "COMPANY_VEHICLE"
+      ? await offerAlternativeVehicle({
+          orderId,
+          proposedCarId: body?.proposedCarId || body?.alternative?.carId,
+          alternative: {
+            reasonForReplacement:
+              body?.reasonForReplacement || body?.alternative?.reasonForReplacement || "",
+          },
+          offeredByEmail: session.user?.email || "",
+          actor,
+        })
+      : await offerUnlistedEquivalent({
+          orderId,
+          proposal: { ...body, replacementSource },
+          actor,
+        });
 
   if (!result.ok) {
     return NextResponse.json(

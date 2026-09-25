@@ -62,8 +62,14 @@ import {
 } from "./testOrderMarkers";
 import { MAIL_RENDER_KEY, MAIL_TYPE } from "@/domain/mail/mailTypes";
 import { notifyBookingRequested } from "@/domain/mail/notificationPolicy";
+import {
+  BOOKING_EMAIL_AUDIENCE,
+  BOOKING_EMAIL_EVENT,
+  resolveBookingEmail,
+} from "@/domain/bookings/bookingEmailPolicy";
 import { marketplaceFinancialSplit } from "@/domain/orders/marketplaceFinancialSplit";
 import { formatLocationLegLine } from "@/domain/orders/locationSnapshot";
+import { supplierEmailLocationName } from "@/domain/mail/supplierNewBookingEmail";
 import { moneyMinor } from "@/domain/mail/notificationCopy";
 
 // ════════════════════════════════════════════════════════════════
@@ -649,28 +655,18 @@ export async function notifyOrderAction({
   // Matrix emails for new booking requests go through notificationPolicy
   // (company + superadmin). Keep customer email + telegram here.
   if (action === "CREATE" && order.my_order === true && order.confirmed !== true) {
-    let confirmUrl = "";
-    const orderIdForLink = order._id?.toString?.() || order._id;
-    if (orderIdForLink) {
-      try {
-        const issued = await issueConfirmationToken({
-          orderId: orderIdForLink,
-          issuedByEmail: "system:order-created",
-        });
-        if (issued.ok && issued.token) {
-          confirmUrl = `${getBaseUrl()}/api/booking/partner-confirm?token=${encodeURIComponent(issued.token)}`;
-        } else {
-          console.error(
-            "[notifyOrderAction] confirmation link not issued:",
-            issued.code || issued.message || "unknown"
-          );
-        }
-      } catch (err) {
-        console.error(
-          "[notifyOrderAction] confirmation link failed:",
-          err?.message || err
-        );
-      }
+    const supplierMail = resolveBookingEmail({
+      event: BOOKING_EMAIL_EVENT.SUPPLIER_NEW_REQUEST,
+      audience: BOOKING_EMAIL_AUDIENCE.SUPPLIER,
+      order,
+    });
+    const customerMail = resolveBookingEmail({
+      event: BOOKING_EMAIL_EVENT.CUSTOMER_REQUEST_RECEIVED,
+      audience: BOOKING_EMAIL_AUDIENCE.CUSTOMER,
+      order,
+    });
+    if (!customerMail.allowed) {
+      notifications = notifications.filter((n) => n.target !== "CUSTOMER");
     }
     try {
       const split = marketplaceFinancialSplit(order.authoritativePrice || order);
@@ -687,7 +683,12 @@ export async function notifyOrderAction({
             deliveryLabel: "Delivery return",
           })
         : [order.placeOut, order.placeOutDetail].filter(Boolean).join(" — ");
-      await notifyBookingRequested({
+      if (!supplierMail.allowed) {
+        console.warn(
+          "[notifyOrderAction] supplier request email skipped:",
+          supplierMail.code
+        );
+      } else await notifyBookingRequested({
         orderId: order._id?.toString?.() || order._id,
         companyId: order.ownerId?.toString?.() || order.ownerId || "",
         companyEmail,
@@ -695,12 +696,18 @@ export async function notifyOrderAction({
         carModel: order.carModel || "",
         pickup,
         return: ret,
+        pickupAt: order.pickupAtUtc || order.timeIn || order.rentalStartDate || "",
+        returnAt: order.returnAtUtc || order.timeOut || order.rentalEndDate || "",
+        timezone: order.timezone || "",
+        pickupLocation: supplierEmailLocationName(snap?.pickup, order.placeIn || ""),
+        returnLocation: supplierEmailLocationName(snap?.return, order.placeOut || ""),
+        pickupLeg: snap?.pickup || null,
+        returnLeg: snap?.return || null,
         numberOfDays: order.numberOfDays,
         customerName: order.customerName || "",
         phone: order.phone || "",
         email: order.email || "",
         revealContacts: false,
-        confirmUrl,
         totalFormatted: moneyMinor(split.grossMinor, split.currency),
         feeFormatted: moneyMinor(split.platformAmountMinor, split.currency),
         remainingFormatted: moneyMinor(split.supplierBalanceMinor, split.currency),

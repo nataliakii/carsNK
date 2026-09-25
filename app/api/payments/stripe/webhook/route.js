@@ -29,12 +29,16 @@ async function finalizePaidRental(result) {
     console.error("[stripe webhook] booking snapshot failed", err?.message || err);
   });
 
-  if (result.idempotent) return;
+  if (result.order.payment?.paidEmailsSentAt) return;
 
-  await sendPaidConfirmationEmails({ order: result.order }).catch((err) => {
+  try {
+    const mailed = await sendPaidConfirmationEmails({ order: result.order });
+    if (mailed?.settled) {
+      await markRentalPaidEmailsSent(result.order._id);
+    }
+  } catch (err) {
     console.error("[stripe webhook] paid emails failed", err?.message || err);
-  });
-  await markRentalPaidEmailsSent(result.order._id);
+  }
 }
 
 /**

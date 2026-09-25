@@ -3,7 +3,8 @@
 **This is the domain rule for the rental-company admin.** Calendar, orders
 table, totals and superadmin queues must follow it.
 
-Platform confirmation and payment: `domain/booking/ROVARO_MARKETPLACE_WORKFLOW.md`.  
+Supplier confirmation and customer payment: `domain/booking/ROVARO_MARKETPLACE_WORKFLOW.md`.
+Rovaro does not confirm an ordinary booking for either party.  
 Machine-readable source and totals: `domain/admin/rovaroContractorAdmin.js`.
 
 Proven legacy flag: `my_order === true` is a public-site booking (PLATFORM).
@@ -139,9 +140,13 @@ Deleting an internal booking frees the car.
 
 Both sources, source column obvious (`Rovaro` / `Internal`).
 
-Columns: Status, Source, Order, Car, Pickup, Return, Customer (name only at
-the allowed stage), Rental total, Rovaro Booking Fee (platform only), Due to
-company, Actions.
+Columns: Status, Source, Car, Pickup, Return, Customer (name only after
+the Booking Fee is paid), Rental total, Rovaro Booking Fee (platform only),
+Due to company, Supplier response, Customer confirmation.
+
+There is no “Confirmed by Rovaro” control. Platform rows use explicit
+supplier and customer confirmation badges. Internal rows show — in both
+confirmation columns and use internal actions only.
 
 Filters: period, car, status, source All / Rovaro / Internal, active/upcoming,
 past, completed, cancelled, search (order number, car, customer).

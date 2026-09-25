@@ -164,6 +164,7 @@ function Footer() {
 
   const siteLinks = [
     { href: localeLink("/contacts"), label: t("footer.contact") },
+    { href: localeLink("/for-business"), label: t("forBusiness.eyebrow") },
     { href: "/login", label: t("footer.adminLogin") },
   ];
 

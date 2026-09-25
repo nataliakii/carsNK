@@ -33,6 +33,8 @@ import { Order } from "@models/order";
 import Company from "@models/company";
 import AuditLog from "@models/auditLog";
 import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { startMarketplacePaymentAfterAvailability } from "@/domain/orders/startMarketplacePaymentAfterAvailability";
 import { applySupplierResponse } from "@/domain/orders/supplierResponse";
 import { evaluateRentalAvailability } from "@/domain/booking/availabilityEngine";
 
@@ -86,6 +88,7 @@ describe("applySupplierResponse", () => {
     });
     Order.find.mockResolvedValue([]);
     AuditLog.create.mockResolvedValue({});
+    isMarketplaceRequestMode.mockReturnValue(false);
   });
 
   test("company admin can accept own vehicle without setting confirmed", async () => {
@@ -98,7 +101,10 @@ describe("applySupplierResponse", () => {
     });
     expect(result.status).toBe(200);
     expect(result.body.data.confirmed).toBe(false);
-    expect(result.body.data.supplierResponse).toBe("SUPPLIER_ACCEPTED");
+    expect(result.body.data.supplierResponse).toBe("CONFIRMED");
+    expect(order.supplierResponse).toBe("CONFIRMED");
+    expect(order.confirmedBy).toBe("admin1");
+    expect(order.confirmedVehicleId).toBe(CAR_ID);
     expect(order.confirmed).toBeFalsy();
     expect(order.companyEmailDecision).toBe("accepted");
     expect(notifySuperadmin).toHaveBeenCalledTimes(1);
@@ -106,7 +112,7 @@ describe("applySupplierResponse", () => {
     expect(notifySuperadmin.mock.calls[0][0].title).toContain("R-100");
   });
 
-  test("cannot respond for another company's order", async () => {
+  test("forged company confirmation for another company is rejected", async () => {
     Order.findById.mockResolvedValue(makeOrder({ ownerId: OTHER }));
     Car.findById.mockReturnValue({
       select: jest.fn().mockReturnValue({
@@ -135,6 +141,8 @@ describe("applySupplierResponse", () => {
     expect(order.companyEmailDecision).toBe("rejected");
     expect(order.declineReason).toBe("Car in workshop");
     expect(order.confirmed).toBeFalsy();
+    expect(order.supplierResponse).toBe("SUPPLIER_DECLINED");
+    expect(startMarketplacePaymentAfterAvailability).not.toHaveBeenCalled();
     expect(notifySuperadmin).toHaveBeenCalledTimes(1);
     expect(notifySuperadmin.mock.calls[0][0].bodyLines.join(" ")).toContain("workshop");
   });
@@ -208,6 +216,75 @@ describe("applySupplierResponse", () => {
     });
     expect(result.status).toBe(409);
     expect(orderConfirmed(result)).toBeUndefined();
+  });
+
+  test("supplier confirmation of a marketplace request creates the payment stage and does not confirm the customer", async () => {
+    isMarketplaceRequestMode.mockReturnValue(true);
+    const order = makeOrder({ bookingMode: "MARKETPLACE_REQUEST", source: "PLATFORM" });
+    Order.findById.mockResolvedValue(order);
+    const result = await applySupplierResponse({
+      orderId: "ord1",
+      sessionUser: companyAdmin,
+      response: "ACCEPTED",
+    });
+    expect(result.status).toBe(200);
+    expect(order.confirmed).toBeFalsy();
+    expect(order.supplierResponse).toBe("CONFIRMED");
+    expect(order.customerConfirmation).toBeUndefined();
+    expect(startMarketplacePaymentAfterAvailability).toHaveBeenCalledTimes(1);
+  });
+
+  test("an already confirmed booking cannot be confirmed again", async () => {
+    const order = makeOrder({
+      source: "PLATFORM",
+      bookingMode: "MARKETPLACE_REQUEST",
+      bookingStatus: "BOOKING_CONFIRMED",
+      confirmed: true,
+      payment: { status: "paid" },
+    });
+    Order.findById.mockResolvedValue(order);
+    const result = await applySupplierResponse({
+      orderId: "ord1",
+      sessionUser: companyAdmin,
+      response: "ACCEPTED",
+    });
+    expect(result.status).toBe(409);
+    expect(result.body.code).toBe("SUPPLIER_RESPONSE_LOCKED");
+    expect(order.save).not.toHaveBeenCalled();
+    expect(startMarketplacePaymentAfterAvailability).not.toHaveBeenCalled();
+  });
+
+  test("awaiting payment and a sent alternative cannot be confirmed or declined again", async () => {
+    const awaitingPay = makeOrder({
+      source: "PLATFORM",
+      bookingMode: "MARKETPLACE_REQUEST",
+      bookingStatus: "PAYMENT_PROCESSING",
+      companyEmailDecision: "accepted",
+      partnerConfirmedAt: new Date("2026-09-01T00:00:00Z"),
+    });
+    Order.findById.mockResolvedValue(awaitingPay);
+    const again = await applySupplierResponse({
+      orderId: "ord1",
+      sessionUser: companyAdmin,
+      response: "ACCEPTED",
+    });
+    expect(again.status).toBe(409);
+    expect(awaitingPay.save).not.toHaveBeenCalled();
+
+    const alternative = makeOrder({
+      source: "PLATFORM",
+      bookingStatus: "ALTERNATIVE_PROPOSED",
+    });
+    Order.findById.mockResolvedValue(alternative);
+    const declined = await applySupplierResponse({
+      orderId: "ord1",
+      sessionUser: companyAdmin,
+      response: "DECLINED",
+      reason: "changed my mind",
+    });
+    expect(declined.status).toBe(409);
+    expect(alternative.save).not.toHaveBeenCalled();
+    expect(alternative.bookingStatus).toBe("ALTERNATIVE_PROPOSED");
   });
 });
 

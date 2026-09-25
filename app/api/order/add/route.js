@@ -80,6 +80,8 @@ import {
 import { parseLocationQuoteInput } from "@/domain/orders/locationQuoteInput";
 import { orderFieldsFromSnapshot } from "@/domain/orders/locationSnapshot";
 import { BOOKING_MODES, isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { generatePublicBookingReference } from "@/domain/booking/publicBookingReference";
+import { bookingFinancialSnapshotFromQuote } from "@/domain/orders/bookingFinancialSnapshot";
 import {
   PRICE_BREAKDOWN_CUSTOMER_MESSAGE,
   PRICE_BREAKDOWN_MISMATCH,
@@ -1380,6 +1382,19 @@ async function postOrderAddHandler(request) {
     }
     if (legalSnapshotToSave) {
       newOrder.set("legalSnapshot", legalSnapshotToSave, { strict: false });
+    }
+    if (
+      isMarketplaceRequestMode(bookingMode) &&
+      bookingSource === BOOKING_SOURCE.PLATFORM
+    ) {
+      newOrder.set("publicReference", generatePublicBookingReference(), {
+        strict: false,
+      });
+      newOrder.set(
+        "bookingFinancialSnapshot",
+        bookingFinancialSnapshotFromQuote(quote),
+        { strict: false }
+      );
     }
 
     if (nonConfirmedDates.length > 0) {

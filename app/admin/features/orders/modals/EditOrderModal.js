@@ -86,6 +86,7 @@ import {
 import SignedDrivingLicenceGallery from "@/app/admin/features/orders/components/SignedDrivingLicenceGallery";
 import DrivingLicenceUploadField from "@/app/components/ui/inputs/DrivingLicenceUploadField";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import OrderLiveStagePanel from "@/app/admin/features/orders/components/OrderLiveStagePanel";
 
 // Extend dayjs with plugins
 dayjs.extend(utc);
@@ -122,6 +123,9 @@ const EditOrderModal = ({
   ordersInBatch = 1, // Количество одновременно открытых модалок
   registerEditOrderCloseGuard = null,
   onRequestClose = null,
+  onSupplierRespond = null,
+  onSupplierChanged = null,
+  supplierBusy = false,
 }) => {
   const { allOrders, fetchAndUpdateOrders, company } = useMainContext();
   const {
@@ -570,7 +574,6 @@ const EditOrderModal = ({
   // Local state for confirmation toggle (separate from save operation)
   const [confirmToggleUpdating, setConfirmToggleUpdating] = useState(false);
   const [closeOrderUpdating, setCloseOrderUpdating] = useState(false);
-  const [isSendingConfirmation, setIsSendingConfirmation] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [isPriceBreakdownExpanded, setIsPriceBreakdownExpanded] = useState(false);
   const [isPriceHistoryExpanded, setIsPriceHistoryExpanded] = useState(false);
@@ -705,78 +708,6 @@ const EditOrderModal = ({
       setUpdateMessage(error.message || "Статус не обновлен. Ошибка сервера.");
     } finally {
       setConfirmToggleUpdating(false);
-    }
-  };
-
-  const handleSendConfirmationEmail = async () => {
-    if (isSendingConfirmation) return;
-    if (!isCurrentUserSuperAdmin) return;
-    if ((editedOrder ?? order)?.my_order !== true) return;
-    if (!canSendConfirmationEmail) return;
-
-    const orderId = editedOrder?._id || order?._id;
-    if (!orderId) {
-      setUpdateMessage(t("order.confirmationEmailFailed"));
-      setSnackbarOpen(true);
-      return;
-    }
-
-    const isAdminCreatedOrder = (editedOrder ?? order)?.my_order !== true;
-    const locale = isAdminCreatedOrder
-      ? "en"
-      : String(i18n?.resolvedLanguage || i18n?.language || "en")
-          .split("-")[0]
-          .toLowerCase();
-
-    setIsSendingConfirmation(true);
-    setUpdateMessage(null);
-
-    try {
-      const response = await fetch("/api/admin/orders/send-confirmation", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ orderId, locale }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const detail =
-          data?.error && data?.message
-            ? `${data.message}: ${data.error}`
-            : data?.error || data?.message || `HTTP ${response.status}`;
-        throw new Error(detail);
-      }
-
-      setEditedOrder((prev) => {
-        if (!prev) return prev;
-        const prevHistory = Array.isArray(prev.confirmationEmailHistory)
-          ? prev.confirmationEmailHistory
-          : [];
-        const nextHistory = data?.confirmationEmailEvent
-          ? [...prevHistory, data.confirmationEmailEvent]
-          : prevHistory;
-        return {
-          ...prev,
-          IsConfirmedEmailSent: true,
-          confirmationEmailHistory: nextHistory,
-        };
-      });
-      showMessage(
-        data?.sentTo
-          ? `${t("order.confirmationEmailSent")}: ${data.sentTo}`
-          : t("order.confirmationEmailSent")
-      );
-    } catch (error) {
-      setUpdateMessage(
-        `${t("order.confirmationEmailFailed")}: ${
-          error?.message || t("basic.error")
-        }`
-      );
-      setSnackbarOpen(true);
-    } finally {
-      setIsSendingConfirmation(false);
     }
   };
 
@@ -1027,9 +958,6 @@ const EditOrderModal = ({
       isClientOrder &&
       !isCurrentUserSuperAdmin) ||
     (!editedOrder?.confirmed && !confirmationCheck.canConfirm);
-  const hasCustomerEmail = Boolean(
-    String(editedOrder?.email || order?.email || "").trim()
-  );
   const confirmationEmailHistory = useMemo(() => {
     const history = Array.isArray(editedOrder?.confirmationEmailHistory)
       ? editedOrder.confirmationEmailHistory
@@ -1042,75 +970,12 @@ const EditOrderModal = ({
       return bTime - aTime;
     });
   }, [editedOrder?.confirmationEmailHistory, order?.confirmationEmailHistory]);
-  const resendState = useMemo(() => {
-    const normalizeNumber = (value) => {
-      if (value === null || value === undefined || value === "") return null;
-      const numeric = Number(value);
-      return Number.isFinite(numeric) ? numeric : null;
-    };
-    const dateKey = (value) => {
-      if (!value) return "";
-      const athensValue = fromServerUTC(value);
-      if (athensValue && athensValue.isValid()) {
-        return formatDateYYYYMMDD(athensValue);
-      }
-      const fallback = dayjs(value);
-      return fallback.isValid() ? fallback.format("YYYY-MM-DD") : "";
-    };
-    const timeKey = (value) => {
-      if (!value) return "";
-      const athensValue = fromServerUTC(value);
-      if (athensValue && athensValue.isValid()) {
-        return formatTimeHHMM(athensValue);
-      }
-      const fallback = dayjs(value);
-      return fallback.isValid() ? fallback.format("HH:mm") : "";
-    };
-
-    const lastSnapshot = confirmationEmailHistory[0]?.snapshot;
-    if (!lastSnapshot) {
-      return {
-        hasPrevious: false,
-        hasChanges: true,
-      };
-    }
-
-    const currentEffectivePrice = normalizeNumber(getEffectivePrice(editedOrder));
-    const lastEffectivePrice = normalizeNumber(
-      lastSnapshot?.effectiveTotalPrice
-    );
-    const priceChanged = currentEffectivePrice !== lastEffectivePrice;
-
-    const datesChanged =
-      dateKey(editedOrder?.rentalStartDate) !==
-        dateKey(lastSnapshot?.rentalStartDate) ||
-      dateKey(editedOrder?.rentalEndDate) !==
-        dateKey(lastSnapshot?.rentalEndDate);
-
-    const timesChanged =
-      timeKey(editedOrder?.timeIn) !== timeKey(lastSnapshot?.timeIn) ||
-      timeKey(editedOrder?.timeOut) !== timeKey(lastSnapshot?.timeOut);
-
-    return {
-      hasPrevious: true,
-      hasChanges: priceChanged || datesChanged || timesChanged,
-    };
-  }, [confirmationEmailHistory, editedOrder]);
-  const canSendConfirmationEmail =
-    Boolean(editedOrder?._id) &&
-    hasCustomerEmail &&
-    (!resendState.hasPrevious || resendState.hasChanges);
   const isPickupAirport =
     String(editedOrder?.placeIn || "")
       .trim()
       .toLowerCase() === "airport";
   const isPickupThessaloniki = requiresDetail(editedOrder?.placeIn);
   const isReturnThessaloniki = requiresDetail(editedOrder?.placeOut);
-  const sendConfirmationEmailDisabledReason = !hasCustomerEmail
-    ? t("order.sendConfirmationEmailNoEmail")
-    : resendState.hasPrevious && !resendState.hasChanges
-    ? t("order.sendConfirmationEmailNoChanges")
-    : "";
 
   const discountHistory = useMemo(
     () =>
@@ -1280,6 +1145,27 @@ const EditOrderModal = ({
                   />
                 </Box>
               ) : null}
+              <OrderLiveStagePanel
+                order={editedOrder || order}
+                busy={supplierBusy}
+                showActions={!isCurrentUserSuperAdmin}
+                onRespond={
+                  onSupplierRespond
+                    ? (response, reason) =>
+                        onSupplierRespond(
+                          String((editedOrder || order)?._id || ""),
+                          response,
+                          reason
+                        )
+                    : null
+                }
+                onChanged={
+                  onSupplierChanged
+                    ? () =>
+                        onSupplierChanged(String((editedOrder || order)?._id || ""))
+                    : null
+                }
+              />
               {/* Количество дней и стоимость */}
               <Box
                 display="flex"
@@ -1756,7 +1642,7 @@ const EditOrderModal = ({
                     flexDirection: { xs: "column", sm: "row" },
                   }}
                 >
-                  {access?.canConfirm && (
+                  {access?.canConfirm && !isPlatformBooking(editedOrder) && (
                   <ActionButton
                     fullWidth
                     onClick={handleConfirmationToggle}
@@ -1768,8 +1654,8 @@ const EditOrderModal = ({
                     color={editedOrder?.confirmed ? "success" : "primary"}
                     label={
                       editedOrder?.confirmed
-                        ? t("order.orderConfirmed")
-                        : t("order.orderNotConfirmed")
+                        ? t("table.markTentative", { defaultValue: "Mark tentative" })
+                        : t("table.confirmInternally", { defaultValue: "Confirm internally" })
                     }
                     title={
                       permissions.isCurrentOrder &&
@@ -1789,23 +1675,6 @@ const EditOrderModal = ({
                       ...formMetrics.compactActionButtonSx,
                     }}
                   />
-                  )}
-                  {isCurrentUserSuperAdmin && isClientOrder && (
-                    <ActionButton
-                      fullWidth
-                      onClick={handleSendConfirmationEmail}
-                      loading={isSendingConfirmation}
-                      disabled={
-                        isSendingConfirmation || !canSendConfirmationEmail
-                      }
-                      color="secondary"
-                      label={t("order.sendConfirmationEmail")}
-                      title={sendConfirmationEmailDisabledReason}
-                      sx={{
-                        flex: 1,
-                        ...formMetrics.compactActionButtonSx,
-                      }}
-                    />
                   )}
                   {showCloseOrderButton && canCloseOrder && (
                     <ActionButton

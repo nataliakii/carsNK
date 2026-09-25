@@ -3,6 +3,7 @@ import Company from "@models/company";
 import { COMPANY_ID } from "@config/company";
 import { connectToDB } from "@lib/database";
 import { requireAdmin, requirePlatformAdmin } from "@/lib/adminAuth";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { confirmOrderFlow } from "@/domain/orders/confirmOrderFlow";
 import { orderMessages } from "@/domain/messages";
 
@@ -32,7 +33,7 @@ export const PATCH = async (request, { params }) => {
       );
     }
 
-    if (order.my_order === true) {
+    if (order.my_order === true || isPlatformBooking(order)) {
       const platformGate = await requirePlatformAdmin(request);
       if (platformGate.errorResponse) {
         return new Response(
@@ -48,6 +49,19 @@ export const PATCH = async (request, { params }) => {
           { status: 403, headers: JSON_HEADERS }
         );
       }
+      return new Response(
+        JSON.stringify({
+          success: false,
+          data: null,
+          message:
+            "Rovaro does not confirm this booking. The supplier confirms the vehicle, and the customer confirms by paying the Booking Fee.",
+          code: "PLATFORM_CONFIRMATION_NOT_ALLOWED",
+          level: "block",
+          conflicts: [],
+          affectedOrders: [],
+        }),
+        { status: 409, headers: JSON_HEADERS }
+      );
     }
 
     const companyId = session.user.companyId || COMPANY_ID;

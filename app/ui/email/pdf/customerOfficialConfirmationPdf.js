@@ -131,7 +131,7 @@ export async function buildCustomerOfficialConfirmationPdf(data) {
   const colorText = colorFromTheme(EMAIL_STYLE.text);
   const colorMuted = colorFromTheme(EMAIL_STYLE.muted);
   const colorAccent = colorFromTheme(EMAIL_STYLE.accent);
-  const colorHeader = colorFromTheme(EMAIL_STYLE.headerTeal);
+  const colorHeader = colorFromTheme(EMAIL_STYLE.headerBg);
   const colorBorder = colorFromTheme(EMAIL_STYLE.border);
   const colorHeaderText = colorFromTheme(EMAIL_STYLE.headerText);
 

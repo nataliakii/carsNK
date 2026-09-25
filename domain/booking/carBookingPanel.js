@@ -1,6 +1,7 @@
 /**
  * View model for the public car booking panel.
- * Calendar stays visible; the CTA is a breathing price plate (Approx → Book on hover).
+ * A complete date range shows BOOK! above the month, plus the quote total
+ * from the existing price action. Clearing the range hides both.
  */
 
 import dayjs from "dayjs";
@@ -55,17 +56,30 @@ export function priceCaption(priceKind) {
 /**
  * @param {{ start?: string|null, end?: string|null, editing?: boolean, quote?: object }} input
  */
+function quoteForSelectedRange(start, end, quote) {
+  const raw = quote || {};
+  if (!hasValidBookingRange(start, end)) return raw;
+  const rangeKey = `${start}|${end}`;
+  if (raw.rangeKey && raw.rangeKey !== rangeKey) {
+    return { status: "checking", priceKind: raw.priceKind, rangeKey };
+  }
+  return raw;
+}
+
 export function buildCarBookingPanelView(input) {
   const start = input?.start || null;
   const end = input?.end || null;
   const hasDates = hasValidBookingRange(start, end);
-  const quote = input?.quote || {};
+  const quote = quoteForSelectedRange(start, end, input?.quote);
   const status = !hasDates ? "empty" : quote.status || "checking";
   const showPrice =
     hasDates &&
     (status === "available" || status === "priceChanged") &&
     quote.totalPrice != null;
   const showApprox = Boolean(showPrice && quote.priceKind === "estimated");
+  // A complete range keeps BOOK! visible while the existing quote loads.
+  // An unavailable range is not bookable, so the button stays hidden.
+  const showBook = hasDates && status !== "unavailable";
 
   return {
     state: hasDates ? "selected" : "empty",
@@ -73,8 +87,9 @@ export function buildCarBookingPanelView(input) {
     // Keep the mini calendar on the search card at all times.
     calendarOpen: true,
     showChooseDates: !hasDates,
+    showBook,
     showPrice,
-    showBookPlate: showPrice || (hasDates && (status === "checking" || status === "unavailable" || status === "error" || status === "priceChanged")),
+    showBookPlate: showBook,
     showApprox,
     status,
     statusText: statusText(status, quote.message),
@@ -83,16 +98,11 @@ export function buildCarBookingPanelView(input) {
     priceCaption: priceCaption(quote.priceKind),
     priceText: showPrice ? formatEuroTotal(quote.totalPrice) : "",
     platePriceText: showPrice ? formatPlatePrice(quote.totalPrice) : "",
-    bookHoverLabel: "Book",
-    continueDisabled:
-      !hasDates ||
-      status === "checking" ||
-      status === "unavailable" ||
-      status === "error" ||
-      status === "empty",
+    bookLabel: "BOOK!",
+    continueDisabled: !showBook,
     canonicalStart: hasDates ? start : null,
     canonicalEnd: hasDates ? end : null,
-    continueLabel: "Book",
+    continueLabel: "BOOK!",
   };
 }
 

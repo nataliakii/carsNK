@@ -39,14 +39,14 @@ export const CONTRACTOR_TONE_COLORS = {
     CALENDAR_TONE.NEW_REQUEST,
     booking.newRequest,
     "Новая заявка",
-    "New request",
+    "Awaiting supplier confirmation",
     { text: palette.neutral.black }
   ),
   [CALENDAR_TONE.AWAITING_PAYMENT]: swatch(
     CALENDAR_TONE.AWAITING_PAYMENT,
     booking.awaitingPayment,
     "Ожидается оплата",
-    "Awaiting payment",
+    "Awaiting customer payment",
     { text: palette.neutral.gray900 }
   ),
   [CALENDAR_TONE.CONFIRMED_PAID]: swatch(

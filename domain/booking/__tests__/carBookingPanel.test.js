@@ -21,11 +21,13 @@ describe("car booking panel view", () => {
     expect(view.state).toBe("selected");
     expect(view.calendarOpen).toBe(true);
     expect(view.showChooseDates).toBe(false);
+    expect(view.showBook).toBe(true);
     expect(view.showPrice).toBe(true);
     expect(view.showApprox).toBe(true);
     expect(view.platePriceText).toBe("105€");
-    expect(view.bookHoverLabel).toBe("Book");
-    expect(view.continueLabel).toBe("Book");
+    expect(view.bookLabel).toBe("BOOK!");
+    expect(view.continueLabel).toBe("BOOK!");
+    expect(view.continueDisabled).toBe(false);
     expect(view.statusText).toBe("");
     expect(view.canonicalStart).toBe("2026-09-29");
     expect(view.canonicalEnd).toBe("2026-09-30");
@@ -45,6 +47,7 @@ describe("car booking panel view", () => {
     const view = buildCarBookingPanelView({ start: null, end: null });
     expect(view.showChooseDates).toBe(true);
     expect(view.calendarOpen).toBe(true);
+    expect(view.showBook).toBe(false);
     expect(view.showPrice).toBe(false);
     expect(view.platePriceText).toBe("");
   });
@@ -114,17 +117,32 @@ describe("car booking panel view", () => {
     expect(view.calendarOpen).toBe(true);
     expect(view.statusText).toBe("Not available for these dates");
     expect(view.continueDisabled).toBe(true);
+    expect(view.showBook).toBe(false);
     expect(view.showPrice).toBe(false);
   });
 
-  test("booking stays disabled while availability is still being checked", () => {
+  test("a complete range shows BOOK! while the quote is still loading, without a price", () => {
     const view = buildCarBookingPanelView({
       ...DATES,
-      quote: { status: "checking" },
+      quote: { status: "checking", rangeKey: "2026-09-29|2026-09-30" },
     });
     expect(view.statusText).toBe("Checking availability…");
-    expect(view.continueDisabled).toBe(true);
+    expect(view.showBook).toBe(true);
+    expect(view.bookLabel).toBe("BOOK!");
+    expect(view.continueDisabled).toBe(false);
     expect(view.showPrice).toBe(false);
+    expect(view.platePriceText).toBe("");
+  });
+
+  test("a quote for a different range does not keep the previous price", () => {
+    const view = buildCarBookingPanelView({
+      start: "2026-10-01",
+      end: "2026-10-03",
+      quote: { ...READY, rangeKey: "2026-09-29|2026-09-30" },
+    });
+    expect(view.showBook).toBe(true);
+    expect(view.showPrice).toBe(false);
+    expect(view.platePriceText).toBe("");
   });
 
   test("a changed server total still shows the plate without a status line", () => {

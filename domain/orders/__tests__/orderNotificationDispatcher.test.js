@@ -98,11 +98,11 @@ describe("orderNotificationDispatcher", () => {
     expect(notifyBookingRequested).toHaveBeenCalledTimes(1);
     const matrix = notifyBookingRequested.mock.calls[0][0];
     expect(matrix.companyEmail).toBe("company@example.com");
-    expect(matrix.confirmUrl).toContain("/api/booking/partner-confirm?token=");
-    expect(matrix.confirmUrl).toContain("test-partner-confirm-token");
+    expect(matrix.confirmUrl).toBeUndefined();
     expect(matrix.revealContacts).toBe(false);
     expect(matrix.customerName).toBe("Test User");
-    expect(issueConfirmationToken).toHaveBeenCalled();
+    expect(matrix.orderId).toBe("order-1");
+    expect(issueConfirmationToken).not.toHaveBeenCalled();
 
     // Customer email only (company/superadmin owned by matrix policy).
     expect(sendEmailDirect).toHaveBeenCalledTimes(1);

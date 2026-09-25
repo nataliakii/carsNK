@@ -12,7 +12,7 @@
  */
 
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
-import { marketplaceFinancialSplit } from "@/domain/orders/marketplaceFinancialSplit";
+import { resolveBookingFinancialSnapshot } from "@/domain/orders/bookingFinancialSnapshot";
 
 export const RENTAL_PAYMENT_TIMING = Object.freeze({
   BEFORE_CONFIRM: "before_confirm",
@@ -106,26 +106,25 @@ export function resolveCompanyRentalPaymentPolicy(
 /**
  * Prepayment amount for Checkout (minor units).
  * @param {object} order
+ * @param {{ company?: object, platformSettings?: object, feeBps?: number }} [opts]
+ *   Used only when the order has no stored Booking Fee snapshot.
  * @returns {{ amountMinor: number, currency: string, balanceMinor: number }}
  */
-export function resolveRentalCheckoutAmount(order) {
+export function resolveRentalCheckoutAmount(order, opts = {}) {
   const auth = order?.authoritativePrice || {};
   if (isMarketplaceRequestMode(order?.bookingMode)) {
-    const split = marketplaceFinancialSplit({
-      ...auth,
-      currency: auth.currency || order?.currency || "EUR",
-    });
+    const snap = resolveBookingFinancialSnapshot(order, opts);
     return {
-      amountMinor: split.stripeAmountMinor,
-      currency: split.currency,
-      balanceMinor: split.supplierBalanceMinor,
-      grossMinor: split.grossMinor,
-      platformAmountMinor: split.platformAmountMinor,
-      stripeAmountMinor: split.stripeAmountMinor,
-      supplierBalanceMinor: split.supplierBalanceMinor,
-      payoutMinor: split.payoutMinor,
-      marketplaceBookingFeeBps: split.marketplaceBookingFeeBps,
-      feePercent: split.feePercent,
+      amountMinor: snap.bookingFeeMinor,
+      currency: snap.currency || "EUR",
+      balanceMinor: snap.supplierBalanceMinor,
+      grossMinor: snap.grossMinor,
+      platformAmountMinor: snap.bookingFeeMinor,
+      stripeAmountMinor: snap.bookingFeeMinor,
+      supplierBalanceMinor: snap.supplierBalanceMinor,
+      payoutMinor: 0,
+      marketplaceBookingFeeBps: snap.feeBps,
+      feePercent: snap.feePercent,
     };
   }
 

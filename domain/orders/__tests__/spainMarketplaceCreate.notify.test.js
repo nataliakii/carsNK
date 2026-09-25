@@ -74,7 +74,9 @@ describe("Spain marketplace create notifications", () => {
     const matrix = notifyBookingRequested.mock.calls[0][0];
     expect(matrix.companyId).toBe("company-a");
     expect(matrix.revealContacts).toBe(false);
-    expect(matrix.confirmUrl).toContain("partner-token");
+    expect(matrix.confirmUrl).toBeUndefined();
+    expect(matrix.pickupAt).toBe("2026-10-01T10:00:00.000Z");
+    expect(matrix.returnAt).toBe("2026-10-05T10:00:00.000Z");
     const leaked = sendEmailDirect.mock.calls.find((call) =>
       (call[0].to || []).includes("owner-b@example.com")
     );

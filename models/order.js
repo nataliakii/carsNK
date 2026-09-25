@@ -114,6 +114,28 @@ const OrderSchema = new mongoose.Schema({
   },
   partnerConfirmedAt: { type: Date, default: null },
   partnerConfirmedByEmail: { type: String, default: "" },
+  /** Supplier vehicle confirmation. CONFIRMED or SUPPLIER_DECLINED. Not a Rovaro confirmation. */
+  supplierResponse: { type: String, default: "" },
+  confirmedAt: { type: Date, default: null },
+  confirmedBy: { type: String, default: "" },
+  confirmedVehicleId: { type: String, default: "" },
+  /** Set only by a verified Stripe Booking Fee webhook. */
+  customerConfirmation: { type: String, default: "" },
+  bookingFeePaymentStatus: { type: String, default: "" },
+  /** SUPPLIER or ROVARO. A problem counts as a company action only when SUPPLIER. */
+  problemAssignedTo: { type: String, default: "" },
+  pendingReplacementProposal: { type: mongoose.Schema.Types.Mixed, default: null },
+  replacementDisclosure: { type: String, default: "" },
+  replacementProposalAcceptedChecksum: { type: String, default: "" },
+  replacementProposalAcceptedVersion: { type: Number, default: null },
+  replacementProposalAcceptedOfferId: { type: String, default: "" },
+  replacementProposalAcceptedAt: { type: Date, default: null },
+  /**
+   * Customer refused the proposed replacement by replying to Rovaro. Recorded
+   * by a superadmin; moves the booking into the manual queue and stops every
+   * automatic customer email until a new proposal is sent by hand.
+   */
+  replacementObjection: { type: mongoose.Schema.Types.Mixed, default: null },
   partnerConfirmMeta: {
     type: mongoose.Schema.Types.Mixed,
     default: null,
@@ -429,6 +451,30 @@ const OrderSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  /**
+   * Customer-safe booking reference (RVR-XXXXX). Server-generated, immutable,
+   * unique. Not derived from _id, orderNumber, or a counter. Absent on
+   * historical rows — assigned for new platform orders and lazily when a
+   * current order enters the paid-email flow.
+   */
+  publicReference: { type: String },
+  /**
+   * Opaque customer booking-page credential. Only the hash is stored.
+   * scope is customer_booking_read. Raw tokens are never persisted.
+   */
+  customerBookingAccess: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  /**
+   * Immutable money snapshot: fee rate, total, Booking Fee, supplier balance,
+   * currency, calculation version. Paid rows are not repriced from later
+   * configuration changes.
+   */
+  bookingFinancialSnapshot: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
   flightNumber: {
     type: String,
     default: "",
@@ -594,6 +640,14 @@ const OrderSchema = new mongoose.Schema({
     default: null,
   },
 });
+
+OrderSchema.index(
+  { publicReference: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { publicReference: { $type: "string", $gt: "" } },
+  }
+);
 
 function buildHistoryEntry(breakdown) {
   const entry = { ...breakdown };
@@ -940,6 +994,25 @@ if (Order?.schema && !Order.schema.path("companyEmailDecision")) {
   });
 }
 
+if (Order?.schema && !Order.schema.path("supplierResponse")) {
+  Order.schema.add({
+    supplierResponse: { type: String, default: "" },
+    confirmedAt: { type: Date, default: null },
+    confirmedBy: { type: String, default: "" },
+    confirmedVehicleId: { type: String, default: "" },
+    customerConfirmation: { type: String, default: "" },
+    bookingFeePaymentStatus: { type: String, default: "" },
+    problemAssignedTo: { type: String, default: "" },
+    pendingReplacementProposal: { type: mongoose.Schema.Types.Mixed, default: null },
+    replacementDisclosure: { type: String, default: "" },
+    replacementProposalAcceptedChecksum: { type: String, default: "" },
+    replacementProposalAcceptedVersion: { type: Number, default: null },
+    replacementProposalAcceptedOfferId: { type: String, default: "" },
+    replacementProposalAcceptedAt: { type: Date, default: null },
+    replacementObjection: { type: mongoose.Schema.Types.Mixed, default: null },
+  });
+}
+
 if (Order?.schema && !Order.schema.path("partnerConfirmedAt")) {
   Order.schema.add({
     partnerConfirmedAt: { type: Date, default: null },
@@ -950,6 +1023,21 @@ if (Order?.schema && !Order.schema.path("partnerConfirmedAt")) {
     declinedByEmail: { type: String, default: "" },
     declineMeta: { type: mongoose.Schema.Types.Mixed, default: null },
   });
+}
+
+if (Order?.schema && !Order.schema.path("publicReference")) {
+  Order.schema.add({
+    publicReference: { type: String },
+    customerBookingAccess: { type: mongoose.Schema.Types.Mixed, default: null },
+    bookingFinancialSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+  });
+  Order.schema.index(
+    { publicReference: 1 },
+    {
+      unique: true,
+      partialFilterExpression: { publicReference: { $type: "string", $gt: "" } },
+    }
+  );
 }
 
 if (Order?.schema && !Order.schema.path("pickupMethod")) {

@@ -50,6 +50,7 @@ describe("adminNav IA", () => {
       })
     ).toEqual([
       "storefront",
+      "offices",
       "people",
       "delivery",
       "pricing",

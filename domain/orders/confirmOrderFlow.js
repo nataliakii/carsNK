@@ -19,7 +19,7 @@ import { Order } from "@models/order";
 import { ROLE } from "@models/user";
 import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
-import { canPlatformConfirmBooking } from "@/domain/orders/supplierResponseStatus";
+import { isInternalBooking, isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { notifyOrderAction } from "@/domain/orders/orderNotificationDispatcher";
 import { orderMessages } from "@/domain/messages";
@@ -98,18 +98,15 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
     return { status: 403, body: normalized };
   }
 
-  if (
-    isConfirming &&
-    order.my_order === true &&
-    policyRoleFromUser(sessionUser) === ROLE.SUPERADMIN &&
-    !canPlatformConfirmBooking(order)
-  ) {
+  if (isConfirming && isPlatformBooking(order)) {
     return {
       status: 409,
       body: {
         success: false,
         data: null,
-        message: orderMessages.SUPPLIER_RESPONSE_REQUIRED,
+        message:
+          "Rovaro does not confirm this booking. The supplier confirms the vehicle, and the customer confirms by paying the Booking Fee.",
+        code: "PLATFORM_CONFIRMATION_NOT_ALLOWED",
         level: "block",
         conflicts: [],
         affectedOrders: [],
@@ -307,6 +304,7 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
         bookingMode: updatedOrder.bookingMode,
       });
       if (
+        !isInternalBooking(updatedOrder) &&
         shouldChargeRentalOnConfirm(payPolicy, {
           bookingMode: updatedOrder.bookingMode,
         })
@@ -321,17 +319,19 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
       console.error("[switchConfirm] rental checkout failed:", payErr?.message);
     }
 
-    try {
-      const orderPlain = updatedOrder.toObject ? updatedOrder.toObject() : { ...updatedOrder };
-      await notifyOrderAction({
-        order: orderPlain,
-        user: sessionUser,
-        action: "CONFIRM",
-        actorName: sessionUser?.name || sessionUser?.email,
-        source: "BACKEND",
-      });
-    } catch (notifyErr) {
-      console.error("[switchConfirm] notifyOrderAction failed:", notifyErr?.message);
+    if (!isInternalBooking(updatedOrder)) {
+      try {
+        const orderPlain = updatedOrder.toObject ? updatedOrder.toObject() : { ...updatedOrder };
+        await notifyOrderAction({
+          order: orderPlain,
+          user: sessionUser,
+          action: "CONFIRM",
+          actorName: sessionUser?.name || sessionUser?.email,
+          source: "BACKEND",
+        });
+      } catch (notifyErr) {
+        console.error("[switchConfirm] notifyOrderAction failed:", notifyErr?.message);
+      }
     }
 
     const responseStatus = conflictAnalysis.level === "warning" ? 202 : 200;
@@ -356,18 +356,20 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
     order.confirmed = false;
     const updatedOrder = await order.save();
 
-    try {
-      const orderPlain = updatedOrder.toObject ? updatedOrder.toObject() : { ...updatedOrder };
-      await notifyOrderAction({
-        order: orderPlain,
-        user: sessionUser,
-        action: "UNCONFIRM",
-        actorName: sessionUser?.name || sessionUser?.email,
-        source: "BACKEND",
-        companyEmail: companyEmail,
-      });
-    } catch (notifyErr) {
-      console.error("[switchConfirm] notifyOrderAction failed:", notifyErr?.message);
+    if (!isInternalBooking(updatedOrder)) {
+      try {
+        const orderPlain = updatedOrder.toObject ? updatedOrder.toObject() : { ...updatedOrder };
+        await notifyOrderAction({
+          order: orderPlain,
+          user: sessionUser,
+          action: "UNCONFIRM",
+          actorName: sessionUser?.name || sessionUser?.email,
+          source: "BACKEND",
+          companyEmail: companyEmail,
+        });
+      } catch (notifyErr) {
+        console.error("[switchConfirm] notifyOrderAction failed:", notifyErr?.message);
+      }
     }
 
     const normalized = {

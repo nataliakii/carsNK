@@ -5,6 +5,7 @@
 
 import { absoluteUrl } from "@config/domain";
 import { renderAdminOrderNotificationEmail } from "@/app/ui/email/renderEmail";
+import { buildSupplierNewBookingEmail } from "@/domain/mail/supplierNewBookingEmail";
 import {
   NOTIFICATION_EVENT,
 } from "@/domain/mail/notificationEvents";
@@ -210,31 +211,7 @@ export function buildNotificationContent(eventType, audience, ctx = {}) {
 
     case NOTIFICATION_EVENT.BOOKING_REQUESTED: {
       if (audience === "company") {
-        const subject = `New booking request: ${orderNumber}`;
-        const customer = ctx.revealContacts
-          ? line("Customer", ctx.customerName || "")
-          : line("Customer", firstName(ctx.customerName) || "(hidden until fee paid)");
-        const lines = [
-          "A new booking request is waiting for your response.",
-          "",
-          line("Booking", orderNumber),
-          line("Car", ctx.carModel || ""),
-          line("Pickup", ctx.pickup || ""),
-          line("Return", ctx.return || ""),
-          customer,
-          line("Total", ctx.totalFormatted || ""),
-          line("Booking fee", ctx.feeFormatted || ""),
-          line("Remaining to company", ctx.remainingFormatted || ""),
-          ctx.deadline ? line("Respond by", ctx.deadline) : null,
-          "",
-          "Customer contact details stay hidden until the Rovaro booking fee is paid.",
-          "",
-          ctx.confirmUrl
-            ? `Respond to this booking: ${ctx.confirmUrl}`
-            : null,
-          `Open booking: ${bookingAdminUrl(ctx.orderId)}`,
-        ].filter((l) => l != null);
-        return wrap(subject, lines);
+        return buildSupplierNewBookingEmail(ctx);
       }
       const subject = `New booking request: ${orderNumber} — ${companyName}`;
       const lines = [
@@ -271,41 +248,11 @@ export function buildNotificationContent(eventType, audience, ctx = {}) {
       return wrap(subject, lines);
     }
 
-    case NOTIFICATION_EVENT.BOOKING_FEE_PAID: {
-      if (audience === "company") {
-        const subject = `Booking confirmed — customer details are now available: ${orderNumber}`;
-        const lines = [
-          "The customer has paid the Rovaro booking fee. You may now contact the customer. Collect only the remaining balance shown below.",
-          "",
-          line("Booking", orderNumber),
-          line("Customer", ctx.customerName || ""),
-          line("Phone", ctx.phone || ""),
-          line("Email", ctx.email || ""),
-          line("Remaining balance", ctx.remainingFormatted || ""),
-          line("Total", ctx.totalFormatted || ""),
-          "",
-          "Do not collect the full rental total again.",
-          "",
-          `Open booking: ${bookingAdminUrl(ctx.orderId)}`,
-          `Calendar: ${calendarDeepLink(ctx.orderId)}`,
-        ];
-        return wrap(subject, lines);
-      }
-      const subject = `Booking fee paid: ${orderNumber}`;
-      const lines = [
-        line("Booking", orderNumber),
-        line("Company", companyName),
-        line("Gross", ctx.totalFormatted || ""),
-        line("Fee", ctx.feeFormatted || ""),
-        line("Fee %", ctx.feePercent != null ? `${ctx.feePercent}%` : "—"),
-        line("Remaining to company", ctx.remainingFormatted || ""),
-        line("Stripe ref", ctx.stripeRef || "—"),
-        line("Status", ctx.status || "paid"),
-        "",
-        `Open: ${bookingAdminUrl(ctx.orderId)}`,
-      ];
-      return wrap(subject, lines);
-    }
+    case NOTIFICATION_EVENT.BOOKING_FEE_PAID:
+      // Paid mail uses CUSTOMER_BOOKING_CONFIRMED, SUPPLIER_BOOKING_PAID,
+      // and SUPERADMIN_BOOKING_PAYMENT_RECEIVED. This matrix must not send
+      // the technical admin template to any audience.
+      return null;
 
     case NOTIFICATION_EVENT.BOOKING_DECLINED: {
       const reasonLabel =

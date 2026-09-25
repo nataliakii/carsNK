@@ -53,16 +53,17 @@ describe("supplier vs platform status", () => {
     expect(isSupplierResponseLocked(order)).toBe(false);
   });
 
-  test("companyEmailDecision accepted does not set platform confirmation", () => {
+  test("supplier acceptance is not a Rovaro confirmation", () => {
     const order = {
       my_order: true,
       confirmed: false,
       companyEmailDecision: "accepted",
       partnerConfirmedAt: new Date(),
+      supplierResponse: "CONFIRMED",
     };
-    expect(getSupplierResponseStatus(order)).toBe(SUPPLIER_RESPONSE.ACCEPTED);
+    expect(getSupplierResponseStatus(order)).toBe(SUPPLIER_RESPONSE.CONFIRMED);
     expect(getPlatformBookingStatus(order)).toBe(PLATFORM_BOOKING_STATUS.PENDING);
-    expect(canPlatformConfirmBooking(order)).toBe(true);
+    expect(canPlatformConfirmBooking(order)).toBe(false);
   });
 
   test("decline requires a reason in the payload", () => {

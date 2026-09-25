@@ -223,9 +223,10 @@ describe("sendPartnerSupportMessage", () => {
     });
     const html = sendEmailDirect.mock.calls[0][0].html;
     expect(html).not.toContain("<script>");
-    expect(html).not.toContain("<img");
+    expect(html).not.toContain("<img src=x");
     expect(html).toContain("&lt;script&gt;");
-    expect(html).toContain("&lt;img");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    expect(html).toContain("/brand/rovaro/wordmark-compact.png");
   });
 
   test("double submit with the same key does not create a second row", async () => {

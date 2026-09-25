@@ -114,12 +114,12 @@ describe("closeCompletedRentals helpers", () => {
     expect(order.payment.status).toBe("paid");
   });
 
-  test("pickup time moves the booking to RENTAL_IN_PROGRESS before return", () => {
+  test("pickup does not leave BOOKING_CONFIRMED before the return", () => {
     const order = platform({
       pickupAtUtc: "2026-10-01T08:00:00.000Z",
       returnAtUtc: "2026-10-05T10:00:00.000Z",
     });
-    applyPlatformCompletionStep(order, now);
-    expect(order.bookingStatus).toBe(BOOKING_STATUS.RENTAL_IN_PROGRESS);
+    expect(planPlatformCompletion(order, now)).toBeNull();
+    expect(order.bookingStatus).toBe(BOOKING_STATUS.BOOKING_CONFIRMED);
   });
 });

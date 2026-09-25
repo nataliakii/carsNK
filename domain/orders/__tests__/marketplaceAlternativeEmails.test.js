@@ -8,7 +8,9 @@ describe("alternative offer email copy", () => {
   test("EN and ES both describe requested/proposed cars, cap and a View Offer CTA", () => {
     for (const locale of ["en", "es"]) {
       const t = ALTERNATIVE_EMAIL_COPY[locale];
-      expect(t.offeredSubject.toLowerCase()).toMatch(/rovaro/);
+      expect(t.offeredSubject.toLowerCase()).toMatch(
+        /replacement vehicle|vehículo de sustitución/
+      );
       expect(t.viewOffer).toBeTruthy();
       expect(t.requested).toBeTruthy();
       expect(t.proposed).toBeTruthy();

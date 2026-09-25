@@ -606,7 +606,10 @@ async function finalizePartnerDecline({
 
   await expireRentalCheckoutSession(order._id);
   await releaseMarketplaceHold(order._id, { reason: "supplier_declined" });
-  await sendCustomerDeclineEmail({
+  // A decline creates a manual Rovaro task. The customer is contacted by a
+  // person, never by an automatic campaign — see
+  // domain/bookings/ROVARO_BOOKING_EMAIL_POLICY.md §2C.
+  const declineMail = await sendCustomerDeclineEmail({
     order: order.toObject ? order.toObject() : order,
     reason: resolvedExplanation || resolvedCode,
   });
@@ -630,6 +633,8 @@ async function finalizePartnerDecline({
       jti: consumed?.jti,
       reasonCode: resolvedCode,
       autoRefund: false,
+      customerEmailSent: declineMail?.ok === true && !declineMail?.skipped,
+      customerContactTask: declineMail?.skipped ? "rovaro_manual_decline" : "",
     },
   });
   await notifyPartnerDecision(order, "declined", actorEmail, {

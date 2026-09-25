@@ -21,6 +21,10 @@ import {
   normalizeAdminCountryFilter,
   buildAdminCountryCompanyFilter,
 } from "@/domain/platform/adminCountryScope";
+import {
+  companyActionMongoOr,
+  platformBookingMongoClause,
+} from "@/domain/orders/companyRentalActions";
 
 /** Transfer statuses that still need admin / supplier attention. */
 export const TRANSFER_PENDING_ATTENTION_STATUSES = [
@@ -50,17 +54,19 @@ export async function resolveAdminCountryOwnerIds(CompanyModel, countryCode) {
  * @param {object|null} session
  * @param {string} [countryCode] - GR | ES | ALL (superadmin country switcher)
  * @param {{ ownerIds?: import("mongoose").Types.ObjectId[] | null }} [options]
- * @returns {object} Mongo filter for unconfirmed active rentals
+ * @returns {object} Mongo filter for PLATFORM rentals that still need this company
  */
 export function buildPendingRentalsFilter(
   session,
   countryCode = "ALL",
   options = {}
 ) {
+  const scoped = buildOrdersOwnerFilter(session);
+  if (scoped._id === null) return scoped;
   const base = {
-    ...buildOrdersOwnerFilter(session),
-    confirmed: { $ne: true },
+    ...scoped,
     status: { $ne: ORDER_STATUS.PAID_AND_CLOSED },
+    $and: [platformBookingMongoClause(), { $or: companyActionMongoOr() }],
   };
 
   const user = session?.user ?? null;

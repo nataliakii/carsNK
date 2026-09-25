@@ -27,6 +27,24 @@ jest.mock("@models/company", () => ({
 jest.mock("@/domain/mail/notificationPolicy", () => ({
   notifyBookingFeePaid: jest.fn().mockResolvedValue({ ok: true }),
 }));
+jest.mock("@models/user", () => ({
+  ROLE: { ADMIN: 1, SUPERADMIN: 2 },
+  User: {
+    find: jest.fn().mockReturnValue({
+      select: () => ({
+        lean: () =>
+          Promise.resolve([
+            {
+              email: "owner@a.test",
+              ownerId: "64b7f2c3a1b2c3d4e5f60788",
+              disabledAt: null,
+              lastLoginAt: new Date(),
+            },
+          ]),
+      }),
+    }),
+  },
+}));
 
 import { notifyBookingFeePaid } from "@/domain/mail/notificationPolicy";
 
@@ -45,6 +63,9 @@ const order = {
   pickupAtUtc: "2026-10-01T10:00:00.000Z",
   returnAtUtc: "2026-10-05T10:00:00.000Z",
   clientLang: "en",
+  bookingMode: "MARKETPLACE_REQUEST",
+  publicReference: "RVR-7K4P9",
+  _customerAccessToken: "customer-access-token-not-for-supplier",
   authoritativePrice: {
     currency: "EUR",
     grossMinor: 100000,
@@ -142,8 +163,14 @@ describe("marketplace booking emails", () => {
     expect(payload.html).not.toContain("Pay 10% non-refundable Rovaro Booking Fee");
   });
 
+  test("a decline is never automatic — only a person at Rovaro sends it", async () => {
+    const automatic = await sendCustomerDeclineEmail({ order, reason: "no car" });
+    expect(automatic.skipped).toBe(true);
+    expect(sendEmailDirect).not.toHaveBeenCalled();
+  });
+
   test("reject email says no money was taken", async () => {
-    await sendCustomerDeclineEmail({ order, reason: "no car" });
+    await sendCustomerDeclineEmail({ order, reason: "no car", manualTrigger: true });
     const payload = sendEmailDirect.mock.calls[0][0];
     expect(payload.html).toContain("No money was taken");
     expect(payload.html).toContain("admin@rovaro.autos");
@@ -160,12 +187,15 @@ describe("marketplace booking emails", () => {
     });
     const result = await sendPaidConfirmationEmails({ order });
     expect(result.customer.deduped).toBe(true);
-    expect(result.partner.via).toBe("notification_policy");
+    expect(result.partner.deduped).toBe(true);
+    expect(result.supplier.deduped).toBe(true);
+    expect(result.superadmin.deduped).toBe(true);
     expect(sendEmailDirect).not.toHaveBeenCalled();
+    expect(notifyBookingFeePaid).not.toHaveBeenCalled();
   });
 
   test("payment notification failure does not change booking status", async () => {
-    notifyBookingFeePaid.mockRejectedValueOnce(new Error("smtp down"));
+    sendEmailDirect.mockRejectedValue(new Error("smtp down"));
     Company.findById.mockReturnValue({
       select: () => ({
         lean: () => Promise.resolve({ email: "owner@a.test", name: "Owner A" }),
@@ -174,13 +204,16 @@ describe("marketplace booking emails", () => {
     const paid = {
       ...order,
       bookingStatus: "BOOKING_CONFIRMED",
-      payment: { status: "paid" },
+      payment: { status: "paid", paymentIntentId: "pi_should_stay" },
     };
     const result = await sendPaidConfirmationEmails({ order: paid });
     expect(paid.bookingStatus).toBe("BOOKING_CONFIRMED");
     expect(paid.payment.status).toBe("paid");
+    expect(paid.payment.paymentIntentId).toBe("pi_should_stay");
     expect(paid.supplierRemainingPaidAt).toBeUndefined();
-    expect(result.partner.ok).toBe(false);
+    expect(result.settled).toBe(false);
+    expect(result.ok).toBe(false);
+    expect(notifyBookingFeePaid).not.toHaveBeenCalled();
   });
 
   test("partner paid email includes customer PII only after pay", async () => {
@@ -190,12 +223,18 @@ describe("marketplace booking emails", () => {
       }),
     });
     await sendPaidConfirmationEmails({ order });
-    expect(notifyBookingFeePaid).toHaveBeenCalled();
-    const payload = notifyBookingFeePaid.mock.calls[0][0];
-    expect(payload.customerName).toBe("Ana");
-    expect(payload.phone).toBe("+34600000000");
-    expect(payload.email).toBe("ana@example.com");
-    expect(JSON.stringify(payload)).not.toMatch(/licence|password|token=/i);
+    expect(notifyBookingFeePaid).not.toHaveBeenCalled();
+    const supplierCall = sendEmailDirect.mock.calls.find((call) =>
+      String(call[0].title || "").includes("customer payment received")
+    );
+    expect(supplierCall).toBeTruthy();
+    const blob = `${supplierCall[0].html}\n${supplierCall[0].message}`;
+    expect(blob).toContain("Ana");
+    expect(blob).toContain("+34600000000");
+    expect(blob).toContain("ana@example.com");
+    expect(blob).not.toContain("customer-access-token-not-for-supplier");
+    expect(supplierCall[0].to).toEqual(["owner@a.test"]);
+    expect(supplierCall[0].to).not.toContain("ana@example.com");
   });
 
   test("expired email says no money was taken and points to Rovaro", async () => {

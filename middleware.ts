@@ -27,6 +27,7 @@ import {
   CUSTOMER_TERMS_SEGMENT,
   isLegacyCustomerTermsPath,
 } from "@domain/legal/customerTermsRoute";
+import { resolveOrderPayReturnPath } from "@/domain/orders/orderPayReturnRoute";
 
 const PUBLIC_FILE_REGEX = /\.[^/]+$/;
 const EXCLUDED_PREFIXES = ["/api", "/admin", "/access", "/_next", "/transfer", "/login", "/dev"];
@@ -162,6 +163,19 @@ export function middleware(request: NextRequest) {
 
   const existingSessionId = request.cookies.get(WEBSITE_VISIT_SESSION_COOKIE)?.value?.trim();
   const visitSessionId = existingSessionId || crypto.randomUUID();
+
+  // Stripe returns to locale-free /order/pay/success|cancel. A detected locale
+  // prefix (including extra UI locales such as ca) has no page under [locale].
+  // Rewrite prefixed URLs onto the existing pages instead of redirecting, so a
+  // browser that cached the old 301 to /{locale}/order/pay/success does not loop.
+  const payReturnPath = resolveOrderPayReturnPath(normalizedPathname);
+  if (payReturnPath) {
+    if (payReturnPath !== normalizedPathname) {
+      const url = new URL(withSearchParams(payReturnPath, request), request.url);
+      return withVisitSessionCookie(NextResponse.rewrite(url), visitSessionId);
+    }
+    return withVisitSessionCookie(NextResponse.next(), visitSessionId);
+  }
 
   if (shouldSkip(normalizedPathname)) {
     return withVisitSessionCookie(NextResponse.next(), visitSessionId);

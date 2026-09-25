@@ -49,10 +49,10 @@ success page must not confirm the booking.
 
 | Canonical stage (product) | Stored `order.bookingStatus` | Notes |
 |---|---|---|
-| `AWAITING_SUPPLIER_RESPONSE` | `PENDING_SUPPLIER_CONFIRMATION` | Request sent. No charge. |
+| `AWAITING_SUPPLIER_CONFIRMATION` | `PENDING_SUPPLIER_CONFIRMATION` | Request sent. No charge. Legacy alias: `AWAITING_SUPPLIER_RESPONSE`. |
 | `AWAITING_CUSTOMER_PAYMENT` | `PAYMENT_PROCESSING` (after Checkout); brief hold may be `CONFIRMED_AWAITING_PAYMENT` | Stripe link exists. Still not `order.confirmed`. |
 | `BOOKING_CONFIRMED` | `BOOKING_CONFIRMED` | Webhook paid only. Also `payment.status = paid`, `order.confirmed = true`. |
-| `RENTAL_IN_PROGRESS` | `RENTAL_IN_PROGRESS` | After pickup time. |
+| `RENTAL_IN_PROGRESS` | `RENTAL_IN_PROGRESS` | Legacy stored row. New bookings stay `BOOKING_CONFIRMED` until return. Displayed as confirmed. |
 | `COMPLETION_PENDING` | `COMPLETION_PENDING` | After planned return. Waits 24 hours. |
 | `COMPLETED` | `COMPLETED` | After the grace period, unless “Report a problem”. Does not set `order.status` to `PAID_AND_CLOSED`. |
 | `SUPPLIER_DECLINED` | `SUPPLIER_DECLINED` | No Stripe link. Customer is **not** told the technical reason until Rovaro reviews. |
@@ -91,9 +91,9 @@ Customer copy:
 **Superadmin** — subject `New booking request — {orderNumber}`  
 Company, car, dates, rental total, Booking Fee, order number, admin deep link.
 
-**Contractor** — subject `New booking request — please confirm vehicle availability`  
-Car, dates/times, places, extras, button **Review booking request**.  
-No full contacts, no driving licence.
+**Contractor** — subject `New booking request — {vehicleName}, {shortDateRange}`  
+Heading `New booking request`. One summary (vehicle, dates/times, location names, total rental price, amount the supplier collects) and one button **Review booking request** to `/admin/orders?orderId={orderId}`.  
+No confirm-by-email link, no customer contacts, no driving licence.
 
 ### 3. Contractor reviews — exactly three outcomes
 
@@ -141,7 +141,7 @@ Order, customer, company, car, amount, Stripe IDs, paidAt, admin link.
 
 After payment, practical details are between company and customer (documents, meeting time, deposit, remaining balance, company rental contract, pickup, return).
 
-Stages: `BOOKING_CONFIRMED` → `RENTAL_IN_PROGRESS` → `COMPLETION_PENDING` → `COMPLETED`.
+Stages: `BOOKING_CONFIRMED` → `COMPLETION_PENDING` → `COMPLETED`.
 
 If return time has passed and nobody reported a problem, auto-close after a grace period (e.g. 24 hours) → `COMPLETED`.
 

@@ -1,11 +1,15 @@
 import { Order } from "@models/order";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
-import { snapshotMarketplaceBookingFeeBps, formatMarketplaceFeePercent } from "@/domain/orders/marketplaceBookingFee";
+import { snapshotMarketplaceBookingFeeBps } from "@/domain/orders/marketplaceBookingFee";
 import Company from "@models/company";
 import { getBaseUrl } from "@config/domain";
 import { getStripeMode, isStripeConfigured } from "@config/stripe";
 import { assertStripeReady } from "@/lib/stripe";
-import { BRAND } from "@config/brand";
+import {
+  shortBookingDateRange,
+  stripeBookingProductDescription,
+  stripeBookingProductTitle,
+} from "@/domain/bookings/bookingEmailPolicy";
 import {
   resolveCompanyRentalPaymentPolicy,
   resolveRentalCheckoutAmount,
@@ -27,6 +31,7 @@ import {
   resolveRentalState,
 } from "@/domain/booking/rentalBookingState";
 import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
+import { replacementAcceptanceOnVerifiedPayment } from "@/domain/booking/equivalentReplacementCopy";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 import { finalizeMarketplaceHold } from "@/domain/booking/bookingHold";
 import { expireUnpaidMarketplacePayment } from "@/domain/booking/expireMarketplacePayment";
@@ -53,6 +58,7 @@ import {
   logPriceBreakdownMismatch,
 } from "@/domain/orders/priceBreakdownReconciliation";
 import { capturePaidMarketplaceFeeSnapshot } from "@/domain/orders/marketplacePriceCorrection";
+import { attachBookingFinancialSnapshot } from "@/domain/orders/bookingFinancialSnapshot";
 
 const STRIPE_EXPIRES_MIN_MINUTES = 30;
 const STRIPE_EXPIRES_MAX_MINUTES = 24 * 60;
@@ -233,7 +239,7 @@ export async function createRentalCheckoutSession(
     };
   }
 
-  const amounts = resolveRentalCheckoutAmount(doc);
+  const amounts = resolveRentalCheckoutAmount(doc, { company });
   if (amounts.amountMinor < 50) {
     return {
       ok: false,
@@ -284,6 +290,10 @@ export async function createRentalCheckoutSession(
     }
   }
 
+  if (isMarketplaceRequestMode(doc.bookingMode)) {
+    attachBookingFinancialSnapshot(doc, { company });
+  }
+
   if (!forceNew && hasReusableSession(doc)) {
     return {
       ok: true,
@@ -308,16 +318,21 @@ export async function createRentalCheckoutSession(
 
   const stripe = assertStripeReady(mode);
   const baseUrl = getBaseUrl().replace(/\/$/, "");
-  const brandName = BRAND?.name || "Rovaro";
-  const carLabel = [doc.carModel, doc.regNumber].filter(Boolean).join(" ");
   const metadata = buildRentalCheckoutMetadata(doc, amounts, {
     mode,
     policy,
     priceChecksum,
   });
-  const feePct = formatMarketplaceFeePercent(
-    amounts.marketplaceBookingFeeBps ?? snapshotMarketplaceBookingFeeBps(doc).bps
-  );
+  // Checkout presentation is owned by the booking email policy so the title,
+  // the fee percentage and the customer-facing reference stay in one place.
+  const stripeProductName = stripeBookingProductTitle({ order: doc });
+  const stripeProductDescription = stripeBookingProductDescription({
+    publicReference: doc.publicReference,
+    shortDateRange: shortBookingDateRange(
+      doc.localPickup?.date || doc.pickupAtUtc || doc.timeIn,
+      doc.localReturn?.date || doc.returnAtUtc || doc.timeOut
+    ),
+  });
 
   if (forceNew && doc.payment?.providerPaymentId) {
     try {
@@ -345,10 +360,8 @@ export async function createRentalCheckoutSession(
               currency: amounts.currency.toLowerCase(),
               unit_amount: amounts.amountMinor,
               product_data: {
-                name: `${brandName} — ${feePct}% non-refundable Rovaro Booking Fee`,
-                description: carLabel
-                  ? `Non-refundable Rovaro Booking Fee for ${carLabel}`
-                  : "Non-refundable Rovaro Booking Fee",
+                name: stripeProductName,
+                description: stripeProductDescription,
                 metadata: { orderId: String(doc._id) },
               },
             },
@@ -644,6 +657,9 @@ export async function markRentalPaidFromCheckoutSession(session, { eventId = "" 
     },
     {
       $set: {
+        customerConfirmation: "CONFIRMED_BY_PAYMENT",
+        bookingFeePaymentStatus: "PAID",
+        ...replacementAcceptanceOnVerifiedPayment(doc, paidAt),
         "payment.status": "paid",
         "payment.paidAt": paidAt,
         "payment.provider": "stripe",
@@ -698,6 +714,9 @@ export async function markRentalPaidFromCheckoutSession(session, { eventId = "" 
       capturePaidMarketplaceFeeSnapshot(updated, { now: paidAt }),
       { strict: false }
     );
+  }
+  if (isMarketplaceRequestMode(updated.bookingMode)) {
+    attachBookingFinancialSnapshot(updated);
   }
   await updated.save();
 

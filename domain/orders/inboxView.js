@@ -19,6 +19,14 @@ function count(value) {
  *   companySetup — Legal / Company setup nav badge
  *   bell — booking tasks + company setup tasks
  */
+/**
+ * The Orders navbar badge and the Car rentals tab badge.
+ * Both must call this. Do not count the raw rentals field separately.
+ */
+export function contractorRentalActionBadge(inbox) {
+  return adminInboxBadges(inbox).orders;
+}
+
 export function adminInboxBadges(inbox) {
   const rentals = count(inbox?.rentals);
   const transfers = count(inbox?.transfers);
@@ -58,7 +66,7 @@ export function adminInboxGroups(inbox, options = {}) {
           id: "rentals",
           titleKey: "header.carRentals",
           title: "Car rentals",
-          count: rentals,
+          count: contractorRentalActionBadge(inbox),
           href: ORDERS_HREF,
         },
         {

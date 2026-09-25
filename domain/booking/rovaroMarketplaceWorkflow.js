@@ -20,6 +20,8 @@ import { BOOKING_STATUS } from "./bookingStatus";
  * and COMPLETED are stored under those same strings.
  */
 export const CANONICAL_STAGE = Object.freeze({
+  /** Product name. Same stored status as the legacy AWAITING_SUPPLIER_RESPONSE alias. */
+  AWAITING_SUPPLIER_CONFIRMATION: "AWAITING_SUPPLIER_CONFIRMATION",
   AWAITING_SUPPLIER_RESPONSE: "AWAITING_SUPPLIER_RESPONSE",
   AWAITING_CUSTOMER_PAYMENT: "AWAITING_CUSTOMER_PAYMENT",
   BOOKING_CONFIRMED: "BOOKING_CONFIRMED",
@@ -28,6 +30,8 @@ export const CANONICAL_STAGE = Object.freeze({
   COMPLETED: "COMPLETED",
   SUPPLIER_DECLINED: "SUPPLIER_DECLINED",
   ALTERNATIVE_PROPOSED: "ALTERNATIVE_PROPOSED",
+  PAYMENT_EXPIRED: "PAYMENT_EXPIRED",
+  CANCELLED: "CANCELLED",
   REPLACED_BY_ALTERNATIVE: "REPLACED_BY_ALTERNATIVE",
 });
 
@@ -38,6 +42,8 @@ export const CANONICAL_STAGE = Object.freeze({
  * AWAITING_CUSTOMER_PAYMENT once the Stripe link is created (PAYMENT_PROCESSING).
  */
 export const CANONICAL_STAGE_TO_BOOKING_STATUS = Object.freeze({
+  [CANONICAL_STAGE.AWAITING_SUPPLIER_CONFIRMATION]:
+    BOOKING_STATUS.PENDING_SUPPLIER_CONFIRMATION,
   [CANONICAL_STAGE.AWAITING_SUPPLIER_RESPONSE]:
     BOOKING_STATUS.PENDING_SUPPLIER_CONFIRMATION,
   [CANONICAL_STAGE.AWAITING_CUSTOMER_PAYMENT]:
@@ -48,6 +54,8 @@ export const CANONICAL_STAGE_TO_BOOKING_STATUS = Object.freeze({
   [CANONICAL_STAGE.COMPLETED]: BOOKING_STATUS.COMPLETED,
   [CANONICAL_STAGE.SUPPLIER_DECLINED]: BOOKING_STATUS.SUPPLIER_DECLINED,
   [CANONICAL_STAGE.ALTERNATIVE_PROPOSED]: BOOKING_STATUS.ALTERNATIVE_PROPOSED,
+  [CANONICAL_STAGE.PAYMENT_EXPIRED]: BOOKING_STATUS.PAYMENT_EXPIRED,
+  [CANONICAL_STAGE.CANCELLED]: BOOKING_STATUS.CUSTOMER_CANCELLED,
 });
 
 /** Planned stored values not yet on BOOKING_STATUS. Do not invent them in UI. */
@@ -73,4 +81,6 @@ export const WORKFLOW_INVARIANTS = Object.freeze([
   "Driving licence is required before the initial request is submitted.",
   "Admin must not accept an alternative on behalf of the customer.",
   "Internal calendar bookings are not this workflow.",
+  "Rovaro never confirms an ordinary booking on behalf of the supplier or the customer.",
+  "Supplier confirmation is vehicle availability. Customer confirmation is a verified Booking Fee payment.",
 ]);

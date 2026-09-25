@@ -39,6 +39,17 @@ const nextConfig = {
     config.resolve.alias["@lib"] = path.resolve(__dirname, "lib");
     return config;
   },
+  async headers() {
+    return [
+      {
+        source: "/:locale/booking/:publicReference",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

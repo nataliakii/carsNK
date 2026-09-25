@@ -100,28 +100,22 @@ const FEATURES = [
 ];
 
 /**
- * @param {{ mode?: "embed" | "page" }} props
- * embed — homepage teaser (CTA → /for-business)
- * page — full landing (CTA → /contacts)
+ * Landing block for /for-business.
+ * The CTA goes to contacts: this page is the platform explanation, so the
+ * button must not link back to itself.
  */
-export default function ForBusinessSection({ mode = "embed" }) {
+export default function ForBusinessSection() {
   const { t } = useTranslation();
   const { lang } = useMainContext();
   const locale = lang || "en";
-  const isPage = mode === "page";
-  const ctaHref = withLocalePrefix(
-    locale,
-    isPage ? "/contacts" : "/for-business"
-  );
-  const ctaLabel = isPage
-    ? t("forBusiness.contactCta", { defaultValue: "Contact us" })
-    : t("forBusiness.learnMore", { defaultValue: t("forBusiness.cta") });
+  const ctaHref = withLocalePrefix(locale, "/contacts");
+  const ctaLabel = t("forBusiness.contactCta", { defaultValue: "Contact us" });
 
   return (
     <SectionRoot
       id="for-business"
       aria-labelledby="for-business-heading"
-      sx={isPage ? { minHeight: { md: "calc(100vh - 64px)" } } : undefined}
+      sx={{ minHeight: { md: "calc(100vh - 64px)" } }}
     >
       <AccentBar />
       <Inner>
@@ -153,7 +147,7 @@ export default function ForBusinessSection({ mode = "embed" }) {
             </Typography>
             <Typography
               id="for-business-heading"
-              component={isPage ? "h1" : "h2"}
+              component="h1"
               sx={{
                 m: 0,
                 mb: 1.5,

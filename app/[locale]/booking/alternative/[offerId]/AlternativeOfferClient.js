@@ -45,6 +45,10 @@ import {
   marketplaceFeeNotice,
   marketplaceSplitLabels,
 } from "@/domain/orders/marketplaceFinancialSplit";
+import {
+  equivalentReplacementDisclosure,
+  equivalentReplacementPayCta,
+} from "@/domain/booking/equivalentReplacementCopy";
 
 function feeCopyVars() {
   return {};
@@ -660,6 +664,13 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
               </Alert>
             )}
 
+            <Typography variant="body1" sx={{ mb: 2, fontWeight: 600 }}>
+              {equivalentReplacementDisclosure({
+                vehicle: offer.booked?.name || offer.booked?.model || "vehicle",
+                transmission: offer.offered?.transmission || "the same",
+                seats: offer.offered?.seats ?? "the booked",
+              })}
+            </Typography>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
               <Button
                 variant="contained"
@@ -669,7 +680,7 @@ export default function AlternativeOfferClient({ offer, locale = "en" }) {
                 disabled={pending || (offer.termsChanged && !termsAccepted)}
                 onClick={() => setConfirming("accept")}
               >
-                {t("alternativeOffer.accept")}
+                {equivalentReplacementPayCta(formatMarketplaceEuro(offer.prepaymentMinor))}
               </Button>
               <Button
                 variant="outlined"

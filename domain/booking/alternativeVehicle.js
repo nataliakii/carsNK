@@ -3,7 +3,9 @@
  *
  * Rules enforced here, not left to the caller:
  *   - Spain MARKETPLACE_REQUEST unpaid P0 only (paid → SUPERADMIN/manual)
- *   - alternative is always a stored same-company car (no ad-hoc vehicles)
+ *   - a fleet replacement is a stored same-company car
+ *   - an unlisted or guaranteed-class replacement is allowed only when it
+ *     meets the equivalent-replacement guarantees and does not charge a fee
  *   - price is server-calculated and never higher than the original
  *   - key characteristics may not be downgraded
  *   - one active OFFERED row per order (DB partial unique index + CAS)
@@ -57,6 +59,7 @@ import {
 import { calculateDeliveryPrice } from "@/domain/delivery/calculateDeliveryPrice";
 import { computePriceSnapshotChecksum } from "@/domain/orders/priceSnapshotChecksum";
 import { fromMinorUnits } from "@/domain/money/minorUnits";
+import { equivalentReplacementDisclosure } from "@/domain/booking/equivalentReplacementCopy";
 import { LOCATION_KIND } from "@/domain/orders/locationSnapshot";
 import {
   archiveStripeSession,
@@ -146,13 +149,13 @@ export function validateAlternativeNotWorse({ original, alternative }) {
   if (
     original.transmission &&
     alternative.transmission &&
-    String(original.transmission).toLowerCase() === "automatic" &&
-    String(alternative.transmission).toLowerCase() !== "automatic"
+    String(original.transmission).trim().toLowerCase() !==
+      String(alternative.transmission).trim().toLowerCase()
   ) {
     return {
       ok: false,
       code: "transmission_downgrade",
-      message: "An automatic booking cannot be replaced with a manual vehicle without a new booking",
+      message: "The replacement must have the same transmission as the requested vehicle",
     };
   }
 
@@ -899,6 +902,135 @@ export async function offerAlternativeVehicle({
   };
 }
 
+/**
+ * Equivalent replacement when the exact car is unlisted or not yet known.
+ * Does not confirm the booking and does not create Stripe.
+ */
+export async function offerUnlistedEquivalent({
+  orderId,
+  proposal = {},
+  actor,
+  session,
+  expiresInHours,
+}) {
+  await connectToDB();
+  const { evaluateEquivalentReplacement, REPLACEMENT_SOURCE } = await import(
+    "@/domain/booking/equivalentReplacement"
+  );
+  const order = await Order.findById(orderId);
+  const resolvedActor = actor || actorFromSession(session) || {};
+  const eligibility = evaluateAutomaticAlternativeEligibility(order, { actor: resolvedActor });
+  if (!eligibility.ok) return eligibility;
+
+  const originalCar = await loadOriginalCar(order);
+  const original = {
+    carId: originalCar?._id,
+    model: order.carModel || originalCar?.model,
+    category: originalCar?.class,
+    transmission: originalCar?.transmission,
+    seats: originalCar?.seats,
+    luggage: originalCar?.luggageCapacity ?? originalCar?.luggage,
+    fuel: originalCar?.fueltype,
+    totalPrice: order.totalPrice,
+    rentalStartDate: order.rentalStartDate,
+    rentalEndDate: order.rentalEndDate,
+    placeIn: order.placeIn,
+    placeOut: order.placeOut,
+  };
+  const check = evaluateEquivalentReplacement({ original, proposal });
+  if (!check.ok) return { ok: false, status: 400, ...check };
+
+  const reasonCheck = sanitizeReason(proposal.supplierMessage || proposal.reason, { required: true });
+  if (!reasonCheck.ok) return { ok: false, status: 400, ...reasonCheck };
+
+  const existing = await AlternativeVehicleOffer.findOne({
+    orderId: order._id,
+    status: "OFFERED",
+    expiresAt: { $gt: new Date() },
+  }).lean();
+  if (existing) {
+    return {
+      ok: false,
+      status: 409,
+      code: ALTERNATIVE_OFFER_CODE.ACTIVE_OFFER_EXISTS,
+      message: "This booking already has an active alternative offer",
+      offerId: existing.offerId,
+    };
+  }
+
+  const settings = await loadLegalSettings();
+  const hours = Number(expiresInHours) > 0 ? Number(expiresInHours) : settings.alternativeOfferExpirationHours;
+  const offerId = generateOfferId();
+  const expiresAt = new Date(Date.now() + hours * 3600 * 1000);
+  const originalRequest = buildOriginalRequestSnapshot({
+    order,
+    car: originalCar,
+    company: await loadCompany(order),
+  });
+  const grossMinor =
+    Number(order.authoritativePrice?.grossMinor) || Math.round(Number(order.totalPrice) * 100);
+  const feeBps = Number(order.marketplaceBookingFeeBps) || 1000;
+  const prepaymentMinor = Math.round((grossMinor * feeBps) / 10000);
+  const model =
+    check.snapshot.replacementSource === REPLACEMENT_SOURCE.GUARANTEED_CLASS
+      ? "Guaranteed same or higher class"
+      : check.snapshot.replacement.model;
+
+  const offer = await AlternativeVehicleOffer.create({
+    offerId,
+    orderId: order._id,
+    companyId: order.ownerId,
+    proposedCarId: null,
+    originalCarId: originalRequest.carId || null,
+    replacementSource: check.snapshot.replacementSource,
+    supplierMessage: reasonCheck.reason,
+    createdBy: resolvedActor.userId || resolvedActor.email || "",
+    vehicle: {
+      make: check.snapshot.replacement.make,
+      model,
+      category: check.snapshot.replacement.class,
+      transmission: check.snapshot.replacement.transmission,
+      seats: check.snapshot.replacement.seats,
+      luggage: check.snapshot.replacement.luggage,
+      fuel: check.snapshot.replacement.fuel,
+    },
+    priceMinor: grossMinor,
+    currency: "EUR",
+    originalPriceMinor: grossMinor,
+    reasonForReplacement: reasonCheck.reason,
+    expiresAt,
+    offeredByEmail: resolvedActor.email || "",
+    afterPayment: false,
+    originalRequest,
+    prepaymentMinor,
+    balanceMinor: grossMinor - prepaymentMinor,
+    snapshotChecksum: check.snapshot.checksum,
+    termsChanged: false,
+  });
+
+  const moved = applyRentalStateTransition(order, RENTAL_STATE.ALTERNATIVE_OFFERED);
+  if (!moved.ok) {
+    await AlternativeVehicleOffer.deleteOne({ offerId });
+    return { ok: false, status: 409, code: ALTERNATIVE_OFFER_CODE.INVALID_STATE, message: moved.message };
+  }
+  await order.save();
+
+  const mailed = await sendAlternativeOfferedEmail({
+    order: order.toObject ? order.toObject() : order,
+    offer: offer.toObject ? offer.toObject() : offer,
+  }).catch((err) => ({ ok: false, message: err?.message || String(err) }));
+
+  return {
+    ok: true,
+    offerId,
+    offer: offer.toObject(),
+    email: mailed,
+    holdCreated: false,
+    stripeCreated: false,
+    paymentStatus: "unpaid",
+  };
+}
+
 function decisionIdempotent(existing) {
   return {
     ok: true,
@@ -920,6 +1052,105 @@ async function reopenOrderForAnotherOffer(order) {
     order.bookingStatus = BOOKING_STATUS.NO_AVAILABILITY;
   }
   await order.save();
+}
+
+async function acceptDisclosedReplacement({ offer, order, now, ipAddress, userAgent }) {
+  const disclosure = equivalentReplacementDisclosure({
+    vehicle: order.carModel || "vehicle",
+    transmission: offer.vehicle?.transmission || "the same",
+    seats: offer.vehicle?.seats ?? "the booked",
+  });
+  const casOffer = await AlternativeVehicleOffer.findOneAndUpdate(
+    { offerId: offer.offerId, status: "OFFERED", expiresAt: { $gt: now } },
+    {
+      $set: {
+        status: "ACCEPTED",
+        decidedAt: now,
+        decisionIp: ipAddress,
+        decisionUserAgent: userAgent,
+      },
+    },
+    { new: true }
+  );
+  if (!casOffer) {
+    return {
+      ok: false,
+      status: 409,
+      code: ALTERNATIVE_OFFER_CODE.NOT_DECIDABLE,
+      message: "This offer can no longer be accepted",
+    };
+  }
+
+  const casOrder = await Order.findOneAndUpdate(
+    {
+      _id: order._id,
+      bookingStatus: {
+        $in: [
+          BOOKING_STATUS.ALTERNATIVE_PROPOSED,
+          BOOKING_STATUS.PENDING_SUPPLIER_CONFIRMATION,
+          BOOKING_STATUS.NO_AVAILABILITY,
+        ],
+      },
+    },
+    {
+      $set: {
+        carModel: casOffer.vehicle?.model || order.carModel,
+        bookingStatus: RENTAL_STATE_TO_BOOKING_STATUS[RENTAL_STATE.ALTERNATIVE_ACCEPTED],
+        acceptedAlternativeOfferId: casOffer.offerId,
+        pendingReplacementProposal: {
+          offerId: casOffer.offerId,
+          checksum: casOffer.snapshotChecksum,
+          version: 1,
+        },
+        replacementDisclosure: disclosure,
+      },
+    },
+    { new: true }
+  );
+  if (!casOrder) {
+    await AlternativeVehicleOffer.updateOne(
+      { offerId: casOffer.offerId, status: "ACCEPTED" },
+      { $set: { status: "OFFERED", decidedAt: null } }
+    ).catch(() => {});
+    return {
+      ok: false,
+      status: 409,
+      code: ALTERNATIVE_OFFER_CODE.INVALID_STATE,
+      message: "This booking can no longer accept an alternative",
+    };
+  }
+
+  await staleOriginalCheckout(casOrder);
+  const checkout = await createRentalCheckoutSession(String(casOrder._id), {
+    forceNew: true,
+    emailCustomer: false,
+  });
+  if (!checkout.ok || !checkout.url) {
+    return {
+      ok: true,
+      status: "ACCEPTED",
+      paymentLinkGenerationFailed: true,
+      paymentUrl: "",
+      holdCreated: false,
+      stripeCreated: false,
+      orderId: String(casOrder._id),
+      message: "The replacement was accepted but the payment link could not be created.",
+    };
+  }
+
+  await AlternativeVehicleOffer.updateOne(
+    { offerId: casOffer.offerId },
+    { $set: { stripeSessionId: checkout.sessionId || "", checkoutUrl: checkout.url } }
+  );
+  return {
+    ok: true,
+    status: "ACCEPTED",
+    paymentUrl: checkout.url,
+    holdCreated: false,
+    stripeCreated: true,
+    bookingConfirmed: false,
+    orderId: String(casOrder._id),
+  };
 }
 
 /**
@@ -1139,6 +1370,14 @@ async function acceptAlternativeOffer({
     };
   }
 
+  if (
+    !offer.proposedCarId &&
+    (offer.replacementSource === "EXTERNAL_VEHICLE" ||
+      offer.replacementSource === "GUARANTEED_CLASS")
+  ) {
+    return acceptDisclosedReplacement({ offer, order, now, ipAddress, userAgent });
+  }
+
   const car = await Car.findById(offer.proposedCarId || offer.vehicle?.carId);
   const carCheck = assertProposedCarCompany({
     car,
@@ -1296,6 +1535,16 @@ async function acceptAlternativeOffer({
           RENTAL_STATE_TO_BOOKING_STATUS[RENTAL_STATE.ALTERNATIVE_ACCEPTED],
         originalRequestSnapshot: originalRequest,
         acceptedAlternativeOfferId: casOffer.offerId,
+        pendingReplacementProposal: {
+          offerId: casOffer.offerId,
+          checksum: casOffer.snapshotChecksum,
+          version: 1,
+        },
+        replacementDisclosure: equivalentReplacementDisclosure({
+          vehicle: order.carModel || "vehicle",
+          transmission: casOffer.vehicle?.transmission || "the same",
+          seats: casOffer.vehicle?.seats ?? "the booked",
+        }),
         franchiseOrder:
           car.franchise != null ? car.franchise : order.franchiseOrder,
         deposit: car.deposit != null ? car.deposit : order.deposit,

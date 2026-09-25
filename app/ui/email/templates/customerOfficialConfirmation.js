@@ -3,7 +3,11 @@
  * Formal layout with a dedicated document block and PDF attachment note.
  */
 
-import { EMAIL_STYLE, escapeHtml } from "@/app/ui/email/theme/nataliCarsEmailTheme";
+import {
+  EMAIL_STYLE,
+  escapeHtml,
+  renderEmailHeaderRow,
+} from "@/app/ui/email/theme/nataliCarsEmailTheme";
 import { EMAIL_SIGNATURE_HTML } from "@/app/ui/email/templates/signature";
 
 /**
@@ -108,12 +112,7 @@ export function renderCustomerOfficialConfirmation(data) {
     <tr>
       <td align="center">
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="620" style="max-width:620px;background-color:${s.bgCard};border:1px solid ${s.border};">
-          <tr>
-            <td style="background-color:${s.headerTeal};padding:22px 28px;text-align:center;">
-              <div style="font-size:22px;font-weight:700;letter-spacing:0.2px;color:${s.headerText};font-family:${s.fontSans};">${escapeHtml(title)}</div>
-              <div style="margin-top:8px;font-size:13px;color:${s.headerText};opacity:0.95;font-family:${s.fontSans};">${escapeHtml(orderRefText)}</div>
-            </td>
-          </tr>
+          ${renderEmailHeaderRow({ title, subtitle: orderRefText })}
           <tr>
             <td style="padding:28px;">
               <p style="margin:0 0 10px 0;font-size:15px;color:${s.text};line-height:1.6;font-family:${s.fontSans};">${escapeHtml(greeting)}</p>

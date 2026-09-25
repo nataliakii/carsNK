@@ -8,6 +8,7 @@ import OrdersTableSection from "@app/admin/features/orders/OrdersTableSection";
 import TransfersSection from "@app/admin/transfers/TransfersSection";
 import PendingCountBadge from "@app/admin/shared/components/PendingCountBadge";
 import { useAdminPendingInbox } from "@app/hooks/useAdminPendingInbox";
+import { contractorRentalActionBadge } from "@/domain/orders/inboxView";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 
 function OrdersHubInner() {
@@ -18,8 +19,9 @@ function OrdersHubInner() {
   const tab =
     searchParams?.get("tab") === "transfers" ? "transfers" : "rentals";
   const { country } = useAdminCountryFilter();
-  const { rentals: pendingRentals, transfers: pendingTransfers } =
-    useAdminPendingInbox({ enabled: true, country });
+  const inbox = useAdminPendingInbox({ enabled: true, country });
+  const pendingRentals = contractorRentalActionBadge(inbox);
+  const pendingTransfers = inbox.transfers;
 
   const setTab = useCallback(
     (next) => {

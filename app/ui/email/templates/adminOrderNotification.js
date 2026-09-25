@@ -1,9 +1,14 @@
 /**
- * Admin/system order notification email — голубая заставка, контент, подпись BBQR в цветах.
+ * Admin/system order notification email.
  * Optional actions: CTA buttons for company email (Accept / Reject / Calendar / Message).
  */
 
-import { EMAIL_STYLE, escapeHtml } from "@/app/ui/email/theme/nataliCarsEmailTheme";
+import {
+  EMAIL_STYLE,
+  escapeHtml,
+  getEmailStyle,
+  renderEmailHeaderRow,
+} from "@/app/ui/email/theme/nataliCarsEmailTheme";
 import { EMAIL_SIGNATURE_HTML } from "@/app/ui/email/templates/signature";
 import { getBaseUrl, getCanonicalHost } from "@config/domain";
 import { getBrandName } from "@config/brand";
@@ -11,13 +16,14 @@ import { getBrandName } from "@config/brand";
 function formatLine(line) {
   const trimmed = (line || "").trim();
   if (!trimmed) return "";
+  const s = getEmailStyle();
 
   const emailMatch = trimmed.match(/^(\s*•\s*Email:\s*)([^\s]+@[^\s]+)(\s*)$/);
   if (emailMatch) {
     const before = escapeHtml(emailMatch[1]);
     const addr = emailMatch[2];
     const after = escapeHtml(emailMatch[3] || "");
-    return `${before}<a href="mailto:${escapeHtml(addr)}" style="color:#008989;text-decoration:none;">${escapeHtml(addr)}</a>${after}`;
+    return `${before}<a href="mailto:${escapeHtml(addr)}" style="color:${s.link};text-decoration:none;">${escapeHtml(addr)}</a>${after}`;
   }
 
   if (trimmed.includes("NEW ORDER")) {
@@ -42,7 +48,7 @@ function formatLine(line) {
     const url = cloudMatch[1];
     const idx = trimmed.indexOf(url);
     const before = trimmed.slice(0, idx);
-    return `${escapeHtml(before)}<a href="${escapeHtml(url)}" style="color:#008989;text-decoration:none;word-break:break-all;">${escapeHtml(url)}</a>`;
+    return `${escapeHtml(before)}<a href="${escapeHtml(url)}" style="color:${s.link};text-decoration:none;word-break:break-all;">${escapeHtml(url)}</a>`;
   }
 
   return escapeHtml(trimmed);
@@ -56,15 +62,15 @@ function renderActionsHtml(actions) {
     .map((a) => {
       const bg =
         a.variant === "danger"
-          ? "#E53935"
+          ? s.danger
           : a.variant === "secondary"
-            ? "#0B1F3A"
+            ? s.headerBg
             : a.variant === "outline"
-              ? "#ffffff"
-              : "#008989";
-      const color = a.variant === "outline" ? "#0B1F3A" : "#ffffff";
+              ? s.bgCard
+              : s.ctaBg;
+      const color = a.variant === "outline" ? s.text : s.ctaText;
       const border =
-        a.variant === "outline" ? "1px solid #0B1F3A" : `1px solid ${bg}`;
+        a.variant === "outline" ? `1px solid ${s.text}` : `1px solid ${bg}`;
       return `<a href="${escapeHtml(a.href)}"
         style="display:inline-block;margin:6px 8px 6px 0;padding:12px 18px;background:${bg};color:${color};border:${border};border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;font-family:${s.fontSans};">
         ${escapeHtml(a.label)}
@@ -112,11 +118,7 @@ export function renderAdminOrderNotificationHtml(data) {
     <tr>
       <td align="center">
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background-color:${s.bgCard};border:1px solid ${s.border};box-shadow:0 2px 8px rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
-          <tr>
-            <td style="background-color:${s.headerTeal};padding:30px 40px;text-align:center;">
-              <h1 style="margin:0;color:${s.headerText};font-size:22px;font-weight:600;letter-spacing:0.5px;font-family:${s.fontSans};">${escapeHtml(title)}</h1>
-            </td>
-          </tr>
+          ${renderEmailHeaderRow({ title })}
           <tr>
             <td style="padding:40px 40px 20px 40px;">
               ${linesHtml}
@@ -132,7 +134,7 @@ export function renderAdminOrderNotificationHtml(data) {
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;margin-top:20px;">
           <tr>
             <td style="text-align:center;padding:20px;color:${s.muted};font-size:12px;font-family:${s.fontSans};">
-              <p style="margin:0;">© ${new Date().getFullYear()} ${getBrandName()}. All rights reserved. · <a href="${getBaseUrl()}" style="color:${s.muted};">${getCanonicalHost()}</a></p>
+              <p style="margin:0;">© ${new Date().getFullYear()} ${getBrandName()}. All rights reserved. · <a href="${getBaseUrl()}" style="color:${s.link};text-decoration:none;">${getCanonicalHost()}</a></p>
             </td>
           </tr>
         </table>

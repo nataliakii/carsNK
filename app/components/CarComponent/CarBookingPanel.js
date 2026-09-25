@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, styled } from "@mui/material";
 import { useMainContext } from "@app/Context";
 import { calculateTotalPrice } from "@utils/action";
 import { normalizeSearchDates } from "@utils/carDateSearch";
@@ -45,9 +45,63 @@ function quoteStatusFromResult(result, previousTotal) {
   };
 }
 
+const BookSlot = styled(Box)(({ theme }) => ({
+  display: "flex",
+  justifyContent: "center",
+  paddingLeft: theme.spacing(0.5),
+  paddingRight: theme.spacing(0.5),
+}));
+
+const BookFace = styled(Box)(({ theme }) => ({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: theme.spacing(0.5),
+  lineHeight: theme.typography.body1.lineHeight,
+}));
+
+const BookWord = styled("span")(({ theme }) => ({
+  fontFamily: theme.typography.button.fontFamily,
+  fontWeight: theme.typography.fontWeightBold,
+  fontSize: theme.typography.button.fontSize,
+  letterSpacing: theme.typography.button.letterSpacing,
+  lineHeight: theme.typography.button.lineHeight,
+}));
+
+const PriceLine = styled(Box)(({ theme }) => ({
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "center",
+  gap: theme.spacing(0.5),
+}));
+
+const ApproxWord = styled("span")(({ theme }) => ({
+  fontSize: theme.typography.caption.fontSize,
+  fontWeight: theme.typography.fontWeightBold,
+  letterSpacing: theme.typography.overline.letterSpacing,
+  textTransform: "uppercase",
+  lineHeight: theme.typography.caption.lineHeight,
+}));
+
+const PriceWord = styled("span")(({ theme }) => ({
+  fontWeight: theme.typography.fontWeightBold,
+  fontSize: theme.typography.subtitle1.fontSize,
+  lineHeight: theme.typography.subtitle1.lineHeight,
+}));
+
+const StatusLine = styled(Typography, {
+  shouldForwardProp: (prop) => prop !== "tone",
+})(({ theme, tone }) => ({
+  textAlign: "center",
+  fontWeight: theme.typography.fontWeightBold,
+  fontSize: theme.typography.body2.fontSize,
+  color:
+    tone === "error" ? theme.palette.error.main : theme.palette.text.secondary,
+}));
+
 /**
- * Search-card booking column: mini calendar always visible + breathing
- * Approx/price plate that becomes Book on hover.
+ * Search-card booking column. A complete range shows BOOK! above the month
+ * title, with the approximate total from the existing price action.
  */
 export default function CarBookingPanel({ car, orders = [], onContinue }) {
   const {
@@ -65,7 +119,6 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
     )
   );
   const [quote, setQuote] = useState({ status: "idle" });
-  const [hovered, setHovered] = useState(false);
   const previousTotalRef = useRef(null);
   const [rangeMessage, setRangeMessage] = useState("");
   const panelRef = useRef(panel);
@@ -99,8 +152,8 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
 
     let current = true;
     const abort = new AbortController();
-    setQuote({ status: "checking", priceKind });
     const dateKey = `${panel.start}|${panel.end}`;
+    setQuote({ status: "checking", priceKind, rangeKey: dateKey });
     const previous = previousTotalRef.current;
     const previousTotal =
       previous?.key === dateKey ? previous.total : null;
@@ -123,6 +176,7 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
         if (!current) return;
         const next = quoteStatusFromResult(result, previousTotal);
         next.priceKind = priceKind;
+        next.rangeKey = dateKey;
         if (next.status === "available" || next.status === "priceChanged") {
           previousTotalRef.current = { key: dateKey, total: next.totalPrice };
         }
@@ -137,6 +191,7 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
           status: "error",
           message: "Could not check availability",
           priceKind,
+          rangeKey: dateKey,
         });
       });
 
@@ -169,14 +224,26 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
       });
       setPanel(next);
       setSearchDates({ start: next.start, end: next.end });
+      previousTotalRef.current = null;
+      if (next.start && next.end) {
+        setQuote({
+          status: "checking",
+          priceKind,
+          rangeKey: `${next.start}|${next.end}`,
+        });
+      } else {
+        setQuote({ status: "idle" });
+      }
     },
-    [setSearchDates]
+    [setSearchDates, priceKind]
   );
 
   const clearDates = useCallback(() => {
     const next = reduceBookingPanel(panelRef.current, { type: "clear" });
     setPanel(next);
     setSearchDates({ start: null, end: null });
+    previousTotalRef.current = null;
+    setQuote({ status: "idle" });
   }, [setSearchDates]);
 
   return (
@@ -205,8 +272,8 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
         </Typography>
       ) : null}
 
-      {view.showPrice ? (
-        <Box sx={{ display: "flex", justifyContent: "center", px: 0.5 }}>
+      {view.showBook ? (
+        <BookSlot>
           <GradientBookButton
             data-testid="continue-booking"
             data-start={view.canonicalStart || ""}
@@ -218,71 +285,20 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
                 end: view.canonicalEnd,
               })
             }
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            onFocus={() => setHovered(true)}
-            onBlur={() => setHovered(false)}
-            aria-label={hovered ? view.bookHoverLabel : view.platePriceText}
-            sx={{
-              minWidth: { xs: "160px", sm: "200px" },
-              fontSize: "1.05rem",
-              py: 1.1,
-            }}
           >
-            {hovered ? (
-              <Box component="span" data-testid="book-hover-label">
-                {view.bookHoverLabel}
-              </Box>
-            ) : (
-              <Box
-                data-testid="booking-price"
-                sx={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  justifyContent: "center",
-                  gap: 0.55,
-                  lineHeight: 1.15,
-                }}
-              >
-                {view.showApprox ? (
-                  <Box
-                    component="span"
-                    data-testid="price-approx"
-                    sx={{
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.02em",
-                      textTransform: "uppercase",
-                      opacity: 0.9,
-                    }}
-                  >
-                    approx.
-                  </Box>
-                ) : null}
-                <Box component="span" sx={{ fontWeight: 800, fontSize: "1.15rem" }}>
-                  {view.platePriceText}
-                </Box>
-              </Box>
-            )}
+            <BookFace>
+              <BookWord data-testid="book-label">{view.bookLabel}</BookWord>
+              {view.showPrice ? (
+                <PriceLine data-testid="booking-price">
+                  {view.showApprox ? (
+                    <ApproxWord data-testid="price-approx">approx.</ApproxWord>
+                  ) : null}
+                  <PriceWord>{view.platePriceText}</PriceWord>
+                </PriceLine>
+              ) : null}
+            </BookFace>
           </GradientBookButton>
-        </Box>
-      ) : null}
-
-      {view.statusText ? (
-        <Typography
-          data-testid="availability-status"
-          sx={{
-            textAlign: "center",
-            fontWeight: 600,
-            fontSize: "0.85rem",
-            color:
-              view.status === "unavailable" || view.status === "error"
-                ? "error.main"
-                : "text.secondary",
-          }}
-        >
-          {view.statusText}
-        </Typography>
+        </BookSlot>
       ) : null}
 
       <Box data-testid="booking-calendar" sx={{ width: "100%", minWidth: 0, overflowX: "hidden" }}>
@@ -314,6 +330,19 @@ export default function CarBookingPanel({ car, orders = [], onContinue }) {
           </Typography>
         ) : null}
       </Box>
+
+      {view.statusText ? (
+        <StatusLine
+          data-testid="availability-status"
+          tone={
+            view.status === "unavailable" || view.status === "error"
+              ? "error"
+              : "neutral"
+          }
+        >
+          {view.statusText}
+        </StatusLine>
+      ) : null}
     </Box>
   );
 }

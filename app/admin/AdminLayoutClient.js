@@ -3,6 +3,7 @@
 import { SessionProvider, useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { loginUrlForReturn } from "@/domain/admin/adminReturnTo";
 import Loading from "../loading";
 import AccessLinkSessionBanner from "./shared/components/AccessLinkSessionBanner";
 import "@styles/globals.css";
@@ -20,7 +21,8 @@ function AdminContent({ children }) {
         return;
       }
       if (!session) {
-        router.replace("/login");
+        const current = `${window.location.pathname}${window.location.search}`;
+        router.replace(loginUrlForReturn(current));
       } else if (!session.user?.isAdmin) {
         router.replace("/");
       }

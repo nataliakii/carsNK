@@ -61,7 +61,7 @@ import AdminCountrySwitch from "@app/admin/shared/components/AdminCountrySwitch"
 import { useAdminViewAs } from "@app/hooks/useAdminViewAs";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { useAdminPendingInbox } from "@app/hooks/useAdminPendingInbox";
-import { adminInboxBadges } from "@/domain/orders/inboxView";
+import { adminInboxBadges, contractorRentalActionBadge } from "@/domain/orders/inboxView";
 import { usePendingPartnerReviews } from "@app/hooks/usePendingPartnerReviews";
 import AdminNavLinks, {
   adminNavLinkSx,
@@ -904,7 +904,7 @@ export default function NavBar({
           role: adminRole,
           companyContextActive: viewAsActive,
         }),
-        pendingCount: inboxBadges.orders,
+        pendingCount: contractorRentalActionBadge(pendingInbox),
         legalPendingCount: showSuperAdminChrome
           ? legalPendingCount
           : inboxBadges.companySetup,

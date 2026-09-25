@@ -4,12 +4,12 @@ const { ALL_UI_LOCALE_CODES } = require("@/domain/platform/uiLocales");
 
 const KEYS = [
   "supplierResponse",
-  "platformStatus",
-  "vehicleAvailable",
-  "cannotProvide",
-  "awaitingSupplier",
-  "confirmBooking",
-  "bookingConfirmedByRovaro",
+  "customerConfirmation",
+  "supplierAwaitingYours",
+  "supplierVehicleConfirmed",
+  "customerNotRequested",
+  "customerAwaitingPayment",
+  "customerFeePaid",
 ];
 
 describe("supplier-response table i18n", () => {
@@ -26,6 +26,7 @@ describe("supplier-response table i18n", () => {
         expect(json.table?.[key]).toBeTruthy();
       }
       expect(json.table.supplierResponse.toLowerCase()).not.toBe("confirmed");
+      expect(JSON.stringify(json).toLowerCase()).not.toContain("confirmed by rovaro");
     }
   });
 

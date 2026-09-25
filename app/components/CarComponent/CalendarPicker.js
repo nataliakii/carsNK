@@ -414,10 +414,14 @@ const CalendarPicker = ({
   // };
 
   // Add a clear selection handler
+  const updateSelectedTimes = (value) => {
+    if (typeof setSelectedTimes === "function") setSelectedTimes(value);
+  };
+
   const handleClearSelection = () => {
     setSelectedRange([null, null]);
     setShowBookButton(false);
-    setSelectedTimes({ start: null, end: null });
+    updateSelectedTimes({ start: null, end: null });
     setBookedDates({ start: null, end: null });
     if (typeof onSelectionCleared === "function") onSelectionCleared();
   };
@@ -448,9 +452,15 @@ const CalendarPicker = ({
     if (!presetKey) {
       if (appliedPresetKeyRef.current) {
         appliedPresetKeyRef.current = "";
-        setSelectedRange([null, null]);
         setShowBookButton(false);
         setBookedDates({ start: null, end: null });
+        // Keep a start the user just picked. Clearing here would wipe that
+        // click when the parent drops the previous committed range.
+        setSelectedRange((current) => {
+          const [start, end] = current || [];
+          if (start && !end) return current;
+          return [null, null];
+        });
       }
       return;
     }
@@ -945,9 +955,13 @@ const CalendarPicker = ({
     }
 
     if (!start || (start && end)) {
-      // First click or resetting the range
+      // First click or resetting the range. Drop any committed price so an
+      // incomplete selection cannot keep the previous BOOK! button.
       setSelectedRange([date, null]);
       setShowBookButton(false);
+      if (start && end && typeof onSelectionCleared === "function") {
+        onSelectionCleared();
+      }
       // После первого клика или любого сброса диапазона показать снэк
       // if (onDateChange) {
       //   onDateChange({ type: "info", message: t("order.enterEndDate") });
@@ -957,6 +971,7 @@ const CalendarPicker = ({
         // If the second date is before the first, make it the new start
         setSelectedRange([date, null]);
         setShowBookButton(false);
+        if (typeof onSelectionCleared === "function") onSelectionCleared();
         // if (onDateChange) {
         //   onDateChange({ type: "info", message: t("order.enterEndDate") });
         // }
@@ -964,8 +979,9 @@ const CalendarPicker = ({
         // Повторный клик по дате начала: отменяем выбор и ждём новый первый клик
         setSelectedRange([null, null]);
         setShowBookButton(false);
-        setSelectedTimes({ start: null, end: null });
+        updateSelectedTimes({ start: null, end: null });
         setBookedDates({ start: null, end: null });
+        if (typeof onSelectionCleared === "function") onSelectionCleared();
         // if (onDateChange) {
         //   onDateChange({ type: "info", message: t("order.chooseStartDate") });
         // }
@@ -986,7 +1002,7 @@ const CalendarPicker = ({
         } = calculateAvailableTimes(startEndDates, startStr, endStr);
 
         // отдельно время забора и отдачи хранится в стринге "hh:mm"
-        setSelectedTimes({
+        updateSelectedTimes({
           start: availableStart,
           end: availableEnd,
         });

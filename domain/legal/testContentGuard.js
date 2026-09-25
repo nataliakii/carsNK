@@ -40,6 +40,15 @@ export function detectTestLegalContent(doc) {
   return { isTest: reasons.length > 0, reasons: [...new Set(reasons)] };
 }
 
+/** Body text that is itself a QA fixture, not a real legal document. */
+export function isFixtureLegalBody(body) {
+  const text = String(body || "");
+  if (!text.trim()) return true;
+  if (TEST_BODY_RE.test(text)) return true;
+  if (TEST_TITLE_RE.test(text.slice(0, 120))) return true;
+  return false;
+}
+
 export function isProductionLegalRuntime() {
   const vercel = String(process.env.VERCEL_ENV || "").toLowerCase();
   if (vercel === "production") return true;

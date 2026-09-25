@@ -15,6 +15,12 @@ import AuditLog from "@models/auditLog";
 import { ROLE } from "@models/user";
 import { getEffectiveOwnerId, normalizeOwnerId } from "@/domain/owners/ownerScope";
 import { isPlatformAdminUser } from "@/domain/admin/adminViewMode";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  assertSupplierDecisionIsCurrent,
+  BOOKING_EMAIL_STAGE,
+  SUPPLIER_DECISION,
+} from "@/domain/bookings/bookingEmailPolicy";
 import {
   AVAILABILITY_PURPOSE,
   evaluateRentalAvailability,
@@ -31,6 +37,7 @@ import { orderMessages } from "@/domain/messages";
 import {
   SUPPLIER_RESPONSE,
   SUPPLIER_RESPONSE_PAYLOAD,
+  SUPPLIER_AVAILABILITY_STATEMENT,
   getSupplierResponseStatus,
   isSupplierResponseLocked,
   buildSupplierResponsePublicFields,
@@ -200,10 +207,34 @@ export async function applySupplierResponse({
       status: 409,
       body: {
         success: false,
-        message: "This booking is already confirmed by Rovaro. The supplier response is locked.",
+        message:
+          "The customer has already confirmed this booking by paying the Booking Fee. The supplier response is locked.",
         code: "SUPPLIER_RESPONSE_LOCKED",
       },
     };
+  }
+
+  if (isPlatformBooking(order)) {
+    // Staleness is judged by the booking email policy so a stale tab or an old
+    // email cannot overwrite a newer decision.
+    const current = assertSupplierDecisionIsCurrent({
+      order,
+      decision:
+        response === SUPPLIER_RESPONSE_PAYLOAD.ACCEPTED
+          ? SUPPLIER_DECISION.CONFIRM_REQUESTED_VEHICLE
+          : SUPPLIER_DECISION.DECLINE_REQUEST,
+      expectedStage: BOOKING_EMAIL_STAGE.AWAITING_SUPPLIER_CONFIRMATION,
+    });
+    if (!current.ok) {
+      return {
+        status: 409,
+        body: {
+          success: false,
+          message: "This booking is no longer waiting for a supplier decision.",
+          code: "SUPPLIER_RESPONSE_LOCKED",
+        },
+      };
+    }
   }
 
   const current = getSupplierResponseStatus(order);
@@ -233,6 +264,7 @@ export async function applySupplierResponse({
             : orderMessages.SUPPLIER_DECLINED,
         data: {
           confirmed: order.confirmed === true,
+          bookingStatus: order.bookingStatus || "",
           ...buildSupplierResponsePublicFields(order),
         },
       },
@@ -284,6 +316,10 @@ export async function applySupplierResponse({
       };
     }
 
+    order.supplierResponse = SUPPLIER_RESPONSE.CONFIRMED;
+    order.confirmedAt = now;
+    order.confirmedBy = String(actor.id || "");
+    order.confirmedVehicleId = String(carIdOf(order) || "");
     order.companyEmailDecision = "accepted";
     order.companyEmailDecisionAt = now;
     order.partnerConfirmedAt = now;
@@ -296,6 +332,7 @@ export async function applySupplierResponse({
       source: "admin_supplier_response",
       actor,
       vehicleId: String(carIdOf(order) || ""),
+      statement: SUPPLIER_AVAILABILITY_STATEMENT,
       snapshot: {
         orderNumber: order.orderNumber || "",
         carId: String(carIdOf(order) || ""),
@@ -304,12 +341,15 @@ export async function applySupplierResponse({
         rentalEndDate: order.rentalEndDate,
         timeIn: order.timeIn,
         timeOut: order.timeOut,
+        totalPrice: order.totalPrice ?? null,
+        overridePrice: order.OverridePrice ?? null,
       },
       taskTitle: TASK_ACCEPTED,
       needsPlatformReview: false,
       acceptedAt: now.toISOString(),
     };
   } else {
+    order.supplierResponse = SUPPLIER_RESPONSE.DECLINED;
     order.companyEmailDecision = "rejected";
     order.companyEmailDecisionAt = now;
     order.declineReason = reason;
@@ -395,6 +435,7 @@ export async function applySupplierResponse({
           : orderMessages.SUPPLIER_DECLINED,
       data: {
         confirmed: order.confirmed === true,
+        bookingStatus: order.bookingStatus || "",
         paymentUrl,
         ...buildSupplierResponsePublicFields(order),
       },

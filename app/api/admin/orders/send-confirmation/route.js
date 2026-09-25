@@ -12,6 +12,8 @@ import { pickCustomerEmailLocale } from "@locales/customerEmail";
 import { buildCustomerOfficialConfirmationPdf } from "@/app/ui/email/pdf/customerOfficialConfirmationPdf";
 import { sendEmailDirect } from "@/lib/email/sendDirect";
 import { MAIL_RENDER_KEY, MAIL_TYPE } from "@/domain/mail/mailTypes";
+import { resolveExceptionBookingEmail } from "@/domain/bookings/bookingEmailPolicy";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { getDefaultConfirmationCcEmail } from "@config/email";
 import {
   formatMeetingContactsDisplay,
@@ -299,6 +301,19 @@ export async function POST(request) {
       locale,
       fromLocalhost: order.fromLocalhost === true,
     };
+
+    // Manual superadmin action. Rovaro marketplace bookings still pass the one
+    // canonical gate; Greece ops orders are outside the marketplace policy.
+    if (isPlatformBooking(order)) {
+      const policy = resolveExceptionBookingEmail({
+        order,
+        mailType: MAIL_TYPE.ORDER_OFFICIAL,
+        manualTrigger: true,
+      });
+      if (!policy.allowed) {
+        return NextResponse.json({ message: policy.reason }, { status: 409 });
+      }
+    }
 
     const { title, text, html, pdfFileName, pdfData } =
       renderCustomerOfficialConfirmationEmail(payload);

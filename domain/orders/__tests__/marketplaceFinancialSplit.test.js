@@ -79,6 +79,8 @@ function euro500Order(extra = {}) {
     phone: "+34600000000",
     carModel: "Seat Leon",
     clientLang: "en",
+    publicReference: "RVR-7K4P9",
+    _customerAccessToken: "customer-access-token-not-for-supplier",
     bookingMode: BOOKING_MODES.MARKETPLACE_REQUEST,
     authoritativePrice: {
       currency: "EUR",
@@ -249,17 +251,18 @@ describe("€500 marketplace emails", () => {
     else process.env.NEXT_PUBLIC_SITE_COUNTRY = originalCountry;
   });
 
-  test("partner email instructs the supplier to collect only €450", async () => {
+  test("partner email tells the supplier to collect €450", async () => {
     await sendPaidConfirmationEmails({ order: euro500Order() });
     const partnerCall = sendEmailDirect.mock.calls.find((call) =>
-      String(call[0].title || "").includes("customer details are now available")
+      String(call[0].title || "").includes("customer payment received")
     );
     expect(partnerCall).toBeTruthy();
     const blob = `${partnerCall[0].html}\n${partnerCall[0].message}`;
-    expect(blob).toMatch(/paid the Rovaro booking fee/i);
-    expect(blob).toContain("EUR 450.00");
-    expect(blob).toContain("EUR 500.00");
-    expect(blob).toMatch(/remaining balance/i);
+    expect(blob).toMatch(/paid the Rovaro Booking Fee/i);
+    expect(blob).toContain("€450.00");
+    expect(blob).toMatch(/Collect the remaining amount/i);
+    expect(blob).toContain("/admin/orders?orderId=");
+    expect(blob).not.toContain("customer-access-token-not-for-supplier");
     expect(blob).not.toMatch(/transfer to the supplier|settlement|Stripe Connect/i);
   });
 
@@ -270,13 +273,15 @@ describe("€500 marketplace emails", () => {
     );
     expect(customerCall).toBeTruthy();
     const blob = `${customerCall[0].html}\n${customerCall[0].message}`;
-    expect(blob).toContain("Pay at pickup");
-    expect(blob).toContain("EUR 450.00");
-    expect(blob).toContain("Pay now");
-    expect(blob).toContain("EUR 50.00");
-    expect(blob).toContain("Total");
-    expect(blob).toContain("EUR 500.00");
-    expect(blob).toContain("Pay the rest there");
+    expect(blob).toContain("Pay to the rental company");
+    expect(blob).toContain("€450.00");
+    expect(blob).toContain("Paid to Rovaro");
+    expect(blob).toContain("€50.00");
+    expect(blob).toContain("Total rental price");
+    expect(blob).toContain("€500.00");
+    expect(blob).toContain("RVR-7K4P9");
+    expect(blob).not.toMatch(/\/admin\b/);
+    expect(blob).not.toContain("BOOKING_CONFIRMED");
   });
 });
 

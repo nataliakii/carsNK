@@ -7,7 +7,7 @@ import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { checkFieldAccess } from "@/middleware/withOrderAccess";
 import { ROLE } from "@/domain/orders/admin-rbac";
-import { assignOfflineFlag } from "@/domain/admin/rovaroContractorAdmin";
+import { assignOfflineFlag, isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { getActionFromChangedFields } from "@/domain/orders/orderNotificationPolicy";
 import { notifyOrderAction } from "@/domain/orders/orderNotificationDispatcher";
 import { getBusinessRentalDaysByMinutes } from "@/domain/orders/numberOfDays";
@@ -570,6 +570,22 @@ export const PATCH = async (request, { params }) => {
     // Handle confirmation toggle
     if (hasConfirmationChange) {
       const isConfirming = payload.confirmed === true && !order.confirmed;
+
+      if (isConfirming && isPlatformBooking(order)) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            data: null,
+            message:
+              "Rovaro does not confirm this booking. The supplier confirms the vehicle, and the customer confirms by paying the Booking Fee.",
+            code: "PLATFORM_CONFIRMATION_NOT_ALLOWED",
+            level: "block",
+            conflicts: [],
+            affectedOrders: [],
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } }
+        );
+      }
 
       if (isConfirming) {
         // Get all orders for this car

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { getActiveBrand } from "@config/brand";
+import { destinationAfterLogin } from "@/domain/admin/adminReturnTo";
 import { SiteLogo, SiteMark } from "@app/components/brand/RovaroLogo";
 import styles from "./loginForm.module.css";
 
@@ -35,7 +36,8 @@ export default function LoginForm() {
           setError(result.error || "An error occurred during login");
         }
       } else if (result?.ok) {
-        window.location.href = "/admin";
+        const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+        window.location.href = destinationAfterLogin(returnTo);
       } else {
         setError("Unexpected response. Please try again.");
       }

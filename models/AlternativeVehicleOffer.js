@@ -86,6 +86,9 @@ const alternativeVehicleOfferSchema = new mongoose.Schema(
     termsConsent: { type: mongoose.Schema.Types.Mixed, default: null },
     availabilityNote: { type: String, default: "" },
 
+    replacementSource: { type: String, default: "" },
+    supplierMessage: { type: String, default: "" },
+    createdBy: { type: String, default: "" },
     reasonForReplacement: { type: String, required: true },
     expiresAt: { type: Date, required: true, index: true },
 

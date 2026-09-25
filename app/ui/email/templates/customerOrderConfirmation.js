@@ -1,9 +1,15 @@
 /**
- * Customer order confirmation email — premium HTML template.
- * Голубая заставка с заголовком, контент, подпись BBQR в цветах, копирайт.
+ * Customer order confirmation email — shared brand shell, body, signature.
  */
 
-import { EMAIL_STYLE, escapeHtml, strongFromMarkdown } from "@/app/ui/email/theme/nataliCarsEmailTheme";
+import {
+  EMAIL_STYLE,
+  escapeHtml,
+  renderEmailButton,
+  renderEmailHeaderRow,
+  renderNoticeBlock,
+  strongFromMarkdown,
+} from "@/app/ui/email/theme/nataliCarsEmailTheme";
 import { EMAIL_SIGNATURE_HTML } from "@/app/ui/email/templates/signature";
 import { getBaseUrl, getCanonicalHost } from "@config/domain";
 import { getBrandName } from "@config/brand";
@@ -115,12 +121,7 @@ export function renderCustomerOrderConfirmation(data) {
     <tr>
       <td align="center">
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background-color:${s.bgCard};border:1px solid ${s.border};box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-          <!-- Голубая заставка с заголовком -->
-          <tr>
-            <td style="background-color:${s.headerTeal};padding:30px 40px;text-align:center;">
-              <h1 style="margin:0;color:${s.headerText};font-size:22px;font-weight:600;letter-spacing:0.5px;font-family:${s.fontSans};">${escapeHtml(pageTitle)}</h1>
-            </td>
-          </tr>
+          ${renderEmailHeaderRow({ title: pageTitle })}
           <tr>
             <td style="padding:40px 40px 36px 40px;">
               ${p("margin-bottom:8px;", escapeHtml(greeting))}
@@ -128,12 +129,10 @@ export function renderCustomerOrderConfirmation(data) {
               ${p("", escapeHtml(t.weReceived || ""))}
               ${
                 t.availabilityDisclaimer
-                  ? `<div style="margin:20px 0 0 0;padding:16px 18px;background-color:#FFF8E7;border:1px solid #F0D9A8;border-left:4px solid #D4A017;">
-                <p style="margin:0;color:${s.text};line-height:1.55;font-size:14px;font-family:${s.fontSans};">${escapeHtml(t.availabilityDisclaimer)}</p>
-              </div>`
+                  ? renderNoticeBlock(escapeHtml(t.availabilityDisclaimer))
                   : ""
               }
-              <div style="margin:28px 0 0 0;padding:24px;background-color:${s.bgDetailsCard};border:1px solid ${s.border};">
+              <div style="margin:28px 0 0 0;padding:24px;background-color:${s.bgDetailsCard};border:1px solid ${s.border};border-top:3px solid ${s.accent};">
                 <div style="font-size:13px;color:${s.accent};font-weight:600;margin-bottom:16px;font-family:${s.fontSans};">${escapeHtml(reservationDetailsHeading)}</div>
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                   ${detailRows}
@@ -156,12 +155,16 @@ export function renderCustomerOrderConfirmation(data) {
               ${
                 showPaymentCta && paymentUrl
                   ? `<div style="margin:24px 0 0 0;text-align:center;">
-                <a href="${escapeHtml(paymentUrl)}" style="display:inline-block;padding:14px 28px;background-color:${s.headerTeal};color:#ffffff;text-decoration:none;font-weight:700;border-radius:8px;font-size:16px;font-family:${s.fontSans};">${escapeHtml(t.paymentCta || "Pay now")}</a>
+                ${renderEmailButton(paymentUrl, t.paymentCta || "Pay now")}
               </div>`
                   : showPaymentMissing
-                    ? `<div style="margin:24px 0 0 0;padding:16px 18px;background-color:#FFF8E7;border:1px solid #F0D9A8;border-left:4px solid #D4A017;">
-                <p style="margin:0;color:${s.text};line-height:1.55;font-size:14px;font-family:${s.fontSans};">${escapeHtml(t.paymentLinkNotConfigured || "Payment link is not configured.")}</p>
-              </div>`
+                    ? renderNoticeBlock(
+                        escapeHtml(
+                          t.paymentLinkNotConfigured ||
+                            "Payment link is not configured."
+                        ),
+                        "24px 0 0 0"
+                      )
                     : ""
               }
               <div style="margin:32px 0 0 0;">
@@ -176,7 +179,6 @@ export function renderCustomerOrderConfirmation(data) {
               ${phonesHtml}
             </td>
           </tr>
-          <!-- Подпись BBQR в цветах -->
           <tr>
             <td style="padding:0 40px 30px 40px;">
               ${EMAIL_SIGNATURE_HTML}
@@ -187,7 +189,7 @@ export function renderCustomerOrderConfirmation(data) {
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;margin-top:20px;">
           <tr>
             <td style="text-align:center;padding:20px;color:${s.muted};font-size:12px;font-family:${s.fontSans};">
-              <p style="margin:0;">© ${new Date().getFullYear()} ${getBrandName()}. All rights reserved. · <a href="${getBaseUrl()}" style="color:${s.muted};">${getCanonicalHost()}</a></p>
+              <p style="margin:0;">© ${new Date().getFullYear()} ${getBrandName()}. All rights reserved. · <a href="${getBaseUrl()}" style="color:${s.link};text-decoration:none;">${getCanonicalHost()}</a></p>
             </td>
           </tr>
         </table>

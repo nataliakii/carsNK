@@ -64,8 +64,11 @@ describe("canonical customer Terms route", () => {
   it("points customer-facing links at the canonical route", () => {
     const navbar = read("app/components/Navbar.js");
     const footer = read("app/components/Footer.js");
-    expect(navbar).toContain("CUSTOMER_TERMS_SEGMENT");
+    // Terms left the navbar for the footer, so the footer is the only
+    // customer-facing entry point and the navbar links nowhere near it.
+    expect(navbar).not.toContain("CUSTOMER_TERMS_SEGMENT");
     expect(navbar).not.toContain('localeLink("/rental-terms")');
+    expect(navbar).not.toContain('localeLink("/booking-terms")');
     expect(footer).toContain("CUSTOMER_TERMS_SEGMENT");
     expect(footer).not.toContain('localeLink("/booking-terms")');
 

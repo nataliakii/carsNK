@@ -269,14 +269,17 @@ describe("dispatchPlatformNotification", () => {
       remainingFormatted: "EUR 450.00",
       revealContacts: false,
     });
-    const companyCall = sendEmailDirect.mock.calls.find(
-      (c) => c[0].title === "New booking request: 20260101120000"
+    const companyCall = sendEmailDirect.mock.calls.find((c) =>
+      String(c[0].title).startsWith("New booking request —")
     );
     expect(companyCall).toBeTruthy();
-    expect(companyCall[0].message).toContain("Jane");
+    expect(companyCall[0].title).toContain("Seat Leon");
+    expect(companyCall[0].message).not.toContain("Jane");
     expect(companyCall[0].message).not.toContain("+34600111222");
     expect(companyCall[0].message).not.toContain("jane@example.com");
-    expect(companyCall[0].message).toMatch(/hidden until/i);
+    expect(companyCall[0].message).toMatch(/Booking Fee is paid/i);
+    expect(companyCall[0].message).not.toMatch(/partner-confirm|token=/i);
+    expect(companyCall[0].message).toContain("/admin/orders?orderId=o1");
 
     const superCall = sendEmailDirect.mock.calls.find(
       (c) =>
@@ -285,8 +288,8 @@ describe("dispatchPlatformNotification", () => {
     expect(superCall[0].message).toContain("jane@example.com");
   });
 
-  test("booking fee paid reveals contacts + calendar deep link + remaining balance", async () => {
-    await notifyBookingFeePaid({
+  test("booking fee paid does not send the legacy admin template", async () => {
+    const result = await notifyBookingFeePaid({
       orderId: "o2",
       companyId: "c1",
       companyName: "Alpha Cars",
@@ -301,21 +304,9 @@ describe("dispatchPlatformNotification", () => {
       stripeRef: "pi_abc…xyz",
       status: "paid",
     });
-    const companyCall = sendEmailDirect.mock.calls.find((c) =>
-      String(c[0].title).startsWith("Booking confirmed")
-    );
-    expect(companyCall[0].message).toContain("+34600111222");
-    expect(companyCall[0].message).toContain("jane@example.com");
-    expect(companyCall[0].message).toContain("EUR 450.00");
-    expect(companyCall[0].message).toMatch(/Collect only the remaining balance/i);
-    expect(companyCall[0].message).toMatch(/view=orders-big-calendar/);
-    expect(companyCall[0].message).toContain("orderId=o2");
-    expect(companyCall[0].message).not.toMatch(/sk_live|password|token=/i);
-
-    const superCall = sendEmailDirect.mock.calls.find((c) =>
-      String(c[0].title).startsWith("Booking fee paid")
-    );
-    expect(superCall[0].message).toContain("pi_abc");
+    expect(sendEmailDirect).not.toHaveBeenCalled();
+    expect(result.results.company.reason).toBe("no_content");
+    expect(result.results.superadmin.reason).toBe("no_content");
   });
 
   test("webhook retry does not duplicate when already delivered", async () => {

@@ -9,6 +9,12 @@ import {
   isProductionLegalRuntime,
 } from "@/domain/legal/testContentGuard";
 import {
+  prepareLegalContentForPublish,
+  selectWorkingLegalContent,
+} from "@/domain/legal/workingLegalContent";
+import customerBookingTermsEn from "@/domain/legal/content/customer-booking-terms.en";
+import customerBookingTermsEs from "@/domain/legal/content/customer-booking-terms.es";
+import {
   assertTestDatabaseIsolation,
   assertBrowserQaPublishAllowed,
   isClearlyTestDatabase,
@@ -66,6 +72,92 @@ describe("legal publish safeguards", () => {
       content: { title: "Anything", sections: [] },
     });
     expect(testOnlyBlocked.ok).toBe(false);
+  });
+
+  it("does not classify real customer booking terms as test content", () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.NODE_ENV = "production";
+    for (const doc of [customerBookingTermsEn, customerBookingTermsEs]) {
+      expect(detectTestLegalContent(doc).isTest).toBe(false);
+      expect(assertNotTestContentInProduction(doc).ok).toBe(true);
+    }
+    expect(customerBookingTermsEs.language).toBe("es");
+    expect(customerBookingTermsEs.content.title).toBe(
+      "Condiciones de Reserva de Rovaro"
+    );
+  });
+
+  it("still blocks a QA translation fixture in production", () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.NODE_ENV = "production";
+    const fixture = {
+      content: {
+        title: "QA",
+        sections: [
+          {
+            id: "q1",
+            heading: "[untranslated:q1]",
+            body: "[untranslated:q1] draft save test",
+          },
+        ],
+      },
+    };
+    const detected = detectTestLegalContent(fixture);
+    expect(detected.isTest).toBe(true);
+    expect(detected.reasons).toEqual(
+      expect.arrayContaining(["title", "body", "body_prefix"])
+    );
+    const blocked = assertNotTestContentInProduction(fixture);
+    expect(blocked.ok).toBe(false);
+    expect(blocked.message).toBe(TEST_CONTENT_PRODUCTION_MESSAGE);
+
+    const retitled = prepareLegalContentForPublish(
+      fixture.content,
+      customerBookingTermsEs
+    );
+    expect(retitled.title).toBe("QA");
+    expect(assertNotTestContentInProduction({ content: retitled }).ok).toBe(
+      false
+    );
+  });
+
+  it("publishes the real Spanish terms instead of a newer QA draft", () => {
+    const qaDraft = {
+      status: "draft",
+      version: 3,
+      language: "es",
+      content: {
+        title: "QA",
+        sections: [
+          {
+            id: "q1",
+            heading: "[untranslated:q1]",
+            body: "[untranslated:q1] draft save test",
+          },
+        ],
+      },
+    };
+    const published = {
+      status: "published",
+      version: 1,
+      language: "es",
+      content: customerBookingTermsEs.content,
+    };
+    const chosen = selectWorkingLegalContent(
+      [qaDraft, published],
+      customerBookingTermsEs
+    );
+    expect(chosen.title).toBe("Condiciones de Reserva de Rovaro");
+    expect(detectTestLegalContent({ content: chosen }).isTest).toBe(false);
+    process.env.VERCEL_ENV = "production";
+    expect(assertNotTestContentInProduction({ content: chosen }).ok).toBe(true);
+
+    const staleTitle = prepareLegalContentForPublish(
+      { ...customerBookingTermsEs.content, title: "QA" },
+      customerBookingTermsEs
+    );
+    expect(staleTitle.title).toBe("Condiciones de Reserva de Rovaro");
+    expect(detectTestLegalContent({ content: staleTitle }).isTest).toBe(false);
   });
 
   it("allows non-test content in production", () => {

@@ -75,7 +75,7 @@ describe("switchConfirm client-order gate", () => {
     expect(confirmOrderFlow).not.toHaveBeenCalled();
   });
 
-  test("platform superadmin may call confirmOrderFlow after supplier acceptance is left to the flow", async () => {
+  test("platform superadmin cannot confirm a booking on behalf of either party", async () => {
     requireAdmin.mockResolvedValue({
       session: { user: { isAdmin: true, role: ROLE.SUPERADMIN } },
       errorResponse: null,
@@ -91,7 +91,9 @@ describe("switchConfirm client-order gate", () => {
     });
 
     const res = await PATCH(request(), { params: { orderId: "o1" } });
-    expect(res.status).toBe(200);
-    expect(confirmOrderFlow).toHaveBeenCalled();
+    expect(res.status).toBe(409);
+    expect(confirmOrderFlow).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.code).toBe("PLATFORM_CONFIRMATION_NOT_ALLOWED");
   });
 });

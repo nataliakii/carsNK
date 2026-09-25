@@ -1,7 +1,8 @@
 /**
  * Platform rental completion after the Booking Fee is paid.
  *
- * BOOKING_CONFIRMED → RENTAL_IN_PROGRESS → COMPLETION_PENDING → COMPLETED
+ * BOOKING_CONFIRMED → COMPLETION_PENDING → COMPLETED
+ * A stored RENTAL_IN_PROGRESS row is still completed at return. New runs do not write it.
  *
  * Return time moves an eligible platform booking to COMPLETION_PENDING.
  * Twenty-four hours later, with no reported problem, it becomes COMPLETED.
@@ -119,9 +120,6 @@ export function planPlatformCompletion(order, now = new Date()) {
 
   if (isRentalPeriodOver(order, now) && (confirmed || inProgress)) {
     return { rentalState: RENTAL_STATE.COMPLETION_PENDING, armGrace: true };
-  }
-  if (confirmed && isPickupTimeReached(order, now)) {
-    return { rentalState: RENTAL_STATE.RENTAL_IN_PROGRESS };
   }
   return null;
 }

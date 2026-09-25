@@ -36,31 +36,10 @@ jest.mock("@/domain/orders/defaultInsurance", () => ({
 }));
 
 jest.mock("@/app/components/ui/buttons/GradientBookButton", () => {
-  return function MockBookButton({
-    children,
-    onClick,
-    disabled,
-    onMouseEnter,
-    onMouseLeave,
-    onFocus,
-    onBlur,
-    ...rest
-  }) {
+  return function MockBookButton({ children, onClick, disabled, ...rest }) {
     return (
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        {...rest}
-      >
+      <button type="button" onClick={onClick} disabled={disabled} {...rest}>
         {children}
-        <button type="button" data-testid="force-hover" onClick={onMouseEnter}>
-          hover
-        </button>
       </button>
     );
   };
@@ -138,15 +117,12 @@ describe("CarBookingPanel", () => {
     expect(html).not.toContain("Estimated total");
     expect(html).not.toContain("29 Sep – 30 Sep 2026");
     expect(view.container.querySelector('[data-testid="booking-calendar"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-testid="book-label"]').textContent).toBe("BOOK!");
     expect(view.container.querySelector('[data-testid="booking-price"]').textContent).toContain("105€");
     expect(view.container.querySelector('[data-testid="price-approx"]').textContent).toBe("approx.");
 
     const button = view.container.querySelector('[data-testid="continue-booking"]');
     expect(button.disabled).toBe(false);
-    act(() => {
-      view.container.querySelector('[data-testid="force-hover"]').click();
-    });
-    expect(view.container.querySelector('[data-testid="book-hover-label"]').textContent).toBe("Book");
     act(() => button.click());
     expect(view.onContinue).toHaveBeenCalledWith({
       start: "2026-09-29",
@@ -174,6 +150,7 @@ describe("CarBookingPanel", () => {
       end: "2026-10-03",
     });
     expect(view.container.querySelector('[data-testid="booking-calendar"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-testid="book-label"]').textContent).toBe("BOOK!");
     expect(view.container.querySelector('[data-testid="booking-price"]').textContent).toContain("210€");
 
     act(() => {
@@ -181,11 +158,38 @@ describe("CarBookingPanel", () => {
     });
     expect(setSearchDates).toHaveBeenCalledWith({ start: null, end: null });
     expect(view.container.textContent).toContain("Choose your dates");
+    expect(view.container.querySelector('[data-testid="book-label"]')).toBeNull();
     expect(view.container.querySelector('[data-testid="booking-price"]')).toBeNull();
     view.unmount();
   });
 
-  test("booking stays disabled until the server quote succeeds", async () => {
+  test("BOOK! appears as soon as a range is selected and drops a stale price until the new quote returns", async () => {
+    const view = renderPanel();
+    await flush();
+    expect(view.container.querySelector('[data-testid="booking-price"]').textContent).toContain("105€");
+
+    let resolveQuote;
+    calculateTotalPrice.mockReturnValue(
+      new Promise((resolve) => {
+        resolveQuote = resolve;
+      })
+    );
+    await act(async () => {
+      view.container.querySelector('[data-testid="pick-range"]').click();
+    });
+    expect(view.container.querySelector('[data-testid="book-label"]').textContent).toBe("BOOK!");
+    expect(view.container.querySelector('[data-testid="booking-price"]')).toBeNull();
+
+    await act(async () => {
+      resolveQuote({ ok: true, available: true, totalPrice: 210, days: 2 });
+    });
+    await flush();
+    expect(view.container.querySelector('[data-testid="booking-price"]').textContent).toContain("210€");
+    expect(view.container.querySelector('[data-testid="price-approx"]').textContent).toBe("approx.");
+    view.unmount();
+  });
+
+  test("BOOK! stays available while the quote loads and hides when the range is unavailable", async () => {
     let resolveQuote;
     calculateTotalPrice.mockReturnValue(
       new Promise((resolve) => {
@@ -194,7 +198,16 @@ describe("CarBookingPanel", () => {
     );
     const view = renderPanel();
     expect(view.container.textContent).toContain("Checking availability…");
-    expect(view.container.querySelector('[data-testid="continue-booking"]')).toBeNull();
+    const button = view.container.querySelector('[data-testid="continue-booking"]');
+    expect(button).not.toBeNull();
+    expect(button.disabled).toBe(false);
+    expect(view.container.querySelector('[data-testid="book-label"]').textContent).toBe("BOOK!");
+    expect(view.container.querySelector('[data-testid="booking-price"]')).toBeNull();
+    act(() => button.click());
+    expect(view.onContinue).toHaveBeenCalledWith({
+      start: "2026-09-29",
+      end: "2026-09-30",
+    });
 
     await act(async () => {
       resolveQuote({ ok: true, available: false, totalPrice: 105, days: 1 });

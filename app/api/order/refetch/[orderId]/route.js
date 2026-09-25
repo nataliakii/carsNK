@@ -1,31 +1,40 @@
 import { connectToDB } from "@lib/database";
 import { Order } from "@models/order";
+import { requireAdmin } from "@lib/adminAuth";
 import { withOrderVisibility } from "@/middleware/withOrderVisibility";
+import { supplierCanReadOrder } from "@/domain/admin/supplierOrderAccess";
 
-async function handler(request, { params }) {
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+function json(body, status) {
+  return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+}
+
+async function handler(request, context) {
   try {
-    await connectToDB();
+    const { session, errorResponse } = await requireAdmin(request);
+    if (errorResponse) return errorResponse;
 
-    const { orderId } = params;
+    await connectToDB();
+    const params = context?.params ? await context.params : {};
+    const orderId = String(params.orderId || "").trim();
     if (!orderId) {
-      return new Response("Order ID is required", { status: 400 });
+      return json({ success: false, message: "Not found" }, 404);
     }
 
     const order = await Order.findById(orderId).lean();
-
-    if (!order) {
-      return new Response("Order not found", { status: 404 });
+    const access = supplierCanReadOrder(session.user, order);
+    if (!access.ok) {
+      return json({ success: false, message: "Not found" }, access.status === 401 ? 401 : 404);
     }
 
     return new Response(JSON.stringify(order), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: JSON_HEADERS,
     });
   } catch (error) {
     console.error("Error fetching order:", error);
-    return new Response(`Failed to fetch order: ${error.message}`, {
-      status: 500,
-    });
+    return json({ success: false, message: "Not found" }, 404);
   }
 }
 

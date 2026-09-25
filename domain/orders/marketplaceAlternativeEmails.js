@@ -17,10 +17,23 @@ import { connectToDB } from "@lib/database";
 import { buildAlternativeOfferUrl } from "@/domain/booking/alternativeVehicleView";
 import { notifySuperadmin } from "@/domain/notifications/notifySuperadmin";
 import { formatLocationLegLine } from "@/domain/orders/locationSnapshot";
+import {
+  equivalentReplacementDisclosure,
+  equivalentReplacementPayCta,
+} from "@/domain/booking/equivalentReplacementCopy";
+import { formatMinor } from "@/domain/money/minorUnits";
+import {
+  BOOKING_EMAIL_AUDIENCE,
+  BOOKING_EMAIL_COPY,
+  BOOKING_EMAIL_EVENT,
+  bookingsReplyToAddress,
+  resolveBookingEmail,
+  resolveExceptionBookingEmail,
+} from "@/domain/bookings/bookingEmailPolicy";
 
 export const ALTERNATIVE_EMAIL_COPY = {
   en: {
-    offeredSubject: "Rovaro — a replacement car is available for your booking",
+    offeredSubject: "The rental company has offered a replacement vehicle",
     offeredIntro:
       "A replacement car is available. Nothing changes until you accept.",
     viewOffer: "View offer",
@@ -51,7 +64,8 @@ export const ALTERNATIVE_EMAIL_COPY = {
     payCta: "Pay now",
   },
   es: {
-    offeredSubject: "Rovaro — hay un coche de sustitución para tu reserva",
+    offeredSubject:
+      "La empresa de alquiler ha ofrecido un vehículo de sustitución",
     offeredIntro:
       "Hay un coche de sustitución. Nada cambia hasta que aceptes.",
     viewOffer: "Ver oferta",
@@ -201,9 +215,20 @@ async function loadOwnerCompany(order) {
   return Company.findById(order.ownerId).select("name email").lean();
 }
 
-export async function sendAlternativeOfferedEmail({ order, offer }) {
+export async function sendAlternativeOfferedEmail({
+  order,
+  offer,
+  manualTrigger = false,
+}) {
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
+  const policy = resolveBookingEmail({
+    event: BOOKING_EMAIL_EVENT.CUSTOMER_REPLACEMENT_PAYMENT_REQUIRED,
+    audience: BOOKING_EMAIL_AUDIENCE.CUSTOMER,
+    order,
+    context: { manualTrigger, proposalVersion: offer?.offerId },
+  });
+  if (!policy.allowed) return { ok: true, skipped: true, code: policy.code };
   if (
     await alreadySent({
       type: MAIL_TYPE.ORDER_ALTERNATIVE_OFFERED,
@@ -216,31 +241,50 @@ export async function sendAlternativeOfferedEmail({ order, offer }) {
   const locale = order.clientLang || order.locale || "en";
   const t = copyFor(locale, order);
   const url = buildAlternativeOfferUrl(offer.offerId, locale);
+  const disclosure = equivalentReplacementDisclosure({
+    vehicle: vehicleName(offer.originalRequest?.vehicle) || order.carModel || "vehicle",
+    transmission: offer.vehicle?.transmission || "the same",
+    seats: offer.vehicle?.seats ?? "the booked",
+  });
+  const feeLabel = formatMinor(offer.prepaymentMinor, offer.currency || "EUR");
+  const reference = String(order.publicReference || "").trim();
+  const subject = reference
+    ? `${t.offeredSubject} — ${reference}`
+    : t.offeredSubject;
+  const refusal = BOOKING_EMAIL_COPY.customerReplacementRefusal;
   const html = renderRovaroBrandedEmail({
     title: t.offeredSubject,
     introHtml:
-      p(t.offeredIntro) +
+      p(disclosure) +
       p(offer.termsChanged ? t.termsChanged : t.termsSame) +
+      p(refusal) +
       p(t.support),
     rows: offerRows(order, offer, t),
-    cta: { href: url, label: t.viewOffer },
+    cta: { href: url, label: equivalentReplacementPayCta(feeLabel) },
   });
   return sendEmailDirect({
-    title: t.offeredSubject,
+    title: subject,
     message: [
-      t.offeredIntro,
+      disclosure,
       `${t.requested}: ${vehicleName(offer.originalRequest?.vehicle) || order.carModel}`,
       `${t.proposed}: ${vehicleName(offer.vehicle)}`,
+      refusal,
+      equivalentReplacementPayCta(feeLabel),
       url,
     ].join("\n"),
     html,
     to: [email],
+    replyTo: bookingsReplyToAddress(),
     meta: {
       type: MAIL_TYPE.ORDER_ALTERNATIVE_OFFERED,
       renderKey: MAIL_RENDER_KEY.ALTERNATIVE_OFFERED,
       orderId: order._id,
       companyId: order.ownerId,
-      payload: { offerId: offer.offerId, locale },
+      payload: {
+        offerId: offer.offerId,
+        locale,
+        notificationKey: policy.notificationKey,
+      },
     },
   });
 }
@@ -251,9 +295,17 @@ export async function sendAlternativePaymentLinkEmail({
   paymentUrl,
   expiresAt,
   stripeSessionId,
+  manualTrigger = false,
 }) {
   const email = customerEmailOf(order);
   if (!email || !paymentUrl) return { ok: false, code: "missing_recipient_or_url" };
+  const policy = resolveBookingEmail({
+    event: BOOKING_EMAIL_EVENT.CUSTOMER_REPLACEMENT_PAYMENT_REQUIRED,
+    audience: BOOKING_EMAIL_AUDIENCE.CUSTOMER,
+    order,
+    context: { manualTrigger, proposalVersion: offer?.offerId },
+  });
+  if (!policy.allowed) return { ok: true, skipped: true, code: policy.code };
   if (
     await alreadySent({
       type: MAIL_TYPE.ORDER_PAYMENT,
@@ -278,6 +330,7 @@ export async function sendAlternativePaymentLinkEmail({
     message: `${t.payIntro}\n${paymentUrl}`,
     html,
     to: [email],
+    replyTo: bookingsReplyToAddress(),
     meta: {
       type: MAIL_TYPE.ORDER_PAYMENT,
       renderKey: MAIL_RENDER_KEY.ALTERNATIVE_PAYMENT_LINK,
@@ -286,14 +339,25 @@ export async function sendAlternativePaymentLinkEmail({
       payload: {
         offerId: offer.offerId,
         stripeSessionId: stripeSessionId || "",
+        notificationKey: policy.notificationKey,
       },
     },
   });
 }
 
-export async function sendAlternativeWithdrawnEmail({ order, offer }) {
+export async function sendAlternativeWithdrawnEmail({
+  order,
+  offer,
+  manualTrigger = false,
+}) {
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
+  const gate = resolveExceptionBookingEmail({
+    order,
+    mailType: MAIL_TYPE.ORDER_ALTERNATIVE_WITHDRAWN,
+    manualTrigger,
+  });
+  if (!gate.allowed) return { ok: true, skipped: true, code: gate.code };
   if (
     await alreadySent({
       type: MAIL_TYPE.ORDER_ALTERNATIVE_WITHDRAWN,
@@ -324,11 +388,25 @@ export async function sendAlternativeWithdrawnEmail({ order, offer }) {
   });
 }
 
-async function notifyCompanyAndSuperadmin({ order, offer, subject, intro, type, renderKey }) {
+/**
+ * Supplier-side offer notices. The booking email policy retired the automatic
+ * company mail; the superadmin dashboard entry stays, because logging replaces
+ * lifecycle email.
+ */
+async function notifyCompanyAndSuperadmin({
+  order,
+  offer,
+  subject,
+  intro,
+  type,
+  renderKey,
+  manualTrigger = false,
+}) {
   const company = await loadOwnerCompany(order);
   const companyEmail = String(company?.email || "").trim();
   const t = copyFor("en", order);
-  if (companyEmail.includes("@")) {
+  const gate = resolveExceptionBookingEmail({ order, mailType: type, manualTrigger });
+  if (gate.allowed && companyEmail.includes("@")) {
     if (
       !(await alreadySent({
         type,

@@ -68,6 +68,14 @@ describe("an alternative may never leave the customer worse off", () => {
     expect(result.code).toBe("category_downgrade");
   });
 
+  it("refuses a different transmission in either direction", () => {
+    const automaticForManual = validateAlternativeNotWorse({
+      original: original({ transmission: "manual" }),
+      alternative: alternative({ transmission: "automatic" }),
+    });
+    expect(automaticForManual.code).toBe("transmission_downgrade");
+  });
+
   it("refuses a manual replacement for an automatic booking", () => {
     const result = validateAlternativeNotWorse({
       original: original(),

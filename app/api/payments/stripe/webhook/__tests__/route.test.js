@@ -5,6 +5,7 @@ import { POST } from "../route";
 import { getStripeClient } from "@/lib/stripe";
 import {
   handleRentalCheckoutExpired,
+  markRentalPaidEmailsSent,
   markRentalPaidFromCheckoutSession,
   recordRentalRefundOrDispute,
 } from "@/domain/orders/rentalStripeCheckout";
@@ -140,6 +141,55 @@ describe("stripe rental webhook", () => {
     expect((await res.json()).received).toBe(true);
     expect(sendPaidConfirmationEmails).not.toHaveBeenCalled();
     expect(createConfirmedBookingSnapshot).not.toHaveBeenCalled();
+  });
+
+  test("email failure still acknowledges the paid webhook", async () => {
+    constructEvent.mockReturnValue({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_1",
+          metadata: { kind: "rental", orderId: "order-1" },
+        },
+      },
+    });
+    markRentalPaidFromCheckoutSession.mockResolvedValue({
+      ok: true,
+      idempotent: false,
+      order: { _id: "order-1", payment: { status: "paid" } },
+    });
+    sendPaidConfirmationEmails.mockRejectedValueOnce(new Error("smtp down"));
+    const res = await POST(
+      requestWith({ "stripe-signature": "sig" }, "raw")
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).received).toBe(true);
+    expect(markRentalPaidFromCheckoutSession).toHaveBeenCalled();
+    expect(markRentalPaidEmailsSent).not.toHaveBeenCalled();
+  });
+
+  test("idempotent replay without a sent marker still tries email once", async () => {
+    constructEvent.mockReturnValue({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_1",
+          metadata: { kind: "rental", orderId: "order-1" },
+        },
+      },
+    });
+    markRentalPaidFromCheckoutSession.mockResolvedValue({
+      ok: true,
+      idempotent: true,
+      order: { _id: "order-1", payment: { status: "paid" } },
+    });
+    sendPaidConfirmationEmails.mockResolvedValueOnce({ settled: true });
+    const res = await POST(
+      requestWith({ "stripe-signature": "sig" }, "raw")
+    );
+    expect((await res.json()).received).toBe(true);
+    expect(sendPaidConfirmationEmails).toHaveBeenCalledTimes(1);
+    expect(markRentalPaidEmailsSent).toHaveBeenCalledWith("order-1");
   });
 
   test("expired session releases the hold", async () => {

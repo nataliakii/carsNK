@@ -23,7 +23,7 @@ export default function LocalizedForBusinessPage({ params }) {
   return (
     <Feed locale={locale}>
       <Suspense fallback={<LoadingSpinner />}>
-        <ForBusinessSection mode="page" />
+        <ForBusinessSection />
       </Suspense>
     </Feed>
   );

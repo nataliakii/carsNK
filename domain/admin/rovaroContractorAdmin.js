@@ -17,7 +17,7 @@
 import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 import { CANONICAL_STAGE } from "@/domain/booking/rovaroMarketplaceWorkflow";
-import { marketplaceFinancialSplit } from "@/domain/orders/marketplaceFinancialSplit";
+import { resolveBookingFinancialSnapshot } from "@/domain/orders/bookingFinancialSnapshot";
 
 export const BOOKING_SOURCE = Object.freeze({
   PLATFORM: "PLATFORM",
@@ -71,6 +71,32 @@ const AWAITING_PAYMENT = new Set([
   BOOKING_STATUS.CONFIRMED_AWAITING_PAYMENT,
   BOOKING_STATUS.ALTERNATIVE_ACCEPTED_AWAITING_PAYMENT,
 ]);
+
+const CONFIRMED_FILL = new Set([
+  BOOKING_STATUS.BOOKING_CONFIRMED,
+  BOOKING_STATUS.RENTAL_IN_PROGRESS,
+  BOOKING_STATUS.COMPLETION_PENDING,
+]);
+
+export const INTERNAL_RECORD_STATUS = Object.freeze({
+  TENTATIVE: "TENTATIVE",
+  CONFIRMED: "CONFIRMED",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+});
+
+export const PLATFORM_WORKFLOW_STAGE = Object.freeze({
+  AWAITING_SUPPLIER_CONFIRMATION: "AWAITING_SUPPLIER_CONFIRMATION",
+  AWAITING_CUSTOMER_PAYMENT: "AWAITING_CUSTOMER_PAYMENT",
+  BOOKING_CONFIRMED: "BOOKING_CONFIRMED",
+  COMPLETION_PENDING: "COMPLETION_PENDING",
+  COMPLETED: "COMPLETED",
+  SUPPLIER_DECLINED: "SUPPLIER_DECLINED",
+  AWAITING_CUSTOMER_ALTERNATIVE_ACCEPTANCE: "AWAITING_CUSTOMER_ALTERNATIVE_ACCEPTANCE",
+  ALTERNATIVE_PROPOSED: "AWAITING_CUSTOMER_ALTERNATIVE_ACCEPTANCE",
+  PAYMENT_EXPIRED: "PAYMENT_EXPIRED",
+  CANCELLED: "CANCELLED",
+});
 
 export function explicitBookingSource(order) {
   const raw = String(order?.source || "").trim();
@@ -225,9 +251,7 @@ export function resolveContractorCalendarTone(order) {
   }
   if (CANCELLED.has(status)) return CALENDAR_TONE.CANCELLED;
   if (status === BOOKING_STATUS.COMPLETED) return CALENDAR_TONE.COMPLETED;
-  if (status === BOOKING_STATUS.BOOKING_CONFIRMED) {
-    return CALENDAR_TONE.CONFIRMED_PAID;
-  }
+  if (CONFIRMED_FILL.has(status)) return CALENDAR_TONE.CONFIRMED_PAID;
   if (AWAITING_PAYMENT.has(status)) return CALENDAR_TONE.AWAITING_PAYMENT;
   if (!status && order?.confirmed === true) return CALENDAR_TONE.CONFIRMED_PAID;
   return CALENDAR_TONE.NEW_REQUEST;
@@ -248,23 +272,161 @@ export function contractorCalendarDetailKey(order) {
   return "unresolved";
 }
 
+export function resolveInternalRecordStatus(order) {
+  const status = storedStatus(order);
+  if (CANCELLED.has(status)) return INTERNAL_RECORD_STATUS.CANCELLED;
+  if (status === BOOKING_STATUS.COMPLETED) return INTERNAL_RECORD_STATUS.COMPLETED;
+  if (order?.confirmed === true) return INTERNAL_RECORD_STATUS.CONFIRMED;
+  return INTERNAL_RECORD_STATUS.TENTATIVE;
+}
+
+/** Product stage for a platform booking. Colour is still resolveContractorCalendarTone. */
+export function resolvePlatformWorkflowStage(order) {
+  if (!isPlatformBooking(order)) return null;
+  const status = storedStatus(order);
+  if (
+    status === BOOKING_STATUS.SUPPLIER_DECLINED ||
+    status === BOOKING_STATUS.NO_AVAILABILITY
+  ) {
+    return PLATFORM_WORKFLOW_STAGE.SUPPLIER_DECLINED;
+  }
+  if (status === BOOKING_STATUS.ALTERNATIVE_PROPOSED) {
+    return PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_ALTERNATIVE_ACCEPTANCE;
+  }
+  if (status === BOOKING_STATUS.PAYMENT_EXPIRED) {
+    return PLATFORM_WORKFLOW_STAGE.PAYMENT_EXPIRED;
+  }
+  if (CANCELLED.has(status)) return PLATFORM_WORKFLOW_STAGE.CANCELLED;
+  if (status === BOOKING_STATUS.COMPLETED) return PLATFORM_WORKFLOW_STAGE.COMPLETED;
+  if (status === BOOKING_STATUS.COMPLETION_PENDING) {
+    return PLATFORM_WORKFLOW_STAGE.COMPLETION_PENDING;
+  }
+  if (
+    status === BOOKING_STATUS.BOOKING_CONFIRMED ||
+    status === BOOKING_STATUS.RENTAL_IN_PROGRESS
+  ) {
+    return PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED;
+  }
+  if (AWAITING_PAYMENT.has(status)) {
+    return PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_PAYMENT;
+  }
+  if (!status && order?.confirmed === true) {
+    return PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED;
+  }
+  return PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION;
+}
+
+/** Supplier-response column copy for a platform row. */
+export function contractorSupplierResponseCopy(order) {
+  const stage = resolvePlatformWorkflowStage(order);
+  if (stage === PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_ALTERNATIVE_ACCEPTANCE) {
+    return { key: "table.supplierReplacementOffered", fallback: "Equivalent replacement offered" };
+  }
+  if (stage === PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_PAYMENT) {
+    return { key: "table.supplierRequestedConfirmed", fallback: "Requested vehicle confirmed" };
+  }
+  if (
+    stage === PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED ||
+    stage === PLATFORM_WORKFLOW_STAGE.COMPLETION_PENDING ||
+    stage === PLATFORM_WORKFLOW_STAGE.COMPLETED
+  ) {
+    return { key: "table.supplierVehicleConfirmed", fallback: "Vehicle confirmed" };
+  }
+  if (stage === PLATFORM_WORKFLOW_STAGE.SUPPLIER_DECLINED) {
+    return { key: "table.toneDeclined", fallback: "Declined" };
+  }
+  return { key: "table.supplierAwaitingYours", fallback: "Awaiting your response" };
+}
+
+/**
+ * Live order-modal copy for the current product stage.
+ * Supplier decision buttons exist only while the company still owes a response.
+ */
+export function contractorOrderModalStage(order) {
+  const stage = resolvePlatformWorkflowStage(order);
+  const views = {
+    [PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION]: {
+      titleKey: "order.stageNewRequest",
+      title: "New booking request",
+      detailKey: "",
+      detail: "",
+      supplierActions: true,
+    },
+    [PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_ALTERNATIVE_ACCEPTANCE]: {
+      titleKey: "order.stageAlternativeSent",
+      title: "Alternative sent to customer",
+      detailKey: "order.stageAwaitingAcceptance",
+      detail: "Awaiting customer acceptance",
+      supplierActions: false,
+    },
+    [PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_PAYMENT]: {
+      titleKey: "order.stageVehicleConfirmed",
+      title: "Vehicle confirmed",
+      detailKey: "order.stageAwaitingPayment",
+      detail: "Awaiting customer payment",
+      supplierActions: false,
+    },
+    [PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED]: {
+      titleKey: "order.stageBookingConfirmed",
+      title: "Booking confirmed",
+      detailKey: "order.stageFeePaid",
+      detail: "Booking Fee paid",
+      supplierActions: false,
+    },
+    [PLATFORM_WORKFLOW_STAGE.SUPPLIER_DECLINED]: {
+      titleKey: "order.stageRequestDeclined",
+      title: "Request declined",
+      detailKey: "",
+      detail: "",
+      supplierActions: false,
+    },
+    [PLATFORM_WORKFLOW_STAGE.PAYMENT_EXPIRED]: {
+      titleKey: "order.stagePaymentExpired",
+      title: "Payment expired",
+      detailKey: "",
+      detail: "",
+      supplierActions: false,
+    },
+  };
+  const view = views[stage] || {
+    titleKey: "",
+    title: "",
+    detailKey: "",
+    detail: "",
+    supplierActions: false,
+  };
+  return { stage, ...view };
+}
+
 /** i18n key under table.tone.* */
 export function contractorTableStatusLabelKey(order) {
-  if (isInternalBooking(order)) return "table.toneInternal";
-  const tone = resolveContractorCalendarTone(order);
-  if (tone === CALENDAR_TONE.NEW_REQUEST) return "table.toneNewRequest";
-  if (tone === CALENDAR_TONE.AWAITING_PAYMENT) return "table.toneAwaitingPayment";
-  if (tone === CALENDAR_TONE.CONFIRMED_PAID) return "table.toneConfirmedPaid";
-  if (tone === CALENDAR_TONE.COMPLETED) return "table.toneCompleted";
-  if (tone === CALENDAR_TONE.DECLINED) return "table.toneDeclined";
-  if (tone === CALENDAR_TONE.PAYMENT_EXPIRED) return "table.toneExpired";
-  if (tone === CALENDAR_TONE.CANCELLED) return "table.toneCancelled";
+  if (isInternalBooking(order)) {
+    const internal = resolveInternalRecordStatus(order);
+    if (internal === INTERNAL_RECORD_STATUS.CONFIRMED) return "table.internalConfirmed";
+    if (internal === INTERNAL_RECORD_STATUS.COMPLETED) return "table.internalCompleted";
+    if (internal === INTERNAL_RECORD_STATUS.CANCELLED) return "table.internalCancelled";
+    return "table.internalTentative";
+  }
+  const stage = resolvePlatformWorkflowStage(order);
+  if (stage === PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION) {
+    return "table.toneNewRequest";
+  }
+  if (stage === PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_PAYMENT) {
+    return "table.toneAwaitingPayment";
+  }
+  if (stage === PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED) return "table.toneConfirmedPaid";
+  if (stage === PLATFORM_WORKFLOW_STAGE.COMPLETION_PENDING) return "table.toneCompletionPending";
+  if (stage === PLATFORM_WORKFLOW_STAGE.COMPLETED) return "table.toneCompleted";
+  if (stage === PLATFORM_WORKFLOW_STAGE.SUPPLIER_DECLINED) return "table.toneDeclined";
+  if (stage === PLATFORM_WORKFLOW_STAGE.ALTERNATIVE_PROPOSED) return "table.toneAlternative";
+  if (stage === PLATFORM_WORKFLOW_STAGE.PAYMENT_EXPIRED) return "table.toneExpired";
+  if (stage === PLATFORM_WORKFLOW_STAGE.CANCELLED) return "table.toneCancelled";
   return "table.toneUnresolved";
 }
 
 export function contractorCalendarLegend() {
   return [
-    { tone: CALENDAR_TONE.NEW_REQUEST, stage: CANONICAL_STAGE.AWAITING_SUPPLIER_RESPONSE },
+    { tone: CALENDAR_TONE.NEW_REQUEST, stage: CANONICAL_STAGE.AWAITING_SUPPLIER_CONFIRMATION },
     { tone: CALENDAR_TONE.AWAITING_PAYMENT, stage: CANONICAL_STAGE.AWAITING_CUSTOMER_PAYMENT },
     { tone: CALENDAR_TONE.CONFIRMED_PAID, stage: CANONICAL_STAGE.BOOKING_CONFIRMED },
     { tone: CALENDAR_TONE.INTERNAL, source: BOOKING_SOURCE.INTERNAL },
@@ -300,12 +462,14 @@ function storedPlatformFee(order) {
   if (!isPlatformBooking(order)) return null;
   if (order.offline === true) return null;
   if (!isMarketplaceRequestMode(order.bookingMode)) return null;
-  const price = order.authoritativePrice;
-  if (!price || !Number(price.grossMinor)) return null;
-  const split = marketplaceFinancialSplit(price);
+  const snap = resolveBookingFinancialSnapshot(order);
+  if (!snap?.grossMinor) return null;
+  if (snap.source !== "snapshot" && snap.source !== "stored_amounts" && snap.source !== "quote") {
+    return null;
+  }
   return {
-    fee: (Number(split.platformAmountMinor) || 0) / 100,
-    due: (Number(split.supplierBalanceMinor) || 0) / 100,
+    fee: (Number(snap.bookingFeeMinor) || 0) / 100,
+    gross: (Number(snap.grossMinor) || 0) / 100,
   };
 }
 
@@ -338,11 +502,14 @@ export function contractorOrderMoneyRow(order) {
     };
   }
   const bookingFee = roundMoney(stored.fee);
+  const rentalTotal = stored.gross != null ? roundMoney(stored.gross) : amount;
+  // Derived, never read from a stored supplier balance: a stale snapshot must
+  // not break rentalTotal = bookingFee + dueToCompany in the admin totals.
   return {
     source: BOOKING_SOURCE.PLATFORM,
-    rentalTotal: amount,
+    rentalTotal,
     bookingFee,
-    dueToCompany: roundMoney(amount - bookingFee),
+    dueToCompany: roundMoney(rentalTotal - bookingFee),
   };
 }
 

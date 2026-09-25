@@ -38,25 +38,14 @@ import {
   partnerDocumentRows,
   summarizeAdminLanguages,
 } from "@/domain/legal/legalAdminUi";
+import {
+  prepareLegalContentForPublish,
+  selectWorkingLegalContent,
+} from "@/domain/legal/workingLegalContent";
 
-function contentFromSections(content) {
-  return {
-    title: content?.title || "",
-    sections: Array.isArray(content?.sections) ? content.sections : [],
-  };
-}
-
-function pickWorkingContent(rows, seed) {
-  const drafts = rows.filter((row) => row.status === "draft");
-  const published = rows.filter((row) => row.status === "published");
-  const newest = (list) =>
-    [...list].sort((a, b) => Number(b.version) - Number(a.version))[0];
-  const draft = newest(drafts);
-  const live = newest(published);
-  const chosen = draft || live;
-  if (chosen?.content) return contentFromSections(chosen.content);
-  if (seed?.content) return contentFromSections(seed.content);
-  return { title: "", sections: [] };
+function sameLanguageSeed(documentType, lang) {
+  const seeded = getSeedDocument(documentType, lang);
+  return seeded?.language === lang ? seeded : null;
 }
 
 function languageName(lang) {
@@ -119,7 +108,7 @@ export default function LegalDocumentsPanel() {
   }, [dirty]);
 
   async function loadEditor(documentType, lang) {
-    const seed = getSeedDocument(documentType, lang);
+    const seed = sameLanguageSeed(documentType, lang);
     const params = new URLSearchParams({
       includeContent: "1",
       documentType,
@@ -130,7 +119,7 @@ export default function LegalDocumentsPanel() {
     });
     const json = await res.json();
     if (!json.success) throw new Error(json.message || "Failed to load document");
-    const next = pickWorkingContent(json.documents || [], seed);
+    const next = selectWorkingLegalContent(json.documents || [], seed);
     setContent(next);
     setHtml("");
     setDirty(false);
@@ -209,13 +198,17 @@ export default function LegalDocumentsPanel() {
     if (!openType) return;
     const title = content.title || openMeta?.name || "Document";
     const flushed = flushEditorContent(title);
+    const ready = prepareLegalContentForPublish(
+      flushed.content,
+      sameLanguageSeed(openType, language)
+    );
     await documentAction({
       action: "saveDraft",
       documentType: openType,
       language,
-      content: flushed.content,
+      content: ready,
     });
-    setContent(flushed.content);
+    setContent(ready);
     setHtml(flushed.html || "");
     setDirty(false);
     setSavedMessage("Changes saved. They are not visible on the website yet.");
@@ -226,22 +219,21 @@ export default function LegalDocumentsPanel() {
     setError("");
     const title = content.title || openMeta?.name || "Document";
     const flushed = flushEditorContent(title);
-    await documentAction({
+    const ready = prepareLegalContentForPublish(
+      flushed.content,
+      sameLanguageSeed(openType, language)
+    );
+    const saved = await documentAction({
       action: "saveDraft",
       documentType: openType,
       language,
-      content: flushed.content,
+      content: ready,
     });
-    setContent(flushed.content);
+    setContent(ready);
     setHtml(flushed.html || "");
     setDirty(false);
 
-    const latest = (await loadOverview()).find(
-      (row) => row.documentType === openType
-    );
-    const version =
-      latest?.languages?.[language]?.draft?.version ||
-      latest?.languages?.[language]?.latestVersion;
+    const version = Number(saved?.document?.version);
     if (!version) {
       throw new Error(
         "No draft version to publish. Save changes first, then try again."

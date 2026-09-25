@@ -434,7 +434,7 @@ export function renderCustomerOfficialConfirmationEmail(payload) {
   const title = withTestOrderEmailSubject(baseOfficialTitle, fromLocalhost);
   const intro =
     t.officialIntro ||
-    "Your reservation has been officially confirmed by rovaro.";
+    "Your booking is confirmed. The supplier confirmed the vehicle, and your Booking Fee payment has been received.";
   const pdfNote =
     t.officialPdfNote ||
     "The official confirmation PDF is attached to this email.";

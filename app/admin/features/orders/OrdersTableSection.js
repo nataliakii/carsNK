@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { styled } from "@mui/material/styles";
 import {
   Box,
   Paper,
@@ -75,6 +77,7 @@ import {
 import {
   contractorOrderMoneyRow,
   contractorTableStatusLabelKey,
+  contractorSupplierResponseCopy,
   isInternalBooking,
   isPlatformBooking,
   matchesBookingSourceFilter,
@@ -82,12 +85,24 @@ import {
 } from "@/domain/admin/rovaroContractorAdmin";
 import { extractArraysOfStartEndConfPending } from "@/domain/calendar";
 import EditOrderModal from "@/app/admin/features/orders/modals/EditOrderModal";
+import { loadAdminOrder } from "@/app/admin/features/orders/actions/loadAdminOrder";
+import {
+  mergeOrderRow,
+  searchWithOrderId,
+  searchWithoutOrderId,
+} from "@/domain/admin/ordersModalQuery";
 import OrderUnsavedCloseDialog from "@/app/admin/features/orders/components/OrderUnsavedCloseDialog";
 import { isPast } from "@utils/businessTime";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { isPlatformAdminUser, policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import SupplierResponseCell from "@/app/admin/features/orders/components/SupplierResponseCell";
-import PlatformStatusCell from "@/app/admin/features/orders/components/PlatformStatusCell";
+import CustomerConfirmationCell from "@/app/admin/features/orders/components/CustomerConfirmationCell";
+
+function browserSearchString() {
+  if (typeof window === "undefined") return "";
+  const search = window.location.search || "";
+  return search.startsWith("?") ? search.slice(1) : search;
+}
 import {
   recordRemainingAmountPaid,
   reportPlatformBookingProblem,
@@ -98,6 +113,57 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const ATHENS_TZ = "Europe/Athens";
+
+function euro(amount) {
+  const n = Number(amount);
+  return `€${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
+}
+
+const SummaryGrid = styled(Box)(({ theme }) => ({
+  marginTop: theme.spacing(2),
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: theme.spacing(2),
+  [theme.breakpoints.up("md")]: {
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  },
+}));
+
+const SummaryCard = styled(Box)(({ theme }) => ({
+  display: "flex",
+  flexDirection: "column",
+  gap: theme.spacing(0.75),
+  minWidth: 0,
+  padding: theme.spacing(1.5, 2),
+  borderRadius: theme.shape.borderRadius,
+  border: `1px solid ${theme.palette.divider}`,
+  backgroundColor: theme.palette.background.paper,
+}));
+
+const SummaryLine = styled(Box)(({ theme }) => ({
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "baseline",
+  gap: theme.spacing(2),
+}));
+
+function SummaryMoneyLine({ label, value, emphasize = false }) {
+  return (
+    <SummaryLine>
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography
+        variant="body2"
+        color={emphasize ? "primary.main" : "text.primary"}
+        fontWeight={600}
+        noWrap
+      >
+        {value}
+      </Typography>
+    </SummaryLine>
+  );
+}
 
 /** Возврат уже в прошлом (по timeOut или концу дня rentalEndDate). */
 function isOrderEndedInPast(order) {
@@ -142,6 +208,18 @@ export default function OrdersTableSection() {
     conflictHighlightById,
   } = useMainContext();
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const routerQuery = searchParams?.toString() || "";
+  // useSearchParams can stay empty inside the dynamically loaded orders table.
+  // The address bar is the source for orderId; router.replace keeps Next in sync.
+  const [locationSearch, setLocationSearch] = useState(browserSearchString);
+  const queryString = locationSearch || routerQuery;
+  const orderIdQuery = new URLSearchParams(queryString).get("orderId") || "";
+  const deepLinkGeneration = useRef(0);
+  const allOrdersRef = useRef(allOrders);
+  allOrdersRef.current = allOrders;
   const isPlatformAdmin = isPlatformAdminUser(session?.user);
   const showSuperAdminFilters = isPlatformAdmin;
   const { country: adminCountry } = useAdminCountryFilter();
@@ -165,8 +243,8 @@ export default function OrdersTableSection() {
   const [priceHistoryUi, setPriceHistoryUi] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
-  /** Status + source + car + pickup + return + customer + price + fee + due + supplier (+ company) (+ platform). */
-  const tableColCount = isPlatformAdmin ? 12 : 10;
+  /** Status + source + car + pickup + return + customer + price + fee + due + supplier + customer confirmation (+ company). */
+  const tableColCount = isPlatformAdmin ? 12 : 11;
 
   // ─────────────────────────────────────────────────────────────
   // CONFLICT STATE (persistent, per-order)
@@ -194,10 +272,32 @@ export default function OrdersTableSection() {
     };
   }, []);
 
+  const replaceOrdersQuery = useCallback(
+    (nextSearch) => {
+      const qs = String(nextSearch || "");
+      setLocationSearch(qs);
+      router.replace(qs ? `${pathname}?${qs}` : pathname || "/admin/orders", {
+        scroll: false,
+      });
+    },
+    [pathname, router]
+  );
+
+  useEffect(() => {
+    const syncFromBrowser = () => {
+      const next = browserSearchString();
+      setLocationSearch((prev) => (prev === next ? prev : next));
+    };
+    syncFromBrowser();
+    window.addEventListener("popstate", syncFromBrowser);
+    return () => window.removeEventListener("popstate", syncFromBrowser);
+  }, [pathname]);
+
   const performEditModalClose = useCallback(() => {
     setEditModalOpen(false);
     setSelectedOrderForEdit(null);
-  }, []);
+    replaceOrdersQuery(searchWithoutOrderId(queryString));
+  }, [queryString, replaceOrdersQuery]);
 
   const tryCloseEditModal = useCallback(() => {
     const guards = [...editCloseGuardsRef.current.values()];
@@ -277,18 +377,72 @@ export default function OrdersTableSection() {
     [fetchAndUpdateOrders]
   );
 
-  const handleOrderRowDoubleClick = useCallback((order, event) => {
-    const target = event.target;
-    if (
-      target.closest(
-        'button, a, input, textarea, select, [role="switch"], [role="checkbox"], [data-stop-order-modal]'
-      )
-    ) {
-      return;
+  const openOrderModal = useCallback(
+    (order, event) => {
+      const target = event?.target;
+      if (
+        target?.closest?.(
+          'button, a, input, textarea, select, [role="switch"], [role="checkbox"], [data-stop-order-modal]'
+        )
+      ) {
+        return;
+      }
+      if (!order?._id) return;
+      setSelectedOrderForEdit(order);
+      setEditModalOpen(true);
+      replaceOrdersQuery(searchWithOrderId(queryString, order._id));
+    },
+    [queryString, replaceOrdersQuery]
+  );
+
+  const refreshOrderAfterSupplierAction = useCallback(
+    async (orderId) => {
+      window.dispatchEvent(new Event("rovaro-inbox-refresh"));
+      const loaded = await loadAdminOrder(orderId);
+      if (!loaded.ok || !loaded.order) {
+        await fetchAndUpdateOrders();
+        return null;
+      }
+      setAllOrders((prev) => mergeOrderRow(prev, orderId, loaded.order));
+      setSelectedOrderForEdit((prev) =>
+        prev && String(prev._id) === String(orderId) ? loaded.order : prev
+      );
+      return loaded.order;
+    },
+    [fetchAndUpdateOrders, setAllOrders]
+  );
+
+  useEffect(() => {
+    if (!orderIdQuery) {
+      deepLinkGeneration.current += 1;
+      setEditModalOpen((open) => (open ? false : open));
+      setSelectedOrderForEdit((prev) => (prev ? null : prev));
+      return undefined;
     }
-    setSelectedOrderForEdit(order);
-    setEditModalOpen(true);
-  }, []);
+    const generation = ++deepLinkGeneration.current;
+    const requestedId = orderIdQuery;
+    (async () => {
+      const known = (allOrdersRef.current || []).find(
+        (order) => String(order?._id) === requestedId
+      );
+      if (known && deepLinkGeneration.current === generation) {
+        setSelectedOrderForEdit(known);
+        setEditModalOpen(true);
+      }
+      const loaded = await loadAdminOrder(requestedId);
+      if (deepLinkGeneration.current !== generation) return;
+      if (!loaded.ok || !loaded.order) {
+        if (loaded.status === 401 || known) return;
+        enqueueSnackbar(loaded.message || "Not found", { variant: "error" });
+        replaceOrdersQuery(searchWithoutOrderId(queryString));
+        return;
+      }
+      setSelectedOrderForEdit(loaded.order);
+      setEditModalOpen(true);
+      setAllOrders((prev) => mergeOrderRow(prev, requestedId, loaded.order));
+    })();
+    return undefined;
+  }, [enqueueSnackbar, orderIdQuery, queryString, replaceOrdersQuery, setAllOrders]);
   
   // Get current user for permission checks
   // ⚠️ RBAC SOURCE OF TRUTH: session.user.role is the single source of truth for UI permissions
@@ -1143,29 +1297,51 @@ export default function OrdersTableSection() {
           return;
         }
         if (result.data) {
+          const patch = {
+            confirmed: result.data.confirmed,
+            companyEmailDecision: result.data.companyEmailDecision,
+            partnerConfirmedAt: result.data.partnerConfirmedAt,
+            declineReason: result.data.supplierDeclineReason,
+            companyEmailDecisionAt: result.data.supplierRespondedAt,
+            ...(result.data.bookingStatus
+              ? { bookingStatus: result.data.bookingStatus }
+              : {}),
+            partnerConfirmMeta: {
+              actor: {
+                name: result.data.supplierRespondedByName,
+                email: result.data.supplierRespondedByEmail,
+              },
+            },
+          };
           setAllOrders((prev) =>
             prev.map((order) =>
               order._id === orderId
                 ? {
                     ...order,
-                    confirmed: result.data.confirmed,
-                    companyEmailDecision: result.data.companyEmailDecision,
-                    partnerConfirmedAt: result.data.partnerConfirmedAt,
-                    declineReason: result.data.supplierDeclineReason,
-                    companyEmailDecisionAt: result.data.supplierRespondedAt,
+                    ...patch,
                     partnerConfirmMeta: {
                       ...(order.partnerConfirmMeta || {}),
-                      actor: {
-                        name: result.data.supplierRespondedByName,
-                        email: result.data.supplierRespondedByEmail,
-                      },
+                      ...patch.partnerConfirmMeta,
                     },
                   }
                 : order
             )
           );
+          setSelectedOrderForEdit((prev) =>
+            prev && String(prev._id) === String(orderId)
+              ? {
+                  ...prev,
+                  ...patch,
+                  partnerConfirmMeta: {
+                    ...(prev.partnerConfirmMeta || {}),
+                    ...patch.partnerConfirmMeta,
+                  },
+                }
+              : prev
+          );
         }
         enqueueSnackbar(result.message, { variant: "success" });
+        await refreshOrderAfterSupplierAction(orderId);
       } catch (error) {
         enqueueSnackbar(error.message || t("table.updateFailed"), {
           variant: "error",
@@ -1174,7 +1350,7 @@ export default function OrdersTableSection() {
         setIsTogglingSupplier((prev) => ({ ...prev, [orderId]: false }));
       }
     },
-    [enqueueSnackbar, setAllOrders, t]
+    [enqueueSnackbar, refreshOrderAfterSupplierAction, setAllOrders, t]
   );
 
   // ─────────────────────────────────────────────────────────────
@@ -1238,8 +1414,6 @@ export default function OrdersTableSection() {
       const internalRow = [...blank];
       internalRow[0] = t("table.internalBookingsTitle", { defaultValue: "Internal bookings" });
       internalRow[headers.length - 3] = exported.totals.internalBookingValue;
-      internalRow[headers.length - 2] = 0;
-      internalRow[headers.length - 1] = exported.totals.internalBookingValue;
       const aoa = [headers, ...rows, platformRow, internalRow];
       const stamp = dayjs().tz(ATHENS_TZ).format("YYYY-MM-DD_HH-mm");
       await downloadOrdersTableXlsx(aoa, {
@@ -1474,23 +1648,20 @@ export default function OrdersTableSection() {
           </Stack>
         </Stack>
 
-        {/* Filter Summary */}
-        <Box
-          sx={{ mt: 2 }}
-          display="flex"
-          flexWrap="wrap"
-          gap={2}
-          alignItems="center"
-        >
-          <Typography variant="body2" color="text.secondary">
-            {t("table.allOrders")}: {filteredOrders.length} / {orders.length}
-          </Typography>
-          <Typography variant="body2" fontWeight={700}>
-            {t("table.allBookingValue", { defaultValue: "All booking value" })} €
-            {filteredSummary.combinedCalendarValue.toFixed(2)}
-          </Typography>
-          <Stack spacing={0.25}>
-            <Typography variant="body2" fontWeight={700}>
+        <SummaryGrid>
+          <SummaryCard>
+            <Typography variant="subtitle2" fontWeight={700}>
+              {t("table.allBookingValue", { defaultValue: "All booking value" })}
+            </Typography>
+            <Typography variant="h6" fontWeight={700}>
+              {euro(filteredSummary.combinedCalendarValue)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t("table.allOrders")}: {filteredOrders.length} / {orders.length}
+            </Typography>
+          </SummaryCard>
+          <SummaryCard>
+            <Typography variant="subtitle2" fontWeight={700}>
               {t("table.rovaroBookingsTitle", { defaultValue: "Rovaro bookings" })}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -1498,21 +1669,23 @@ export default function OrdersTableSection() {
                 defaultValue: "{{count}} bookings",
                 count: filteredSummary.platformCount,
               })}
-              {" · "}
-              {t("table.platformBookingValue", { defaultValue: "Rental value" })} €
-              {filteredSummary.platformBookingValue.toFixed(2)}
             </Typography>
-            <Typography variant="body2" color="primary.main">
-              {t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })} €
-              {filteredSummary.rovaroBookingFees.toFixed(2)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t("table.dueToCompanies", { defaultValue: "Due to companies" })} €
-              {filteredSummary.supplierPlatformAmount.toFixed(2)}
-            </Typography>
-          </Stack>
-          <Stack spacing={0.25}>
-            <Typography variant="body2" fontWeight={700}>
+            <SummaryMoneyLine
+              label={t("table.platformBookingValue", { defaultValue: "Rental value" })}
+              value={euro(filteredSummary.platformBookingValue)}
+            />
+            <SummaryMoneyLine
+              label={t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })}
+              value={euro(filteredSummary.rovaroBookingFees)}
+              emphasize
+            />
+            <SummaryMoneyLine
+              label={t("table.dueToCompanies", { defaultValue: "Due to companies" })}
+              value={euro(filteredSummary.supplierPlatformAmount)}
+            />
+          </SummaryCard>
+          <SummaryCard>
+            <Typography variant="subtitle2" fontWeight={700}>
               {t("table.internalBookingsTitle", { defaultValue: "Internal bookings" })}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -1520,16 +1693,13 @@ export default function OrdersTableSection() {
                 defaultValue: "{{count}} bookings",
                 count: filteredSummary.internalCount,
               })}
-              {" · "}
-              {t("table.internalBookingValue", { defaultValue: "Internal booking value" })} €
-              {filteredSummary.internalBookingValue.toFixed(2)}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t("table.internalRovaroFee", { defaultValue: "Rovaro fee" })} €
-              {filteredSummary.rovaroFeeFromInternalBookings.toFixed(2)}
-            </Typography>
-          </Stack>
-        </Box>
+            <SummaryMoneyLine
+              label={t("table.internalBookingValue", { defaultValue: "Internal booking value" })}
+              value={euro(filteredSummary.internalBookingValue)}
+            />
+          </SummaryCard>
+        </SummaryGrid>
       </Paper>
 
       {/* Orders Table */}
@@ -1580,11 +1750,9 @@ export default function OrdersTableSection() {
                 <TableCell sx={{ fontWeight: 700, minWidth: 160, textAlign: "center" }}>
                   {t("table.supplierResponse")}
                 </TableCell>
-                {isPlatformAdmin ? (
-                  <TableCell sx={{ fontWeight: 700, minWidth: 120, textAlign: "center" }}>
-                    {t("table.platformStatus")}
-                  </TableCell>
-                ) : null}
+                <TableCell sx={{ fontWeight: 700, minWidth: 140, textAlign: "center" }}>
+                  {t("table.customerConfirmation", { defaultValue: "Customer confirmation" })}
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1609,10 +1777,24 @@ export default function OrdersTableSection() {
                 paginatedOrders.map((order) => {
                   const orderColor = getOrderColor(order);
                   const money = contractorOrderMoneyRow(order);
-                  const statusLabel = t(contractorTableStatusLabelKey(order), {
-                    defaultValue: isInternalBooking(order)
-                      ? "Internal booking"
-                      : "Rovaro",
+                  const statusKey = contractorTableStatusLabelKey(order);
+                  const statusLabel = t(statusKey, {
+                    defaultValue:
+                      {
+                        "table.toneNewRequest": "New request",
+                        "table.toneAwaitingPayment": "Awaiting payment",
+                        "table.toneConfirmedPaid": "Confirmed",
+                        "table.toneAlternative": "Alternative offered",
+                        "table.toneCompletionPending": "Completion pending",
+                        "table.toneCompleted": "Completed",
+                        "table.toneDeclined": "Declined",
+                        "table.toneExpired": "Payment expired",
+                        "table.toneCancelled": "Cancelled",
+                        "table.internalTentative": "Tentative",
+                        "table.internalConfirmed": "Confirmed",
+                        "table.internalCompleted": "Completed",
+                        "table.internalCancelled": "Cancelled",
+                      }[statusKey] || "Unresolved",
                   });
                   const isBlocked = pendingConfirmBlockById?.[order._id];
                   const carDisplay = order.car?.model || order.carModel || "-";
@@ -1679,7 +1861,7 @@ export default function OrdersTableSection() {
                     <React.Fragment key={order._id}>
                       <TableRow
                         hover
-                        onDoubleClick={(e) => handleOrderRowDoubleClick(order, e)}
+                        onDoubleClick={(e) => openOrderModal(order, e)}
                         sx={{
                           cursor: "pointer",
                           borderLeft: `4px solid ${orderColor.main}`,
@@ -1712,6 +1894,22 @@ export default function OrdersTableSection() {
                                 height: 22,
                               }}
                             />
+                            {!isClient ? (
+                              <Stack direction="row" spacing={0.5}>
+                                <Button
+                                  size="small"
+                                  variant="text"
+                                  disabled={Boolean(isTogglingConfirm[order._id])}
+                                  onClick={() => handleToggleConfirm(order._id)}
+                                >
+                                  {order.confirmed
+                                    ? t("table.markTentative", { defaultValue: "Mark tentative" })
+                                    : t("table.confirmInternally", {
+                                        defaultValue: "Confirm internally",
+                                      })}
+                                </Button>
+                              </Stack>
+                            ) : null}
                             {order.supplierRemainingPaidAt ? (
                               <Typography variant="caption" color="text.secondary">
                                 {t("table.remainingAmountPaid", {
@@ -2143,16 +2341,16 @@ export default function OrdersTableSection() {
 
                       {/* Supplier response (never the platform Confirmed switch for client orders) */}
                       <TableCell align="center">
-                        {isPlatformAdmin ? (
+                        {!isClient ? (
+                          <Typography variant="caption" color="text.secondary">
+                            —
+                          </Typography>
+                        ) : isPlatformAdmin ? (
                           <Stack spacing={0.25} alignItems="center">
                             <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                              {order.companyEmailDecision === "accepted" ||
-                              order.partnerConfirmedAt
-                                ? t("table.vehicleAvailable")
-                                : order.companyEmailDecision === "rejected" ||
-                                    order.declineReason
-                                  ? t("table.cannotProvide")
-                                  : t("table.awaitingSupplier")}
+                              {t(contractorSupplierResponseCopy(order).key, {
+                                defaultValue: contractorSupplierResponseCopy(order).fallback,
+                              })}
                             </Typography>
                             {order.partnerConfirmMeta?.actor?.name ? (
                               <Typography variant="caption" color="text.secondary">
@@ -2174,45 +2372,21 @@ export default function OrdersTableSection() {
                               </Typography>
                             ) : null}
                           </Stack>
-                        ) : isClient ? (
+                        ) : (
                           <SupplierResponseCell
                             order={order}
                             isClient={isClient}
                             busy={Boolean(isTogglingSupplier[order._id])}
+                            onViewDetails={() => openOrderModal(order)}
                             onRespond={(response, reason) =>
                               handleSupplierResponse(order._id, response, reason)
                             }
                           />
-                        ) : (
-                          <Tooltip
-                            title={
-                              order.confirmed
-                                ? t("table.unconfirm")
-                                : t("table.confirm")
-                            }
-                          >
-                            <span>
-                              <Switch
-                                checked={order.confirmed || false}
-                                onChange={() => handleToggleConfirm(order._id)}
-                                disabled={isTogglingConfirm[order._id]}
-                                size="small"
-                                color="primary"
-                              />
-                            </span>
-                          </Tooltip>
                         )}
                       </TableCell>
-                      {isPlatformAdmin ? (
-                        <TableCell align="center">
-                          <PlatformStatusCell
-                            order={order}
-                            isClient={isClient}
-                            busy={Boolean(isTogglingConfirm[order._id])}
-                            onToggleConfirm={() => handleToggleConfirm(order._id)}
-                          />
-                        </TableCell>
-                      ) : null}
+                      <TableCell align="center">
+                        <CustomerConfirmationCell order={order} />
+                      </TableCell>
                     </TableRow>
                     
                     {/* Persistent Conflict Panel - only for source order */}
@@ -2442,6 +2616,11 @@ export default function OrdersTableSection() {
                   onRequestClose={tryCloseEditModal}
                   registerEditOrderCloseGuard={registerEditOrderCloseGuard}
                   onSave={handleSaveOrderFromModal}
+                  onSupplierRespond={handleSupplierResponse}
+                  onSupplierChanged={refreshOrderAfterSupplierAction}
+                  supplierBusy={Boolean(
+                    isTogglingSupplier[selectedOrderForEdit?._id]
+                  )}
                   isConflictOrder={isConflictOrder}
                   setIsConflictOrder={setIsConflictOrder}
                   startEndDates={startEndDates}

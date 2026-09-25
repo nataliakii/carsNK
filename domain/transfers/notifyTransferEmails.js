@@ -8,6 +8,7 @@ import { renderAdminOrderNotificationHtml } from "@/app/ui/email/templates/admin
 import {
   EMAIL_STYLE,
   escapeHtml,
+  renderEmailHeaderRow,
 } from "@/app/ui/email/theme/nataliCarsEmailTheme";
 import { EMAIL_SIGNATURE_HTML } from "@/app/ui/email/templates/signature";
 import { connectToDB } from "@lib/database";
@@ -149,11 +150,7 @@ function renderCustomerTransferHtml({ title, greeting, lines }) {
     <tr>
       <td align="center">
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background-color:${s.bgCard};border:1px solid ${s.border};border-radius:8px;overflow:hidden;">
-          <tr>
-            <td style="background-color:${s.headerTeal};color:${s.headerText};padding:24px 28px;font-size:20px;font-weight:600;">
-              ${escapeHtml(title)}
-            </td>
-          </tr>
+          ${renderEmailHeaderRow({ title })}
           <tr>
             <td style="padding:28px;">
               <div style="margin:0 0 16px;color:${s.text};font-size:15px;line-height:1.6;">${escapeHtml(greeting)}</div>
@@ -208,11 +205,7 @@ function renderPartnerOfferHtml({
     <tr>
       <td align="center">
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background-color:${s.bgCard};border:1px solid ${s.border};border-radius:8px;overflow:hidden;">
-          <tr>
-            <td style="background-color:${s.headerTeal};color:${s.headerText};padding:24px 28px;font-size:20px;font-weight:600;">
-              ${escapeHtml(title)}
-            </td>
-          </tr>
+          ${renderEmailHeaderRow({ title })}
           <tr>
             <td style="padding:28px;">
               <div style="margin:0 0 16px;color:${s.text};font-size:15px;line-height:1.6;">
@@ -225,10 +218,7 @@ function renderPartnerOfferHtml({
                   : ""
               }
               <div style="margin:24px 0;">
-                <a href="${escapeHtml(claimUrl)}"
-                   style="display:inline-block;background:${s.headerTeal};color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600;font-size:15px;">
-                  ${copy.cta}
-                </a>
+                <a href="${escapeHtml(claimUrl)}" style="display:inline-block;padding:14px 28px;background-color:${s.ctaBg};color:${s.ctaText};text-decoration:none;font-weight:700;border-radius:8px;font-size:16px;font-family:${s.fontSans};">${copy.cta}</a>
               </div>
               <div style="margin:0;color:${s.muted};font-size:13px;line-height:1.5;">
                 ${escapeHtml(copy.footer)}

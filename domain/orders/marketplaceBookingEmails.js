@@ -6,7 +6,6 @@
 
 import { sendEmailDirect } from "@/lib/email/sendDirect";
 import { ROVARO_MAILBOX } from "@config/email";
-import { getBrandName } from "@config/brand";
 import Company from "@models/company";
 import MailLog from "@models/MailLog";
 import { MAIL_RENDER_KEY, MAIL_STATUS, MAIL_TYPE } from "@/domain/mail/mailTypes";
@@ -21,9 +20,14 @@ import {
   marketplaceFinancialSplit,
 } from "@/domain/orders/marketplaceFinancialSplit";
 import { connectToDB } from "@lib/database";
-import { absoluteUrl } from "@config/domain";
 import { formatLocationLegLine } from "@/domain/orders/locationSnapshot";
-import { signCustomerProblemToken } from "@/domain/orders/customerProblemToken";
+import { sendPaidBookingEmails } from "@/domain/orders/paidBookingEmails";
+import {
+  BOOKING_EMAIL_AUDIENCE,
+  BOOKING_EMAIL_EVENT,
+  resolveBookingEmail,
+  resolveExceptionBookingEmail,
+} from "@/domain/bookings/bookingEmailPolicy";
 
 const COPY = {
   en: {
@@ -260,6 +264,16 @@ function customerEmailOf(order) {
   return email.includes("@") ? email : "";
 }
 
+/**
+ * Single gate for every customer-facing marketplace email in this module.
+ * `domain/bookings/bookingEmailPolicy.js` owns the decision.
+ */
+function refuseByBookingEmailPolicy(order, mailType, manualTrigger = false) {
+  const decision = resolveExceptionBookingEmail({ order, mailType, manualTrigger });
+  if (decision.allowed) return null;
+  return { ok: true, skipped: true, code: decision.code };
+}
+
 function refuseNonPlatformCustomerMail(order) {
   if (isPlatformBooking(order)) return null;
   return { ok: false, skipped: true, code: "not_platform_booking" };
@@ -276,6 +290,14 @@ export async function sendCustomerPaymentRequestEmail({
 }) {
   const blocked = refuseNonPlatformCustomerMail(order);
   if (blocked) return blocked;
+  const policy = resolveBookingEmail({
+    event: BOOKING_EMAIL_EVENT.CUSTOMER_PAYMENT_REQUIRED,
+    audience: BOOKING_EMAIL_AUDIENCE.CUSTOMER,
+    order,
+  });
+  if (!policy.allowed) {
+    return { ok: true, skipped: true, code: policy.code };
+  }
   const email = customerEmailOf(order);
   if (!email || !paymentUrl) {
     return { ok: false, code: "missing_recipient_or_url" };
@@ -359,8 +381,11 @@ export async function sendCustomerPaymentRequestEmail({
 export async function sendCustomerPaymentExpiredEmail({
   order,
   stripeSessionId = "",
+  manualTrigger = false,
 }) {
-  const blocked = refuseNonPlatformCustomerMail(order);
+  const blocked =
+    refuseNonPlatformCustomerMail(order) ||
+    refuseByBookingEmailPolicy(order, MAIL_TYPE.ORDER_PAYMENT_EXPIRED, manualTrigger);
   if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
@@ -425,8 +450,15 @@ export async function sendCustomerPaymentExpiredEmail({
 export async function sendCustomerPaymentLinkUnavailableEmail({
   order,
   stripeSessionId = "",
+  manualTrigger = false,
 }) {
-  const blocked = refuseNonPlatformCustomerMail(order);
+  const blocked =
+    refuseNonPlatformCustomerMail(order) ||
+    refuseByBookingEmailPolicy(
+      order,
+      MAIL_TYPE.ORDER_PAYMENT_LINK_UNAVAILABLE,
+      manualTrigger
+    );
   if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
@@ -490,8 +522,15 @@ export async function sendCustomerNewPaymentLinkEmail({
   paymentUrl,
   expiresAt,
   stripeSessionId,
+  manualTrigger = true,
 }) {
-  const blocked = refuseNonPlatformCustomerMail(order);
+  const blocked =
+    refuseNonPlatformCustomerMail(order) ||
+    refuseByBookingEmailPolicy(
+      order,
+      MAIL_TYPE.ORDER_PAYMENT_REISSUED,
+      manualTrigger
+    );
   if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email || !paymentUrl) {
@@ -567,8 +606,21 @@ export async function sendCustomerNewPaymentLinkEmail({
   }
 }
 
-export async function sendCustomerDeclineEmail({ order, reason = "" }) {
-  const blocked = refuseNonPlatformCustomerMail(order);
+/**
+ * Supplier decline does not notify the customer automatically — it creates a
+ * manual Rovaro task. Only a human at Rovaro may send this.
+ */
+export async function sendCustomerDeclineEmail({
+  order,
+  reason = "",
+  manualTrigger = false,
+}) {
+  if (!manualTrigger) {
+    return { ok: true, skipped: true, code: "decline_is_a_manual_rovaro_task" };
+  }
+  const blocked =
+    refuseNonPlatformCustomerMail(order) ||
+    refuseByBookingEmailPolicy(order, MAIL_TYPE.ORDER_DECLINED, manualTrigger);
   if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
@@ -619,199 +671,25 @@ export async function sendCustomerDeclineEmail({ order, reason = "" }) {
   }
 }
 
-export async function sendCustomerPaidEmail({ order, supplierName = "" }) {
-  const blocked = refuseNonPlatformCustomerMail(order);
-  if (blocked) return blocked;
-  const email = customerEmailOf(order);
-  if (!email) return { ok: false, code: "missing_recipient" };
-  if (
-    await alreadySent({
-      type: MAIL_TYPE.ORDER_PAID_CUSTOMER,
-      orderId: order._id,
-    })
-  ) {
-    return { ok: true, deduped: true };
-  }
-
-  const t = copyFor(order.clientLang || order.locale, order);
-  const amounts = resolveRentalCheckoutAmount(order);
-  let reportHref = "";
-  try {
-    const token = signCustomerProblemToken({ orderId: String(order._id) });
-    reportHref = absoluteUrl(
-      `/booking/report-problem?token=${encodeURIComponent(token)}`
-    );
-  } catch (err) {
-    console.error("[marketplace email] problem link skipped", err?.message || err);
-  }
-  const html = renderRovaroBrandedEmail({
-    title: t.paidCustomerSubject,
-    introHtml:
-      p(t.paidCustomerIntro) +
-      p(t.nextSteps) +
-      (reportHref ? p(`Report a problem: ${reportHref}`) : "") +
-      p(t.support),
-    rows: bookingRows(order, t, [
-      [t.supplier, supplierName],
-      [t.fullPrice, money(amounts.grossMinor, amounts.currency)],
-      [t.paidTen, money(amounts.amountMinor, amounts.currency)],
-      [t.paidNinety, money(amounts.balanceMinor, amounts.currency)],
-    ]),
-  });
-  const text = [
-    t.paidCustomerSubject,
-    "",
-    t.paidCustomerIntro,
-    `${t.bookingRef}: ${order.orderNumber || order._id}`,
-    `${t.fullPrice}: ${money(amounts.grossMinor, amounts.currency)}`,
-    `${t.paidTen}: ${money(amounts.amountMinor, amounts.currency)}`,
-    `${t.paidNinety}: ${money(amounts.balanceMinor, amounts.currency)}`,
-    t.nextSteps,
-    reportHref ? `Report a problem: ${reportHref}` : null,
-    t.support,
-  ].filter((line) => line != null).join("\n");
-
-  try {
-    await sendEmailDirect({
-      title: t.paidCustomerSubject,
-      message: text,
-      html,
-      to: [email],
-      meta: {
-        type: MAIL_TYPE.ORDER_PAID_CUSTOMER,
-        renderKey: MAIL_RENDER_KEY.CUSTOMER_PAYMENT_RECEIVED,
-        orderId: order._id,
-        companyId: order.ownerId,
-        payload: { locale: order.clientLang || "en" },
-      },
-    });
-    return { ok: true };
-  } catch (err) {
-    console.error("[marketplace email] customer paid failed", err?.message || err);
-    return { ok: false, code: "send_failed", error: err?.message };
-  }
-}
-
-export async function sendPartnerPaidEmail({ order, company }) {
-  const email = String(company?.email || "").trim();
-  if (!email.includes("@")) return { ok: false, code: "missing_recipient" };
-  if (
-    await alreadySent({
-      type: MAIL_TYPE.ORDER_PAID_PARTNER,
-      orderId: order._id,
-    })
-  ) {
-    return { ok: true, deduped: true };
-  }
-
-  const t = copyFor(company?.langAdmin || "en", order);
-  const amounts = resolveRentalCheckoutAmount(order);
-  const html = renderRovaroBrandedEmail({
-    title: t.paidPartnerSubject,
-    introHtml: p(t.paidPartnerIntro) + p(t.support),
-    rows: bookingRows(order, t, [
-      [t.customer, order.customerName || ""],
-      [t.phone, order.phone || ""],
-      [t.email, order.email || ""],
-      [t.fullPrice, money(amounts.grossMinor, amounts.currency)],
-      [t.paidTen, money(amounts.amountMinor, amounts.currency)],
-      [t.paidNinety, money(amounts.balanceMinor, amounts.currency)],
-    ]),
-  });
-  const text = [
-    t.paidPartnerSubject,
-    "",
-    t.paidPartnerIntro,
-    `${t.bookingRef}: ${order.orderNumber || order._id}`,
-    `${t.customer}: ${order.customerName || ""}`,
-    `${t.phone}: ${order.phone || ""}`,
-    `${t.email}: ${order.email || ""}`,
-    `${t.fullPrice}: ${money(amounts.grossMinor, amounts.currency)}`,
-    `${t.paidTen}: ${money(amounts.amountMinor, amounts.currency)}`,
-    `${t.paidNinety}: ${money(amounts.balanceMinor, amounts.currency)}`,
-    t.support,
-  ].join("\n");
-
-  try {
-    await sendEmailDirect({
-      title: t.paidPartnerSubject,
-      message: text,
-      html,
-      to: [email],
-      meta: {
-        type: MAIL_TYPE.ORDER_PAID_PARTNER,
-        renderKey: MAIL_RENDER_KEY.PARTNER_PAYMENT_RECEIVED,
-        orderId: order._id,
-        companyId: order.ownerId,
-        payload: {
-          customerName: order.customerName,
-          phone: order.phone,
-          email: order.email,
-        },
-      },
-    });
-    return { ok: true };
-  } catch (err) {
-    console.error("[marketplace email] partner paid failed", err?.message || err);
-    return { ok: false, code: "send_failed", error: err?.message };
-  }
-}
-
 export async function sendPaidConfirmationEmails({ order }) {
-  await connectToDB();
-  const company = order?.ownerId
-    ? await Company.findById(order.ownerId).select("name email langAdmin").lean()
-    : null;
-  const customer = await sendCustomerPaidEmail({
-    order,
-    supplierName: company?.name || "",
-  });
-
-  // Company + superadmin ops emails: central matrix policy (contacts revealed
-  // only after verified server-side payment). Do not also send the legacy
-  // partner template — that would duplicate company mail.
-  let partner = { ok: true, via: "notification_policy" };
-  try {
-    const { notifyBookingFeePaid } = await import(
-      "@/domain/mail/notificationPolicy"
-    );
-    const { moneyMinor } = await import("@/domain/mail/notificationCopy");
-    const amounts = resolveRentalCheckoutAmount(order);
-    const stripeRef =
-      String(order?.payment?.paymentIntentId || "").slice(0, 24) ||
-      String(order?.payment?.providerPaymentId || "").slice(0, 24) ||
-      "";
-    const result = await notifyBookingFeePaid({
-      orderId: String(order._id),
-      companyId: order.ownerId ? String(order.ownerId) : "",
-      companyName: company?.name || "",
-      orderNumber: order.orderNumber,
-      customerName: order.customerName || "",
-      phone: order.phone || "",
-      email: order.email || "",
-      totalFormatted: moneyMinor(amounts.grossMinor, amounts.currency),
-      feeFormatted: moneyMinor(amounts.amountMinor, amounts.currency),
-      remainingFormatted: moneyMinor(amounts.balanceMinor, amounts.currency),
-      feePercent: amounts.feePercent,
-      stripeRef,
-      status: order.bookingStatus || order.payment?.status || "paid",
-    });
-    partner = { ok: result?.ok !== false, via: "notification_policy", result };
-  } catch (err) {
-    console.error("[marketplace email] fee-paid policy failed", err?.message || err);
-    partner = { ok: false, error: err?.message };
-  }
-
-  return { customer, partner };
+  return sendPaidBookingEmails({ order });
 }
 
+/** Refunds are a dispute/support action, never part of the standard flow. */
 export async function sendCustomerBookingFeeRefundEmail({
   order,
   amountMinor,
   currency,
   reason = "",
+  manualTrigger = true,
 } = {}) {
-  const blocked = refuseNonPlatformCustomerMail(order);
+  const blocked =
+    refuseNonPlatformCustomerMail(order) ||
+    refuseByBookingEmailPolicy(
+      order,
+      MAIL_TYPE.ORDER_BOOKING_FEE_REFUNDED,
+      manualTrigger
+    );
   if (blocked) return blocked;
   const email = customerEmailOf(order);
   if (!email) return { ok: false, code: "missing_recipient" };
@@ -881,11 +759,19 @@ export function marketplacePriceCorrectionCopy(locale = "en") {
   };
 }
 
+/** A superadmin price correction, not an automatic lifecycle email. */
 export async function sendMarketplacePriceCorrectionEmails({
   order,
   revision,
+  manualTrigger = true,
 } = {}) {
-  const blocked = refuseNonPlatformCustomerMail(order);
+  const blocked =
+    refuseNonPlatformCustomerMail(order) ||
+    refuseByBookingEmailPolicy(
+      order,
+      MAIL_TYPE.ORDER_PRICE_CORRECTED_CUSTOMER,
+      manualTrigger
+    );
   if (blocked) return { customer: blocked, partner: blocked };
   await connectToDB();
   const customerLocale = order?.clientLang || order?.locale || "en";
