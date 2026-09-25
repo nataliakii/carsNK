@@ -29,12 +29,21 @@ import {
   CollapsibleSection,
   FieldGroup,
   FieldRow,
+  PriceTag,
   SummaryField,
   SummaryList,
 } from "@/app/components/ui";
 import CopyableContact from "@/app/admin/features/orders/components/CopyableContact";
 import { buildBookingDetailsView } from "@/domain/booking/bookingDetailsView";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  canGuaranteeEquivalent,
+  carValueLabelKey,
+  replacementClassOptions,
+  replacementLuggageOptions,
+  replacementSeatOptions,
+  replacementTransmissionOptions,
+} from "@/domain/booking/replacementGuarantee";
 import { LEGACY_FALLBACK_TZ } from "@/domain/time/resolveBusinessTimezone";
 import {
   BOOKING_DETAILS_FOOTER_CLEARANCE,
@@ -254,42 +263,44 @@ const EMPTY_REPLACEMENT = Object.freeze({
   transmission: "",
   seats: "",
   luggage: "",
-  totalPrice: "",
   supplierMessage: "",
 });
 
 /**
- * The replacement rules are checked server-side; these are the values they
- * need in order to compare the proposal against the original.
+ * What a guaranteed replacement may state about the car, all of it optional:
+ * anything left unstated is promised from the original booking instead, which
+ * is what the server records and checks.
+ *
+ * Each list is filtered to the values the replacement rules accept — the
+ * requested class and above, the requested transmission, no fewer seats — so
+ * the form cannot offer a downgrade in the first place.
  */
-const REPLACEMENT_FIELDS = Object.freeze([
-  { name: "model", labelKey: "bookingDetails.replacementDialog.model" },
+const REPLACEMENT_SPEC_FIELDS = Object.freeze([
   {
     name: "category",
     labelKey: "bookingDetails.replacementDialog.category",
     helperKey: "bookingDetails.replacementDialog.categoryHelp",
+    optionsFor: (requested) => replacementClassOptions(requested.class),
+    translateOptions: true,
   },
   {
     name: "transmission",
     labelKey: "bookingDetails.replacementDialog.transmission",
     helperKey: "bookingDetails.replacementDialog.transmissionHelp",
+    optionsFor: (requested) => replacementTransmissionOptions(requested.transmission),
+    translateOptions: true,
   },
-  { name: "seats", labelKey: "bookingDetails.replacementDialog.seats", type: "number" },
+  {
+    name: "seats",
+    labelKey: "bookingDetails.replacementDialog.seats",
+    helperKey: "bookingDetails.replacementDialog.seatsHelp",
+    optionsFor: (requested) => replacementSeatOptions(requested.seats),
+  },
   {
     name: "luggage",
     labelKey: "bookingDetails.replacementDialog.luggage",
-    type: "number",
-  },
-  {
-    name: "totalPrice",
-    labelKey: "bookingDetails.replacementDialog.totalPrice",
-    type: "number",
-    helperKey: "bookingDetails.replacementDialog.totalPriceHelp",
-  },
-  {
-    name: "supplierMessage",
-    labelKey: "bookingDetails.replacementDialog.comment",
-    multiline: true,
+    helperKey: "bookingDetails.replacementDialog.luggageHelp",
+    optionsFor: (requested) => replacementLuggageOptions(requested.luggage),
   },
 ]);
 
@@ -421,6 +432,27 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
 
   const formatMoment = useBookingClock(current);
 
+  // The specification the supplier is matching against. It comes from the
+  // booking's own captured vehicle, which is also what the server measures a
+  // proposal against.
+  const requestedVehicle = useMemo(
+    () => ({
+      class: view?.vehicle?.class || "",
+      transmission: view?.vehicle?.transmission || "",
+      seats: view?.vehicle?.seats ?? null,
+      luggage: view?.vehicle?.luggage ?? null,
+    }),
+    [view?.vehicle]
+  );
+
+  const specLabel = useCallback(
+    (value) =>
+      value === "" || value == null
+        ? ""
+        : t(carValueLabelKey(value), { defaultValue: String(value) }),
+    [t]
+  );
+
   // One metadata line rather than three: when, for how long, and where.
   const headerMetaLine = useMemo(() => {
     const header = view?.header;
@@ -465,13 +497,14 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   const { price } = view;
   const fleetReplacement =
     replacement.replacementSource === REPLACEMENT_KIND.COMPANY_VEHICLE;
-  const replacementReady = fleetReplacement
-    ? Boolean(proposedCarId) && replacement.supplierMessage.trim().length > 0
-    : replacement.model.trim().length > 0 &&
-      replacement.transmission.trim().length > 0 &&
-      Number(replacement.seats) > 0 &&
-      Number(replacement.totalPrice) > 0 &&
-      replacement.supplierMessage.trim().length > 0;
+  // Without the requested class, transmission, seats and total price there is
+  // nothing to promise, and the server rejects the proposal for the same
+  // reason. The dialog says so rather than letting it be sent.
+  const canGuarantee =
+    canGuaranteeEquivalent(requestedVehicle) && price.totalMinor != null;
+  const replacementReady =
+    replacement.supplierMessage.trim().length > 0 &&
+    (fleetReplacement ? Boolean(proposedCarId) : canGuarantee);
   const priceBreakdown = (
     <SummaryList component="dl">
       {price.lines.map((line) => (
@@ -990,6 +1023,41 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
           <Typography variant="body2">
             {t("bookingDetails.replacementDialog.intro")}
           </Typography>
+          {/* Matching a car you cannot see is guesswork, so the requested one
+              is in the dialog next to the proposal. */}
+          <FieldGroup
+            data-testid="replacement-requested-vehicle"
+            title={t("bookingDetails.replacement.originallyRequested")}
+          >
+            <SummaryList component="dl">
+              <SummaryField
+                label={t("bookingDetails.vehicle.requested")}
+                value={vehicle?.displayName}
+                strong
+              />
+              <SummaryField
+                label={t("bookingDetails.vehicle.class")}
+                value={specLabel(requestedVehicle.class)}
+              />
+              <SummaryField
+                label={t("bookingDetails.vehicle.transmission")}
+                value={specLabel(requestedVehicle.transmission)}
+              />
+              <SummaryField
+                label={t("bookingDetails.vehicle.seats")}
+                value={requestedVehicle.seats}
+              />
+              <SummaryField
+                label={t("bookingDetails.vehicle.luggage")}
+                value={requestedVehicle.luggage}
+              />
+            </SummaryList>
+            <PriceTag
+              label={t("bookingDetails.price.totalRentalPrice")}
+              value={price.totalText}
+              emphasis
+            />
+          </FieldGroup>
           <TextField
             select
             label={t("bookingDetails.replacementDialog.kind")}
@@ -1052,26 +1120,89 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               ) : null}
             </>
           ) : (
-            REPLACEMENT_FIELDS.filter((field) => field.name !== "supplierMessage").map(
-              (field) => (
-                <TextField
-                  key={field.name}
-                  label={t(field.labelKey)}
-                  value={replacement[field.name]}
-                  type={field.type || "text"}
-                  onChange={(event) =>
-                    setReplacement((was) => ({
-                      ...was,
-                      [field.name]: event.target.value,
-                    }))
-                  }
-                  fullWidth
-                  multiline={field.multiline || false}
-                  minRows={field.multiline ? 3 : undefined}
-                  helperText={field.helperKey ? t(field.helperKey) : undefined}
-                />
-              )
-            )
+            <>
+              <FieldGroup
+                data-testid="replacement-guarantee"
+                title={t("bookingDetails.replacementDialog.guaranteeTitle")}
+              >
+                {canGuarantee ? (
+                  <SummaryList component="dl">
+                    <SummaryField
+                      label={t("bookingDetails.vehicle.class")}
+                      value={t("bookingDetails.replacementDialog.guaranteeClass", {
+                        class: specLabel(requestedVehicle.class),
+                      })}
+                      strong
+                    />
+                    <SummaryField
+                      label={t("bookingDetails.vehicle.transmission")}
+                      value={t("bookingDetails.replacementDialog.guaranteeTransmission", {
+                        transmission: specLabel(requestedVehicle.transmission),
+                      })}
+                    />
+                    <SummaryField
+                      label={t("bookingDetails.vehicle.seats")}
+                      value={t("bookingDetails.replacementDialog.guaranteeSeats", {
+                        seats: requestedVehicle.seats,
+                      })}
+                    />
+                    <SummaryField
+                      label={t("bookingDetails.price.totalRentalPrice")}
+                      value={t("bookingDetails.replacementDialog.guaranteePrice", {
+                        price: price.totalText,
+                      })}
+                    />
+                  </SummaryList>
+                ) : (
+                  <Alert severity="warning" data-testid="replacement-guarantee-blocked">
+                    {t("bookingDetails.replacementDialog.guaranteeUnavailable")}
+                  </Alert>
+                )}
+              </FieldGroup>
+              <Typography variant="body2" color="text.secondary">
+                {t("bookingDetails.replacementDialog.optionalIntro")}
+              </Typography>
+              <TextField
+                label={t("bookingDetails.replacementDialog.model")}
+                value={replacement.model}
+                onChange={(event) =>
+                  setReplacement((was) => ({ ...was, model: event.target.value }))
+                }
+                fullWidth
+                helperText={t("bookingDetails.replacementDialog.modelHelp")}
+              />
+              <FieldRow>
+                {REPLACEMENT_SPEC_FIELDS.map((field) => {
+                  const options = field.optionsFor(requestedVehicle);
+                  return (
+                    <TextField
+                      key={field.name}
+                      select
+                      label={t(field.labelKey)}
+                      value={replacement[field.name]}
+                      onChange={(event) =>
+                        setReplacement((was) => ({
+                          ...was,
+                          [field.name]: event.target.value,
+                        }))
+                      }
+                      fullWidth
+                      disabled={options.length === 0}
+                      helperText={t(field.helperKey)}
+                    >
+                      <MenuItem value="">
+                        {t("bookingDetails.replacementDialog.asRequested")}
+                      </MenuItem>
+                      {options.map((option) => (
+                        <MenuItem key={option} value={option}>
+                          {field.translateOptions ? specLabel(option) : option}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  );
+                })}
+              </FieldRow>
+            </>
           )}
           <TextField
             label={t("bookingDetails.replacementDialog.comment")}

@@ -87,6 +87,12 @@ const alternativeVehicleOfferSchema = new mongoose.Schema(
     availabilityNote: { type: String, default: "" },
 
     replacementSource: { type: String, default: "" },
+    /**
+     * The immutable equivalent-replacement proposal, including the guarantees
+     * derived from the original booking. The customer's payment records the
+     * checksum of exactly this body, so it is stored, not recomputed.
+     */
+    replacementProposal: { type: mongoose.Schema.Types.Mixed, default: null },
     supplierMessage: { type: String, default: "" },
     createdBy: { type: String, default: "" },
     reasonForReplacement: { type: String, required: true },

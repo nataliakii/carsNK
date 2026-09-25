@@ -13,6 +13,10 @@ import {
   listEligibleAlternativeCars,
   withdrawAlternativeOffer,
 } from "@/domain/booking/alternativeVehicle";
+import {
+  REPLACEMENT_SOURCE,
+  resolveReplacementSource,
+} from "@/domain/booking/equivalentReplacementCopy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -131,9 +135,10 @@ export async function POST(request) {
     return NextResponse.json({ success: true, status: result.status, offerId: result.offerId });
   }
 
-  const replacementSource = String(body?.replacementSource || "COMPANY_VEHICLE");
+  const replacementSource =
+    resolveReplacementSource(body?.replacementSource) || REPLACEMENT_SOURCE.COMPANY_VEHICLE;
   const result =
-    replacementSource === "COMPANY_VEHICLE"
+    replacementSource === REPLACEMENT_SOURCE.COMPANY_VEHICLE
       ? await offerAlternativeVehicle({
           orderId,
           proposedCarId: body?.proposedCarId || body?.alternative?.carId,

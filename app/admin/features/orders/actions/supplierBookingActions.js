@@ -1,3 +1,5 @@
+import { REPLACEMENT_SOURCE } from "@/domain/booking/equivalentReplacementCopy";
+
 async function postJson(url, body) {
   const res = await fetch(url, {
     method: "POST",
@@ -35,7 +37,7 @@ export async function loadAlternativeCars(orderId) {
 export function suggestAlternativeVehicle(orderId, proposedCarId, reasonForReplacement) {
   return postJson("/api/admin/legal/alternative-offers", {
     orderId,
-    replacementSource: "COMPANY_VEHICLE",
+    replacementSource: REPLACEMENT_SOURCE.COMPANY_VEHICLE,
     proposedCarId,
     reasonForReplacement,
   });
