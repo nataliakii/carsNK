@@ -817,7 +817,9 @@
       "paidToRovaro": "Zapłacone Rovaro ({{rate}}%)",
       "payableToSupplier": "Pobierasz od klienta",
       "payableToSupplierHint": "Tę kwotę klient płaci Tobie bezpośrednio przy wydaniu auta.",
-      "dataWarning": "Zapisane pozycje ceny tej rezerwacji nie sumują się do zapisanej kwoty łącznej. Działania finansowe są zablokowane, dopóki Rovaro nie naprawi rekordu."
+      "dataWarning": "Zapisane pozycje ceny tej rezerwacji nie sumują się do zapisanej kwoty łącznej. Działania finansowe są zablokowane, dopóki Rovaro nie naprawi rekordu.",
+      "showBreakdown": "Price details",
+      "hideBreakdown": "Hide price details"
     },
     "customer": {
       "name": "Imię i nazwisko",

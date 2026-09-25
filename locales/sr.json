@@ -724,7 +724,9 @@
       "paidToRovaro": "Плаћено Rovaro ({{rate}}%)",
       "payableToSupplier": "Ви наплаћујете од клијента",
       "payableToSupplierHint": "Овај износ клијент плаћа вама директно приликом преузимања.",
-      "dataWarning": "Сачуване ставке цене ове резервације не дају сачувани укупан износ. Новчане радње су закључане док Rovaro не исправи запис."
+      "dataWarning": "Сачуване ставке цене ове резервације не дају сачувани укупан износ. Новчане радње су закључане док Rovaro не исправи запис.",
+      "showBreakdown": "Price details",
+      "hideBreakdown": "Hide price details"
     },
     "customer": {
       "name": "Име и презиме",

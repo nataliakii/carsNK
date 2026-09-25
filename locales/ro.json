@@ -724,7 +724,9 @@
       "paidToRovaro": "Plătit către Rovaro ({{rate}}%)",
       "payableToSupplier": "Încasați de la client",
       "payableToSupplierHint": "Clientul vă plătește această sumă direct, la predare.",
-      "dataWarning": "Liniile de preț salvate ale acestei rezervări nu însumează totalul salvat. Acțiunile financiare sunt blocate până când Rovaro corectează înregistrarea."
+      "dataWarning": "Liniile de preț salvate ale acestei rezervări nu însumează totalul salvat. Acțiunile financiare sunt blocate până când Rovaro corectează înregistrarea.",
+      "showBreakdown": "Price details",
+      "hideBreakdown": "Hide price details"
     },
     "customer": {
       "name": "Nume complet",

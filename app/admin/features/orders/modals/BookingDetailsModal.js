@@ -29,7 +29,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 
-import { CollapsibleSection, SummaryField, SummaryList } from "@/app/components/ui";
+import { SummaryField, SummaryList } from "@/app/components/ui";
 import CopyableContact from "@/app/admin/features/orders/components/CopyableContact";
 import BookingDetailsActivity from "@/app/admin/features/orders/components/BookingDetailsActivity";
 import { buildBookingDetailsView } from "@/domain/booking/bookingDetailsView";
@@ -124,12 +124,6 @@ const GridFullWidth = styled(Box)({
   gridColumn: "1 / -1",
 });
 
-const PriceLayout = styled(Box)(({ theme }) => ({
-  display: "grid",
-  gridTemplateColumns: "1fr",
-  gap: theme.spacing(1),
-}));
-
 const SectionTitle = styled(Typography)(({ theme }) => ({
   fontWeight: theme.typography.fontWeightBold,
   color: theme.palette.text.primary,
@@ -197,8 +191,8 @@ const HeaderBadge = styled(Chip, {
 const SupplierPayout = styled(Box)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
-  gap: theme.spacing(0.5),
-  padding: theme.spacing(2),
+  gap: theme.spacing(0.25),
+  padding: theme.spacing(1.25, 1.5),
   borderRadius: theme.shape.borderRadius,
   border: `1px solid ${theme.palette.primary.main}`,
   backgroundColor: theme.palette.action.hover,
@@ -207,17 +201,16 @@ const SupplierPayout = styled(Box)(({ theme }) => ({
 const SupplierPayoutAmount = styled(Typography)(({ theme }) => ({
   color: theme.palette.primary.main,
   fontWeight: theme.typography.fontWeightBold,
-  lineHeight: theme.typography.h4.lineHeight,
+  lineHeight: 1.15,
+  margin: 0,
 }));
 
 const TotalRow = styled(Box)(({ theme }) => ({
   display: "flex",
   alignItems: "baseline",
   justifyContent: "space-between",
-  gap: theme.spacing(2),
-  marginTop: theme.spacing(1),
-  paddingTop: theme.spacing(1),
-  borderTop: `1px solid ${theme.palette.divider}`,
+  gap: theme.spacing(1),
+  marginTop: theme.spacing(0.75),
 }));
 
 const TotalAmount = styled(Typography)(({ theme }) => ({
@@ -293,7 +286,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   const [supportMessage, setSupportMessage] = useState("");
   const [declineReason, setDeclineReason] = useState("");
   const [licenceUrls, setLicenceUrls] = useState([]);
-  const [priceOpen, setPriceOpen] = useState(true);
+  const [priceOpen, setPriceOpen] = useState(false);
   const [replacement, setReplacement] = useState(EMPTY_REPLACEMENT);
   const [amendment, setAmendment] = useState(EMPTY_AMENDMENT);
 
@@ -385,40 +378,85 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   const { price } = view;
   const replacementReady = replacement.guaranteeAck === true;
   const priceBreakdown = (
-    <SummaryList component="dl">
+    <Box sx={{ mt: 0.75 }} id="booking-details-price">
       {price.lines.map((line) => (
-        <SummaryField
+        <Typography
           key={line.key}
-          label={t(line.labelKey, { defaultValue: line.label })}
-          value={line.free ? t("bookingDetails.price.free") : line.text}
-        />
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "flex", justifyContent: "space-between", gap: 1, lineHeight: 1.45 }}
+        >
+          <span>{t(line.labelKey, { defaultValue: line.label })}</span>
+          <span>
+            {line.free ? t("bookingDetails.price.free") : line.text}
+          </span>
+        </Typography>
       ))}
       {price.paidToRovaroText ? (
-        <SummaryField
-          label={t("bookingDetails.price.paidToRovaro", {
-            rate: price.feePercentLabel,
-          })}
-          value={price.paidToRovaroText}
-        />
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "flex", justifyContent: "space-between", gap: 1, lineHeight: 1.45 }}
+        >
+          <span>
+            {t("bookingDetails.price.paidToRovaro", {
+              rate: price.feePercentLabel,
+            })}
+          </span>
+          <span>{price.paidToRovaroText}</span>
+        </Typography>
       ) : null}
-    </SummaryList>
+    </Box>
   );
 
-  // The total stays outside the collapsible so it is visible on a phone even
-  // when the breakdown is folded away.
   const vehicle = view.vehicle;
   const showVehiclePanel = Boolean(vehicle);
-  // Fleet code and plate identify a specific physical car — not shown in
-  // Booking Details (ops can see them on the calendar / car record).
 
   const priceTotal = price.totalText ? (
     <TotalRow data-testid="total-rental-price">
-      <Typography variant="body1">
+      <Typography variant="body2" color="text.secondary">
         {t("bookingDetails.price.totalRentalPrice")}
       </Typography>
       <TotalAmount variant="body1">{price.totalText}</TotalAmount>
     </TotalRow>
   ) : null;
+
+  const moneyPanel = (
+    <GridFullWidth>
+      <SectionPanel data-testid="booking-money">
+        {price.payableToSupplierText ? (
+          <SupplierPayout data-testid="payable-to-supplier">
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+              {t("bookingDetails.price.payableToSupplier")}
+            </Typography>
+            <SupplierPayoutAmount variant="h4" component="p">
+              {price.payableToSupplierText}
+            </SupplierPayoutAmount>
+            <Typography variant="caption" color="text.secondary">
+              {t("bookingDetails.price.payableToSupplierHint")}
+            </Typography>
+          </SupplierPayout>
+        ) : null}
+        {priceTotal}
+        <Button
+          size="small"
+          onClick={() => setPriceOpen((was) => !was)}
+          sx={{ mt: 0.5, px: 0, minWidth: 0, textTransform: "none" }}
+          aria-expanded={priceOpen}
+          aria-controls="booking-details-price"
+        >
+          {priceOpen
+            ? t("bookingDetails.price.hideBreakdown", {
+                defaultValue: "Hide price details",
+              })
+            : t("bookingDetails.price.showBreakdown", {
+                defaultValue: "Price details",
+              })}
+        </Button>
+        {priceOpen ? priceBreakdown : null}
+      </SectionPanel>
+    </GridFullWidth>
+  );
 
   return (
     <Dialog
@@ -496,6 +534,8 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         {notice ? <Alert severity="success">{notice}</Alert> : null}
 
         <SectionsGrid>
+          {moneyPanel}
+
           {showVehiclePanel ? (
             <SectionPanel data-testid="vehicle-snapshot">
               <SectionTitle variant="subtitle2">
@@ -789,63 +829,6 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               </SummaryList>
             </SectionPanel>
           ) : null}
-
-          <GridFullWidth>
-            <SectionPanel>
-              {isSheet ? (
-                <CollapsibleSection
-                  title={t("bookingDetails.sections.price")}
-                  open={priceOpen}
-                  onToggle={() => setPriceOpen((was) => !was)}
-                  toggleLabel={t("bookingDetails.sections.price")}
-                  contentId="booking-details-price"
-                >
-                  {priceBreakdown}
-                </CollapsibleSection>
-              ) : (
-                <PriceLayout>
-                  <Box>
-                    <SectionTitle variant="subtitle2">
-                      {t("bookingDetails.sections.price")}
-                    </SectionTitle>
-                    {priceBreakdown}
-                    {priceTotal}
-                  </Box>
-                  {price.payableToSupplierText ? (
-                    <SupplierPayout data-testid="payable-to-supplier">
-                      <Typography variant="subtitle2" color="text.secondary">
-                        {t("bookingDetails.price.payableToSupplier")}
-                      </Typography>
-                      <SupplierPayoutAmount variant="h4" component="p">
-                        {price.payableToSupplierText}
-                      </SupplierPayoutAmount>
-                      <Typography variant="body2" color="text.secondary">
-                        {t("bookingDetails.price.payableToSupplierHint")}
-                      </Typography>
-                    </SupplierPayout>
-                  ) : null}
-                </PriceLayout>
-              )}
-              {isSheet ? (
-                <>
-                  {priceTotal}
-                  {price.payableToSupplierText ? (
-                    <SupplierPayout data-testid="payable-to-supplier">
-                      <Typography variant="subtitle2" color="text.secondary">
-                        {t("bookingDetails.price.payableToSupplier")}
-                      </Typography>
-                      <SupplierPayoutAmount variant="h4" component="p">
-                        {price.payableToSupplierText}
-                      </SupplierPayoutAmount>
-                      <Typography variant="body2" color="text.secondary">
-                        {t("bookingDetails.price.payableToSupplierHint")}
-                      </Typography>
-                    </SupplierPayout>
-                  ) : null}
-                </>
-              ) : null}
-            </SectionPanel>
-          </GridFullWidth>
 
           {view.showLicence ? (
             <GridFullWidth>

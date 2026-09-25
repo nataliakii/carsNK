@@ -1177,7 +1177,9 @@
       "paidToRovaro": "An Rovaro gezahlt ({{rate}}%)",
       "payableToSupplier": "Sie kassieren vom Kunden",
       "payableToSupplierHint": "Diesen Betrag zahlt der Kunde bei der Übergabe direkt an Sie.",
-      "dataWarning": "Die gespeicherten Preiszeilen dieser Buchung ergeben nicht die gespeicherte Gesamtsumme. Geldbezogene Aktionen sind gesperrt, bis Rovaro den Datensatz korrigiert."
+      "dataWarning": "Die gespeicherten Preiszeilen dieser Buchung ergeben nicht die gespeicherte Gesamtsumme. Geldbezogene Aktionen sind gesperrt, bis Rovaro den Datensatz korrigiert.",
+      "showBreakdown": "Price details",
+      "hideBreakdown": "Hide price details"
     },
     "customer": {
       "name": "Vollständiger Name",

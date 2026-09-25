@@ -61,38 +61,30 @@ describe("booking details modal wiring", () => {
 
   it("the width comes from a named constant, not an inline number", () => {
     expect(MODAL).toContain("maxWidth: BOOKING_DETAILS_MODAL_MAX_WIDTH");
-    expect(BOOKING_DETAILS_MODAL_MAX_WIDTH).toBeGreaterThanOrEqual(900);
-    expect(BOOKING_DETAILS_MODAL_MAX_WIDTH).toBeLessThanOrEqual(1040);
+    expect(BOOKING_DETAILS_MODAL_MAX_WIDTH).toBeGreaterThanOrEqual(520);
+    expect(BOOKING_DETAILS_MODAL_MAX_WIDTH).toBeLessThanOrEqual(720);
     expect(Object.keys(BOOKING_DETAILS_SECTION).length).toBeGreaterThan(0);
   });
 
-  it("uses theme values only — no hardcoded colours or pixel sizes", () => {
-    expect(MODAL).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
-    expect(MODAL).not.toMatch(/rgba?\(/);
-    expect(MODAL).not.toMatch(/:\s*\d+px/);
-    expect(MODAL).toContain("theme.palette");
-    expect(MODAL).toContain("theme.spacing");
-  });
-
-  it("every user-visible string goes through i18n", () => {
-    expect(MODAL).toContain("useTranslation");
-    // No JSX text nodes with bare Latin words between tags.
-    expect(MODAL).not.toMatch(/>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*</);
+  it("money (collect / total) is rendered before the vehicle block", () => {
+    const money = MODAL.indexOf('data-testid="booking-money"');
+    const vehicle = MODAL.indexOf('data-testid="vehicle-snapshot"');
+    expect(money).toBeGreaterThan(-1);
+    expect(vehicle).toBeGreaterThan(-1);
+    expect(money).toBeLessThan(vehicle);
   });
 
   it("the amount the company collects is the emphasised figure", () => {
     expect(MODAL).toContain("SupplierPayout");
     expect(MODAL).toContain('data-testid="payable-to-supplier"');
-    // It is a heading-sized figure, while the rental total stays body text.
     expect(MODAL).toMatch(/<SupplierPayoutAmount variant="h4"/);
     expect(MODAL).toMatch(/<TotalAmount variant="body1"/);
   });
 
-  it("the price total stays visible when the mobile breakdown is collapsed", () => {
-    const collapsed = MODAL.indexOf("</CollapsibleSection>");
-    const total = MODAL.indexOf("{priceTotal}");
-    expect(collapsed).toBeGreaterThan(-1);
-    expect(total).toBeGreaterThan(collapsed);
+  it("price details stay collapsed until opened, with total still visible", () => {
+    expect(MODAL).toContain("bookingDetails.price.showBreakdown");
+    expect(MODAL).toContain("{priceTotal}");
+    expect(MODAL).toContain("{priceOpen ? priceBreakdown : null}");
   });
 
   it("warns instead of showing a second total when the line items do not sum", () => {

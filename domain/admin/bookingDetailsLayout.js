@@ -6,11 +6,11 @@
  * the value is reviewable in one place.
  */
 
-/** Desktop modal width — single dense column (no mid-gap between cards). */
-export const BOOKING_DETAILS_MODAL_MAX_WIDTH = 900;
+/** Desktop modal width — single dense column. */
+export const BOOKING_DETAILS_MODAL_MAX_WIDTH = 560;
 
 /** Label column width for a two-column summary row. */
-export const BOOKING_DETAILS_LABEL_COLUMN = 118;
+export const BOOKING_DETAILS_LABEL_COLUMN = 110;
 
 /** Below this breakpoint the modal becomes a full-screen sheet. */
 export const BOOKING_DETAILS_SHEET_BREAKPOINT = "sm";
@@ -18,22 +18,22 @@ export const BOOKING_DETAILS_SHEET_BREAKPOINT = "sm";
 /** From this breakpoint upward, detail sections use a multi-column grid. */
 export const BOOKING_DETAILS_SECTION_GRID_BREAKPOINT = "md";
 
-/** Single column: two columns left a white gutter that looked like a cursor. */
+/** Single column: avoids a mid-gap between cards. */
 export const BOOKING_DETAILS_SECTION_GRID_COLUMNS = 1;
 
 /**
  * Height reserved below the last section so the sticky action footer never
- * covers the end of the price summary.
+ * covers content.
  */
-export const BOOKING_DETAILS_FOOTER_CLEARANCE = 56;
+export const BOOKING_DETAILS_FOOTER_CLEARANCE = 48;
 
-/** Section ids, in render order. Mirrors sections A–I of the specification. */
+/** Section ids. Money comes first in the modal so it is not buried. */
 export const BOOKING_DETAILS_SECTION = Object.freeze({
   STATUS: "status",
+  PRICE: "price",
   VEHICLE: "vehicle",
   DATES: "dates",
   OPTIONS: "options",
-  PRICE: "price",
   CUSTOMER: "customer",
   DOCUMENTS: "documents",
   ACTIONS: "actions",

@@ -1997,6 +1997,8 @@
       "paidToRovaro": "Paid to Rovaro ({{rate}}%)",
       "payableToSupplier": "You collect from the customer",
       "payableToSupplierHint": "The customer pays this amount to you directly at handover.",
+      "showBreakdown": "Price details",
+      "hideBreakdown": "Hide price details",
       "dataWarning": "The stored price lines of this booking do not add up to the stored total. Money actions are disabled until Rovaro repairs the record."
     },
     "customer": {

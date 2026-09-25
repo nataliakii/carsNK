@@ -1945,7 +1945,9 @@
       "paidToRovaro": "Pagado a Rovaro ({{rate}}%)",
       "payableToSupplier": "Cobras del cliente",
       "payableToSupplierHint": "El cliente te paga este importe directamente en la entrega.",
-      "dataWarning": "Las líneas de precio guardadas de esta reserva no suman el total guardado. Las acciones con dinero están bloqueadas hasta que Rovaro corrija el registro."
+      "dataWarning": "Las líneas de precio guardadas de esta reserva no suman el total guardado. Las acciones con dinero están bloqueadas hasta que Rovaro corrija el registro.",
+      "showBreakdown": "Detalle del precio",
+      "hideBreakdown": "Ocultar detalle"
     },
     "customer": {
       "name": "Nombre completo",
