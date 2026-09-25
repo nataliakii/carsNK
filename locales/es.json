@@ -1905,14 +1905,17 @@
       "fleetCode": "Código de flota",
       "registration": "Matrícula",
       "legacyNotice": "Esta reserva es anterior a las instantáneas de vehículo. Se muestra el registro actual de la flota, que puede diferir de lo acordado.",
-      "seatsShort": "{{count}} plazas"
+      "seatsShort": "{{count}} plazas",
+      "specsInfo": "Detalles del vehículo"
     },
     "dates": {
       "pickup": "Fecha y hora de recogida",
       "return": "Fecha y hora de devolución",
       "days": "Días de alquiler",
       "pickupLocation": "Lugar de recogida",
-      "returnLocation": "Lugar de devolución"
+      "returnLocation": "Lugar de devolución",
+      "pickupShort": "Recogida",
+      "returnShort": "Devolución"
     },
     "options": {
       "insurance": "Seguro",

@@ -777,14 +777,17 @@
       "fleetCode": "Kod we flocie",
       "registration": "Numer rejestracyjny",
       "legacyNotice": "Ta rezerwacja pochodzi sprzed migawek pojazdu. Pokazano bieżący wpis floty, który może różnić się od uzgodnionego.",
-      "seatsShort": "{{count}} seats"
+      "seatsShort": "{{count}} seats",
+      "specsInfo": "Vehicle details"
     },
     "dates": {
       "pickup": "Data i godzina odbioru",
       "return": "Data i godzina zwrotu",
       "days": "Dni wynajmu",
       "pickupLocation": "Miejsce odbioru",
-      "returnLocation": "Miejsce zwrotu"
+      "returnLocation": "Miejsce zwrotu",
+      "pickupShort": "Pickup",
+      "returnShort": "Return"
     },
     "options": {
       "insurance": "Ubezpieczenie",

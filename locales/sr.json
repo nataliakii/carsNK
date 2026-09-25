@@ -684,14 +684,17 @@
       "fleetCode": "Šifra u voznom parku",
       "registration": "Registarska oznaka",
       "legacyNotice": "Ova rezervacija je starija od snimaka vozila. Prikazan je današnji zapis voznog parka, koji može da se razlikuje od dogovorenog.",
-      "seatsShort": "{{count}} seats"
+      "seatsShort": "{{count}} seats",
+      "specsInfo": "Vehicle details"
     },
     "dates": {
       "pickup": "Датум и време преузимања",
       "return": "Датум и време враћања",
       "days": "Дана изнајмљивања",
       "pickupLocation": "Место преузимања",
-      "returnLocation": "Место враћања"
+      "returnLocation": "Место враћања",
+      "pickupShort": "Pickup",
+      "returnShort": "Return"
     },
     "options": {
       "insurance": "Осигурање",

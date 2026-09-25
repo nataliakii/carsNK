@@ -684,14 +684,17 @@
       "fleetCode": "Код в автопарка",
       "registration": "Регистрационен номер",
       "legacyNotice": "Тази резервация е отпреди снимките на автомобила. Показан е днешният запис от автопарка, който може да се различава от уговореното.",
-      "seatsShort": "{{count}} seats"
+      "seatsShort": "{{count}} seats",
+      "specsInfo": "Vehicle details"
     },
     "dates": {
       "pickup": "Дата и час на получаване",
       "return": "Дата и час на връщане",
       "days": "Дни наем",
       "pickupLocation": "Място на получаване",
-      "returnLocation": "Място на връщане"
+      "returnLocation": "Място на връщане",
+      "pickupShort": "Pickup",
+      "returnShort": "Return"
     },
     "options": {
       "insurance": "Застраховка",

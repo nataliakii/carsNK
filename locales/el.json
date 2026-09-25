@@ -1730,14 +1730,17 @@
       "fleetCode": "Κωδικός στόλου",
       "registration": "Πινακίδα",
       "legacyNotice": "Η κράτηση αυτή προηγείται των στιγμιοτύπων οχήματος. Εμφανίζεται η σημερινή εγγραφή στόλου, που μπορεί να διαφέρει από τη συμφωνηθείσα.",
-      "seatsShort": "{{count}} seats"
+      "seatsShort": "{{count}} seats",
+      "specsInfo": "Vehicle details"
     },
     "dates": {
       "pickup": "Ημερομηνία και ώρα παραλαβής",
       "return": "Ημερομηνία και ώρα επιστροφής",
       "days": "Ημέρες ενοικίασης",
       "pickupLocation": "Τόπος παραλαβής",
-      "returnLocation": "Τόπος επιστροφής"
+      "returnLocation": "Τόπος επιστροφής",
+      "pickupShort": "Pickup",
+      "returnShort": "Return"
     },
     "options": {
       "insurance": "Ασφάλιση",

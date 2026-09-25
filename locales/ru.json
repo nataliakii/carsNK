@@ -1819,14 +1819,17 @@
       "fleetCode": "Код в автопарке",
       "registration": "Госномер",
       "legacyNotice": "Это бронирование создано до появления снимков автомобиля. Показана текущая запись автопарка, она может отличаться от согласованной.",
-      "seatsShort": "{{count}} мест"
+      "seatsShort": "{{count}} мест",
+      "specsInfo": "Данные автомобиля"
     },
     "dates": {
       "pickup": "Дата и время выдачи",
       "return": "Дата и время возврата",
       "days": "Дней аренды",
       "pickupLocation": "Место выдачи",
-      "returnLocation": "Место возврата"
+      "returnLocation": "Место возврата",
+      "pickupShort": "Получение",
+      "returnShort": "Возврат"
     },
     "options": {
       "insurance": "Страховка",

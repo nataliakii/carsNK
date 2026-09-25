@@ -1234,14 +1234,17 @@
       "fleetCode": "Код в автопарку",
       "registration": "Держномер",
       "legacyNotice": "Це бронювання створено до появи знімків автомобіля. Показано поточний запис автопарку, він може відрізнятися від узгодженого.",
-      "seatsShort": "{{count}} seats"
+      "seatsShort": "{{count}} seats",
+      "specsInfo": "Vehicle details"
     },
     "dates": {
       "pickup": "Дата й час видачі",
       "return": "Дата й час повернення",
       "days": "Днів оренди",
       "pickupLocation": "Місце видачі",
-      "returnLocation": "Місце повернення"
+      "returnLocation": "Місце повернення",
+      "pickupShort": "Pickup",
+      "returnShort": "Return"
     },
     "options": {
       "insurance": "Страхування",

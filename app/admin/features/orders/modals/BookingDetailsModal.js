@@ -408,9 +408,8 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   // when the breakdown is folded away.
   const vehicle = view.vehicle;
   const showVehiclePanel = Boolean(vehicle);
-  // Fleet code and plate identify a specific physical car and belong to the
-  // company that runs it, not to anyone else who can open the booking.
-  const showFleetIdentity = view.showFleetIdentity === true;
+  // Fleet code and plate identify a specific physical car — not shown in
+  // Booking Details (ops can see them on the calendar / car record).
 
   const priceTotal = price.totalText ? (
     <TotalRow data-testid="total-rental-price">
@@ -479,9 +478,14 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
 
       <ContentColumn dividers={false}>
         {view.showPrivacyNotice ? (
-          <Alert severity="info" data-testid="privacy-notice">
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            data-testid="privacy-notice"
+            sx={{ display: "block", lineHeight: 1.4, px: 0.25 }}
+          >
             {t("bookingDetails.privacyNotice")}
-          </Alert>
+          </Typography>
         ) : null}
         {price.dataWarning ? (
           <Alert severity="warning" data-testid="price-data-warning">
@@ -503,14 +507,14 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               </SectionTitle>
               <Stack
                 direction="row"
-                spacing={0.5}
-                alignItems="flex-start"
+                spacing={0.75}
+                alignItems="center"
                 sx={{ minWidth: 0 }}
               >
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   <Typography
-                    variant="body2"
-                    sx={{ fontWeight: 700, lineHeight: 1.3 }}
+                    variant="subtitle1"
+                    sx={{ fontWeight: 700, lineHeight: 1.25, fontSize: "1rem" }}
                   >
                     {vehicle.displayName}
                   </Typography>
@@ -528,27 +532,20 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                     ].filter(Boolean);
                     return bits.length ? (
                       <Typography
-                        variant="caption"
+                        variant="body2"
                         color="text.secondary"
-                        sx={{ display: "block", lineHeight: 1.35 }}
+                        sx={{ lineHeight: 1.35, mt: 0.15 }}
                       >
                         {bits.join(" · ")}
                       </Typography>
                     ) : null;
                   })()}
-                  {showFleetIdentity && vehicle.fleetCode ? (
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ display: "block", lineHeight: 1.35 }}
-                    >
-                      {t("bookingDetails.vehicle.fleetCode")}: {vehicle.fleetCode}
-                    </Typography>
-                  ) : null}
                 </Box>
                 <Tooltip
+                  arrow
+                  placement="left"
                   title={
-                    <Box component="span" sx={{ display: "block", py: 0.25 }}>
+                    <Box sx={{ py: 0.25, maxWidth: 220 }}>
                       {[
                         vehicle.class &&
                           `${t("bookingDetails.vehicle.class")}: ${vehicle.class}`,
@@ -568,22 +565,14 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                               ? "bookingDetails.options.yes"
                               : "bookingDetails.options.no"
                           )}`,
-                        vehicle.modelYear &&
-                          `${t("bookingDetails.vehicle.modelYear")}: ${vehicle.modelYear}`,
-                        vehicle.deposit != null &&
-                          vehicle.deposit !== "" &&
-                          `${t("bookingDetails.vehicle.deposit")}: ${vehicle.deposit}`,
-                        showFleetIdentity &&
-                          vehicle.fleetCode &&
-                          `${t("bookingDetails.vehicle.fleetCode")}: ${vehicle.fleetCode}`,
                       ]
                         .filter(Boolean)
                         .map((line) => (
                           <Typography
                             key={line}
                             variant="caption"
-                            component="span"
-                            sx={{ display: "block", color: "inherit" }}
+                            component="div"
+                            sx={{ color: "inherit", lineHeight: 1.45 }}
                           >
                             {line}
                           </Typography>
@@ -591,10 +580,16 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                     </Box>
                   }
                 >
-                  <InfoOutlinedIcon
-                    sx={{ fontSize: 16, color: "text.secondary", mt: 0.25, flexShrink: 0 }}
+                  <IconButton
+                    size="small"
+                    aria-label={t("bookingDetails.vehicle.specsInfo", {
+                      defaultValue: "Vehicle details",
+                    })}
+                    sx={{ color: "text.secondary" }}
                     data-testid="vehicle-specs-info"
-                  />
+                  >
+                    <InfoOutlinedIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
                 </Tooltip>
               </Stack>
             </SectionPanel>
@@ -604,32 +599,67 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             <SectionTitle variant="subtitle2">
               {t("bookingDetails.sections.dates")}
             </SectionTitle>
-            <SummaryList component="dl">
-              <SummaryField
-                label={t("bookingDetails.dates.pickup")}
-                value={formatMoment(current.pickupAtUtc || current.timeIn)}
-              />
-              <SummaryField
-                label={t("bookingDetails.dates.return")}
-                value={formatMoment(current.returnAtUtc || current.timeOut)}
-              />
-              <SummaryField
-                label={t("bookingDetails.dates.days")}
-                value={current.numberOfDays}
-              />
-              <SummaryField
-                label={t("bookingDetails.dates.pickupLocation")}
-                value={[current.placeIn, current.placeInDetail]
-                  .filter(Boolean)
-                  .join(" — ")}
-              />
-              <SummaryField
-                label={t("bookingDetails.dates.returnLocation")}
-                value={[current.placeOut, current.placeOutDetail]
-                  .filter(Boolean)
-                  .join(" — ")}
-              />
-            </SummaryList>
+            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.35 }}>
+              {[
+                formatMoment(current.pickupAtUtc || current.timeIn),
+                formatMoment(current.returnAtUtc || current.timeOut),
+              ]
+                .filter(Boolean)
+                .join(" → ")}
+              {current.numberOfDays != null
+                ? ` · ${t("bookingDetails.header.days", {
+                    count: current.numberOfDays,
+                  })}`
+                : ""}
+            </Typography>
+            {(() => {
+              const pickup = [current.placeIn, current.placeInDetail]
+                .filter(Boolean)
+                .join(" — ");
+              const dropoff = [current.placeOut, current.placeOutDetail]
+                .filter(Boolean)
+                .join(" — ");
+              if (!pickup && !dropoff) return null;
+              if (pickup && dropoff && pickup === dropoff) {
+                return (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: 0.35, lineHeight: 1.35 }}
+                  >
+                    {pickup}
+                  </Typography>
+                );
+              }
+              return (
+                <Box sx={{ mt: 0.35 }}>
+                  {pickup ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ lineHeight: 1.35 }}
+                    >
+                      {t("bookingDetails.dates.pickupShort", {
+                        defaultValue: "Pickup",
+                      })}
+                      : {pickup}
+                    </Typography>
+                  ) : null}
+                  {dropoff ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ lineHeight: 1.35 }}
+                    >
+                      {t("bookingDetails.dates.returnShort", {
+                        defaultValue: "Return",
+                      })}
+                      : {dropoff}
+                    </Typography>
+                  ) : null}
+                </Box>
+              );
+            })()}
           </SectionPanel>
 
           {view.replacement ? (
@@ -638,29 +668,31 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                 <SectionTitle variant="subtitle2">
                   {t("bookingDetails.replacement.confirmedAs")}
                 </SectionTitle>
-                <SummaryList component="dl">
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.requested")}
-                    value={view.replacement.model}
-                    strong
-                  />
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.class")}
-                    value={view.replacement.category}
-                  />
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.transmission")}
-                    value={view.replacement.transmission}
-                  />
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.seats")}
-                    value={view.replacement.seats}
-                  />
-                  <SummaryField
-                    label={t("bookingDetails.replacement.supplierComment")}
-                    value={view.replacement.supplierMessage}
-                  />
-                </SummaryList>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  {view.replacement.model}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {[
+                    view.replacement.category,
+                    view.replacement.transmission,
+                    view.replacement.seats != null
+                      ? t("bookingDetails.vehicle.seatsShort", {
+                          count: view.replacement.seats,
+                        })
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Typography>
+                {view.replacement.supplierMessage ? (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: "block", mt: 0.5 }}
+                  >
+                    {view.replacement.supplierMessage}
+                  </Typography>
+                ) : null}
               </SectionPanel>
             </GridFullWidth>
           ) : null}
@@ -669,28 +701,44 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             <SectionTitle variant="subtitle2">
               {t("bookingDetails.sections.options")}
             </SectionTitle>
-            <SummaryList component="dl">
-              <SummaryField
-                label={t("bookingDetails.options.insurance")}
-                value={current.insurance}
-              />
-              <SummaryField
-                label={t("bookingDetails.options.excess")}
-                value={current.franchiseOrder}
-              />
-              <SummaryField
-                label={t("bookingDetails.options.childSeats")}
-                value={current.ChildSeats}
-              />
-              <SummaryField
-                label={t("bookingDetails.options.secondDriver")}
-                value={t(
-                  current.secondDriver
-                    ? "bookingDetails.options.yes"
-                    : "bookingDetails.options.no"
-                )}
-              />
-            </SummaryList>
+            <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5}>
+              {current.insurance ? (
+                <Chip
+                  size="small"
+                  label={`${t("bookingDetails.options.insurance")}: ${current.insurance}`}
+                  sx={{ height: 22, fontSize: "0.7rem" }}
+                />
+              ) : null}
+              {current.franchiseOrder != null && current.franchiseOrder !== "" ? (
+                <Chip
+                  size="small"
+                  label={`${t("bookingDetails.options.excess")}: ${current.franchiseOrder}`}
+                  sx={{ height: 22, fontSize: "0.7rem" }}
+                />
+              ) : null}
+              {current.ChildSeats != null && Number(current.ChildSeats) > 0 ? (
+                <Chip
+                  size="small"
+                  label={`${t("bookingDetails.options.childSeats")}: ${current.ChildSeats}`}
+                  sx={{ height: 22, fontSize: "0.7rem" }}
+                />
+              ) : null}
+              {current.secondDriver ? (
+                <Chip
+                  size="small"
+                  label={t("bookingDetails.options.secondDriver")}
+                  sx={{ height: 22, fontSize: "0.7rem" }}
+                />
+              ) : null}
+              {!current.insurance &&
+              (current.franchiseOrder == null || current.franchiseOrder === "") &&
+              !(current.ChildSeats != null && Number(current.ChildSeats) > 0) &&
+              !current.secondDriver ? (
+                <Typography variant="caption" color="text.secondary">
+                  —
+                </Typography>
+              ) : null}
+            </Stack>
           </SectionPanel>
 
           {view.customer ? (

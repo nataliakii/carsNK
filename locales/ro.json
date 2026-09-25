@@ -684,14 +684,17 @@
       "fleetCode": "Cod în flotă",
       "registration": "Număr de înmatriculare",
       "legacyNotice": "Această rezervare este anterioară instantaneelor de vehicul. Se afișează înregistrarea actuală din flotă, care poate diferi de cea convenită.",
-      "seatsShort": "{{count}} seats"
+      "seatsShort": "{{count}} seats",
+      "specsInfo": "Vehicle details"
     },
     "dates": {
       "pickup": "Data și ora preluării",
       "return": "Data și ora returnării",
       "days": "Zile de închiriere",
       "pickupLocation": "Locul preluării",
-      "returnLocation": "Locul returnării"
+      "returnLocation": "Locul returnării",
+      "pickupShort": "Pickup",
+      "returnShort": "Return"
     },
     "options": {
       "insurance": "Asigurare",

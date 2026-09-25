@@ -1137,14 +1137,17 @@
       "fleetCode": "Flottencode",
       "registration": "Kennzeichen",
       "legacyNotice": "Diese Buchung stammt aus der Zeit vor den Fahrzeug-Snapshots. Gezeigt wird der heutige Flotteneintrag, der vom Vereinbarten abweichen kann.",
-      "seatsShort": "{{count}} seats"
+      "seatsShort": "{{count}} seats",
+      "specsInfo": "Vehicle details"
     },
     "dates": {
       "pickup": "Abholdatum und -zeit",
       "return": "Rückgabedatum und -zeit",
       "days": "Miettage",
       "pickupLocation": "Abholort",
-      "returnLocation": "Rückgabeort"
+      "returnLocation": "Rückgabeort",
+      "pickupShort": "Pickup",
+      "returnShort": "Return"
     },
     "options": {
       "insurance": "Versicherung",

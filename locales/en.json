@@ -1957,6 +1957,7 @@
       "deposit": "Deposit",
       "fleetCode": "Fleet code",
       "registration": "Registration",
+      "specsInfo": "Vehicle details",
       "legacyNotice": "This booking predates vehicle snapshots. The fleet record is shown as it is today, which may differ from what was agreed."
     },
     "dates": {
@@ -1964,7 +1965,9 @@
       "return": "Return date and time",
       "days": "Rental days",
       "pickupLocation": "Pickup location",
-      "returnLocation": "Return location"
+      "returnLocation": "Return location",
+      "pickupShort": "Pickup",
+      "returnShort": "Return"
     },
     "options": {
       "insurance": "Insurance",
