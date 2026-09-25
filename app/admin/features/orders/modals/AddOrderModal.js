@@ -33,7 +33,15 @@ import BookingContactSection from "@/app/components/orders/BookingContactSection
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import { useSession } from "next-auth/react";
 import { useMainContext } from "@app/Context";
+import { useAdminViewAs } from "@/app/hooks/useAdminViewAs";
+import { COMPANY_ID } from "@config/company";
+import {
+  ORDER_CREATION_INTENT,
+  resolveCreationActorCompanyId,
+  resolveOrderCreationIntent,
+} from "@/domain/orders/orderCreationSourcePolicy";
 import { returnHoursToParseToDayjs } from "@/domain/calendar";
 import {
   addOrderNew,
@@ -86,6 +94,27 @@ const ChannelToggleRow = styled(Box)(({ theme }) => ({
   padding: theme.spacing(1, 0),
 }));
 
+/**
+ * Rovaro creating for somebody else is a different kind of order, so the form
+ * says so before the first field instead of leaving it to be discovered after
+ * the supplier gets a confirmation request.
+ */
+const PlatformRequestNotice = styled(Box)(({ theme }) => ({
+  display: "flex",
+  flexDirection: "column",
+  gap: theme.spacing(0.5),
+  margin: theme.spacing(1, 0),
+  padding: theme.spacing(1, 1.5),
+  borderRadius: theme.shape.borderRadius,
+  border: `1px solid ${theme.palette.primary.main}`,
+  backgroundColor: theme.palette.background.default,
+}));
+
+const NoticeTitle = styled(Typography)(({ theme }) => ({
+  fontWeight: theme.typography.fontWeightBold,
+  color: theme.palette.primary.main,
+}));
+
 /** The rental length and the editable total sit on one line, price to the right. */
 const PriceSummaryRow = styled(Box)(({ theme }) => ({
   display: "flex",
@@ -129,6 +158,26 @@ const CurrencySuffix = styled(Typography)(({ theme }) => ({
 const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
   const { fetchAndUpdateOrders, company, platform } =
     useMainContext();
+  const { data: session } = useSession();
+  const { isSuperAdmin, company: viewAsCompany, ready: viewAsReady } =
+    useAdminViewAs();
+  /**
+   * Mirrors the server rule so the form can label itself. The server decides
+   * again from its own session; this never travels in the payload.
+   */
+  const creationIntent = resolveOrderCreationIntent({
+    isAdminSession: true,
+    isSuperadminActor: isSuperAdmin && viewAsReady && !viewAsCompany,
+    actorCompanyId: resolveCreationActorCompanyId({
+      viewAsCompanyId: viewAsCompany?._id,
+      ownerId: session?.user?.ownerId,
+    }),
+    targetCompanyId: car?.ownerId,
+    platformCompanyId: COMPANY_ID,
+    requestedMyOrder: false,
+  });
+  const isPlatformRequestOnBehalf =
+    creationIntent === ORDER_CREATION_INTENT.SUPERADMIN_REQUEST_FOR_COMPANY;
   const TIME_ZONE = resolveBusinessTimezone({
     company,
     countryCode: company?.country || platform?.country,
@@ -184,6 +233,13 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
 
   const [bookDates, setBookedDates] = useState({ start: null, end: null });
   const [orderDetails, setOrderDetails] = useState(() => getInitialOrderDetails());
+  /**
+   * An offline internal record on another company's behalf is a contradiction
+   * once a Rovaro fee is charged on it, so the checkbox is absent there and the
+   * form never treats the order as offline.
+   */
+  const isOfflineRecord =
+    !isPlatformRequestOnBehalf && Boolean(orderDetails.offline);
   // Состояние для расчета стоимости
   const [daysAndTotal, setDaysAndTotal] = useState(() =>
     createEmptyBookingPriceSummary()
@@ -535,7 +591,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
       return false;
     }
 
-    const isOffline = Boolean(orderDetails.offline);
+    const isOffline = isOfflineRecord;
     const contactCheck = parseOrderCustomerContact({
       offline: isOffline,
       email: orderDetails.email,
@@ -625,7 +681,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
       placeOutDetail: String(orderDetails.placeOutDetail || "").trim(),
       confirmed: orderDetails.confirmed,
       my_order: orderDetails.my_order,
-      offline: Boolean(orderDetails.offline),
+      offline: isOfflineRecord,
       ChildSeats: orderDetails.ChildSeats,
       insurance: orderDetails.insurance,
       franchiseOrder: orderDetails.franchiseOrder,
@@ -807,20 +863,37 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
         )
       : daysAndTotal.days;
 
-  const renderOfflineToggle = () => (
-    <ChannelToggleRow>
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={Boolean(orderDetails.offline)}
-            onChange={toggleOfflineStatus}
-            size="small"
-          />
-        }
-        label={t("order.offline")}
-      />
-    </ChannelToggleRow>
-  );
+  const renderChannel = () => {
+    if (isPlatformRequestOnBehalf) {
+      return (
+        <PlatformRequestNotice>
+          <NoticeTitle variant="subtitle2">
+            {t("order.platformRequest.title")}
+          </NoticeTitle>
+          <Typography variant="body2" color="text.secondary">
+            {t("order.platformRequest.notice")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t("order.platformRequest.offlineUnavailable")}
+          </Typography>
+        </PlatformRequestNotice>
+      );
+    }
+    return (
+      <ChannelToggleRow>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={Boolean(orderDetails.offline)}
+              onChange={toggleOfflineStatus}
+              size="small"
+            />
+          }
+          label={t("order.offline")}
+        />
+      </ChannelToggleRow>
+    );
+  };
 
   const renderPickupGroup = () => (
     <FieldGroup title={t("order.sections.pickup")}>
@@ -985,7 +1058,10 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
   };
 
   // The total follows the fields that determine it instead of floating above
-  // them, and stays editable for the cases pricing cannot know about.
+  // them, and stays editable for the cases pricing cannot know about. A brokered
+  // platform request is not one of them: the booking fee the customer pays is a
+  // percentage of the quoted price, so a hand-typed total would be charged at
+  // one figure and invoiced at another. There it is shown, not offered.
   const renderPriceGroup = () => (
     <FieldGroup title={t("order.sections.price")}>
       {calcLoading ? (
@@ -1000,28 +1076,40 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
             <Typography variant="body1" color="text.secondary">
               {t("order.price")}
             </Typography>
-            <TotalPriceField
-              value={orderDetails.totalPrice}
-              onChange={(e) =>
-                handleFieldChange("totalPrice", Number(e.target.value))
-              }
-              type="number"
-              variant="outlined"
-              size="small"
-              placeholder="0"
-              inputProps={{
-                maxLength: 4,
-                inputMode: "numeric",
-                pattern: "[0-9]*",
-              }}
-              InputProps={{
-                endAdornment: (
-                  <CurrencySuffix component="span">€</CurrencySuffix>
-                ),
-              }}
-            />
+            {isPlatformRequestOnBehalf ? (
+              <PriceTag
+                value={`${orderDetails.totalPrice} €`}
+                emphasis
+              />
+            ) : (
+              <TotalPriceField
+                value={orderDetails.totalPrice}
+                onChange={(e) =>
+                  handleFieldChange("totalPrice", Number(e.target.value))
+                }
+                type="number"
+                variant="outlined"
+                size="small"
+                placeholder="0"
+                inputProps={{
+                  maxLength: 4,
+                  inputMode: "numeric",
+                  pattern: "[0-9]*",
+                }}
+                InputProps={{
+                  endAdornment: (
+                    <CurrencySuffix component="span">€</CurrencySuffix>
+                  ),
+                }}
+              />
+            )}
           </TotalPriceControl>
         </PriceSummaryRow>
+      )}
+      {isPlatformRequestOnBehalf && (
+        <Typography variant="caption" color="text.secondary">
+          {t("order.platformRequest.priceLocked")}
+        </Typography>
       )}
     </FieldGroup>
   );
@@ -1037,9 +1125,9 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
         disabled={loadingState}
         secondDriverPriceLabelValue={secondDriverPriceLabelValue}
         drivingLicenceEmphasized
-        nameRequired={!orderDetails.offline}
-        phoneRequired={!orderDetails.offline}
-        emailRequired={!orderDetails.offline}
+        nameRequired={!isOfflineRecord}
+        phoneRequired={!isOfflineRecord}
+        emailRequired={!isOfflineRecord}
       />
     </FieldGroup>
   );
@@ -1139,7 +1227,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
           )}
         </Typography>
 
-        {renderOfflineToggle()}
+        {renderChannel()}
 
         <FieldGroupStack>
           {renderPickupGroup()}
@@ -1165,7 +1253,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
               !bookDates.end ||
               !startTime ||
               !endTime ||
-              (!orderDetails.offline &&
+              (!isOfflineRecord &&
                 (!orderDetails.customerName || !orderDetails.phone))
             }
             label={t("order.CompleteBook")}

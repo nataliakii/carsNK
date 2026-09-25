@@ -8,8 +8,8 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import isBetween from "dayjs/plugin/isBetween";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@lib/authOptions";
+import { getServerSessionWithViewAs } from "@lib/adminAuth";
+import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import { setTimeToDatejs } from "@utils/analyzeDates";
 import { notifyOrderAction } from "@/domain/orders/orderNotificationDispatcher";
 import {
@@ -38,7 +38,11 @@ import { pickCompanyRentalTermsForLanguage } from "@/domain/company/customerRent
 import { buildBookingLegalSnapshot } from "@/domain/legal/bookingLegalSnapshot";
 import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
 import { resolveDocumentForDisplay } from "@/domain/legal/documentService";
-import { sourceForNewOrder, BOOKING_SOURCE } from "@/domain/admin/rovaroContractorAdmin";
+import { BOOKING_SOURCE } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  resolveCreationActorCompanyId,
+  resolveOrderCreationPolicy,
+} from "@/domain/orders/orderCreationSourcePolicy";
 import {
   canonicalizeBookingLocation,
   isAllowedBookingLocation,
@@ -83,7 +87,7 @@ import {
 } from "@/domain/orders/authoritativeLocationQuote";
 import { parseLocationQuoteInput } from "@/domain/orders/locationQuoteInput";
 import { orderFieldsFromSnapshot } from "@/domain/orders/locationSnapshot";
-import { BOOKING_MODES, isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 import { generatePublicBookingReference } from "@/domain/booking/publicBookingReference";
 import { bookingFinancialSnapshotFromQuote } from "@/domain/orders/bookingFinancialSnapshot";
 import {
@@ -514,52 +518,27 @@ async function postOrderAddHandler(request) {
     let createdByRole = 0; // default: regular admin role
     let createdByAdminId = null;
     
-    const session = await getServerSession(authOptions);
+    // View-as is applied here so a superadmin who entered a company creates that
+    // company's own records, not brokered requests addressed back to it.
+    const session = await getServerSessionWithViewAs(request);
+    let sessionRole = session?.user?.role;
     if (session?.user?.isAdmin) {
       // Admin is creating this order - fetch their role from User model
       const adminUser = await User.findOne({ username: session.user.name });
       if (adminUser) {
         createdByRole = Number(adminUser.role) === ROLE.SUPERADMIN ? 1 : 0;
         createdByAdminId = adminUser._id;
+        if (sessionRole == null) sessionRole = adminUser.role;
       }
     }
 
     const isAdminSession = session?.user?.isAdmin === true;
-    // Публичный POST /order/add без админ-сессии: всегда клиентский заказ и неподтверждённый.
-    // Иначе в JSON default my_order=false / подделка confirmed=true отключали уведомления CREATE.
-    const myOrderToSave = isAdminSession ? Boolean(my_order) : true;
-    const bookingSource = sourceForNewOrder({
-      isPublicRequest: !isAdminSession,
-      my_order: myOrderToSave,
-    });
-    const offlineToSave = isAdminSession ? Boolean(offline) : false;
-    const confirmedToSave = isAdminSession
-      ? Boolean(confirmed) || offlineToSave
-      : false;
-
-    // Public and admin customer orders require a valid email and phone.
-    // Offline calendar stubs may omit name/phone/email; a filled email must still be valid.
-    const contactResult = parseOrderCustomerContact({
-      offline: offlineToSave,
-      email,
-      phone,
-      customerName,
-    });
-    if (!contactResult.ok) {
-      return new Response(
-        JSON.stringify({
-          message: contactResult.message,
-          messageKey: contactResult.messageKey,
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-    const safeEmail = contactResult.email;
-    const normalizedPhone = contactResult.phone;
-    const customerNameToSave = contactResult.customerName;
+    const actorUser = session?.user
+      ? { ...session.user, role: sessionRole }
+      : null;
+    const isSuperadminActor =
+      isAdminSession && policyRoleFromUser(actorUser) === ROLE.SUPERADMIN;
+    const actorCompanyId = resolveCreationActorCompanyId(actorUser || {});
 
     const startDateSource = timeIn || rentalStartDate;
     const endDateSource = timeOut || rentalEndDate;
@@ -626,8 +605,6 @@ async function postOrderAddHandler(request) {
             : String(returnMethod || "").trim().toLowerCase() === "delivery"
               ? "delivery"
               : "";
-
-    const isCustomerSelfServiceBooking = myOrderToSave === true;
 
     // Find car: _id is always unique (MongoDB default index). Fallback: carNumber, then regNumber.
     let existingCar = null;
@@ -697,6 +674,81 @@ async function postOrderAddHandler(request) {
         );
       }
     }
+
+    const bookingCities = await loadCompanyBookingCities(ownerCompany);
+    const matchingCity =
+      bookingCities.find(
+        (city) =>
+          city?.name &&
+          typeof placeIn === "string" &&
+          city.name.toLowerCase() === String(placeIn).trim().toLowerCase()
+      ) || bookingCities[0] || null;
+
+    const rentalContext = resolveRentalBookingContext({
+      company: ownerCompany,
+      city: matchingCity,
+      countryCode: ownerCompany?.country || getSiteCountryCode(),
+      forNewOrder: true,
+    });
+    const { timezone, currency, countryCode } = rentalContext;
+
+    // THE decision: what is this order, and whose queue does it land in?
+    // Nothing below re-derives source, status or mode, and the payload's own
+    // `source` is not read at all.
+    const creation = resolveOrderCreationPolicy({
+      isAdminSession,
+      isSuperadminActor,
+      actorCompanyId,
+      targetCompanyId: ownerCompany?._id || existingCar.ownerId,
+      platformCompanyId: COMPANY_ID,
+      requestedMyOrder: my_order,
+      requestedOffline: offline,
+      requestedConfirmed: confirmed,
+      contextBookingMode: rentalContext.bookingMode,
+      contextBookingStatus: rentalContext.initialBookingStatus,
+    });
+    const bookingSource = creation.source;
+    const myOrderToSave = creation.myOrder;
+    const offlineToSave = creation.offline;
+    const confirmedToSave = creation.confirmed;
+    const bookingMode = creation.bookingMode;
+    const initialBookingStatus = creation.bookingStatus;
+    const isCustomerSelfServiceBooking = creation.customerSelfService;
+    if (creation.offlineIgnored) {
+      // The form hides the checkbox for this case, so reaching here means a
+      // stale tab or a hand-made payload asked for an offline internal record
+      // that would have carried a Rovaro fee.
+      console.warn("[ORDER-ADD] offline flag dropped", {
+        correlationId,
+        intent: creation.intent,
+        companyId: String(ownerCompany?._id || ""),
+        carId: String(existingCar?._id || ""),
+      });
+    }
+
+    // Public and admin customer orders require a valid email and phone.
+    // Offline calendar stubs may omit name/phone/email; a filled email must still be valid.
+    const contactResult = parseOrderCustomerContact({
+      offline: offlineToSave,
+      email,
+      phone,
+      customerName,
+    });
+    if (!contactResult.ok) {
+      return new Response(
+        JSON.stringify({
+          message: contactResult.message,
+          messageKey: contactResult.messageKey,
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+    const safeEmail = contactResult.email;
+    const normalizedPhone = contactResult.phone;
+    const customerNameToSave = contactResult.customerName;
 
     const clientLangEarly = normalizeLocale(clientLocale);
     let termsAcceptanceToSave;
@@ -780,30 +832,6 @@ async function postOrderAddHandler(request) {
             }
           : null,
       });
-    }
-
-    const bookingCities = await loadCompanyBookingCities(ownerCompany);
-    const matchingCity =
-      bookingCities.find(
-        (city) =>
-          city?.name &&
-          typeof placeIn === "string" &&
-          city.name.toLowerCase() === String(placeIn).trim().toLowerCase()
-      ) || bookingCities[0] || null;
-
-    const rentalContext = resolveRentalBookingContext({
-      company: ownerCompany,
-      city: matchingCity,
-      countryCode: ownerCompany?.country || getSiteCountryCode(),
-      forNewOrder: true,
-    });
-    const { timezone, currency, countryCode } = rentalContext;
-    // Company-calendar bookings are not Rovaro marketplace: no booking fee, no payouts.
-    let bookingMode = rentalContext.bookingMode;
-    let initialBookingStatus = rentalContext.initialBookingStatus;
-    if (!isCustomerSelfServiceBooking) {
-      bookingMode = BOOKING_MODES.OPS_CALENDAR;
-      initialBookingStatus = undefined;
     }
 
     const startDate = toBusinessDateTime(startDateSource, timezone);
@@ -1262,7 +1290,7 @@ async function postOrderAddHandler(request) {
     const total = quote.compatibility.rentalTotal;
     const deliveryTotal = quote.compatibility.deliveryTotal;
     const totalPriceToSave = resolveCreateTotalPrice({
-      isAdminSession,
+      isAdminSession: creation.trustsClientTotalPrice,
       clientTotalPrice: totalPriceFromClient,
       rentalTotal: total,
       deliveryTotal,
