@@ -3,7 +3,7 @@
 import React from "react";
 import { Box, Checkbox, FormControlLabel } from "@mui/material";
 import { useTranslation } from "react-i18next";
-import { BookingTextField } from "@/app/components/ui";
+import { BookingTextField, FieldRow } from "@/app/components/ui";
 import DrivingLicenceUploadField from "@/app/components/ui/inputs/DrivingLicenceUploadField";
 
 /**
@@ -91,14 +91,9 @@ export default function BookingContactSection({
         />
       </Box>
 
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "row",
-          gap: 2,
-          mb: 0,
-        }}
-      >
+      {/* Equal `minmax(0, 1fr)` columns: a long email address can no longer
+          push the row past the edge of the modal. */}
+      <FieldRow>
         <BookingTextField
           label={phoneLabel}
           name="phone"
@@ -108,7 +103,6 @@ export default function BookingContactSection({
           placeholder={t("order.phoneHint")}
           error={Boolean(errors?.phone)}
           helperText={errors?.phone}
-          sx={{ mb: 1, flex: 1, minHeight: 36 }}
         />
         <BookingTextField
           label={emailLabel}
@@ -119,28 +113,17 @@ export default function BookingContactSection({
           required={emailRequired}
           error={Boolean(errors?.email)}
           helperText={errors?.email}
-          sx={{ mb: 1, flex: 1, minHeight: 36 }}
         />
-      </Box>
+      </FieldRow>
 
-      <Box
-        sx={{
-          display: "flex",
-          gap: 2,
-          mt: 0.25,
-          mb: 0.5,
-          flexWrap: "nowrap",
-          overflowX: "auto",
-        }}
-      >
+      <FieldRow sx={{ mt: 1, mb: 0.5 }}>
         <Box
           sx={{
-            flex: 1,
-            minWidth: "fit-content",
+            minWidth: 0,
             display: "flex",
             alignItems: "center",
             gap: 0,
-            flexWrap: "nowrap",
+            flexWrap: "wrap",
             "& .MuiFormControlLabel-root": {
               flexShrink: 0,
               whiteSpace: "nowrap",
@@ -189,8 +172,7 @@ export default function BookingContactSection({
         </Box>
         <Box
           sx={{
-            flex: 1,
-            minWidth: "fit-content",
+            minWidth: 0,
             display: "flex",
             alignItems: "center",
             "& .MuiFormControlLabel-root": {
@@ -218,7 +200,7 @@ export default function BookingContactSection({
             })}
           />
         </Box>
-      </Box>
+      </FieldRow>
 
       {showDrivingLicenceUpload ? (
       <DrivingLicenceUploadField

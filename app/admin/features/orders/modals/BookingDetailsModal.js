@@ -25,7 +25,13 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 
-import { CollapsibleSection, SummaryField, SummaryList } from "@/app/components/ui";
+import {
+  CollapsibleSection,
+  FieldGroup,
+  FieldRow,
+  SummaryField,
+  SummaryList,
+} from "@/app/components/ui";
 import CopyableContact from "@/app/admin/features/orders/components/CopyableContact";
 import { buildBookingDetailsView } from "@/domain/booking/bookingDetailsView";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
@@ -95,28 +101,6 @@ const ContentColumn = styled(DialogContent)(({ theme }) => ({
   paddingBottom: BOOKING_DETAILS_FOOTER_CLEARANCE,
 }));
 
-const SectionsGrid = styled(Box)(({ theme }) => ({
-  display: "grid",
-  gridTemplateColumns: "1fr",
-  gap: theme.spacing(1.5),
-  width: "100%",
-  [theme.breakpoints.up(BOOKING_DETAILS_SECTION_GRID_BREAKPOINT)]: {
-    gridTemplateColumns: `repeat(${BOOKING_DETAILS_SECTION_GRID_COLUMNS}, minmax(0, 1fr))`,
-    gap: theme.spacing(2),
-  },
-}));
-
-const SectionPanel = styled(Box)(({ theme }) => ({
-  display: "flex",
-  flexDirection: "column",
-  gap: theme.spacing(0.5),
-  minWidth: 0,
-  padding: theme.spacing(1.5, 2),
-  borderRadius: theme.shape.borderRadius,
-  border: `1px solid ${theme.palette.divider}`,
-  backgroundColor: theme.palette.background.default,
-}));
-
 const GridFullWidth = styled(Box)({
   gridColumn: "1 / -1",
 });
@@ -129,11 +113,6 @@ const PriceLayout = styled(Box)(({ theme }) => ({
     gridTemplateColumns: "minmax(0, 1fr) minmax(0, max-content)",
     alignItems: "start",
   },
-}));
-
-const SectionTitle = styled(Typography)(({ theme }) => ({
-  fontWeight: theme.typography.fontWeightBold,
-  color: theme.palette.text.primary,
 }));
 
 const ReferenceText = styled(Typography)(({ theme }) => ({
@@ -530,6 +509,22 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
     </TotalRow>
   ) : null;
 
+  // Desktop puts it beside the breakdown and the sheet puts it underneath, so
+  // it is written once and placed twice.
+  const supplierPayout = price.payableToSupplierText ? (
+    <SupplierPayout data-testid="payable-to-supplier">
+      <Typography variant="subtitle2" color="text.secondary">
+        {t("bookingDetails.price.payableToSupplier")}
+      </Typography>
+      <SupplierPayoutAmount variant="h4" component="p">
+        {price.payableToSupplierText}
+      </SupplierPayoutAmount>
+      <Typography variant="body2" color="text.secondary">
+        {t("bookingDetails.price.payableToSupplierHint")}
+      </Typography>
+    </SupplierPayout>
+  ) : null;
+
   return (
     <Dialog
       open={open}
@@ -600,17 +595,20 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         {error && !dialog ? <Alert severity="error">{error}</Alert> : null}
         {notice ? <Alert severity="success">{notice}</Alert> : null}
 
-        <SectionsGrid>
+        <FieldRow
+          columns={BOOKING_DETAILS_SECTION_GRID_COLUMNS}
+          breakpoint={BOOKING_DETAILS_SECTION_GRID_BREAKPOINT}
+        >
           {showVehiclePanel ? (
             <GridFullWidth>
-              <SectionPanel data-testid="vehicle-snapshot">
-                <SectionTitle variant="subtitle2">
-                  {t(
-                    view.replacement
-                      ? "bookingDetails.replacement.originallyRequested"
-                      : "bookingDetails.sections.vehicle"
-                  )}
-                </SectionTitle>
+              <FieldGroup
+                data-testid="vehicle-snapshot"
+                title={t(
+                  view.replacement
+                    ? "bookingDetails.replacement.originallyRequested"
+                    : "bookingDetails.sections.vehicle"
+                )}
+              >
                 {view.vehicleIsLegacy ? (
                   <Alert severity="warning" data-testid="vehicle-legacy-notice">
                     {t("bookingDetails.vehicle.legacyNotice")}
@@ -696,14 +694,11 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                     ) : null}
                   </SummaryList>
                 </VehicleLayout>
-              </SectionPanel>
+              </FieldGroup>
             </GridFullWidth>
           ) : null}
 
-          <SectionPanel>
-            <SectionTitle variant="subtitle2">
-              {t("bookingDetails.sections.dates")}
-            </SectionTitle>
+          <FieldGroup title={t("bookingDetails.sections.dates")}>
             <SummaryList component="dl">
               <SummaryField
                 label={t("bookingDetails.dates.pickup")}
@@ -730,14 +725,14 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                   .join(" — ")}
               />
             </SummaryList>
-          </SectionPanel>
+          </FieldGroup>
 
           {view.replacement ? (
             <GridFullWidth>
-              <SectionPanel data-testid="replacement-proposal">
-                <SectionTitle variant="subtitle2">
-                  {t("bookingDetails.replacement.confirmedAs")}
-                </SectionTitle>
+              <FieldGroup
+                data-testid="replacement-proposal"
+                title={t("bookingDetails.replacement.confirmedAs")}
+              >
                 <SummaryList component="dl">
                   <SummaryField
                     label={t("bookingDetails.vehicle.requested")}
@@ -761,14 +756,11 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                     value={view.replacement.supplierMessage}
                   />
                 </SummaryList>
-              </SectionPanel>
+              </FieldGroup>
             </GridFullWidth>
           ) : null}
 
-          <SectionPanel>
-            <SectionTitle variant="subtitle2">
-              {t("bookingDetails.sections.options")}
-            </SectionTitle>
+          <FieldGroup title={t("bookingDetails.sections.options")}>
             <SummaryList component="dl">
               <SummaryField
                 label={t("bookingDetails.options.insurance")}
@@ -791,13 +783,10 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                 )}
               />
             </SummaryList>
-          </SectionPanel>
+          </FieldGroup>
 
           {view.customer ? (
-            <SectionPanel>
-              <SectionTitle variant="subtitle2">
-                {t("bookingDetails.sections.customer")}
-              </SectionTitle>
+            <FieldGroup title={t("bookingDetails.sections.customer")}>
               {view.platformSupportView ? (
                 <Alert severity="info">
                   {t("bookingDetails.platformSupportNotice")}
@@ -839,11 +828,13 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                   value={view.customer.notes}
                 />
               </SummaryList>
-            </SectionPanel>
+            </FieldGroup>
           ) : null}
 
           <GridFullWidth>
-            <SectionPanel>
+            <FieldGroup
+              title={isSheet ? undefined : t("bookingDetails.sections.price")}
+            >
               {isSheet ? (
                 <CollapsibleSection
                   title={t("bookingDetails.sections.price")}
@@ -857,54 +848,24 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               ) : (
                 <PriceLayout>
                   <Box>
-                    <SectionTitle variant="subtitle2">
-                      {t("bookingDetails.sections.price")}
-                    </SectionTitle>
                     {priceBreakdown}
                     {priceTotal}
                   </Box>
-                  {price.payableToSupplierText ? (
-                    <SupplierPayout data-testid="payable-to-supplier">
-                      <Typography variant="subtitle2" color="text.secondary">
-                        {t("bookingDetails.price.payableToSupplier")}
-                      </Typography>
-                      <SupplierPayoutAmount variant="h4" component="p">
-                        {price.payableToSupplierText}
-                      </SupplierPayoutAmount>
-                      <Typography variant="body2" color="text.secondary">
-                        {t("bookingDetails.price.payableToSupplierHint")}
-                      </Typography>
-                    </SupplierPayout>
-                  ) : null}
+                  {supplierPayout}
                 </PriceLayout>
               )}
               {isSheet ? (
                 <>
                   {priceTotal}
-                  {price.payableToSupplierText ? (
-                    <SupplierPayout data-testid="payable-to-supplier">
-                      <Typography variant="subtitle2" color="text.secondary">
-                        {t("bookingDetails.price.payableToSupplier")}
-                      </Typography>
-                      <SupplierPayoutAmount variant="h4" component="p">
-                        {price.payableToSupplierText}
-                      </SupplierPayoutAmount>
-                      <Typography variant="body2" color="text.secondary">
-                        {t("bookingDetails.price.payableToSupplierHint")}
-                      </Typography>
-                    </SupplierPayout>
-                  ) : null}
+                  {supplierPayout}
                 </>
               ) : null}
-            </SectionPanel>
+            </FieldGroup>
           </GridFullWidth>
 
           {view.showLicence ? (
             <GridFullWidth>
-              <SectionPanel>
-                <SectionTitle variant="subtitle2">
-                  {t("bookingDetails.sections.documents")}
-                </SectionTitle>
+              <FieldGroup title={t("bookingDetails.sections.documents")}>
                 <SummaryList component="dl">
                   <SummaryField
                     label={t("bookingDetails.documents.holder")}
@@ -930,10 +891,10 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                     alt={t("bookingDetails.documents.preview")}
                   />
                 ))}
-              </SectionPanel>
+              </FieldGroup>
             </GridFullWidth>
           ) : null}
-        </SectionsGrid>
+        </FieldRow>
       </ContentColumn>
 
       <StickyFooter>

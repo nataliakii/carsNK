@@ -13,6 +13,7 @@ import {
   MenuItem,
   IconButton,
 } from "@mui/material";
+import { styled } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
 import {
   ConfirmButton,
@@ -22,6 +23,10 @@ import {
   BookingTextField,
   BookingLocationAutocomplete,
   BookingFlightField,
+  FieldGroup,
+  FieldGroupStack,
+  FieldRow,
+  PriceTag,
 } from "@/app/components/ui";
 import BookingContactSection from "@/app/components/orders/BookingContactSection";
 
@@ -69,6 +74,57 @@ import {
 // Extend dayjs with plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
+
+/** Insurance and child seats pair up; the excess amount joins them for CDW. */
+const EXTRAS_COLUMNS = 2;
+const EXTRAS_COLUMNS_WITH_EXCESS = 3;
+
+/** The booking channel gates the whole form, so it stands above the groups. */
+const ChannelToggleRow = styled(Box)(({ theme }) => ({
+  display: "flex",
+  alignItems: "center",
+  padding: theme.spacing(1, 0),
+}));
+
+/** The rental length and the editable total sit on one line, price to the right. */
+const PriceSummaryRow = styled(Box)(({ theme }) => ({
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: theme.spacing(2),
+}));
+
+const TotalPriceControl = styled(Box)(({ theme }) => ({
+  display: "flex",
+  alignItems: "center",
+  gap: theme.spacing(1),
+}));
+
+const DaysCount = styled("span")(({ theme }) => ({
+  fontWeight: theme.typography.fontWeightBold,
+  color: theme.palette.primary.main,
+  marginInline: theme.spacing(0.5),
+}));
+
+const TotalPriceField = styled(TextField)(({ theme }) => ({
+  width: theme.spacing(14),
+  "& .MuiInputBase-input": {
+    color: theme.palette.error.main,
+    fontWeight: theme.typography.fontWeightBold,
+    fontSize: theme.typography.h5.fontSize,
+    textAlign: "right",
+  },
+  "& .MuiInputAdornment-root": {
+    marginLeft: 0,
+  },
+}));
+
+const CurrencySuffix = styled(Typography)(({ theme }) => ({
+  color: theme.palette.error.main,
+  fontWeight: theme.typography.fontWeightBold,
+  fontSize: theme.typography.h5.fontSize,
+}));
 
 const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
   const { fetchAndUpdateOrders, company, platform } =
@@ -695,223 +751,178 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
     );
   };
 
-  const renderDateTimeSection = () => {
-    // Handle pickup date change with validation
-    const handlePickupDateChange = (newStart) => {
-      const normalized = normalizeDate(newStart);
-      // Запрет выбора прошлой даты
-      if (normalized && dayjs(normalized).isBefore(dayjs(), "day")) {
-        return; // игнорируем недопустимый выбор
-      }
-      setBookedDates((dates) => {
-        if (!normalized) return { ...dates, start: normalized };
-        if (
-          dates.end &&
-          dayjs(dates.end).isSameOrBefore(dayjs(normalized), "day")
-        ) {
-          return {
-            start: normalized,
-            end: dayjs(normalized).add(1, "day").format("YYYY-MM-DD"),
-          };
-        }
-        return { ...dates, start: normalized };
-      });
-    };
-
-    // Handle return date change with validation
-    const handleReturnDateChange = (newEnd) => {
-      const normalized = normalizeDate(newEnd);
+  // Handle pickup date change with validation
+  const handlePickupDateChange = (newStart) => {
+    const normalized = normalizeDate(newStart);
+    // Запрет выбора прошлой даты
+    if (normalized && dayjs(normalized).isBefore(dayjs(), "day")) {
+      return; // игнорируем недопустимый выбор
+    }
+    setBookedDates((dates) => {
+      if (!normalized) return { ...dates, start: normalized };
       if (
-        bookDates.start &&
-        normalized &&
-        dayjs(normalized).isSameOrBefore(dayjs(bookDates.start), "day")
+        dates.end &&
+        dayjs(dates.end).isSameOrBefore(dayjs(normalized), "day")
       ) {
-        return;
+        return {
+          start: normalized,
+          end: dayjs(normalized).add(1, "day").format("YYYY-MM-DD"),
+        };
       }
-      setBookedDates((dates) => ({ ...dates, end: normalized }));
-    };
-
-    return (
-      <Box sx={{ mb: 2 }}>
-        {/* Date fields */}
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", sm: "row" },
-            gap: { xs: 1, sm: 2 },
-            mb: 1,
-          }}
-        >
-          <BookingEditableDateField
-            label={t("order.pickupDate")}
-            value={bookDates.start || ""}
-            onChange={(e) => handlePickupDateChange(e.target.value)}
-            sx={{ flex: 1 }}
-            inputProps={{ min: dayjs().format("YYYY-MM-DD") }}
-          />
-          <BookingEditableDateField
-            label={t("order.returnDate")}
-            value={bookDates.end || ""}
-            onChange={(e) => handleReturnDateChange(e.target.value)}
-            sx={{ flex: 1 }}
-            inputProps={{
-              min: bookDates.start
-                ? dayjs(bookDates.start).add(1, "day").format("YYYY-MM-DD")
-                : dayjs().format("YYYY-MM-DD"),
-            }}
-          />
-        </Box>
-        {/* Time fields */}
-        <Box sx={{ display: "flex", gap: 2, mb: 1 }}>
-          <BookingTimeField
-            label={t("order.pickupTime")}
-            value={startTime.format("HH:mm")}
-            onChange={(e) => handleStartTimeChange(e.target.value)}
-            sx={{ flex: 1 }}
-          />
-          <BookingTimeField
-            label={t("order.returnTime")}
-            value={endTime.format("HH:mm")}
-            onChange={(e) => handleEndTimeChange(e.target.value)}
-            sx={{ flex: 1 }}
-          />
-        </Box>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={Boolean(orderDetails.offline)}
-              onChange={toggleOfflineStatus}
-              size="small"
-            />
-          }
-          label={t("order.offline")}
-          sx={{ mb: 1, alignSelf: "flex-start" }}
-        />
-        {/* Location fields */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1 }}>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: { xs: "column", sm: "row" },
-              gap: { xs: 1, sm: 2 },
-              alignItems: "stretch",
-            }}
-          >
-            <Box
-              sx={{
-                flex: 1,
-                display: "flex",
-                flexDirection: { xs: "column", sm: "row" },
-                gap: { xs: 1, sm: 2 },
-                alignItems: "stretch",
-              }}
-            >
-              <BookingLocationAutocomplete
-                label={t("order.pickupLocation")}
-                options={locations}
-                dividerBeforeOption={LOCATION_DIVIDER_BEFORE}
-                value={orderDetails.placeIn || ""}
-                onChange={(_, newValue) =>
-                  handleFieldChange("placeIn", newValue || "")
-                }
-                onInputChange={(_, newInputValue) =>
-                  handleFieldChange("placeIn", newInputValue)
-                }
-                sx={{ flex: 1, minWidth: 0 }}
-                helperText={pickupDeliveryHelperText || undefined}
-              />
-              {requiresDetail(orderDetails.placeIn) && (
-                <BookingTextField
-                  label={t("order.thessalonikiHotelOrAddress")}
-                  value={orderDetails.placeInDetail || ""}
-                  onChange={(e) =>
-                    handleFieldChange("placeInDetail", e.target.value)
-                  }
-                  sx={{
-                    flex: { xs: 1, sm: 0.45 },
-                    minWidth: 0,
-                  }}
-                  InputLabelProps={{ shrink: true }}
-                />
-              )}
-            </Box>
-            <Box
-              sx={{
-                flex: 1,
-                display: "flex",
-                flexDirection: { xs: "column", sm: "row" },
-                gap: { xs: 1, sm: 2 },
-                alignItems: "stretch",
-              }}
-            >
-              <BookingLocationAutocomplete
-                label={t("order.returnLocation")}
-                options={locations}
-                dividerBeforeOption={LOCATION_DIVIDER_BEFORE}
-                value={orderDetails.placeOut || ""}
-                onChange={(_, newValue) =>
-                  handleFieldChange("placeOut", newValue || "")
-                }
-                onInputChange={(_, newInputValue) =>
-                  handleFieldChange("placeOut", newInputValue)
-                }
-                sx={{ flex: 1, minWidth: 0 }}
-                helperText={returnDeliveryHelperText || undefined}
-              />
-              {requiresDetail(orderDetails.placeOut) && (
-                <BookingTextField
-                  label={t("order.thessalonikiHotelOrAddress")}
-                  value={orderDetails.placeOutDetail || ""}
-                  onChange={(e) =>
-                    handleFieldChange("placeOutDetail", e.target.value)
-                  }
-                  sx={{
-                    flex: { xs: 1, sm: 0.45 },
-                    minWidth: 0,
-                  }}
-                  InputLabelProps={{ shrink: true }}
-                />
-              )}
-            </Box>
-          </Box>
-          {orderDetails.placeIn &&
-            orderDetails.placeIn.toLowerCase() === "airport" && (
-              <BookingFlightField
-                label={t("order.flightNumber")}
-                value={orderDetails.flightNumber || ""}
-                onChange={(e) =>
-                  handleFieldChange("flightNumber", e.target.value)
-                }
-                fullWidth
-              />
-            )}
-        </Box>
-      </Box>
-    );
+      return { ...dates, start: normalized };
+    });
   };
 
-  const renderCustomerSection = () => {
-    const insuranceOptions =
-      t("order.insuranceOptions", { returnObjects: true }) || [];
+  // Handle return date change with validation
+  const handleReturnDateChange = (newEnd) => {
+    const normalized = normalizeDate(newEnd);
+    if (
+      bookDates.start &&
+      normalized &&
+      dayjs(normalized).isSameOrBefore(dayjs(bookDates.start), "day")
+    ) {
+      return;
+    }
+    setBookedDates((dates) => ({ ...dates, end: normalized }));
+  };
+
+  const isAirportPickup =
+    String(orderDetails.placeIn || "").toLowerCase() === "airport";
+
+  // While the server figure is in flight the same minute-based rule is applied
+  // locally, so the length shown never contradicts the dates above it.
+  const summaryDays =
+    bookDates.start && bookDates.end
+      ? getBusinessRentalDaysByMinutes(
+          createBusinessDateTime(
+            bookDates.start,
+            formatTimeHHMM(dayjs(startTime)),
+            TIME_ZONE
+          ),
+          createBusinessDateTime(
+            bookDates.end,
+            formatTimeHHMM(dayjs(endTime)),
+            TIME_ZONE
+          )
+        )
+      : daysAndTotal.days;
+
+  const renderOfflineToggle = () => (
+    <ChannelToggleRow>
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={Boolean(orderDetails.offline)}
+            onChange={toggleOfflineStatus}
+            size="small"
+          />
+        }
+        label={t("order.offline")}
+      />
+    </ChannelToggleRow>
+  );
+
+  const renderPickupGroup = () => (
+    <FieldGroup title={t("order.sections.pickup")}>
+      <FieldRow>
+        <BookingEditableDateField
+          label={t("order.pickupDate")}
+          value={bookDates.start || ""}
+          onChange={(e) => handlePickupDateChange(e.target.value)}
+          inputProps={{ min: dayjs().format("YYYY-MM-DD") }}
+          fullWidth
+        />
+        <BookingTimeField
+          label={t("order.pickupTime")}
+          value={startTime.format("HH:mm")}
+          onChange={(e) => handleStartTimeChange(e.target.value)}
+          fullWidth
+        />
+      </FieldRow>
+      <BookingLocationAutocomplete
+        label={t("order.pickupLocation")}
+        options={locations}
+        dividerBeforeOption={LOCATION_DIVIDER_BEFORE}
+        value={orderDetails.placeIn || ""}
+        onChange={(_, newValue) => handleFieldChange("placeIn", newValue || "")}
+        onInputChange={(_, newInputValue) =>
+          handleFieldChange("placeIn", newInputValue)
+        }
+      />
+      {requiresDetail(orderDetails.placeIn) && (
+        <BookingTextField
+          label={t("order.thessalonikiHotelOrAddress")}
+          value={orderDetails.placeInDetail || ""}
+          onChange={(e) => handleFieldChange("placeInDetail", e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          autoComplete="off"
+        />
+      )}
+      {isAirportPickup && (
+        <BookingFlightField
+          label={t("order.flightNumber")}
+          value={orderDetails.flightNumber || ""}
+          onChange={(e) => handleFieldChange("flightNumber", e.target.value)}
+          fullWidth
+        />
+      )}
+      <PriceTag value={pickupDeliveryHelperText} />
+    </FieldGroup>
+  );
+
+  const renderReturnGroup = () => (
+    <FieldGroup title={t("order.sections.return")}>
+      <FieldRow>
+        <BookingEditableDateField
+          label={t("order.returnDate")}
+          value={bookDates.end || ""}
+          onChange={(e) => handleReturnDateChange(e.target.value)}
+          inputProps={{
+            min: bookDates.start
+              ? dayjs(bookDates.start).add(1, "day").format("YYYY-MM-DD")
+              : dayjs().format("YYYY-MM-DD"),
+          }}
+          fullWidth
+        />
+        <BookingTimeField
+          label={t("order.returnTime")}
+          value={endTime.format("HH:mm")}
+          onChange={(e) => handleEndTimeChange(e.target.value)}
+          fullWidth
+        />
+      </FieldRow>
+      <BookingLocationAutocomplete
+        label={t("order.returnLocation")}
+        options={locations}
+        dividerBeforeOption={LOCATION_DIVIDER_BEFORE}
+        value={orderDetails.placeOut || ""}
+        onChange={(_, newValue) => handleFieldChange("placeOut", newValue || "")}
+        onInputChange={(_, newInputValue) =>
+          handleFieldChange("placeOut", newInputValue)
+        }
+      />
+      {requiresDetail(orderDetails.placeOut) && (
+        <BookingTextField
+          label={t("order.thessalonikiHotelOrAddress")}
+          value={orderDetails.placeOutDetail || ""}
+          onChange={(e) => handleFieldChange("placeOutDetail", e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          autoComplete="off"
+        />
+      )}
+      <PriceTag value={returnDeliveryHelperText} />
+    </FieldGroup>
+  );
+
+  const renderExtrasGroup = () => {
+    const withExcess = orderDetails.insurance === "CDW";
 
     return (
-      <Box sx={{ mb: 2, mt: 0 }}>
-        {/* Страховка и детские кресла — адаптивно */}
-        <Box sx={{ 
-          display: "flex", 
-          flexDirection: { xs: "column", sm: "row" },
-          gap: { xs: 1, sm: 2 }, 
-          mb: 1
-        }}>
-          <FormControl
-            fullWidth
-            sx={{
-              width: { 
-                xs: "100%", 
-                sm: orderDetails.insurance === "TPL" ? "49%" : "30%" 
-              },
-            }}
-          >
+      <FieldGroup title={t("order.sections.extras")}>
+        <FieldRow
+          columns={withExcess ? EXTRAS_COLUMNS_WITH_EXCESS : EXTRAS_COLUMNS}
+        >
+          <FormControl fullWidth>
             <InputLabel>{t("order.insurance")}</InputLabel>
             <Select
               label={t("order.insurance")}
@@ -930,22 +941,20 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
               })()}
             </Select>
           </FormControl>
-          {orderDetails.insurance === "CDW" && (
-            <Box sx={{ width: "16%" }}>
-              <RenderTextField
-                name="franchiseOrder"
-                label={t("car.franchise") || "Франшиза заказа"}
-                type="number"
-                updatedCar={orderDetails}
-                handleChange={(e) =>
-                  handleFieldChange("franchiseOrder", Number(e.target.value))
-                }
-                isLoading={false}
-                sx={{ mb: 0 }}
-              />
-            </Box>
+          {withExcess && (
+            <RenderTextField
+              name="franchiseOrder"
+              label={t("car.franchise") || "Франшиза заказа"}
+              type="number"
+              updatedCar={orderDetails}
+              handleChange={(e) =>
+                handleFieldChange("franchiseOrder", Number(e.target.value))
+              }
+              isLoading={false}
+              sx={{ mb: 0 }}
+            />
           )}
-          <FormControl fullWidth sx={{ width: { xs: "100%", sm: "49%" } }}>
+          <FormControl fullWidth>
             <InputLabel>
               {t("order.childSeats")}{" "}
               {car?.PriceChildSeats ?? 0}
@@ -970,23 +979,70 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
               ))}
             </Select>
           </FormControl>
-        </Box>
-        {/* Customer fields (shared component for admin/client modals) */}
-        <BookingContactSection
-          mode="admin"
-          values={orderDetails}
-          onFieldChange={handleFieldChange}
-          rentalStartDate={bookDates.start || ""}
-          disabled={loadingState}
-          secondDriverPriceLabelValue={secondDriverPriceLabelValue}
-          drivingLicenceEmphasized
-          nameRequired={!orderDetails.offline}
-          phoneRequired={!orderDetails.offline}
-          emailRequired={!orderDetails.offline}
-        />
-      </Box>
+        </FieldRow>
+      </FieldGroup>
     );
   };
+
+  // The total follows the fields that determine it instead of floating above
+  // them, and stays editable for the cases pricing cannot know about.
+  const renderPriceGroup = () => (
+    <FieldGroup title={t("order.sections.price")}>
+      {calcLoading ? (
+        <Typography variant="body1">{t("order.calculating")}</Typography>
+      ) : (
+        <PriceSummaryRow>
+          <Typography variant="body1">
+            {t("order.daysNumber", { count: summaryDays })}
+            <DaysCount>{summaryDays}</DaysCount>
+          </Typography>
+          <TotalPriceControl>
+            <Typography variant="body1" color="text.secondary">
+              {t("order.price")}
+            </Typography>
+            <TotalPriceField
+              value={orderDetails.totalPrice}
+              onChange={(e) =>
+                handleFieldChange("totalPrice", Number(e.target.value))
+              }
+              type="number"
+              variant="outlined"
+              size="small"
+              placeholder="0"
+              inputProps={{
+                maxLength: 4,
+                inputMode: "numeric",
+                pattern: "[0-9]*",
+              }}
+              InputProps={{
+                endAdornment: (
+                  <CurrencySuffix component="span">€</CurrencySuffix>
+                ),
+              }}
+            />
+          </TotalPriceControl>
+        </PriceSummaryRow>
+      )}
+    </FieldGroup>
+  );
+
+  /* Customer fields (shared component for admin/client modals) */
+  const renderCustomerGroup = () => (
+    <FieldGroup title={t("order.sections.customer")}>
+      <BookingContactSection
+        mode="admin"
+        values={orderDetails}
+        onFieldChange={handleFieldChange}
+        rentalStartDate={bookDates.start || ""}
+        disabled={loadingState}
+        secondDriverPriceLabelValue={secondDriverPriceLabelValue}
+        drivingLicenceEmphasized
+        nameRequired={!orderDetails.offline}
+        phoneRequired={!orderDetails.offline}
+        emailRequired={!orderDetails.offline}
+      />
+    </FieldGroup>
+  );
 
   return (
     <>
@@ -1083,129 +1139,15 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
           )}
         </Typography>
 
-        {/* Количество дней и общая стоимость */}
-        <Box
-          sx={{
-            mb: 2,
-            mt: 1,
-            fontWeight: 400,
-            fontSize: "1.05rem",
-            color: "text.primary",
-            display: "flex",
-            gap: 2,
-            alignItems: "center",
-          }}
-        >
-          {calcLoading ? (
-            t("order.calculating")
-          ) : (
-            <>
-              <Typography
-                variant="body1"
-                component="span"
-                sx={{ fontWeight: 400, color: "black" }}
-              >
-                {(() => {
-                  let days = daysAndTotal.days;
-                  if (bookDates.start && bookDates.end) {
-                    const fallbackStart = createBusinessDateTime(
-                      bookDates.start,
-                      formatTimeHHMM(dayjs(startTime)),
-                      TIME_ZONE
-                    );
-                    const fallbackEnd = createBusinessDateTime(
-                      bookDates.end,
-                      formatTimeHHMM(dayjs(endTime)),
-                      TIME_ZONE
-                    );
-                    days = getBusinessRentalDaysByMinutes(
-                      fallbackStart,
-                      fallbackEnd
-                    );
-                  }
-                  return (
-                    <>
-                      {t("order.daysNumber", { count: days })}
-                      <Box
-                        component="span"
-                        sx={{
-                          fontWeight: "bold",
-                          color: "primary.main",
-                          mx: 0.5,
-                        }}
-                      >
-                        {days}
-                      </Box>
-                      | {t("order.price")}
-                    </>
-                  );
-                })()}
-              </Typography>
-              <TextField
-                value={orderDetails.totalPrice}
-                onChange={(e) =>
-                  handleFieldChange("totalPrice", Number(e.target.value))
-                }
-                type="number"
-                variant="outlined"
-                margin="dense"
-                inputProps={{
-                  style: {
-                    fontWeight: 700,
-                    fontSize: 18,
-                    textAlign: "right",
-                    letterSpacing: 1,
-                    color: "error.main",
-                    paddingRight: 0,
-                  },
-                  maxLength: 4,
-                  inputMode: "numeric",
-                  pattern: "[0-9]*",
-                  size: 6,
-                }}
-                sx={{
-                  ml: 1,
-                  mt: 0,
-                  mb: 1,
-                  width: "115px",
-                  "& .MuiInputBase-input": {
-                    padding: "8px 8px 8px 12px",
-                    width: "6ch",
-                    boxSizing: "content-box",
-                    color: "error.main",
-                    fontSize: 18,
-                  },
-                  "& .MuiInputAdornment-root": {
-                    marginLeft: 0,
-                    marginRight: 0,
-                  },
-                }}
-                placeholder="0"
-                InputProps={{
-                  endAdornment: (
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 18,
-                        marginLeft: 0,
-                        marginRight: "-8px",
-                        paddingLeft: 0,
-                        paddingRight: 0,
-                        letterSpacing: 0,
-                        color: "error.main",
-                        display: "inline-block",
-                      }}
-                    >
-                      €
-                    </span>
-                  ),
-                }}
-              />
-            </>
-          )}
-        </Box>
-        {renderDateTimeSection()}
-        {renderCustomerSection()}
+        {renderOfflineToggle()}
+
+        <FieldGroupStack>
+          {renderPickupGroup()}
+          {renderReturnGroup()}
+          {renderExtrasGroup()}
+          {renderPriceGroup()}
+          {renderCustomerGroup()}
+        </FieldGroupStack>
 
         {renderStatusMessage()}
 

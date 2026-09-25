@@ -6,7 +6,7 @@ import { Box, Typography } from "@mui/material";
 
 import { BOOKING_DETAILS_LABEL_COLUMN } from "@/domain/admin/bookingDetailsLayout";
 
-const FieldRow = styled(Box)(({ theme }) => ({
+const SummaryRow = styled(Box)(({ theme }) => ({
   display: "grid",
   gridTemplateColumns: "1fr",
   gap: theme.spacing(0.25),
@@ -45,14 +45,14 @@ const SummaryField = ({ label, value, strong = false, children }) => {
   const hasValue = children != null || (value != null && value !== "");
   if (!hasValue) return null;
   return (
-    <FieldRow component="div">
+    <SummaryRow component="div">
       <FieldLabel variant="body2" component="dt">
         {label}
       </FieldLabel>
       <FieldValue variant="body2" component="dd" strong={strong ? 1 : 0}>
         {children ?? value}
       </FieldValue>
-    </FieldRow>
+    </SummaryRow>
   );
 };
 
