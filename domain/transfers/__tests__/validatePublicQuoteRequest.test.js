@@ -21,14 +21,19 @@ describe("validatePublicQuoteRequest", () => {
     expect(result.payload.country).toBe("GR");
   });
 
-  test("accepts ES and rejects unknown countries", () => {
+  test("accepts the resolved market and rejects every other country", () => {
     expect(
-      validatePublicQuoteRequest({
-        from: "BCN",
-        to: "Sitges",
-        country: "ES",
-      }).ok
+      validatePublicQuoteRequest(
+        { from: "BCN", to: "Sitges", country: "ES" },
+        { marketCountry: "ES" }
+      ).ok
     ).toBe(true);
+    expect(
+      validatePublicQuoteRequest(
+        { from: "BCN", to: "Sitges", country: "ES" },
+        { marketCountry: "GR" }
+      ).ok
+    ).toBe(false);
     expect(
       validatePublicQuoteRequest({
         from: "JFK",

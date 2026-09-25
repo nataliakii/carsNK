@@ -6,6 +6,7 @@ import {
   createTransferOrder,
   omitUntrustedTransferMetrics,
 } from "@/domain/transfers/createTransferOrder";
+import { resolveMarketCountry } from "@/domain/platform/marketCountry";
 import { BRAND } from "@config/brand";
 import { formatMinor } from "@/domain/money/minorUnits";
 import {
@@ -70,7 +71,9 @@ export async function POST(request) {
       transferRateLimitOptions()
     );
     if (limited) return json(limited.body, limited.status);
-    const result = await createTransferOrder(safePayload);
+    const result = await createTransferOrder(safePayload, {
+      marketCountry: resolveMarketCountry(request),
+    });
     if (!result.ok) {
       return json(
         { success: false, message: result.message, code: result.code },

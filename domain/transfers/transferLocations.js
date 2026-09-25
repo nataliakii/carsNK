@@ -1,71 +1,53 @@
-import locations from "@/data/delivery-locations.json";
 import {
   COUNTRY_CODES,
   getCountryPreset,
   getSiteCountryCode,
 } from "@config/siteCountry";
+import { resolveMarketCountry } from "@/domain/platform/marketCountry";
+import {
+  curatedDistanceKmForMarket,
+  curatedTransferLocationsForMarket,
+} from "@/domain/transfers/marketTransferLocations";
 
 /**
- * Curated Halkidiki / Thessaloniki transfer points (shared with delivery zones seed).
+ * Curated transfer points for one market. Never a global list: the market is
+ * resolved from the deployment when the caller does not name one.
+ *
+ * @param {string} [marketCountry]
  * @returns {{ name: string, distanceKm?: number }[]}
  */
-export function getTransferLocationOptions() {
-  const names = new Set();
-  const list = [];
-  for (const row of locations) {
-    const name = String(row?.name || "").trim();
-    if (!name || names.has(name)) continue;
-    names.add(name);
-    list.push({
-      name,
-      distanceKm:
-        typeof row.distanceKm === "number" && Number.isFinite(row.distanceKm)
-          ? row.distanceKm
-          : undefined,
-    });
-  }
-  return list.sort((a, b) => a.name.localeCompare(b.name, "en"));
-}
-
-function normalizePlaceKey(name) {
-  return String(name || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
+export function getTransferLocationOptions(marketCountry) {
+  return curatedTransferLocationsForMarket(
+    marketCountry || resolveMarketCountry()
+  );
 }
 
 /**
- * Look up curated distance-from-base (km) for a place name.
+ * Look up curated distance-from-base (km) for a place name, within one market.
  * @param {string} placeName
+ * @param {string} [marketCountry]
  * @returns {number | null}
  */
-export function getCuratedDistanceKm(placeName) {
-  const key = normalizePlaceKey(placeName);
-  if (!key) return null;
-  let soft = null;
-  for (const row of locations) {
-    const name = normalizePlaceKey(row?.name);
-    if (!name) continue;
-    const km = Number.isFinite(row.distanceKm) ? Number(row.distanceKm) : null;
-    if (km == null) continue;
-    if (name === key) return km;
-    if (soft == null && (key.includes(name) || name.includes(key))) {
-      soft = km;
-    }
-  }
-  return soft;
+export function getCuratedDistanceKm(placeName, marketCountry) {
+  return curatedDistanceKmForMarket(
+    placeName,
+    marketCountry || resolveMarketCountry()
+  );
 }
 
 /**
  * Rough A→B km from curated hub distances when Google Maps is unavailable.
- * Assumes distanceKm is from the same base (airport / Nea Kallikratia area).
+ * Assumes distanceKm is from the same base (airport / Nea Kallikratia area),
+ * so it only answers for markets that carry curated distances.
  *
  * @param {string} from
  * @param {string} to
+ * @param {string} [marketCountry]
  */
-export function estimateTransferDistanceFromCatalog(from, to) {
-  const dFrom = getCuratedDistanceKm(from);
-  const dTo = getCuratedDistanceKm(to);
+export function estimateTransferDistanceFromCatalog(from, to, marketCountry) {
+  const market = marketCountry || resolveMarketCountry();
+  const dFrom = getCuratedDistanceKm(from, market);
+  const dTo = getCuratedDistanceKm(to, market);
   if (dFrom == null || dTo == null) {
     return {
       ok: false,

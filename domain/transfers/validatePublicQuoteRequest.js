@@ -1,4 +1,11 @@
-import { COUNTRY_CODES, getSiteCountryCode } from "@config/siteCountry";
+import {
+  normalizeMarketCountry,
+  resolveMarketCountry,
+} from "@/domain/platform/marketCountry";
+import {
+  assertTransferPlacesInMarket,
+  OUT_OF_MARKET_CODE,
+} from "@/domain/transfers/marketTransferLocations";
 import { omitUntrustedTransferMetrics } from "@/domain/transfers/createTransferOrder";
 
 export const QUOTE_MAX_PLACE_LEN = 200;
@@ -43,20 +50,24 @@ export function assertValidCoordinates(latRaw, lngRaw, label) {
   return { ok: true, lat, lng };
 }
 
-function allowedCountry(raw) {
-  const code = String(raw || "")
-    .trim()
-    .toUpperCase();
-  if (!code) return getSiteCountryCode();
-  if (!COUNTRY_CODES.includes(code)) return null;
-  return code;
+/** Only this deployment's market is quotable; anything else is refused. */
+function allowedCountry(raw, marketCountry) {
+  const code = String(raw || "").trim();
+  if (!code) return marketCountry;
+  return normalizeMarketCountry(code) === marketCountry ? marketCountry : null;
 }
 
 /**
  * Validate and normalise a public transfer-quote body.
- * Drops client distance/price. Does not call Google.
+ * Drops client distance/price and pins the request to one market.
+ * Does not call Google.
+ *
+ * @param {object} raw
+ * @param {{ marketCountry?: string }} [context]
  */
-export function validatePublicQuoteRequest(raw = {}) {
+export function validatePublicQuoteRequest(raw = {}, context = {}) {
+  const marketCountry =
+    normalizeMarketCountry(context.marketCountry) || resolveMarketCountry();
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return { ok: false, message: "Invalid JSON" };
   }
@@ -77,10 +88,23 @@ export function validatePublicQuoteRequest(raw = {}) {
   }
 
   const country = allowedCountry(
-    payload.country || payload.origin?.country || payload.destination?.country
+    payload.country || payload.origin?.country || payload.destination?.country,
+    marketCountry
   );
   if (!country) {
     return { ok: false, message: "Unsupported country" };
+  }
+
+  const placeCheck = assertTransferPlacesInMarket(
+    { ...payload, from, to },
+    marketCountry
+  );
+  if (!placeCheck.ok) {
+    return {
+      ok: false,
+      code: OUT_OF_MARKET_CODE,
+      message: placeCheck.message,
+    };
   }
 
   const originCoords = assertValidCoordinates(
@@ -97,10 +121,10 @@ export function validatePublicQuoteRequest(raw = {}) {
   if (!destCoords.ok) return destCoords;
 
   const originCountry = payload.origin?.country
-    ? allowedCountry(payload.origin.country)
+    ? allowedCountry(payload.origin.country, marketCountry)
     : country;
   const destCountry = payload.destination?.country
-    ? allowedCountry(payload.destination.country)
+    ? allowedCountry(payload.destination.country, marketCountry)
     : country;
   if (!originCountry || !destCountry) {
     return { ok: false, message: "Unsupported country" };

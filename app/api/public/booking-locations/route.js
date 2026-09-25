@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import { connectToDB } from "@lib/database";
 import Company from "@models/company";
 import { resolveCompanyBookingCoverage } from "@/domain/orders/companyBookingCoverage";
+import { isCompanyInSiteCountry } from "@/domain/platform/companyCountryScope";
+import { resolveMarketCountry } from "@/domain/platform/marketCountry";
 import PlatformCity from "@models/platformCity";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +32,8 @@ export async function GET(request) {
         "name cityIds locations coords orderRadiusKm country offices deliveryPricing serviceAreas updatedAt"
       )
       .lean();
-    if (!company) {
+    // A supplier from another market must not publish its pickup points here.
+    if (!company || !isCompanyInSiteCountry(company, resolveMarketCountry(request))) {
       return NextResponse.json(
         { success: false, message: "Company not found" },
         { status: 404 }

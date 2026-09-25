@@ -18,10 +18,23 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { styled } from "@mui/material/styles";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
 import { useTranslation } from "react-i18next";
+import {
+  fetchTransferLocations,
+  requestTransferQuote,
+  submitTransferRequest,
+  TRANSFER_ERROR,
+} from "@app/actions/transfers";
+import { getCountryPreset, getSiteCountryCode } from "@config/siteCountry";
 import { formatMinor } from "@/domain/money/minorUnits";
 import { parseRequiredCustomerEmail } from "@/domain/validation/customerEmail";
+
+const UnavailableNotice = styled(Typography)(({ theme }) => ({
+  color: theme.palette.text.secondary,
+  paddingBlock: theme.spacing(1),
+}));
 
 export default function TransferRequestModal({
   open,
@@ -32,6 +45,7 @@ export default function TransferRequestModal({
   const { t, i18n } = useTranslation();
   const [locations, setLocations] = useState([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
+  const [locationsLoaded, setLocationsLoaded] = useState(false);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [pickupCity, setPickupCity] = useState("");
@@ -56,7 +70,9 @@ export default function TransferRequestModal({
   const [customerFirstName, setCustomerFirstName] = useState("");
   const [customerLastName, setCustomerLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [phoneCountryCode, setPhoneCountryCode] = useState("+30");
+  const [phoneCountryCode, setPhoneCountryCode] = useState(
+    () => `+${getCountryPreset(getSiteCountryCode()).callingCode}`
+  );
   const [email, setEmail] = useState("");
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
@@ -131,22 +147,16 @@ export default function TransferRequestModal({
   }, [open, initialFrom, initialTo]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     let cancelled = false;
-    (async () => {
-      setLocationsLoading(true);
-      try {
-        const res = await fetch("/api/transfers/locations");
-        const body = await res.json();
-        if (!cancelled && body.success) {
-          setLocations((body.items || []).map((item) => item.name));
-        }
-      } catch {
-        /* freeSolo still works */
-      } finally {
-        if (!cancelled) setLocationsLoading(false);
-      }
-    })();
+    setLocationsLoading(true);
+    setLocationsLoaded(false);
+    fetchTransferLocations().then((result) => {
+      if (cancelled) return;
+      setLocations(result.names);
+      setLocationsLoaded(true);
+      setLocationsLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -175,6 +185,14 @@ export default function TransferRequestModal({
         notes: type,
       }));
 
+  const describeError = useCallback(
+    (result) =>
+      result?.code === TRANSFER_ERROR.OUT_OF_MARKET
+        ? t("transfer.outOfMarket")
+        : result?.message || t("transfer.submitError"),
+    [t]
+  );
+
   const fetchQuote = useCallback(async () => {
     if (!from || !to || !datetime) {
       setQuote(null);
@@ -182,50 +200,45 @@ export default function TransferRequestModal({
     }
     setQuoteLoading(true);
     try {
-      const res = await fetch("/api/transfers/quote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from,
-          to,
-          pickupCity,
-          destinationCity,
-          origin: {
-            placeName: from,
-            city: pickupCity,
-            hotelName: hotelName || undefined,
-            locationType: /airport/i.test(from) || flightNumber ? "airport" : undefined,
-          },
-          destination: {
-            placeName: to,
-            city: destinationCity,
-            hotelName: hotelName || undefined,
-          },
-          datetime,
-          adults: Number(adults) || 1,
-          children: buildChildren(),
-          standardSuitcases: Number(standardSuitcases) || 0,
-          cabinBags: Number(cabinBags) || 0,
-          oversizedLuggage: Number(oversizedLuggage) || 0,
-          childSeats: Number(childSeats) || 0,
-          boosterSeats: Number(boosterSeats) || 0,
-          specialLuggage: buildSpecialLuggage(),
-          flightNumber,
-          accessibilityRequirements,
-          returnRequested,
-        }),
+      const result = await requestTransferQuote({
+        from,
+        to,
+        pickupCity,
+        destinationCity,
+        origin: {
+          placeName: from,
+          city: pickupCity,
+          hotelName: hotelName || undefined,
+          locationType: /airport/i.test(from) || flightNumber ? "airport" : undefined,
+        },
+        destination: {
+          placeName: to,
+          city: destinationCity,
+          hotelName: hotelName || undefined,
+        },
+        datetime,
+        adults: Number(adults) || 1,
+        children: buildChildren(),
+        standardSuitcases: Number(standardSuitcases) || 0,
+        cabinBags: Number(cabinBags) || 0,
+        oversizedLuggage: Number(oversizedLuggage) || 0,
+        childSeats: Number(childSeats) || 0,
+        boosterSeats: Number(boosterSeats) || 0,
+        specialLuggage: buildSpecialLuggage(),
+        flightNumber,
+        accessibilityRequirements,
+        returnRequested,
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || !body.success) {
+      if (!result.ok) {
         setQuote(null);
-        setError(body.message || t("transfer.submitError"));
+        setError(describeError(result));
         return;
       }
       setError("");
-      setQuote(body.quote);
-      setDistanceKm(body.route?.distanceKm ?? body.quote?.distanceKm ?? null);
+      setQuote(result.quote);
+      setDistanceKm(result.route?.distanceKm ?? result.quote?.distanceKm ?? null);
       setDurationMinutes(
-        body.route?.durationMinutes ?? body.quote?.durationMinutes ?? null
+        result.route?.durationMinutes ?? result.quote?.durationMinutes ?? null
       );
     } catch {
       setQuote(null);
@@ -234,6 +247,7 @@ export default function TransferRequestModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    describeError,
     from,
     to,
     pickupCity,
@@ -279,66 +293,65 @@ export default function TransferRequestModal({
     }
     setLoading(true);
     try {
-      const response = await fetch("/api/transfers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from,
-          to,
-          pickupCity,
-          destinationCity,
-          origin: {
-            placeName: from,
-            city: pickupCity,
-            hotelName: hotelName || undefined,
-            locationType:
-              /airport/i.test(from) || flightNumber ? "airport" : "address",
-          },
-          destination: {
-            placeName: to,
-            city: destinationCity,
-            hotelName: hotelName || undefined,
-          },
-          adults: Number(adults) || 1,
-          children: buildChildren(),
-          standardSuitcases: Number(standardSuitcases) || 0,
-          cabinBags: Number(cabinBags) || 0,
-          oversizedLuggage: Number(oversizedLuggage) || 0,
-          childSeats: Number(childSeats) || 0,
-          boosterSeats: Number(boosterSeats) || 0,
-          specialLuggage: buildSpecialLuggage(),
-          datetime,
-          flightNumber,
-          flightArrivalTime,
-          hotelName,
-          signText,
-          notes,
-          accessibilityRequirements,
-          returnRequested,
-          customerFirstName,
-          customerLastName,
-          customerName: [customerFirstName, customerLastName]
-            .filter(Boolean)
-            .join(" "),
-          phone,
-          phoneCountryCode,
-          email: emailCheck.email,
-          preferredLanguage: i18n.language || "",
-          locale: i18n.language || "",
-        }),
+      const result = await submitTransferRequest({
+        from,
+        to,
+        pickupCity,
+        destinationCity,
+        origin: {
+          placeName: from,
+          city: pickupCity,
+          hotelName: hotelName || undefined,
+          locationType:
+            /airport/i.test(from) || flightNumber ? "airport" : "address",
+        },
+        destination: {
+          placeName: to,
+          city: destinationCity,
+          hotelName: hotelName || undefined,
+        },
+        adults: Number(adults) || 1,
+        children: buildChildren(),
+        standardSuitcases: Number(standardSuitcases) || 0,
+        cabinBags: Number(cabinBags) || 0,
+        oversizedLuggage: Number(oversizedLuggage) || 0,
+        childSeats: Number(childSeats) || 0,
+        boosterSeats: Number(boosterSeats) || 0,
+        specialLuggage: buildSpecialLuggage(),
+        datetime,
+        flightNumber,
+        flightArrivalTime,
+        hotelName,
+        signText,
+        notes,
+        accessibilityRequirements,
+        returnRequested,
+        customerFirstName,
+        customerLastName,
+        customerName: [customerFirstName, customerLastName]
+          .filter(Boolean)
+          .join(" "),
+        phone,
+        phoneCountryCode,
+        email: emailCheck.email,
+        preferredLanguage: i18n.language || "",
+        locale: i18n.language || "",
       });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok || !body.success) {
-        throw new Error(body.message || t("transfer.submitError"));
+      if (!result.ok) {
+        setError(describeError(result));
+        return;
       }
       setSuccessQuote(pickSuccessQuote());
       setSuccess(true);
-    } catch (err) {
-      setError(err.message || t("transfer.submitError"));
+    } catch {
+      setError(t("transfer.submitError"));
     } finally {
       setLoading(false);
     }
   };
+
+  // No market catalog means no transfers here — never another market's list.
+  const locationsUnavailable = locationsLoaded && locations.length === 0;
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
@@ -365,6 +378,11 @@ export default function TransferRequestModal({
             onSubmit={handleSubmit}
             sx={{ display: "flex", flexDirection: "column", gap: 1.5, pt: 1 }}
           >
+            {locationsUnavailable && (
+              <UnavailableNotice variant="body2">
+                {t("transfer.locationsUnavailable")}
+              </UnavailableNotice>
+            )}
             <Autocomplete
               freeSolo
               options={locations}
@@ -649,7 +667,7 @@ export default function TransferRequestModal({
             type="submit"
             form="transfer-request-form"
             variant="contained"
-            disabled={loading}
+            disabled={loading || locationsUnavailable}
           >
             {loading ? t("transfer.sending") : t("transfer.submit")}
           </Button>

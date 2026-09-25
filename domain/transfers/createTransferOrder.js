@@ -8,8 +8,16 @@ import { COMPANY_ID } from "@config/company";
 import { buildLocationSnapshot } from "@/domain/transfers/locationSnapshot";
 import { calculateTransferQuote } from "@/domain/transfers/pricingEngine";
 import { getTransferBaseDistances } from "@/domain/transfers/getTransferDistance";
-import { getSiteCountryCode } from "@config/siteCountry";
 import { getSiteCountryConfig } from "@config/siteCountry";
+import {
+  normalizeMarketCountry,
+  resolveMarketCountry,
+} from "@/domain/platform/marketCountry";
+import {
+  assertTransferPlacesInMarket,
+  OUT_OF_MARKET_CODE,
+  outOfMarketMessage,
+} from "@/domain/transfers/marketTransferLocations";
 import { parseRequiredCustomerEmail } from "@/domain/validation/customerEmail";
 
 /**
@@ -33,9 +41,13 @@ export function omitUntrustedTransferMetrics(payload) {
 }
 
 /**
- * Create a transfer order with server-side quote (never trust browser distance/price).
+ * Create a transfer order with server-side quote (never trust browser
+ * distance/price) inside one market (never trust the browser's country).
+ *
+ * @param {object} rawPayload
+ * @param {{ marketCountry?: string }} [context]
  */
-export async function createTransferOrder(rawPayload = {}) {
+export async function createTransferOrder(rawPayload = {}, context = {}) {
   const payload = omitUntrustedTransferMetrics(rawPayload);
   const from = String(payload?.from || payload?.origin?.placeName || "").trim();
   const to = String(payload?.to || payload?.destination?.placeName || "").trim();
@@ -82,17 +94,39 @@ export async function createTransferOrder(rawPayload = {}) {
     return { ok: false, message: "datetime is required", status: 400 };
   }
 
-  const country = String(
-    payload?.country || payload?.origin?.country || getSiteCountryCode()
-  )
-    .trim()
-    .toUpperCase();
+  // The market is the deployment's, never the submitter's.
+  const country =
+    normalizeMarketCountry(context.marketCountry) || resolveMarketCountry();
+  const claimedCountry = String(
+    payload?.country ||
+      payload?.origin?.country ||
+      payload?.destination?.country ||
+      ""
+  ).trim();
+  if (claimedCountry && normalizeMarketCountry(claimedCountry) !== country) {
+    return {
+      ok: false,
+      code: OUT_OF_MARKET_CODE,
+      message: outOfMarketMessage(claimedCountry, country),
+      status: 422,
+    };
+  }
+
+  const placeCheck = assertTransferPlacesInMarket(payload, country);
+  if (!placeCheck.ok) {
+    return {
+      ok: false,
+      code: placeCheck.code,
+      message: placeCheck.message,
+      status: 422,
+    };
+  }
 
   const origin = buildLocationSnapshot({
     ...(payload.origin || {}),
     placeName: payload.origin?.placeName || from,
     rawInput: from,
-    country: payload.origin?.country || country,
+    country,
     city: payload.origin?.city || payload.pickupCity || "",
     locationType: payload.origin?.locationType,
     iataCode: payload.origin?.iataCode,
@@ -102,7 +136,7 @@ export async function createTransferOrder(rawPayload = {}) {
     ...(payload.destination || {}),
     placeName: payload.destination?.placeName || to,
     rawInput: to,
-    country: payload.destination?.country || country,
+    country,
     city: payload.destination?.city || payload.destinationCity || "",
     locationType: payload.destination?.locationType,
     hotelName: payload.destination?.hotelName,
@@ -287,19 +321,22 @@ export async function createTransferOrder(rawPayload = {}) {
 }
 
 /**
- * Public quote preview — no persistence.
+ * Quote preview — no persistence.
+ *
+ * Public callers must pass a payload already scoped by
+ * validatePublicQuoteRequest; admin callers may quote any served market.
+ *
  * @param {object} payload
- * @param {{ includeInternal?: boolean }} [opts]
+ * @param {{ includeInternal?: boolean, marketCountry?: string }} [opts]
  */
 export async function previewTransferQuote(
   payload = {},
-  { includeInternal = false } = {}
+  { includeInternal = false, marketCountry } = {}
 ) {
-  const country = String(
-    payload?.country || payload?.origin?.country || getSiteCountryCode()
-  )
-    .trim()
-    .toUpperCase();
+  const country =
+    normalizeMarketCountry(marketCountry) ||
+    normalizeMarketCountry(payload?.country || payload?.origin?.country) ||
+    resolveMarketCountry();
   const from = String(payload?.from || payload?.origin?.placeName || "").trim();
   const to = String(payload?.to || payload?.destination?.placeName || "").trim();
   const origin = buildLocationSnapshot({
