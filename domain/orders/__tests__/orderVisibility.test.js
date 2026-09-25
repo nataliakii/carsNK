@@ -52,6 +52,47 @@ describe("customer identity before the Booking Fee", () => {
     expect(visible.hasDrivingLicence).toBe(true);
   });
 
+  test("reveals identity when bookingStatus is BOOKING_CONFIRMED even without payment field", () => {
+    const paidStage = marketplace({
+      bookingStatus: "BOOKING_CONFIRMED",
+      payment: undefined,
+    });
+    expect(companyMustHideCustomerIdentity(paidStage)).toBe(false);
+    const visible = applyVisibilityToOrder(paidStage, companyAdmin);
+    expect(visible.customerName).toBe("Ana Lopez");
+    expect(visible.email).toBe("ana@example.com");
+    expect(visible.phone).toBe("+34600000000");
+  });
+
+  test("reveals identity for platform BOOKING_CONFIRMED even without marketplace bookingMode", () => {
+    const paidStage = {
+      my_order: true,
+      source: "PLATFORM",
+      bookingStatus: "BOOKING_CONFIRMED",
+      customerName: "Ana Lopez",
+      email: "ana@example.com",
+      phone: "+34600000000",
+      confirmed: false,
+      payment: { status: "pending" },
+    };
+    expect(companyMustHideCustomerIdentity(paidStage)).toBe(false);
+    const visible = applyVisibilityToOrder(paidStage, companyAdmin);
+    expect(visible.customerName).toBe("Ana Lopez");
+    expect(visible.email).toBe("ana@example.com");
+  });
+
+  test("keeps masking while awaiting customer payment", () => {
+    const awaiting = marketplace({
+      bookingStatus: "PAYMENT_PROCESSING",
+      payment: { status: "pending" },
+      confirmed: false,
+    });
+    expect(companyMustHideCustomerIdentity(awaiting)).toBe(true);
+    const visible = applyVisibilityToOrder(awaiting, companyAdmin);
+    expect(visible.customerName).toBe(maskCustomerName("Ana Lopez"));
+    expect(visible.email).toBeUndefined();
+  });
+
   test("does not hide an internal booking because marketplace mode is set", () => {
     const visible = applyVisibilityToOrder(
       {

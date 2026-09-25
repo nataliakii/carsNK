@@ -40,6 +40,10 @@ function fail(code, message) {
 /**
  * Hard guarantees for a replacement known before payment.
  * Dates and pickup/return are copied from the booking; a different proposal is rejected.
+ *
+ * GUARANTEED_CLASS: supplier only acknowledges same/higher class, same
+ * transmission, same/lower price. Specs are taken from the original booking
+ * unless the proposal overrides them.
  */
 export function evaluateEquivalentReplacement({ original, proposal } = {}) {
   const source = text(proposal?.replacementSource);
@@ -54,26 +58,61 @@ export function evaluateEquivalentReplacement({ original, proposal } = {}) {
     return fail("hidden_surcharge", "A replacement cannot add a surcharge.");
   }
 
+  let effective = proposal || {};
+  if (source === REPLACEMENT_SOURCE.GUARANTEED_CLASS) {
+    if (proposal?.guaranteeAck !== true) {
+      return fail(
+        "guarantee_ack_required",
+        "Confirm that the replacement keeps the same class, transmission and price ceiling."
+      );
+    }
+    effective = {
+      ...proposal,
+      category:
+        text(proposal?.category || proposal?.class) ||
+        text(original?.category || original?.class),
+      class:
+        text(proposal?.class || proposal?.category) ||
+        text(original?.class || original?.category),
+      transmission:
+        text(proposal?.transmission) || text(original?.transmission),
+      seats:
+        proposal?.seats != null && proposal?.seats !== ""
+          ? proposal.seats
+          : original?.seats,
+      luggage:
+        proposal?.luggage != null && proposal?.luggage !== ""
+          ? proposal.luggage
+          : original?.luggage,
+      totalPrice:
+        proposal?.totalPrice != null && proposal?.totalPrice !== ""
+          ? proposal.totalPrice
+          : original?.totalPrice ?? original?.price,
+      model:
+        text(proposal?.model) || "Guaranteed same or higher class",
+    };
+  }
+
   const originalClass = classRank(original?.category || original?.class);
-  const nextClass = classRank(proposal?.category || proposal?.class);
+  const nextClass = classRank(effective?.category || effective?.class);
   if (originalClass == null || nextClass == null || nextClass < originalClass) {
     return fail("category_downgrade", "The replacement class must be the same or higher.");
   }
 
   const originalTransmission = text(original?.transmission).toLowerCase();
-  const nextTransmission = text(proposal?.transmission).toLowerCase();
+  const nextTransmission = text(effective?.transmission).toLowerCase();
   if (!originalTransmission || !nextTransmission || originalTransmission !== nextTransmission) {
     return fail("transmission_mismatch", "The replacement must have the same transmission.");
   }
 
   const originalSeats = Number(original?.seats);
-  const nextSeats = Number(proposal?.seats);
+  const nextSeats = Number(effective?.seats);
   if (!Number.isFinite(originalSeats) || !Number.isFinite(nextSeats) || nextSeats < originalSeats) {
     return fail("seats_downgrade", "The replacement must have at least as many seats.");
   }
 
   const originalLuggage = Number(original?.luggage);
-  const nextLuggage = Number(proposal?.luggage);
+  const nextLuggage = Number(effective?.luggage);
   if (
     Number.isFinite(originalLuggage) &&
     Number.isFinite(nextLuggage) &&
@@ -83,28 +122,32 @@ export function evaluateEquivalentReplacement({ original, proposal } = {}) {
   }
 
   const originalPrice = money(original?.totalPrice ?? original?.price);
-  const nextPrice = money(proposal?.totalPrice ?? proposal?.price);
+  const nextPrice = money(effective?.totalPrice ?? effective?.price);
   if (originalPrice == null || nextPrice == null || nextPrice > originalPrice) {
     return fail("price_increase", "The total rental price must not exceed the price already shown.");
   }
 
   if (
-    proposal?.rentalStartDate &&
-    !sameTime(proposal.rentalStartDate, original?.rentalStartDate)
+    effective?.rentalStartDate &&
+    !sameTime(effective.rentalStartDate, original?.rentalStartDate)
   ) {
     return fail("dates_changed", "Pickup and return dates must stay the same.");
   }
-  if (proposal?.rentalEndDate && !sameTime(proposal.rentalEndDate, original?.rentalEndDate)) {
+  if (effective?.rentalEndDate && !sameTime(effective.rentalEndDate, original?.rentalEndDate)) {
     return fail("dates_changed", "Pickup and return dates must stay the same.");
   }
-  if (proposal?.placeIn && text(proposal.placeIn) !== text(original?.placeIn)) {
+  if (effective?.placeIn && text(effective.placeIn) !== text(original?.placeIn)) {
     return fail("location_changed", "Pickup and return locations must stay the same.");
   }
-  if (proposal?.placeOut && text(proposal.placeOut) !== text(original?.placeOut)) {
+  if (effective?.placeOut && text(effective.placeOut) !== text(original?.placeOut)) {
     return fail("location_changed", "Pickup and return locations must stay the same.");
   }
 
-  const snapshot = buildReplacementProposalSnapshot({ original, proposal, source });
+  const snapshot = buildReplacementProposalSnapshot({
+    original,
+    proposal: effective,
+    source,
+  });
   return { ok: true, snapshot };
 }
 

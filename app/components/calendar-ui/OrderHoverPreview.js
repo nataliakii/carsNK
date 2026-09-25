@@ -10,7 +10,9 @@ import { getOrderColor } from "@/domain/orders/getOrderColor";
 import {
   contractorCalendarDetailKey,
   hasCalendarProblem,
+  isInternalBooking,
 } from "@/domain/admin/rovaroContractorAdmin";
+import { normalizeCompanyTags } from "@/domain/orders/companyInternalMeta";
 
 const cardEnter = keyframes`
   from {
@@ -177,6 +179,64 @@ export default function OrderHoverPreview({ order, conflictHint = false }) {
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
         {detailLabel}
       </Typography>
+
+      {isInternalBooking(order) &&
+      normalizeCompanyTags(order.companyTags).length > 0 ? (
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 0.4,
+            mb: 0.5,
+          }}
+        >
+          {normalizeCompanyTags(order.companyTags)
+            .slice(0, 4)
+            .map((tag) => (
+              <Box
+                key={tag}
+                component="span"
+                sx={{
+                  px: 0.55,
+                  py: 0.1,
+                  borderRadius: "4px",
+                  fontSize: "0.625rem",
+                  fontWeight: 600,
+                  lineHeight: 1.3,
+                  bgcolor: "action.hover",
+                  color: "text.secondary",
+                  maxWidth: 100,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={tag}
+              >
+                {tag}
+              </Box>
+            ))}
+        </Box>
+      ) : null}
+
+      {isInternalBooking(order) &&
+      String(order.companyNotes || "").trim() ? (
+        <Typography
+          variant="caption"
+          sx={{
+            display: "block",
+            fontSize: "0.6875rem",
+            color: "text.secondary",
+            lineHeight: 1.3,
+            mb: 0.5,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={String(order.companyNotes).trim()}
+        >
+          {String(order.companyNotes).trim()}
+        </Typography>
+      ) : null}
 
       <Typography
         variant="body2"

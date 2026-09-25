@@ -50,7 +50,9 @@ describe("GET /api/order/refetch/[orderId]", () => {
     });
     getServerSession.mockResolvedValue(companySession());
     Order.findById.mockReturnValue({
-      lean: jest.fn().mockResolvedValue(order()),
+      populate: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue(order()),
+      }),
     });
   });
 
@@ -86,9 +88,15 @@ describe("GET /api/order/refetch/[orderId]", () => {
 
   test("paid booking keeps contacts for the owning company", async () => {
     Order.findById.mockReturnValue({
-      lean: jest.fn().mockResolvedValue(
-        order({ payment: { status: "paid" }, bookingStatus: "BOOKING_CONFIRMED", confirmed: true })
-      ),
+      populate: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue(
+          order({
+            payment: { status: "paid" },
+            bookingStatus: "BOOKING_CONFIRMED",
+            confirmed: true,
+          })
+        ),
+      }),
     });
     const res = await GET(new Request("https://rovaro.autos/api/order/refetch/" + ORDER_ID), {
       params: { orderId: ORDER_ID },

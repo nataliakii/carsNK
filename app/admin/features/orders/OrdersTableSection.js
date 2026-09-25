@@ -77,11 +77,12 @@ import {
 import {
   contractorOrderMoneyRow,
   contractorTableStatusLabelKey,
-  contractorSupplierResponseCopy,
   isInternalBooking,
   isPlatformBooking,
   matchesBookingSourceFilter,
   buildContractorOrdersExport,
+  PLATFORM_WORKFLOW_STAGE,
+  resolvePlatformWorkflowStage,
 } from "@/domain/admin/rovaroContractorAdmin";
 import { extractArraysOfStartEndConfPending } from "@/domain/calendar";
 import EditOrderModal from "@/app/admin/features/orders/modals/EditOrderModal";
@@ -97,8 +98,8 @@ import { isPast } from "@utils/businessTime";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { isPlatformAdminUser, policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import SupplierResponseCell from "@/app/admin/features/orders/components/SupplierResponseCell";
+import { orderRequiresCompanyAction } from "@/domain/orders/companyRentalActions";
 import OrdersFinancialSummary from "@/app/admin/features/orders/components/OrdersFinancialSummary";
-import CustomerConfirmationCell from "@/app/admin/features/orders/components/CustomerConfirmationCell";
 
 function browserSearchString() {
   if (typeof window === "undefined") return "";
@@ -195,7 +196,7 @@ export default function OrdersTableSection() {
   const [companies, setCompanies] = useState([]);
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
   /** Status + source + car + pickup + return + customer + price + fee + due + supplier + customer confirmation (+ company). */
-  const tableColCount = isPlatformAdmin ? 12 : 11;
+  const tableColCount = isPlatformAdmin ? 11 : 9;
 
   // ─────────────────────────────────────────────────────────────
   // CONFLICT STATE (persistent, per-order)
@@ -667,9 +668,16 @@ export default function OrdersTableSection() {
         if (String(oid || "") !== String(selectedOwnerId)) return false;
       }
 
-      // 2. Status filter (confirmed/pending)
-      if (statusFilter === "confirmed" && !order.confirmed) return false;
-      if (statusFilter === "pending" && order.confirmed) return false;
+      // 2. Status filter (legacy confirmed/pending, or table status label key)
+      if (statusFilter && statusFilter !== "all") {
+        if (statusFilter === "confirmed") {
+          if (!order.confirmed) return false;
+        } else if (statusFilter === "pending") {
+          if (order.confirmed) return false;
+        } else if (contractorTableStatusLabelKey(order) !== statusFilter) {
+          return false;
+        }
+      }
 
       if (!matchesBookingSourceFilter(order, originFilter)) return false;
 
@@ -801,6 +809,62 @@ export default function OrdersTableSection() {
     setter(value);
     setPage(0);
   }, []);
+
+  const handleStatusChipClick = useCallback(
+    (e, statusKey) => {
+      e?.stopPropagation?.();
+      if (!statusKey) return;
+      setStatusFilter((prev) => (prev === statusKey ? "all" : statusKey));
+      setPage(0);
+    },
+    []
+  );
+
+  const statusFilterOptions = useMemo(
+    () => [
+      { value: "all", label: t("table.all") },
+      { value: "table.toneNewRequest", label: t("table.toneNewRequest", { defaultValue: "New request" }) },
+      {
+        value: "table.toneAwaitingPayment",
+        label: t("table.toneAwaitingPayment", { defaultValue: "Awaiting payment" }),
+      },
+      {
+        value: "table.toneConfirmedPaid",
+        label: t("table.toneConfirmedPaid", { defaultValue: "Confirmed" }),
+      },
+      {
+        value: "table.toneAlternative",
+        label: t("table.toneAlternative", { defaultValue: "Alternative offered" }),
+      },
+      {
+        value: "table.toneCompletionPending",
+        label: t("table.toneCompletionPending", { defaultValue: "Completion pending" }),
+      },
+      { value: "table.toneCompleted", label: t("table.toneCompleted", { defaultValue: "Completed" }) },
+      { value: "table.toneDeclined", label: t("table.toneDeclined", { defaultValue: "Declined" }) },
+      { value: "table.toneExpired", label: t("table.toneExpired", { defaultValue: "Payment expired" }) },
+      { value: "table.toneCancelled", label: t("table.toneCancelled", { defaultValue: "Cancelled" }) },
+      {
+        value: "table.internalTentative",
+        label: t("table.internalTentative", { defaultValue: "Tentative" }),
+      },
+      {
+        value: "table.internalConfirmed",
+        label: t("table.internalConfirmed", { defaultValue: "Confirmed" }),
+      },
+      {
+        value: "table.internalCompleted",
+        label: t("table.internalCompleted", { defaultValue: "Completed" }),
+      },
+      {
+        value: "table.internalCancelled",
+        label: t("table.internalCancelled", { defaultValue: "Cancelled" }),
+      },
+      { value: "confirmed", label: t("table.confirmed") },
+      { value: "pending", label: t("table.pending") },
+    ],
+    [t]
+  );
   
   // ─────────────────────────────────────────────────────────────
   // INLINE EDITING HANDLERS
@@ -1337,7 +1401,9 @@ export default function OrdersTableSection() {
         ...(isPlatformAdmin ? [t("table.company")] : []),
         t("table.orderNumber", { defaultValue: "Order #" }),
         t("table.price", { defaultValue: "Rental total" }),
-        t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" }),
+        ...(isPlatformAdmin
+          ? [t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })]
+          : []),
         t("table.dueToCompany", { defaultValue: "Due to company" }),
       ];
       const rows = filteredOrders.map((order, index) => {
@@ -1352,19 +1418,25 @@ export default function OrdersTableSection() {
         ...(isPlatformAdmin ? [resolveOrderCompanyName(order)] : []),
         row.orderNumber,
         row.rentalTotal,
-        row.bookingFee,
+        ...(isPlatformAdmin ? [row.bookingFee] : []),
         row.dueToCompany,
       ];
       });
       const blank = Array(headers.length).fill("");
       const platformRow = [...blank];
       platformRow[0] = t("table.rovaroBookingsTitle", { defaultValue: "Rovaro bookings" });
-      platformRow[headers.length - 3] = exported.totals.platformBookingValue;
-      platformRow[headers.length - 2] = exported.totals.rovaroBookingFees;
-      platformRow[headers.length - 1] = exported.totals.supplierPlatformAmount;
+      if (isPlatformAdmin) {
+        platformRow[headers.length - 3] = exported.totals.platformBookingValue;
+        platformRow[headers.length - 2] = exported.totals.rovaroBookingFees;
+        platformRow[headers.length - 1] = exported.totals.supplierPlatformAmount;
+      } else {
+        platformRow[headers.length - 2] = exported.totals.platformBookingValue;
+        platformRow[headers.length - 1] = exported.totals.supplierPlatformAmount;
+      }
       const internalRow = [...blank];
       internalRow[0] = t("table.internalBookingsTitle", { defaultValue: "Internal bookings" });
-      internalRow[headers.length - 3] = exported.totals.internalBookingValue;
+      internalRow[headers.length - (isPlatformAdmin ? 3 : 2)] =
+        exported.totals.internalBookingValue;
       const aoa = [headers, ...rows, platformRow, internalRow];
       const stamp = dayjs().tz(ATHENS_TZ).format("YYYY-MM-DD_HH-mm");
       await downloadOrdersTableXlsx(aoa, {
@@ -1388,97 +1460,78 @@ export default function OrdersTableSection() {
   // RENDER
   // ─────────────────────────────────────────────────────────────
   return (
-    <Box sx={{ px: { xs: 1, md: 2 }, pb: 6, pt: { xs: 2, md: 2 } }}>
-      {/* Page Title */}
-      <Typography 
-        variant="h4" 
-        sx={{ 
-          mb: 3, 
-          fontWeight: 700,
-          color: palette.neutral.gray900,
-        }}
-      >
-        {t("table.ordersTable")}
-      </Typography>
-
-      {/* Filters Toolbar */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          p: 2, 
-          mb: 2, 
+    <Box sx={{ px: { xs: 1, md: 2 }, pb: 6, pt: { xs: 1, md: 1.25 } }}>
+      {/* Filters toolbar — no page title; the table itself is the page */}
+      <Paper
+        elevation={0}
+        sx={{
+          px: 1.25,
+          py: 1,
+          mb: 1.5,
           border: `1px solid ${palette.neutral.gray200}`,
           borderRadius: 2,
         }}
       >
-        <Stack spacing={2}>
-          {/* First Row: Car, Date Range */}
-          <Stack 
-            direction={{ xs: "column", md: "row" }} 
-            spacing={2}
-            alignItems={{ xs: "stretch", md: "flex-end" }}
-            flexWrap="wrap"
-          >
-            {/* Car Filter */}
-            <Autocomplete
-              value={selectedCar}
-              onChange={(e, newValue) => handleFilterChange(setSelectedCar)(newValue)}
-              options={carOptions}
-              getOptionLabel={(option) => option.label || ""}
-              isOptionEqualToValue={(option, value) => option._id === value?._id}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label={t("table.filterByCar")}
-                  size="small"
-                  InputProps={{
-                    ...params.InputProps,
-                    startAdornment: (
-                      <>
-                        <FilterIcon sx={{ color: palette.neutral.gray500, mr: 1 }} fontSize="small" />
-                        {params.InputProps.startAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-              sx={{ minWidth: 250, flex: 1 }}
-              clearOnEscape
-            />
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 1,
+            rowGap: 1,
+          }}
+        >
+          <Autocomplete
+            value={selectedCar}
+            onChange={(e, newValue) => handleFilterChange(setSelectedCar)(newValue)}
+            options={carOptions}
+            getOptionLabel={(option) => option.label || ""}
+            isOptionEqualToValue={(option, value) => option._id === value?._id}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={t("table.filterByCar")}
+                size="small"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <FilterIcon
+                        sx={{ color: palette.neutral.gray500, mr: 0.5 }}
+                        fontSize="small"
+                      />
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            sx={{ minWidth: { xs: "100%", sm: 200 }, maxWidth: { md: 280 }, flex: "1 1 200px" }}
+            clearOnEscape
+          />
 
-            {/* Date From */}
-            <TextField
-              type="date"
-              label={t("table.dateFrom")}
-              value={dateFrom}
-              onChange={(e) => handleFilterChange(setDateFrom)(e.target.value)}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 150 }}
-            />
+          <TextField
+            type="date"
+            label={t("table.dateFrom")}
+            value={dateFrom}
+            onChange={(e) => handleFilterChange(setDateFrom)(e.target.value)}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 148 }}
+          />
 
-            {/* Date To */}
-            <TextField
-              type="date"
-              label={t("table.dateTo")}
-              value={dateTo}
-              onChange={(e) => handleFilterChange(setDateTo)(e.target.value)}
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 150 }}
-            />
-          </Stack>
+          <TextField
+            type="date"
+            label={t("table.dateTo")}
+            value={dateTo}
+            onChange={(e) => handleFilterChange(setDateTo)(e.target.value)}
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 148 }}
+          />
 
-          {/* Second Row: Status, Origin, Search, Actions */}
-          <Stack 
-            direction={{ xs: "column", sm: "row" }} 
-            spacing={2}
-            alignItems={{ xs: "stretch", sm: "center" }}
-            flexWrap="wrap"
-          >
-            {/* Company / owner filter */}
-            {showSuperAdminFilters ? (
-            <FormControl size="small" sx={{ minWidth: 180 }}>
+          {showSuperAdminFilters ? (
+            <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Company</InputLabel>
               <Select
                 value={selectedOwnerId}
@@ -1495,114 +1548,150 @@ export default function OrdersTableSection() {
                 ))}
               </Select>
             </FormControl>
-            ) : null}
+          ) : null}
 
-            {/* Status Filter */}
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>{t("table.filterByStatus")}</InputLabel>
-              <Select
-                value={statusFilter}
-                onChange={(e) => handleFilterChange(setStatusFilter)(e.target.value)}
-                label={t("table.filterByStatus")}
-              >
-                <MenuItem value="all">{t("table.all")}</MenuItem>
-                <MenuItem value="confirmed">{t("table.confirmed")}</MenuItem>
-                <MenuItem value="pending">{t("table.pending")}</MenuItem>
-              </Select>
-            </FormControl>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel>{t("table.filterByStatus")}</InputLabel>
+            <Select
+              value={statusFilter}
+              onChange={(e) => handleFilterChange(setStatusFilter)(e.target.value)}
+              label={t("table.filterByStatus")}
+            >
+              {statusFilterOptions.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-            {/* Origin Filter */}
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>{t("table.filterByOrigin", { defaultValue: "Source" })}</InputLabel>
-              <Select
-                value={originFilter}
-                onChange={(e) => handleFilterChange(setOriginFilter)(e.target.value)}
-                label={t("table.filterByOrigin", { defaultValue: "Source" })}
-              >
-                <MenuItem value="all">{t("table.sourceAll", { defaultValue: "All" })}</MenuItem>
-                <MenuItem value="platform">{t("table.sourceRovaro", { defaultValue: "Rovaro bookings" })}</MenuItem>
-                <MenuItem value="internal">{t("table.sourceInternal", { defaultValue: "Internal bookings" })}</MenuItem>
-              </Select>
-            </FormControl>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>
+              {t("table.filterByOrigin", { defaultValue: "Source" })}
+            </InputLabel>
+            <Select
+              value={originFilter}
+              onChange={(e) => handleFilterChange(setOriginFilter)(e.target.value)}
+              label={t("table.filterByOrigin", { defaultValue: "Source" })}
+            >
+              <MenuItem value="all">
+                {t("table.sourceAll", { defaultValue: "All" })}
+              </MenuItem>
+              <MenuItem value="platform">
+                {t("table.sourceRovaro", { defaultValue: "Rovaro bookings" })}
+              </MenuItem>
+              <MenuItem value="internal">
+                {t("table.sourceInternal", { defaultValue: "Internal bookings" })}
+              </MenuItem>
+            </Select>
+          </FormControl>
 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={hidePastOrders}
-                  onChange={handleHidePastToggle}
-                  color="primary"
-                  size="small"
-                />
-              }
-              label={t("table.hidePastOrders")}
-              sx={{ ml: 0, mr: 1 }}
-            />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={hidePastOrders}
+                onChange={handleHidePastToggle}
+                color="primary"
+                size="small"
+              />
+            }
+            label={t("table.hidePastOrders")}
+            sx={{
+              ml: 0,
+              mr: 0.5,
+              whiteSpace: "nowrap",
+              "& .MuiFormControlLabel-label": { fontSize: "0.8125rem" },
+            }}
+          />
 
-            {/* Search */}
-            <TextField
-              placeholder={t("table.search")}
-              value={searchQuery}
-              onChange={(e) => handleFilterChange(setSearchQuery)(e.target.value)}
-              size="small"
-              sx={{ minWidth: 200, flex: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: palette.neutral.gray500 }} />
-                  </InputAdornment>
-                ),
-                endAdornment: searchQuery && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => handleFilterChange(setSearchQuery)("")}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
+          <TextField
+            placeholder={t("table.search")}
+            value={searchQuery}
+            onChange={(e) => handleFilterChange(setSearchQuery)(e.target.value)}
+            size="small"
+            sx={{ minWidth: 160, flex: "1 1 160px", maxWidth: 260 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon
+                    sx={{ color: palette.neutral.gray500 }}
+                    fontSize="small"
+                  />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => handleFilterChange(setSearchQuery)("")}
+                    aria-label={t("table.reset")}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
+            }}
+          />
 
-            {/* Reset Button */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              ml: { md: "auto" },
+              flexShrink: 0,
+            }}
+          >
             <Button
               variant="outlined"
               color="secondary"
               onClick={handleResetFilters}
               size="small"
-              startIcon={<ClearIcon />}
+              startIcon={<ClearIcon fontSize="small" />}
+              sx={{ px: 1, minWidth: 0 }}
             >
               {t("table.reset")}
             </Button>
 
-            {/* Refresh Button */}
             <Tooltip title="Refresh">
-              <IconButton onClick={handleRefresh} disabled={ordersLoading}>
-                {ordersLoading ? <CircularProgress size={24} /> : <RefreshIcon />}
-              </IconButton>
+              <span>
+                <IconButton
+                  onClick={handleRefresh}
+                  disabled={ordersLoading}
+                  size="small"
+                  aria-label="Refresh"
+                >
+                  {ordersLoading ? (
+                    <CircularProgress size={18} />
+                  ) : (
+                    <RefreshIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </span>
             </Tooltip>
 
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<FileDownloadIcon fontSize="small" />}
-              onClick={handleExportExcel}
-              disabled={filteredOrders.length === 0}
-            >
-              {t("table.exportExcel")}
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              disabled
-              sx={{ opacity: 0.5 }}
-            >
-              {t("table.exportPdf")}
-            </Button>
-          </Stack>
-        </Stack>
+            <Tooltip title={t("table.exportExcel")}>
+              <span>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<FileDownloadIcon fontSize="small" />}
+                  onClick={handleExportExcel}
+                  disabled={filteredOrders.length === 0}
+                  sx={{ px: 1, minWidth: 0 }}
+                >
+                  Excel
+                </Button>
+              </span>
+            </Tooltip>
+          </Box>
+        </Box>
 
         <OrdersFinancialSummary
           summary={filteredSummary}
           filteredCount={filteredOrders.length}
           totalCount={orders.length}
+          showBookingFee={isPlatformAdmin}
         />
       </Paper>
 
@@ -1616,46 +1705,48 @@ export default function OrdersTableSection() {
         }}
       >
         <TableContainer sx={{ maxHeight: "60vh", minHeight: 300 }}>
-          <Table stickyHeader size="small">
+          <Table stickyHeader size="small" sx={{
+            "& .MuiTableCell-root": { py: 0.5, px: 1, verticalAlign: "middle" },
+            "& .MuiTableCell-head": { py: 0.75 },
+          }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>
+                <TableCell sx={{ fontWeight: 700, minWidth: 118 }}>
+                  {t("table.yourResponse", { defaultValue: "Your response" })}
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>
                   {t("table.status")}
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 100 }}>
+                <TableCell sx={{ fontWeight: 700, minWidth: 72 }}>
                   {t("table.filterByOrigin", { defaultValue: "Source" })}
                 </TableCell>
                 {isPlatformAdmin ? (
-                  <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>
+                  <TableCell sx={{ fontWeight: 700, minWidth: 120 }}>
                     {t("table.company")}
                   </TableCell>
                 ) : null}
-                <TableCell sx={{ fontWeight: 700, minWidth: 150 }}>
+                <TableCell sx={{ fontWeight: 700, minWidth: 120 }}>
                   {t("table.carModel")}
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 130 }}>
+                <TableCell sx={{ fontWeight: 700, minWidth: 108 }}>
                   {t("table.pickup")}
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 130 }}>
+                <TableCell sx={{ fontWeight: 700, minWidth: 108 }}>
                   {t("table.return")}
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 150 }}>
-                  {t("table.customer")}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 80, textAlign: "right" }}>
+                <TableCell sx={{ fontWeight: 700, minWidth: 88, textAlign: "right" }}>
                   {t("table.price")}
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 90, textAlign: "right" }}>
-                  {t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 90, textAlign: "right" }}>
+                {isPlatformAdmin ? (
+                  <TableCell sx={{ fontWeight: 700, minWidth: 80, textAlign: "right" }}>
+                    {t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })}
+                  </TableCell>
+                ) : null}
+                <TableCell sx={{ fontWeight: 700, minWidth: 80, textAlign: "right" }}>
                   {t("table.dueToCompany", { defaultValue: "Due to company" })}
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 160, textAlign: "center" }}>
-                  {t("table.supplierResponse")}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 140, textAlign: "center" }}>
-                  {t("table.customerConfirmation", { defaultValue: "Customer confirmation" })}
+                <TableCell sx={{ fontWeight: 700, minWidth: 130 }}>
+                  {t("table.customer")}
                 </TableCell>
               </TableRow>
             </TableHead>
@@ -1760,6 +1851,15 @@ export default function OrdersTableSection() {
                   const hasConflict = isConflictSource || isConflictingOrder || hasContextHighlight;
                   const conflictInfo = conflictHighlightById[order._id];
                   const conflictMessage = orderConflict?.message || conflictInfo?.message;
+                  const needsCompanyAction = orderRequiresCompanyAction(order);
+                  const isAwaitingSupplierResponse =
+                    needsCompanyAction &&
+                    isClient &&
+                    resolvePlatformWorkflowStage(order) ===
+                      PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION;
+                  // Bright yellow so action-needed rows are obvious at a glance
+                  const actionHighlightBg = "#FFE566";
+                  const actionHighlightHover = "#FFD93D";
 
                   return (
                     <React.Fragment key={order._id}>
@@ -1768,10 +1868,24 @@ export default function OrdersTableSection() {
                         onDoubleClick={(e) => openOrderModal(order, e)}
                         sx={{
                           cursor: "pointer",
-                          borderLeft: `4px solid ${orderColor.main}`,
-                          "&:hover": {
-                            backgroundColor: orderColor.bg || alpha(orderColor.main, 0.04),
-                          },
+                          borderLeft: `4px solid ${
+                            needsCompanyAction && !hasConflict
+                              ? palette.analogous.amberDark || palette.status.warning
+                              : orderColor.main
+                          }`,
+                          ...(needsCompanyAction &&
+                            !hasConflict && {
+                              backgroundColor: actionHighlightBg,
+                              "&:hover": {
+                                backgroundColor: actionHighlightHover,
+                              },
+                            }),
+                          ...(!needsCompanyAction && {
+                            "&:hover": {
+                              backgroundColor:
+                                orderColor.bg || alpha(orderColor.main, 0.04),
+                            },
+                          }),
                           ...(hasConflict && {
                             backgroundColor: isConflictSource 
                               ? alpha(palette.status.error, 0.25)
@@ -1783,143 +1897,112 @@ export default function OrdersTableSection() {
                           }),
                         }}
                       >
-                      {/* Status + Origin Chips + Protected indicator */}
+                      {/* Your response — first column */}
+                      <TableCell sx={{ verticalAlign: "middle" }}>
+                        {isAwaitingSupplierResponse || isClient ? (
+                          <SupplierResponseCell
+                            order={order}
+                            isClient={isClient}
+                            busy={Boolean(isTogglingSupplier[order._id])}
+                            compact
+                            hideAwaitingLabel
+                            onViewDetails={() => openOrderModal(order)}
+                            onRespond={(response, reason) =>
+                              handleSupplierResponse(order._id, response, reason)
+                            }
+                          />
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            —
+                          </Typography>
+                        )}
+                      </TableCell>
+
+                      {/* Status */}
                       <TableCell>
-                        <Stack direction="column" spacing={0.5} alignItems="flex-start">
-                          <Stack direction="row" spacing={0.5} alignItems="center">
-                            <Chip
-                              label={statusLabel}
-                              size="small"
-                              sx={{
-                                backgroundColor: orderColor.bg,
-                                color: orderColor.text,
-                                fontWeight: 500,
-                                fontSize: "0.7rem",
-                                height: 22,
-                              }}
-                            />
-                            {!isClient ? (
-                              <Stack direction="row" spacing={0.5}>
-                                <Button
-                                  size="small"
-                                  variant="text"
-                                  disabled={Boolean(isTogglingConfirm[order._id])}
-                                  onClick={() => handleToggleConfirm(order._id)}
-                                >
-                                  {order.confirmed
-                                    ? t("table.markTentative", { defaultValue: "Mark tentative" })
-                                    : t("table.confirmInternally", {
-                                        defaultValue: "Confirm internally",
-                                      })}
-                                </Button>
-                              </Stack>
-                            ) : null}
-                            {order.supplierRemainingPaidAt ? (
-                              <Typography variant="caption" color="text.secondary">
-                                {t("table.remainingAmountPaid", {
-                                  defaultValue: "Remaining amount paid",
+                        <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+                            {needsCompanyAction ? (
+                              <Chip
+                                label={t("table.supplierAwaitingYours", {
+                                  defaultValue: "Awaiting your response",
                                 })}
-                              </Typography>
-                            ) : null}
-                            {isPlatformBooking(order) &&
-                            String(order.payment?.status || "").toLowerCase() === "paid" &&
-                            !order.hasProblem ? (
-                              <Button
                                 size="small"
-                                variant="text"
-                                sx={{ textTransform: "none", px: 0, minWidth: 0 }}
-                                onClick={async () => {
-                                  const result = await reportPlatformBookingProblem(order._id);
-                                  if (!result.ok) {
-                                    enqueueSnackbar(result.message, { variant: "error" });
-                                    return;
-                                  }
-                                  await fetchAndUpdateOrders();
+                                onClick={(e) => handleStatusChipClick(e, statusKey)}
+                                sx={{
+                                  backgroundColor: "#FFE566",
+                                  color: palette.neutral?.black || "#111",
+                                  fontWeight: 700,
+                                  fontSize: "0.7rem",
+                                  height: 22,
+                                  cursor: "pointer",
+                                  outline:
+                                    statusFilter === statusKey
+                                      ? `2px solid ${palette.analogous.amberDark || "#D4A03A"}`
+                                      : "none",
                                 }}
-                              >
-                                {t("table.reportProblem", { defaultValue: "Report a problem" })}
-                              </Button>
-                            ) : null}
-                            {isPlatformBooking(order) &&
-                            String(order.payment?.status || "").toLowerCase() === "paid" &&
-                            !order.supplierRemainingPaidAt ? (
-                              <Button
+                              />
+                            ) : (
+                              <Chip
+                                label={statusLabel}
                                 size="small"
-                                variant="text"
-                                sx={{ textTransform: "none", px: 0, minWidth: 0 }}
-                                onClick={async () => {
-                                  const result = await recordRemainingAmountPaid(order._id);
-                                  if (!result.ok) {
-                                    enqueueSnackbar(result.message, { variant: "error" });
-                                    return;
-                                  }
-                                  await fetchAndUpdateOrders();
+                                onClick={(e) => handleStatusChipClick(e, statusKey)}
+                                sx={{
+                                  backgroundColor: orderColor.bg,
+                                  color: orderColor.text,
+                                  fontWeight: 500,
+                                  fontSize: "0.7rem",
+                                  height: 22,
+                                  cursor: "pointer",
+                                  outline:
+                                    statusFilter === statusKey
+                                      ? `2px solid ${orderColor.main || orderColor.text}`
+                                      : "none",
                                 }}
-                              >
-                                {t("table.recordRemainingPayment", {
-                                  defaultValue: "Record remaining payment",
-                                })}
-                              </Button>
+                              />
+                            )}
+                            {orderColor.problem ? (
+                              <Chip
+                                label={t("calendar.legend.PROBLEM", { defaultValue: "Problem" })}
+                                size="small"
+                                variant="outlined"
+                                sx={{
+                                  fontSize: "0.65rem",
+                                  height: 20,
+                                  borderColor: "error.main",
+                                  color: "error.main",
+                                }}
+                              />
                             ) : null}
-                            {/* Lock icon for orders the current role cannot edit */}
-                            {!orderCanEdit && isClient && (
+                            {!orderCanEdit && isClient ? (
                               <Tooltip title="Admin cannot edit client orders">
-                                <LockIcon 
-                                  fontSize="small" 
-                                  sx={{ 
-                                    color: palette.neutral.gray500, 
+                                <LockIcon
+                                  fontSize="small"
+                                  sx={{
+                                    color: palette.neutral.gray500,
                                     fontSize: 14,
-                                    ml: 0.5,
                                   }}
                                 />
                               </Tooltip>
-                            )}
-                            {!orderCanEdit && !isClient && isPlatformAdmin && (
+                            ) : null}
+                            {!orderCanEdit && !isClient && isPlatformAdmin ? (
                               <Tooltip title={t("table.internalOrderLock")}>
                                 <LockIcon
                                   fontSize="small"
                                   sx={{
                                     color: palette.neutral.gray500,
                                     fontSize: 14,
-                                    ml: 0.5,
                                   }}
                                 />
                               </Tooltip>
-                            )}
-                          </Stack>
-                          {orderColor.problem ? (
-                            <Chip
-                              label={t("calendar.legend.PROBLEM", { defaultValue: "Problem" })}
-                              size="small"
-                              variant="outlined"
-                              sx={{
-                                fontSize: "0.65rem",
-                                height: 20,
-                                borderColor: "error.main",
-                                color: "error.main",
-                              }}
-                            />
-                          ) : null}
-                          {order.IsConfirmedEmailSent ? (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                fontSize: "0.65rem",
-                                lineHeight: 1.1,
-                                color: "success.main",
-                              }}
-                            >
-                              {t("order.confirmationEmailSent")}
-                            </Typography>
-                          ) : null}
-                          {isBlocked && (
-                            <Tooltip title={isBlocked}>
-                              <BlockIcon 
-                                fontSize="small" 
-                                sx={{ color: palette.status.warning, mt: 0.5 }}
-                              />
-                            </Tooltip>
-                          )}
+                            ) : null}
+                            {isBlocked ? (
+                              <Tooltip title={isBlocked}>
+                                <BlockIcon
+                                  fontSize="small"
+                                  sx={{ color: palette.status.warning, fontSize: 16 }}
+                                />
+                              </Tooltip>
+                            ) : null}
                         </Stack>
                       </TableCell>
 
@@ -1974,7 +2057,7 @@ export default function OrdersTableSection() {
 
                       {/* Pickup Date/Time */}
                       <TableCell>
-                        <Stack spacing={0.5}>
+                        <Stack spacing={0}>
                           <InlineEditCell
                             type="date"
                             value={order.rentalStartDate ? dayjs(order.rentalStartDate).tz(ATHENS_TZ).format("YYYY-MM-DD") : ""}
@@ -2006,7 +2089,7 @@ export default function OrdersTableSection() {
 
                       {/* Return Date/Time */}
                       <TableCell>
-                        <Stack spacing={0.5}>
+                        <Stack spacing={0}>
                           <InlineEditCell
                             type="date"
                             value={order.rentalEndDate ? dayjs(order.rentalEndDate).tz(ATHENS_TZ).format("YYYY-MM-DD") : ""}
@@ -2036,47 +2119,10 @@ export default function OrdersTableSection() {
                         </Stack>
                       </TableCell>
 
-                      {/* Customer - Inline Editing */}
-                      {/* Скрываем контактные данные если _visibility.hideClientContacts === true */}
-                      <TableCell>
-                        {order._visibility?.hideClientContacts ? (
-                          <Typography variant="body2" color="text.secondary">—</Typography>
-                        ) : (
-                        <Stack spacing={0.5}>
-                          <InlineEditCell
-                            value={order.customerName || ""}
-                            disabled={!canEditCustomerName || isSaving[`${order._id}_customerName`]}
-                            onDenied={() => {
-                              const permission = getFieldPermission(order, "customerName");
-                              enqueueSnackbar(permission.reason || "⛔ Нельзя редактировать имя клиента", { variant: "warning" });
-                            }}
-                            onCommit={(val) => handleFieldUpdate(order._id, "customerName", val)}
-                          />
-                          <InlineEditCell
-                            value={order.phone || ""}
-                            disabled={!canEditPhone || isSaving[`${order._id}_phone`]}
-                            onDenied={() => {
-                              const permission = getFieldPermission(order, "phone");
-                              enqueueSnackbar(permission.reason || "⛔ Нельзя редактировать телефон", { variant: "warning" });
-                            }}
-                            onCommit={(val) => handleFieldUpdate(order._id, "phone", val)}
-                          />
-                          <InlineEditCell
-                            type="email"
-                            value={order.email || ""}
-                            disabled={!canEditEmail || isSaving[`${order._id}_email`]}
-                            onDenied={() => {
-                              const permission = getFieldPermission(order, "email", currentUser);
-                              enqueueSnackbar(permission.reason || "⛔ Нельзя редактировать email", { variant: "warning" });
-                            }}
-                            onCommit={(val) => handleFieldUpdate(order._id, "email", val)}
-                          />
-                        </Stack>
-                        )}
                       </TableCell>
 
-                      {/* Price: charged (editable) + system calc + saved auto + history */}
-                      <TableCell align="right" sx={{ minWidth: 200 }}>
+                      {/* Price: charged + history; system line only for offline */}
+                      <TableCell align="right" sx={{ minWidth: 110 }}>
                         {(() => {
                           const effectivePrice = getEffectivePrice(order);
                           const hasManualOverride =
@@ -2089,12 +2135,13 @@ export default function OrdersTableSection() {
                               ? Number(preview.live)
                               : storedAuto;
                           const days = getOrderNumberOfDaysOrZero(order);
+                          const showSystemPrice = Boolean(order.offline);
 
                           return (
-                            <Stack spacing={0.35} alignItems="flex-end">
+                            <Stack spacing={0.15} alignItems="flex-end">
                               <Stack
                                 direction="row"
-                                spacing={0.5}
+                                spacing={0.35}
                                 alignItems="center"
                               >
                                 <InlineEditCell
@@ -2175,28 +2222,30 @@ export default function OrdersTableSection() {
                                     }}
                                   />
                                 )}
-                                <Tooltip title={t("table.priceRecalcTooltip")}>
-                                  <span>
-                                    <IconButton
-                                      size="small"
-                                      onClick={() =>
-                                        handleApplySystemPrice(order)
-                                      }
-                                      disabled={
-                                        !canEditTotalPrice ||
-                                        preview?.loading ||
-                                        isSaving[`${order._id}_totalPrice`]
-                                      }
-                                      sx={{ p: 0.4 }}
-                                    >
-                                      {preview?.loading ? (
-                                        <CircularProgress size={14} />
-                                      ) : (
-                                        <AutorenewIcon fontSize="small" />
-                                      )}
-                                    </IconButton>
-                                  </span>
-                                </Tooltip>
+                                {isPlatformAdmin ? (
+                                  <Tooltip title={t("table.priceRecalcTooltip")}>
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() =>
+                                          handleApplySystemPrice(order)
+                                        }
+                                        disabled={
+                                          !canEditTotalPrice ||
+                                          preview?.loading ||
+                                          isSaving[`${order._id}_totalPrice`]
+                                        }
+                                        sx={{ p: 0.4 }}
+                                      >
+                                        {preview?.loading ? (
+                                          <CircularProgress size={14} />
+                                        ) : (
+                                          <AutorenewIcon fontSize="small" />
+                                        )}
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+                                ) : null}
                                 <Tooltip title={t("table.priceHistory")}>
                                   <IconButton
                                     size="small"
@@ -2209,85 +2258,78 @@ export default function OrdersTableSection() {
                                   </IconButton>
                                 </Tooltip>
                               </Stack>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ lineHeight: 1.25, textAlign: "right" }}
-                              >
-                                {t("table.priceSystem")}: €
-                                {Number(systemPrice || 0).toFixed(2)}
-                                {preview?.live != null &&
-                                Number(preview.live) !== Number(storedAuto)
-                                  ? ` · ${t("table.priceSavedAuto")}: €${Number(
-                                      storedAuto || 0
-                                    ).toFixed(2)}`
-                                  : hasManualOverride
+                              {showSystemPrice ? (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ lineHeight: 1.2, textAlign: "right", fontSize: "0.65rem" }}
+                                >
+                                  {t("table.priceSystem")}: €
+                                  {Number(systemPrice || 0).toFixed(2)}
+                                  {preview?.live != null &&
+                                  Number(preview.live) !== Number(storedAuto)
                                     ? ` · ${t("table.priceSavedAuto")}: €${Number(
                                         storedAuto || 0
                                       ).toFixed(2)}`
-                                    : ""}
-                                {" · "}
-                                {days} {t("table.days")}
-                              </Typography>
+                                    : hasManualOverride
+                                      ? ` · ${t("table.priceSavedAuto")}: €${Number(
+                                          storedAuto || 0
+                                        ).toFixed(2)}`
+                                      : ""}
+                                  {" · "}
+                                  {days} {t("table.days")}
+                                </Typography>
+                              ) : null}
                             </Stack>
                           );
                         })()}
                       </TableCell>
 
-                      <TableCell align="right">
-                        €{money.bookingFee.toFixed(2)}
-                      </TableCell>
+                      {isPlatformAdmin ? (
+                        <TableCell align="right">
+                          €{money.bookingFee.toFixed(2)}
+                        </TableCell>
+                      ) : null}
                       <TableCell align="right">
                         €{money.dueToCompany.toFixed(2)}
                       </TableCell>
 
-                      {/* Supplier response (never the platform Confirmed switch for client orders) */}
-                      <TableCell align="center">
-                        {!isClient ? (
-                          <Typography variant="caption" color="text.secondary">
-                            —
-                          </Typography>
-                        ) : isPlatformAdmin ? (
-                          <Stack spacing={0.25} alignItems="center">
-                            <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                              {t(contractorSupplierResponseCopy(order).key, {
-                                defaultValue: contractorSupplierResponseCopy(order).fallback,
-                              })}
-                            </Typography>
-                            {order.partnerConfirmMeta?.actor?.name ? (
-                              <Typography variant="caption" color="text.secondary">
-                                {order.partnerConfirmMeta.actor.name}
-                              </Typography>
-                            ) : null}
-                            {order.companyEmailDecisionAt || order.partnerConfirmedAt || order.declinedAt ? (
-                              <Typography variant="caption" color="text.secondary">
-                                {dayjs(
-                                  order.companyEmailDecisionAt ||
-                                    order.partnerConfirmedAt ||
-                                    order.declinedAt
-                                ).format("DD.MM.YYYY HH:mm")}
-                              </Typography>
-                            ) : null}
-                            {order.declineReason ? (
-                              <Typography variant="caption" color="text.secondary">
-                                {t("table.supplierReason")}: {order.declineReason}
-                              </Typography>
-                            ) : null}
-                          </Stack>
+                      {/* Customer — last column */}
+                      <TableCell>
+                        {order._visibility?.hideClientContacts ? (
+                          <Typography variant="body2" color="text.secondary">—</Typography>
                         ) : (
-                          <SupplierResponseCell
-                            order={order}
-                            isClient={isClient}
-                            busy={Boolean(isTogglingSupplier[order._id])}
-                            onViewDetails={() => openOrderModal(order)}
-                            onRespond={(response, reason) =>
-                              handleSupplierResponse(order._id, response, reason)
-                            }
+                        <Stack spacing={0}>
+                          <InlineEditCell
+                            value={order.customerName || ""}
+                            disabled={!canEditCustomerName || isSaving[`${order._id}_customerName`]}
+                            onDenied={() => {
+                              const permission = getFieldPermission(order, "customerName");
+                              enqueueSnackbar(permission.reason || "⛔ Нельзя редактировать имя клиента", { variant: "warning" });
+                            }}
+                            onCommit={(val) => handleFieldUpdate(order._id, "customerName", val)}
                           />
+                          <InlineEditCell
+                            value={order.phone || ""}
+                            disabled={!canEditPhone || isSaving[`${order._id}_phone`]}
+                            onDenied={() => {
+                              const permission = getFieldPermission(order, "phone");
+                              enqueueSnackbar(permission.reason || "⛔ Нельзя редактировать телефон", { variant: "warning" });
+                            }}
+                            onCommit={(val) => handleFieldUpdate(order._id, "phone", val)}
+                          />
+                          <InlineEditCell
+                            type="email"
+                            value={order.email || ""}
+                            disabled={!canEditEmail || isSaving[`${order._id}_email`]}
+                            onDenied={() => {
+                              const permission = getFieldPermission(order, "email", currentUser);
+                              enqueueSnackbar(permission.reason || "⛔ Нельзя редактировать email", { variant: "warning" });
+                            }}
+                            onCommit={(val) => handleFieldUpdate(order._id, "email", val)}
+                          />
+                        </Stack>
                         )}
-                      </TableCell>
-                      <TableCell align="center">
-                        <CustomerConfirmationCell order={order} />
                       </TableCell>
                     </TableRow>
                     

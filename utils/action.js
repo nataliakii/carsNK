@@ -344,7 +344,12 @@ export const fetchOrdersByCar = async (carId) => {
  * @param {string} newCarNumber - New car number
  * @returns {Promise<{ status: number, updatedOrder: Object|null, conflicts: Array, message: string }>}
  */
-export const moveOrderToCar = async (orderId, newCarId, newCarNumber) => {
+export const moveOrderToCar = async (
+  orderId,
+  newCarId,
+  newCarNumber,
+  { customerAck = false } = {}
+) => {
   try {
     const response = await fetch(API_PATHS.ORDER_UPDATE_MOVE_CAR, {
       method: "PUT",
@@ -357,6 +362,7 @@ export const moveOrderToCar = async (orderId, newCarId, newCarNumber) => {
         orderId,
         newCarId,
         newCarNumber,
+        customerAck: Boolean(customerAck),
       }),
     });
 
@@ -367,6 +373,7 @@ export const moveOrderToCar = async (orderId, newCarId, newCarNumber) => {
       updatedOrder: data.updatedOrder || null,
       conflicts: data.conflicts || [],
       message: data.message || "Order moved successfully",
+      code: data.code || null,
     };
   } catch (error) {
     console.error("[moveOrderToCar] Error:", error);
@@ -391,7 +398,8 @@ export const changeRentalDates = async (
   numberOrder,
   insuranceOrder,
   totalPrice, // <-- добавить
-  numberOfDays // <-- добавить
+  numberOfDays, // <-- добавить
+  { customerAck = false } = {}
 ) => {
   try {
     const response = await fetch(API_PATHS.ORDER_UPDATE_CHANGE_DATES, {
@@ -417,71 +425,22 @@ export const changeRentalDates = async (
         // Новое: сохраняем стоимость и дни
         totalPrice,
         numberOfDays,
+        customerAck: Boolean(customerAck),
       }),
     });
 
     const data = await response.json();
 
-    if (response.status === 201) {
-      // Handle success, no conflicts
-      return {
-        status: 201,
-        message: data.message,
-        updatedOrder: data.data,
-      };
-    } else if (response.status === 202) {
-      // Handle non-confirmed conflict dates (partial update)
-      return {
-        status: 202,
-        message: data.message,
-        conflicts: data.data.nonConfirmedOrders,
-        updatedOrder: data.data.updatedOrder,
-      };
-    } else if (response.status === 408) {
-      // Handle non-confirmed conflict dates (partial update)
-      return {
-        status: 408,
-        message: data.message,
-        conflicts: data.conflictDates,
-      };
-    } else if (response.status === 409) {
-      // Handle confirmed conflict dates (no update)
-      return {
-        status: 409,
-        message: data.message,
-        conflicts: data.confirmedOrders,
-      };
-    } else if (response.status === 403) {
-      // Handle permission denied (protected order)
-      return {
-        status: 403,
-        message:
-          data.message ||
-          "Permission denied: Only superadmin can modify this order",
-        code: data.code || "PERMISSION_DENIED",
-      };
-    } else if (response.status === 401) {
-      // Handle unauthorized
-      return {
-        status: 401,
-        message: data.message || "Unauthorized",
-      };
-    } else {
-      // Handle unexpected responses
-      console.error("Unexpected response:", data);
-      return {
-        status: response.status,
-        message: data.message || "Unexpected response",
-        data: data,
-      };
-    }
-  } catch (error) {
-    // Handle fetch or server errors
-    console.error("Error updating order:", error);
     return {
-      status: 500,
-      message: "Error updating order: " + error.message,
+      status: response.status,
+      updatedOrder: data.updatedOrder || data.data || null,
+      conflicts: data.conflicts || [],
+      message: data.message || "",
+      code: data.code || null,
     };
+  } catch (error) {
+    console.error("[changeRentalDates] Error:", error);
+    throw error;
   }
 };
 

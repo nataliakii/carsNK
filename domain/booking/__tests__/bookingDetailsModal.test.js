@@ -145,6 +145,9 @@ describe("one booking details modal", () => {
     expect(owner.showLicence).toBe(true);
     expect(owner.licence.licenceNumber).toBe("ES12345");
     expect(owner.editable).toBe(false);
+    // Paid stage: status chip only — no second "Booking payment received" badge.
+    expect(owner.header.badges.map((b) => b.id)).toEqual(["status", "source"]);
+    expect(owner.header.badges.some((b) => b.id === "payment")).toBe(false);
 
     const stranger = capabilitiesForOrder(paid, otherUser);
     expect(stranger.has(BOOKING_CAPABILITY.VIEW_BOOKING)).toBe(false);

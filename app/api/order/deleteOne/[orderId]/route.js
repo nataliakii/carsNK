@@ -54,7 +54,7 @@ export const DELETE = async (request, { params }) => {
       return new Response(
         JSON.stringify({
           success: false,
-          message: "У вас нет прав на удаление этого заказа",
+          message: "You do not have permission to delete this order",
           code: "PERMISSION_DENIED",
         }),
         { status: 403, headers: { "Content-Type": "application/json" } }

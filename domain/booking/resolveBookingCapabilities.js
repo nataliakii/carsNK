@@ -102,7 +102,7 @@ export function bookingModalName(order) {
 
 /**
  * Everything a PLATFORM booking refuses through the generic update route.
- * A superadmin reaches these through `Amend booking`, which carries a reason
+ * A superadmin reaches these through `Edit booking`, which carries a reason
  * and a before/after snapshot; nobody reaches them through a bare field write.
  */
 const PLATFORM_MUTABLE_FIELDS = [

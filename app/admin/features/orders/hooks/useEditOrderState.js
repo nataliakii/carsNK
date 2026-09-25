@@ -50,7 +50,11 @@ import { updateOrder, calculateTotalPrice, deleteOrder } from "@utils/action";
 import { canUpdateStartDate } from "./startDateAccess";
 import i18n from "@locales/i18n";
 import { parseCustomerPhone } from "@/domain/validation/customerPhone";
-import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import { isInternalBooking, isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  normalizeCompanyNotes,
+  normalizeCompanyTags,
+} from "@/domain/orders/companyInternalMeta";
 import {
   parseOptionalCustomerEmail,
   parseRequiredCustomerEmail,
@@ -1067,6 +1071,11 @@ export function useEditOrderState({
       if (payload.offline && !isPlatformBooking(o)) {
         payload.confirmed = true;
         payload.my_order = false;
+      }
+
+      if (isInternalBooking(o) || (payload.offline && !isPlatformBooking(o))) {
+        payload.companyNotes = normalizeCompanyNotes(o.companyNotes);
+        payload.companyTags = normalizeCompanyTags(o.companyTags);
       }
 
       if (payload.phone !== undefined) {

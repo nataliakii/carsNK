@@ -7,7 +7,8 @@ import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { checkFieldAccess } from "@/middleware/withOrderAccess";
 import { ROLE } from "@/domain/orders/admin-rbac";
-import { assignOfflineFlag, isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import { assignOfflineFlag, isInternalBooking, isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import { applyCompanyInternalMeta } from "@/domain/orders/companyInternalMeta";
 import { decideOrderUpdate } from "@/domain/booking/resolveBookingCapabilities";
 import { getActionFromChangedFields } from "@/domain/orders/orderNotificationPolicy";
 import { notifyOrderAction } from "@/domain/orders/orderNotificationDispatcher";
@@ -68,6 +69,12 @@ function applyDeliveryOverrideFromPayload(order, payload) {
         ? null
         : Number(payload.deliveryOutOverride);
   }
+}
+
+function applyCompanyMetaIfInternal(order, payload) {
+  applyCompanyInternalMeta(order, payload, {
+    isInternal: isInternalBooking(order),
+  });
 }
 
 function checkConflictsFixed(allOrders, newStart, newEnd, options = {}) {
@@ -336,7 +343,10 @@ export const PATCH = async (request, { params }) => {
       payload.Whatsapp !== undefined ||
       payload.Telegram !== undefined ||
       payload.flightNumber !== undefined ||
-      payload.drivingLicenceUrls !== undefined;
+      payload.drivingLicenceUrls !== undefined ||
+      payload.offline !== undefined ||
+      payload.companyNotes !== undefined ||
+      payload.companyTags !== undefined;
 
     const hasConfirmationChange = payload.confirmed !== undefined;
     const hasStatusChange = payload.status !== undefined;
@@ -960,6 +970,7 @@ export const PATCH = async (request, { params }) => {
               if (payload.offline !== undefined) {
                 assignOfflineFlag(order, payload.offline);
               }
+              applyCompanyMetaIfInternal(order, payload);
               if (payload.flightNumber !== undefined)
                 order.flightNumber = payload.flightNumber;
               if (payload.drivingLicenceUrls !== undefined) {
@@ -1098,6 +1109,7 @@ export const PATCH = async (request, { params }) => {
         if (payload.offline !== undefined) {
           assignOfflineFlag(order, payload.offline);
         }
+        applyCompanyMetaIfInternal(order, payload);
         if (payload.flightNumber !== undefined)
           order.flightNumber = payload.flightNumber;
         if (payload.drivingLicenceUrls !== undefined) {
@@ -1206,6 +1218,7 @@ export const PATCH = async (request, { params }) => {
       if (payload.offline !== undefined) {
         assignOfflineFlag(order, payload.offline);
       }
+      applyCompanyMetaIfInternal(order, payload);
       if (payload.flightNumber !== undefined)
         order.flightNumber = payload.flightNumber;
       if (payload.drivingLicenceUrls !== undefined) {

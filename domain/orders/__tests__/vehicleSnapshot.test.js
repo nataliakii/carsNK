@@ -164,6 +164,16 @@ describe("orders created before snapshots existed", () => {
     expect(vehicle.fleetCode).toBe("TMP-0069");
   });
 
+  test("an unpopulated ObjectId car does not swallow the carModel fallback", () => {
+    const { vehicle, legacy } = readVehicleSnapshot({
+      car: { _bsontype: "ObjectId", id: "abc" },
+      carModel: "Peugeot 108",
+    });
+    expect(legacy).toBe(true);
+    expect(vehicle.displayName).toBe("Peugeot 108");
+    expect(vehicle.transmission).toBeUndefined();
+  });
+
   test("do not crash when there is nothing to show at all", () => {
     expect(readVehicleSnapshot({})).toEqual({ vehicle: null, legacy: true });
     expect(readVehicleSnapshot(null)).toEqual({ vehicle: null, legacy: true });

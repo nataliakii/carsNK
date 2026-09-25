@@ -9,6 +9,7 @@ import {
   primaryOfficePoint,
   removeOfficeByKey,
   resolveCompanyOffices,
+  resolveCompanyDefaultPlaceName,
   updateOfficeByKey,
   companyOfficesPatchValue,
 } from "../companyOffices";
@@ -80,6 +81,35 @@ describe("resolveCompanyOffices", () => {
     expect(
       officeOrigins([], { lat: "41.3874", lon: "2.1686" })
     ).toEqual([{ lat: 41.3874, lon: 2.1686 }]);
+  });
+});
+
+describe("resolveCompanyDefaultPlaceName", () => {
+  test("prefers office.city over office name", () => {
+    expect(
+      resolveCompanyDefaultPlaceName({
+        name: "Rovaro Cars",
+        country: "ES",
+        offices: [
+          { name: "Main desk", city: "Barcelona", address: "Carrer X 1" },
+        ],
+      })
+    ).toBe("Barcelona");
+  });
+
+  test("uses locations[0] when offices have no city/name", () => {
+    expect(
+      resolveCompanyDefaultPlaceName({
+        name: "Test Co",
+        locations: [{ name: "Hospitalet de Llobregat" }],
+        offices: [],
+      })
+    ).toBe("Hospitalet de Llobregat");
+  });
+
+  test("does not invent Nea Kallikratia for an empty company", () => {
+    expect(resolveCompanyDefaultPlaceName({})).toBe("");
+    expect(resolveCompanyDefaultPlaceName(null)).toBe("");
   });
 });
 

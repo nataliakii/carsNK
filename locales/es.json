@@ -594,6 +594,12 @@
     "returnTime": "Return time",
     "CompleteBook": "Complete booking",
     "offline": "Offline (not via website)",
+    "companyMetaTitle": "Notas y etiquetas de la empresa",
+    "companyTags": "Etiquetas",
+    "companyTagsPlaceholder": "Escribe una etiqueta y pulsa Enter",
+    "companyTagsHelp": "Tus propias chips — p. ej. paid, bob-confirmed. Solo para reservas internas.",
+    "companyNotes": "Notas internas",
+    "companyNotesHelp": "Notas privadas de la empresa. No se muestran al cliente ni en reservas Rovaro.",
     "waitForPriceCalc": "Wait until the price is calculated",
     "startDateNotBeforeToday": "Pick-up date cannot be earlier than today",
     "addedSuccess": "Order added successfully",
@@ -909,7 +915,7 @@
     "pending": "Pending",
     "clientOrder": "Client",
     "adminOrder": "Interna",
-    "internalOrderHint": "Reserva interna de la empresa. Sin comisión Rovaro y sin pagos. Superadmin no puede cambiarla.",
+    "internalOrderHint": "Reserva interna de la empresa. Sin pagos. Superadmin no puede cambiarla.",
     "internalOrderLock": "Reserva interna: superadmin no puede editarla, confirmarla ni gestionar pagos.",
     "internalNotRovaro": "No Rovaro",
     "reset": "Reset",
@@ -951,6 +957,9 @@
     "priceHistoryFailed": "Could not load price history",
     "priceHistoryCurrent": "Current",
     "supplierResponse": "Respuesta del proveedor",
+    "yourResponse": "Tu respuesta",
+    "responseConfirmedShort": "Confirmado",
+    "responseActorUnknown": "Sin registro de quién confirmó",
     "platformStatus": "Estado de la plataforma",
     "vehicleAvailable": "Vehículo disponible",
     "cannotProvide": "No se puede proporcionar",
@@ -1060,6 +1069,31 @@
       "bufferSettingsButton": "Buffer between orders settings",
       "legendSection": "Legend"
     },
+    "bufferModal": {
+      "title": "Configuración del margen de tiempo",
+      "intro": "El margen es el tiempo mínimo entre la devolución de un coche y la entrega del siguiente. Este tiempo es necesario para:",
+      "bullets": {
+        "check": "Comprobación del estado del vehículo",
+        "refuel": "Repostaje (si es necesario)",
+        "clean": "Limpieza del interior",
+        "docs": "Preparación de documentos"
+      },
+      "hoursLabel": "Margen (horas)",
+      "currentValue": "Valor actual: {{hours}} h",
+      "fromDatabase": "(de la base de datos)",
+      "fallbackValue": "(valor por defecto)",
+      "affectsConflicts": "El cambio del margen afecta a todas las comprobaciones de conflictos de pedidos.",
+      "updated": "Margen actualizado a {{hours}} h.",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "errors": {
+        "companyMissing": "Empresa no encontrada",
+        "invalidRange": "El margen debe ser un número entre 0 y 24 horas",
+        "unchanged": "El valor no ha cambiado",
+        "saveFailed": "No se pudieron guardar los ajustes del margen"
+      }
+    },
     "legend": {
       "PAID_AND_CLOSED": "Closed",
       "CONFIRMED_CLIENT": "Client",
@@ -1079,6 +1113,13 @@
       "openAria": "Order status legend. Open full list.",
       "expand": "Expand legend",
       "collapse": "Collapse legend"
+    },
+    "detail": {
+      "supplierResponseNeeded": "New request — confirm whether the car is available",
+      "waitingForCustomerPayment": "Waiting for customer payment",
+      "confirmedCustomerPaid": "Confirmed — customer paid",
+      "internalNoFee": "Internal booking",
+      "unresolved": "Needs review"
     },
     "ordersByDate": {
       "starting": "Orders starting {{date}}",
@@ -1103,6 +1144,8 @@
     "moveConfirmDeltaDays": " ({{signed}} d)",
     "moveConfirmYes": "YES",
     "moveConfirmNo": "NO",
+    "moveConfirmPaidWarning": "This booking is already paid. Moving it changes what the customer agreed to.",
+    "moveConfirmCustomerAck": "Confirmé con el cliente que esta reserva puede cambiar de coche y/o de fechas.",
     "daysShort": "{{count}} d",
     "orderFallback": "Order",
     "dragHudDates": "Dates → {{range}}",
@@ -1123,6 +1166,8 @@
       "confirmedConflictDates": "Conflict with confirmed orders. Move not possible.",
       "confirmedConflictCar": "Conflict with confirmed orders. Can't move to this car.",
       "noPermission": "No permission to change this order",
+      "fieldLocked": "This field cannot be changed for this order ({{field}})",
+      "customerAckRequired": "Confirm that the customer agreed before moving a paid booking",
       "datesError": "Could not move dates",
       "movedToCar": "Order on {{car}}{{conflicts}}",
       "carError": "Could not move order",
@@ -1812,7 +1857,13 @@
       "options": "Opciones de alquiler",
       "price": "Resumen de precio",
       "customer": "Información del cliente",
-      "documents": "Documentos de conducción"
+      "documents": "Documentos de conducción",
+      "activity": "Actividad"
+    },
+    "activity": {
+      "empty": "Aún no hay actividad registrada.",
+      "loadFailed": "No se pudo cargar la actividad.",
+      "relocated": "Reubicación en calendario{{car}}"
     },
     "status": {
       "newRequest": {
@@ -1952,6 +2003,11 @@
     },
     "replacementDialog": {
       "intro": "El vehículo solicitado no se modifica. Tu propuesta se envía al cliente, que la acepta al pagar.",
+      "reminderTitle": "Condiciones del vehículo solicitado",
+      "reminderClass": "Clase: {{class}}",
+      "reminderTransmission": "Transmisión: {{transmission}}",
+      "reminderPrice": "Precio máximo total: {{price}}",
+      "guaranteeAck": "Confirmo que la sustitución será de la misma clase o superior, con la misma transmisión y al mismo precio total o inferior.",
       "kind": "Tipo de sustitución",
       "kinds": {
         "COMPANY_VEHICLE": "Un vehículo de tu flota",
@@ -1968,6 +2024,7 @@
       "totalPrice": "Precio total del alquiler",
       "totalPriceHelp": "Igual o inferior al precio solicitado.",
       "comment": "Comentario para el cliente",
+      "commentHelp": "Nota opcional para el cliente.",
       "submit": "Enviar propuesta",
       "fleetPlaceholder": "Elige un vehículo",
       "internalFleet": "(interno) {{name}}",

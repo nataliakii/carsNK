@@ -541,6 +541,12 @@
     "returnTime": "Время возврата",
     "CompleteBook": "Завершить бронирование",
     "offline": "Офлайн (не через сайт)",
+    "companyMetaTitle": "Заметки и теги компании",
+    "companyTags": "Теги",
+    "companyTagsPlaceholder": "Введите тег и нажмите Enter",
+    "companyTagsHelp": "Свои чипы — например paid, bob-confirmed. Только для внутренних заказов.",
+    "companyNotes": "Внутренние заметки",
+    "companyNotesHelp": "Личные заметки компании. Клиенту и в Rovaro-заказах не показываются.",
     "waitForPriceCalc": "Дождитесь расчёта стоимости",
     "startDateNotBeforeToday": "Дата начала аренды не может быть раньше сегодняшнего дня",
     "addedSuccess": "Заказ успешно добавлен",
@@ -840,7 +846,7 @@
     "pending": "Ожидает",
     "clientOrder": "Клиент",
     "adminOrder": "Внутренняя",
-    "internalOrderHint": "Внутренняя бронь компании. Без комиссии Rovaro и без выплат. Суперадмин не может её менять.",
+    "internalOrderHint": "Внутренняя бронь компании. Без выплат. Суперадмин не может её менять.",
     "internalOrderLock": "Внутренняя бронь — суперадмин не может редактировать, подтверждать или запускать выплаты.",
     "internalNotRovaro": "Не Rovaro",
     "reset": "Сбросить",
@@ -905,6 +911,9 @@
     "priceHistoryFailed": "Не удалось загрузить историю цен",
     "priceHistoryCurrent": "Текущая",
     "supplierResponse": "Ответ поставщика",
+    "yourResponse": "Ваш ответ",
+    "responseConfirmedShort": "Подтверждено",
+    "responseActorUnknown": "Кто подтвердил — не указано",
     "platformStatus": "Статус платформы",
     "vehicleAvailable": "Автомобиль доступен",
     "cannotProvide": "Не можем предоставить",
@@ -1014,6 +1023,31 @@
       "bufferSettingsButton": "Настройки буфера между заказами",
       "legendSection": "Легенда"
     },
+    "bufferModal": {
+      "title": "Настройка буфера времени",
+      "intro": "Буфер — это минимальное время между возвратом одной машины и выдачей следующей. Это время нужно для:",
+      "bullets": {
+        "check": "Проверки состояния автомобиля",
+        "refuel": "Заправки (при необходимости)",
+        "clean": "Уборки салона",
+        "docs": "Подготовки документов"
+      },
+      "hoursLabel": "Буфер (часы)",
+      "currentValue": "Текущее значение: {{hours}} ч.",
+      "fromDatabase": "(из базы данных)",
+      "fallbackValue": "(fallback значение)",
+      "affectsConflicts": "Изменение буфера влияет на все проверки конфликтов заказов.",
+      "updated": "Буфер успешно обновлён на {{hours}} ч.!",
+      "cancel": "Отмена",
+      "save": "Сохранить",
+      "saving": "Сохранение...",
+      "errors": {
+        "companyMissing": "Компания не найдена",
+        "invalidRange": "Буфер должен быть числом от 0 до 24 часов",
+        "unchanged": "Значение не изменилось",
+        "saveFailed": "Не удалось сохранить настройки буфера"
+      }
+    },
     "legend": {
       "PAID_AND_CLOSED": "Закрыт",
       "CONFIRMED_CLIENT": "Клиент",
@@ -1048,7 +1082,7 @@
       "supplierResponseNeeded": "Новая заявка — подтвердите, свободна ли машина",
       "waitingForCustomerPayment": "Ожидается оплата клиента",
       "confirmedCustomerPaid": "Подтверждено — клиент оплатил",
-      "internalNoFee": "Внутренняя запись — без комиссии Rovaro",
+      "internalNoFee": "Внутренняя запись",
       "unresolved": "Нужна проверка"
     },
     "ordersByDate": {
@@ -1074,6 +1108,8 @@
     "moveConfirmDeltaDays": " ({{signed}} дн.)",
     "moveConfirmYes": "ДА",
     "moveConfirmNo": "НЕТ",
+    "moveConfirmPaidWarning": "Этот заказ уже оплачен. Перенос меняет условия, с которыми согласился клиент.",
+    "moveConfirmCustomerAck": "Я согласовал(а) с клиентом перенос заказа на другую машину и/или другие даты.",
     "daysShort": "{{count}} дн.",
     "orderFallback": "Заказ",
     "dragHudDates": "Даты → {{range}}",
@@ -1094,6 +1130,8 @@
       "confirmedConflictDates": "Конфликт с подтвержденными заказами. Перенос невозможен.",
       "confirmedConflictCar": "Конфликт с подтвержденными заказами. Перемещение невозможно.",
       "noPermission": "Нет прав на изменение этого заказа",
+      "fieldLocked": "Это поле нельзя изменить для этого заказа ({{field}})",
+      "customerAckRequired": "Подтвердите согласование с клиентом перед переносом оплаченного заказа",
       "datesError": "Ошибка переноса",
       "movedToCar": "Заказ на {{car}}{{conflicts}}",
       "carError": "Ошибка перемещения заказа",
@@ -1733,7 +1771,13 @@
       "options": "Опции аренды",
       "price": "Стоимость",
       "customer": "Информация о клиенте",
-      "documents": "Водительские документы"
+      "documents": "Водительские документы",
+      "activity": "История"
+    },
+    "activity": {
+      "empty": "Пока нет записей.",
+      "loadFailed": "Не удалось загрузить историю.",
+      "relocated": "Перенос на календаре{{car}}"
     },
     "status": {
       "newRequest": {
@@ -1873,6 +1917,11 @@
     },
     "replacementDialog": {
       "intro": "Запрошенный автомобиль остаётся без изменений. Ваше предложение отправляется клиенту, который принимает его оплатой.",
+      "reminderTitle": "Условия запрошенного автомобиля",
+      "reminderClass": "Класс: {{class}}",
+      "reminderTransmission": "Коробка: {{transmission}}",
+      "reminderPrice": "Потолок цены: {{price}}",
+      "guaranteeAck": "Подтверждаю: замена будет того же или более высокого класса, с той же коробкой и по той же или меньшей итоговой цене.",
       "kind": "Тип замены",
       "kinds": {
         "COMPANY_VEHICLE": "Автомобиль из вашего парка",
@@ -1889,6 +1938,7 @@
       "totalPrice": "Итого за аренду",
       "totalPriceHelp": "Такая же или ниже запрошенной цены.",
       "comment": "Комментарий для клиента",
+      "commentHelp": "Необязательная заметка для клиента.",
       "submit": "Отправить предложение",
       "fleetPlaceholder": "Выберите автомобиль",
       "internalFleet": "(внутренний) {{name}}",

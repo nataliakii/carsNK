@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -21,8 +21,14 @@ import dayjs from "dayjs";
 import DialogLayout from "@/app/components/ui/modals/DialogLayout";
 import { ConfirmButton, CancelButton } from "@/app/components/ui";
 import { useMainContext } from "@app/Context";
+import { resolveCompanyDefaultPlaceName } from "@/domain/company/companyOffices";
+import {
+  isSpainBookingSite,
+  resolveCatalogDefaultPlace,
+} from "@/domain/orders/catalogPlaceOptions";
+import { getSiteCountryCode } from "@config/siteCountry";
 
-function emptyRow(defaultCarId = "") {
+function emptyRow(defaultCarId = "", defaultPlace = "") {
   const start = dayjs().add(1, "day").format("YYYY-MM-DD");
   const end = dayjs().add(4, "day").format("YYYY-MM-DD");
   return {
@@ -34,10 +40,19 @@ function emptyRow(defaultCarId = "") {
     customerName: "",
     phone: "",
     email: "",
-    placeIn: "Nea Kallikratia",
-    placeOut: "Nea Kallikratia",
+    placeIn: defaultPlace,
+    placeOut: defaultPlace,
     totalPrice: "",
   };
+}
+
+function companyDefaultPlace(company) {
+  const fromCompany = resolveCompanyDefaultPlaceName(company);
+  if (fromCompany) return fromCompany;
+  return resolveCatalogDefaultPlace(
+    "",
+    company?.country || getSiteCountryCode()
+  );
 }
 
 export default function BulkAddOfflineOrdersModal({
@@ -56,15 +71,29 @@ export default function BulkAddOfflineOrdersModal({
     [cars]
   );
 
+  const defaultPlace = useMemo(() => companyDefaultPlace(company), [company]);
+  const defaultCarId = carOptions[0]?.id || "";
   const defaultStart = company?.defaultStart || "14:00";
   const defaultEnd = company?.defaultEnd || "12:00";
 
   const [rows, setRows] = useState(() => [
-    emptyRow(carOptions[0]?.id || ""),
-    emptyRow(carOptions[0]?.id || ""),
+    emptyRow("", ""),
+    emptyRow("", ""),
   ]);
   const [loading, setLoading] = useState(false);
   const [resultMsg, setResultMsg] = useState("");
+  const [resultOk, setResultOk] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setRows([
+      emptyRow(defaultCarId, defaultPlace),
+      emptyRow(defaultCarId, defaultPlace),
+    ]);
+    setResultMsg("");
+    setResultOk(false);
+    setLoading(false);
+  }, [open, defaultPlace, defaultCarId]);
 
   const updateRow = (index, field, value) => {
     setRows((prev) =>
@@ -75,11 +104,13 @@ export default function BulkAddOfflineOrdersModal({
   const addRow = () =>
     setRows((prev) => [
       ...prev,
-      emptyRow(prev[0]?.carId || carOptions[0]?.id || ""),
+      emptyRow(prev[0]?.carId || carOptions[0]?.id || "", defaultPlace),
     ]);
   const duplicateLast = () =>
     setRows((prev) =>
-      prev.length ? [...prev, { ...prev[prev.length - 1] }] : [emptyRow()]
+      prev.length
+        ? [...prev, { ...prev[prev.length - 1] }]
+        : [emptyRow(carOptions[0]?.id || "", defaultPlace)]
     );
   const removeRow = (index) =>
     setRows((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
@@ -87,6 +118,7 @@ export default function BulkAddOfflineOrdersModal({
   const handleSave = async () => {
     setLoading(true);
     setResultMsg("");
+    setResultOk(false);
     try {
       const payload = {
         orders: rows.map((row) => ({
@@ -98,8 +130,8 @@ export default function BulkAddOfflineOrdersModal({
           customerName: row.customerName,
           phone: row.phone,
           email: row.email,
-          placeIn: row.placeIn,
-          placeOut: row.placeOut,
+          placeIn: row.placeIn || defaultPlace,
+          placeOut: row.placeOut || row.placeIn || defaultPlace,
           totalPrice: row.totalPrice === "" ? 0 : Number(row.totalPrice),
         })),
       };
@@ -125,20 +157,23 @@ export default function BulkAddOfflineOrdersModal({
         ? `${body.message || "Done"} — ${errLines}`
         : body.message || "Done";
       setResultMsg(msg);
-      setUpdateStatus?.({ type: 200, message: msg });
+      setResultOk((body.errors || []).length === 0);
+      setUpdateStatus?.({
+        type: (body.errors || []).length === 0 ? 200 : 400,
+        message: msg,
+      });
       if (typeof fetchAndUpdateOrders === "function") {
         await fetchAndUpdateOrders();
       }
       if ((body.errors || []).length === 0) {
         onClose?.();
-        setRows([
-          emptyRow(carOptions[0]?.id || ""),
-          emptyRow(carOptions[0]?.id || ""),
-        ]);
+        const carId = carOptions[0]?.id || "";
+        setRows([emptyRow(carId, defaultPlace), emptyRow(carId, defaultPlace)]);
       }
     } catch (err) {
       const msg = err.message || "Bulk add failed";
       setResultMsg(msg);
+      setResultOk(false);
       setUpdateStatus?.({ type: 400, message: msg });
     } finally {
       setLoading(false);
@@ -161,7 +196,7 @@ export default function BulkAddOfflineOrdersModal({
             onClick={handleSave}
             loading={loading}
             label={`Save all (${rows.length})`}
-            disabled={carOptions.length === 0}
+            disabled={carOptions.length === 0 || loading}
           />
         </Stack>
       }
@@ -180,7 +215,7 @@ export default function BulkAddOfflineOrdersModal({
           </Stack>
 
           {resultMsg ? (
-            <Alert severity="info" sx={{ mb: 2 }}>
+            <Alert severity={resultOk ? "success" : "error"} sx={{ mb: 2 }}>
               {resultMsg}
             </Alert>
           ) : null}
@@ -350,6 +385,11 @@ export default function BulkAddOfflineOrdersModal({
           >
             Each row is saved as an offline booking (confirmed, no email/Telegram).
             Name, phone and email are optional.
+            {defaultPlace
+              ? ` Default pickup/return: ${defaultPlace}.`
+              : isSpainBookingSite(getSiteCountryCode())
+                ? ""
+                : " Set company office/city so pickup defaults correctly."}
           </Typography>
         </>
       )}

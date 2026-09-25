@@ -126,9 +126,11 @@ export default function CalendarToolbar({
               aria-label={t("calendar.toolbar.periodAria")}
               sx={toggleGroupSx}
             >
+              {/* 1m hidden for now — restore when upgrading the one-month view
               <ToggleButton value="1m" type="button">
                 {t("calendar.toolbar.range1m")}
               </ToggleButton>
+              */}
               <ToggleButton value="2m" type="button">
                 {t("calendar.toolbar.range2m")}
               </ToggleButton>

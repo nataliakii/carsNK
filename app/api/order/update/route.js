@@ -48,7 +48,7 @@ export const PUT = async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false,
-          message: "У вас нет прав на редактирование этого заказа",
+          message: "You do not have permission to edit this order",
           code: "PERMISSION_DENIED",
         }),
         { status: 403, headers: { "Content-Type": "application/json" } }

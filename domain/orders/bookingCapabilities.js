@@ -336,7 +336,7 @@ export function checkBookingFieldWrites({ capabilities, source, fields } = {}) {
     }
     if (!isPlatform) continue;
     // Locked for everyone on this route. A superadmin still changes these, but
-    // only through the audited `Amend booking` operation, never through a
+    // only through the audited `Edit booking` operation, never through a
     // generic field write that leaves no reason and no before/after snapshot.
     if (PLATFORM_LOCKED_SET.has(field)) denied.push(field);
   }

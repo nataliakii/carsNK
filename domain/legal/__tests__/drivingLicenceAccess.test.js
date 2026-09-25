@@ -95,6 +95,18 @@ describe("lawful stage", () => {
     expect(result.code).toBe("not_yet_lawful");
   });
 
+  it("allows the licence when bookingStatus is already BOOKING_CONFIRMED", () => {
+    expect(
+      evaluate({
+        confirmed: true,
+        payment: { status: "pending" },
+        bookingStatus: "BOOKING_CONFIRMED",
+        source: "PLATFORM",
+        my_order: true,
+      }).allowed
+    ).toBe(true);
+  });
+
   it("allows the licence after the Booking Fee is paid, even well before pickup", () => {
     expect(
       evaluate({

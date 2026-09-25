@@ -103,6 +103,22 @@ export function buildVehicleSnapshot(car, booking = {}) {
 }
 
 /**
+ * A lean `car` field may still be an ObjectId. Those are objects in JS, but
+ * they are not a fleet document and must not be treated as one — otherwise
+ * the name-only `carModel` fallback never runs and the modal looks empty.
+ */
+export function isPopulatedCarDocument(car) {
+  if (!car || typeof car !== "object") return false;
+  if (car._bsontype === "ObjectId") return false;
+  return Boolean(
+    text(car.model) ||
+      text(car.class) ||
+      text(car.transmission) ||
+      car.seats != null
+  );
+}
+
+/**
  * What the booking screens should render as the vehicle.
  *
  * Orders created before snapshots existed have none. Their live car is shown
@@ -117,9 +133,9 @@ export function readVehicleSnapshot(order) {
     return { vehicle: stored, legacy: false };
   }
 
-  const car = order?.car && typeof order.car === "object" ? order.car : null;
+  const car = isPopulatedCarDocument(order?.car) ? order.car : null;
   const fallback = buildVehicleSnapshot(car, order);
-  if (fallback) return { vehicle: fallback, legacy: true };
+  if (fallback?.displayName) return { vehicle: fallback, legacy: true };
 
   // Not even a populated car: the header still needs the name the order
   // carries, and everything else is honestly absent.

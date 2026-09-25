@@ -21,8 +21,7 @@ import { useTranslation } from "react-i18next";
 import { usePathname } from "next/navigation";
 import NextLink from "next/link";
 import { ROLE } from "@models/user";
-import { getAvailableUiLocales } from "@/domain/platform/uiLocales";
-import { getSiteCountryCode } from "@config/siteCountry";
+import { getAdminUiLocales } from "@/domain/platform/uiLocales";
 import AdminSettingsSection, {
   adminFieldSx,
   adminFormGridSx,
@@ -310,7 +309,7 @@ export default function CompanyStorefrontCard({
                 value={langAdmin}
                 onChange={(e) => setLangAdmin(e.target.value)}
               >
-                {getAvailableUiLocales(getSiteCountryCode()).map((loc) => (
+                {getAdminUiLocales().map((loc) => (
                   <MenuItem key={loc.code} value={loc.code}>
                     {loc.label}
                   </MenuItem>

@@ -20,6 +20,7 @@
 import { isInternalBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import { ROLE } from "@/domain/orders/admin-rbac";
+import { isPlatformCustomerDataUnlocked } from "@/domain/orders/orderVisibility";
 
 /** How long a generated signed URL stays valid. */
 export const SIGNED_URL_TTL_SECONDS = 120;
@@ -73,10 +74,10 @@ export function evaluateDrivingLicenceAccess({
 
   if (isInternalBooking(order)) return { allowed: true };
 
-  // The verified Stripe Booking Fee webhook is the only writer of this value.
-  // A success redirect, an existing Checkout session or a created Booking Fee
-  // session must never open the licence to the company.
-  const paid = order?.payment?.status === "paid";
+  // Verified Booking Fee / paid workflow stage unlocks documents. Prefer the
+  // shared unlock helper so a lagging payment.status cannot hide the licence
+  // after bookingStatus already moved to BOOKING_CONFIRMED.
+  const paid = isPlatformCustomerDataUnlocked(order);
   if (!paid) {
     return {
       allowed: false,

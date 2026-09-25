@@ -256,6 +256,34 @@ export function companyOfficesForBooking(company) {
   return normalizeCompanyOffices(company?.offices);
 }
 
+/**
+ * Default pickup/return place for offline / admin stubs:
+ * office city → office name → company.locations[0] → "".
+ * Never invents a Greece market default (e.g. Nea Kallikratia).
+ */
+export function resolveCompanyDefaultPlaceName(company) {
+  if (!company || typeof company !== "object") return "";
+
+  const offices = resolveCompanyOffices(company);
+  const companyLabel = String(company.name || "").trim().toLowerCase();
+
+  for (const office of offices) {
+    const city = String(office?.city || "").trim();
+    if (city) return city;
+    const name = String(office?.publicName || office?.name || "").trim();
+    if (!name) continue;
+    if (name.toLowerCase() === "office") continue;
+    if (companyLabel && name.toLowerCase() === companyLabel) continue;
+    return name;
+  }
+
+  const loc = Array.isArray(company.locations) ? company.locations[0] : null;
+  const locName = String(loc?.name || "").trim();
+  if (locName) return locName;
+
+  return "";
+}
+
 export function officeHasStreet(office) {
   return Boolean(String(office?.address || "").trim());
 }

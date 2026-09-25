@@ -195,7 +195,7 @@ export function buildBookingDetailsView(order, user, opts = {}) {
   if (caps.has(BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING) && !price.dataWarning) {
     actions.push({
       id: "amend",
-      label: "Amend booking",
+      label: "Edit booking",
       labelKey: "bookingDetails.actions.amend",
     });
   }
@@ -291,7 +291,8 @@ function buildHeader(order, statusCopy, vehicle) {
   ];
 
   // A payment badge that is always present says nothing. It appears only while
-  // the payment is the thing standing between the booking and being done.
+  // the payment is the thing standing between the booking and being done —
+  // never alongside "Confirmed and paid".
   const paymentBadge = paymentBadgeFor(order, platform);
   if (paymentBadge) badges.push(paymentBadge);
 
@@ -341,17 +342,7 @@ function paymentBadgeFor(order, platform) {
       labelKey: "bookingDetails.header.awaitingPayment",
     };
   }
-  if (
-    stage === PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED ||
-    stage === PLATFORM_WORKFLOW_STAGE.COMPLETION_PENDING
-  ) {
-    return {
-      id: "payment",
-      tone: "settled",
-      label: "Booking payment received",
-      labelKey: "bookingDetails.header.paymentReceived",
-    };
-  }
+  // BOOKING_CONFIRMED / COMPLETION_PENDING already use status "Confirmed and paid".
   return null;
 }
 

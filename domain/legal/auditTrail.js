@@ -9,6 +9,7 @@
 
 import AuditLog from "@models/auditLog";
 import { connectToDB } from "@lib/database";
+import mongoose from "mongoose";
 
 /**
  * Extract request context for the audit trail.
@@ -84,7 +85,13 @@ export async function recordAuditEvent(entry) {
 export async function getOrderAuditTrail(orderId) {
   try {
     await connectToDB();
-    return await AuditLog.find({ "orderData.orderId": orderId })
+    const id = String(orderId || "").trim();
+    if (!id) return [];
+    const idVariants = [id];
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      idVariants.push(new mongoose.Types.ObjectId(id));
+    }
+    return await AuditLog.find({ "orderData.orderId": { $in: idVariants } })
       .sort({ createdAt: 1 })
       .lean();
   } catch (err) {

@@ -9,6 +9,7 @@ import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import { Car } from "@models/car";
 import { Order } from "@models/order";
+import Company from "@models/company";
 import { ROLE } from "@models/user";
 import { COMPANY_ID } from "@config/company";
 import { BOOKING_SOURCE } from "@/domain/admin/rovaroContractorAdmin";
@@ -25,6 +26,12 @@ import {
   canAccessOwnedDoc,
   normalizeOwnerId,
 } from "@/domain/owners/ownerScope";
+import { resolveCompanyDefaultPlaceName } from "@/domain/company/companyOffices";
+import {
+  isSpainBookingSite,
+  resolveCatalogDefaultPlace,
+} from "@/domain/orders/catalogPlaceOptions";
+import { getSiteCountryCode } from "@config/siteCountry";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -91,7 +98,28 @@ export async function createOfflineOrderStub(row, ctx) {
       ? timeOutRaw.toDate()
       : timeOutRaw;
 
-    const placeIn = String(row?.placeIn || "Nea Kallikratia").trim();
+    const ownerId =
+      normalizeOwnerId(car.ownerId) || COMPANY_ID;
+
+    let companyDefaultPlace = "";
+    try {
+      const companyDoc = await Company.findById(ownerId)
+        .select("name address offices locations country coords")
+        .lean();
+      companyDefaultPlace = resolveCompanyDefaultPlaceName(companyDoc);
+      if (!companyDefaultPlace) {
+        companyDefaultPlace = resolveCatalogDefaultPlace(
+          "",
+          companyDoc?.country || getSiteCountryCode()
+        );
+      }
+    } catch {
+      companyDefaultPlace = isSpainBookingSite(getSiteCountryCode())
+        ? resolveCatalogDefaultPlace("", getSiteCountryCode())
+        : "";
+    }
+
+    const placeIn = String(row?.placeIn || companyDefaultPlace || "").trim();
     const placeOut = String(row?.placeOut || placeIn).trim();
     const totalPrice = Number(row?.totalPrice);
     const orderNumber = await resolveUniqueOrderNumber(row?.orderNumber);
@@ -100,9 +128,6 @@ export async function createOfflineOrderStub(row, ctx) {
       mongoose.Types.ObjectId.isValid(String(user.id))
         ? new mongoose.Types.ObjectId(String(user.id))
         : null;
-
-    const ownerId =
-      normalizeOwnerId(car.ownerId) || COMPANY_ID;
 
     const order = new Order({
       carNumber: car.carNumber,

@@ -57,6 +57,10 @@ export function snapshotFromServerOrder(order) {
     Telegram: Boolean(order.Telegram),
     flightNumber: String(order.flightNumber ?? ""),
     drivingLicenceUrls: JSON.stringify(order.drivingLicenceUrls ?? []),
+    companyNotes: String(order.companyNotes ?? ""),
+    companyTags: JSON.stringify(
+      Array.isArray(order.companyTags) ? order.companyTags : []
+    ),
   };
 }
 
@@ -107,6 +111,10 @@ export function snapshotFromEditedOrder(editedOrder, startTime, endTime) {
     Telegram: Boolean(editedOrder.Telegram),
     flightNumber: String(editedOrder.flightNumber ?? ""),
     drivingLicenceUrls: JSON.stringify(editedOrder.drivingLicenceUrls ?? []),
+    companyNotes: String(editedOrder.companyNotes ?? ""),
+    companyTags: JSON.stringify(
+      Array.isArray(editedOrder.companyTags) ? editedOrder.companyTags : []
+    ),
   };
 }
 

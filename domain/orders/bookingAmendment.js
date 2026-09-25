@@ -2,7 +2,7 @@
  * Superadmin exception handling for PLATFORM bookings.
  *
  * Rovaro can fix a booking that went wrong, but not by being handed a raw edit
- * form. Every change arrives as one explicit `Amend booking` operation that
+ * form. Every change arrives as one explicit `Edit booking` operation that
  * carries a reason, who asked for it, the exact fields, and a before/after
  * snapshot. After the customer has paid, a material term cannot move without
  * recorded consent, and money can only change through an explicit refund or

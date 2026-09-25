@@ -142,7 +142,7 @@ export default function CalendarContainer({
   autoScrollToToday = true,
   viewMode: viewModeProp,
   onViewModeChange,
-  dayRange = "1m",
+  dayRange = "2m",
   /** Optional read-only overlays (e.g. fleet transfers) merged into calendar orders. */
   extraOrders = null,
 }) {
@@ -704,6 +704,7 @@ export default function CalendarContainer({
     exitMoveMode,
     handleConfirmMove,
     handleCloseConfirmModal,
+    setMoveCustomerAck,
     handleOrderDragStart,
     handleOrderDragEnd,
     handleRowDragOver,
@@ -1264,6 +1265,7 @@ export default function CalendarContainer({
       getRegNumberByCarNumber,
       handleCloseConfirmModal,
       handleConfirmMove,
+      setMoveCustomerAck,
       setIsEditCarOpen,
       setSelectedCarForEdit,
     }),
@@ -1280,6 +1282,7 @@ export default function CalendarContainer({
       getRegNumberByCarNumber,
       handleCloseConfirmModal,
       handleConfirmMove,
+      setMoveCustomerAck,
     ]
   );
 

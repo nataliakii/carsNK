@@ -51,27 +51,32 @@ describe("booking details replacement actions", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("keeps manual proposals on the unlisted replacement path", async () => {
+  it("submits a guaranteed-class acknowledgement without manual vehicle fields", async () => {
     offerEquivalentReplacement.mockResolvedValue({ ok: true });
 
     await proposeEquivalentReplacement("order-1", {
-      replacementSource: REPLACEMENT_KIND.EXTERNAL_VEHICLE,
-      model: "Toyota Yaris",
-      category: "economy",
-      transmission: "manual",
-      seats: 5,
-      luggage: 2,
-      totalPrice: 200,
-      supplierMessage: "Unlisted substitute.",
+      replacementSource: REPLACEMENT_KIND.GUARANTEED_CLASS,
+      guaranteeAck: true,
+      supplierMessage: "",
     });
 
     expect(suggestAlternativeVehicle).not.toHaveBeenCalled();
     expect(offerEquivalentReplacement).toHaveBeenCalledWith(
       "order-1",
       expect.objectContaining({
-        replacementSource: REPLACEMENT_KIND.EXTERNAL_VEHICLE,
-        model: "Toyota Yaris",
+        replacementSource: REPLACEMENT_KIND.GUARANTEED_CLASS,
+        guaranteeAck: true,
+        supplierMessage: expect.stringMatching(/same or higher class/i),
       })
     );
+  });
+
+  it("refuses guaranteed-class without acknowledgement", async () => {
+    const result = await proposeEquivalentReplacement("order-1", {
+      replacementSource: REPLACEMENT_KIND.GUARANTEED_CLASS,
+      guaranteeAck: false,
+    });
+    expect(result.ok).toBe(false);
+    expect(offerEquivalentReplacement).not.toHaveBeenCalled();
   });
 });

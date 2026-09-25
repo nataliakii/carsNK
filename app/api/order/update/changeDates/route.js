@@ -16,6 +16,11 @@ import {
 import { resolveBookingMode } from "@/domain/booking/bookingMode";
 import { LEGACY_FALLBACK_TZ } from "@/domain/time/resolveBusinessTimezone";
 import { localSnapshotFromUtc } from "@/domain/time/businessInstant";
+import {
+  assertCalendarRelocateAllowed,
+} from "@/domain/orders/calendarRelocate";
+import { recordPaidCalendarRelocate } from "@/domain/orders/recordPaidCalendarRelocate";
+import { extractAuditContext } from "@/domain/legal/auditTrail";
 import Company from "@models/company";
 import { COMPANY_ID } from "@config/company";
 import dayjs from "dayjs";
@@ -67,6 +72,7 @@ export const PUT = async (req) => {
       insurance,
       franchiseOrder,
       totalPrice: totalPriceFromClient,
+      customerAck,
     } = await req.json();
 
     console.log("PAYLOAD FROM FRONTEND:", { ChildSeats, insurance });
@@ -85,6 +91,18 @@ export const PUT = async (req) => {
     const foreign = orderOwnershipResponse(session.user, order);
     if (foreign) return foreign;
 
+    const previousSnapshot = {
+      _id: order._id,
+      orderNumber: order.orderNumber,
+      carNumber: order.carNumber,
+      carModel: order.carModel,
+      rentalStartDate: order.rentalStartDate,
+      rentalEndDate: order.rentalEndDate,
+      timeIn: order.timeIn,
+      timeOut: order.timeOut,
+      car: order.car?._id || order.car,
+    };
+
     // 🔧 FIXED: Check permissions using orderAccessPolicy (SSOT)
     const timeBucket = getTimeBucket(order);
     const isPast = timeBucket === "PAST";
@@ -94,54 +112,44 @@ export const PUT = async (req) => {
       confirmed: order.confirmed === true,
       isPast,
       timeBucket,
+      bookingMode: order.bookingMode || "",
+      paymentStatus: order.payment?.status || "",
     });
-    
-    // Check if user can edit at all
-    if (access.isViewOnly) {
+
+    const fieldsInPayload = [
+      rentalStartDate !== undefined ? "rentalStartDate" : null,
+      rentalEndDate !== undefined ? "rentalEndDate" : null,
+      timeIn !== undefined ? "timeIn" : null,
+      timeOut !== undefined ? "timeOut" : null,
+      car !== undefined ? "car" : null,
+      placeIn !== undefined ? "placeIn" : null,
+      placeOut !== undefined ? "placeOut" : null,
+      placeInDetail !== undefined ? "placeInDetail" : null,
+      placeOutDetail !== undefined ? "placeOutDetail" : null,
+      insurance !== undefined ? "insurance" : null,
+      ChildSeats !== undefined ? "ChildSeats" : null,
+      franchiseOrder !== undefined ? "franchiseOrder" : null,
+      totalPriceFromClient !== undefined ? "totalPrice" : null,
+    ].filter(Boolean);
+
+    const relocateGate = assertCalendarRelocateAllowed({
+      order,
+      access,
+      fieldsInPayload,
+      customerAck: customerAck === true,
+    });
+    if (!relocateGate.ok) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           success: false,
-          message: "У вас нет прав на редактирование этого заказа",
-          code: "PERMISSION_DENIED",
+          message: relocateGate.message,
+          code: relocateGate.code,
+          field: relocateGate.field,
         }),
         { status: 403, headers: { "Content-Type": "application/json" } }
       );
     }
-    
-    // Check permissions for each field being updated (field-level granularity)
-    const fieldsToCheck = [
-      { field: "rentalStartDate", inPayload: rentalStartDate !== undefined },
-      { field: "rentalEndDate", inPayload: rentalEndDate !== undefined },
-      { field: "timeIn", inPayload: timeIn !== undefined },
-      { field: "timeOut", inPayload: timeOut !== undefined },
-      { field: "car", inPayload: car !== undefined },
-      { field: "placeIn", inPayload: placeIn !== undefined },
-      { field: "placeOut", inPayload: placeOut !== undefined },
-      { field: "placeInDetail", inPayload: placeInDetail !== undefined },
-      { field: "placeOutDetail", inPayload: placeOutDetail !== undefined },
-      { field: "insurance", inPayload: insurance !== undefined },
-      { field: "ChildSeats", inPayload: ChildSeats !== undefined },
-      { field: "franchiseOrder", inPayload: franchiseOrder !== undefined },
-      { field: "totalPrice", inPayload: totalPriceFromClient !== undefined },
-    ];
-
-    for (const { field, inPayload } of fieldsToCheck) {
-      if (inPayload) {
-        // Check if field is in disabledFields
-        const isFieldDisabled = access.disabledFields?.includes(field);
-        if (isFieldDisabled) {
-          return new Response(
-            JSON.stringify({ 
-              success: false,
-              message: `Нельзя изменить поле ${field} для этого заказа`,
-              code: "PERMISSION_DENIED",
-              field: field,
-            }),
-            { status: 403, headers: { "Content-Type": "application/json" } }
-          );
-        }
-      }
-    }
+    const paidRelocate = relocateGate.paidRelocate === true;
 
     // Если выбран новый автомобиль, обновляем его в заказе
     if (car && (!order.car || String(order.car._id) !== car)) {
@@ -324,6 +332,21 @@ export const PUT = async (req) => {
 
           const updatedOrder = await order.save();
 
+          if (paidRelocate) {
+            const auditCtx = extractAuditContext(req);
+            const carChanged =
+              car &&
+              String(previousSnapshot.car) !== String(car);
+            await recordPaidCalendarRelocate({
+              order: updatedOrder,
+              previous: previousSnapshot,
+              user: session.user,
+              kind: carChanged ? "car+dates" : "dates",
+              ipAddress: auditCtx.ipAddress,
+              userAgent: auditCtx.userAgent,
+            });
+          }
+
           return new Response(
             JSON.stringify({
               message: data.conflictMessage,
@@ -419,6 +442,20 @@ export const PUT = async (req) => {
 
     console.log("Order updated successfully");
 
+    if (paidRelocate) {
+      const auditCtx = extractAuditContext(req);
+      const carChanged =
+        car && String(previousSnapshot.car) !== String(car);
+      await recordPaidCalendarRelocate({
+        order: savedOrder,
+        previous: previousSnapshot,
+        user: session.user,
+        kind: carChanged ? "car+dates" : "dates",
+        ipAddress: auditCtx.ipAddress,
+        userAgent: auditCtx.userAgent,
+      });
+    }
+
     // In dev mode, re-read from DB to verify persistence
     if (process.env.NODE_ENV !== "production") {
       const reReadOrder = await Order.findById(_id);
@@ -457,7 +494,7 @@ export const PUT = async (req) => {
     // Return updated order (use savedOrder which has all calculated fields)
     return new Response(
       JSON.stringify({
-        message: `ВСЕ ОТЛИЧНО! Даты изменены.`,
+        message: `Dates updated successfully.`,
         data: savedOrder,
       }),
       {

@@ -20,7 +20,7 @@ const STORAGE_KEY = "calendar_view_settings_v1";
  * }}
  */
 const DEFAULT_SETTINGS = {
-  dayRange: "1m",
+  dayRange: "2m",
   showLegend: false,
   legendPlacement: "inline",
   showBufferInLegend: true,
@@ -35,7 +35,11 @@ const DEFAULT_SETTINGS = {
 const VALID_DAY_RANGE = new Set(["1m", "2m", "3m", "6m"]);
 
 /** Периоды, снятые с UI, — переносим сохранённый выбор на ближайший живой. */
-const RETIRED_DAY_RANGE = { "15d": "1m" };
+const RETIRED_DAY_RANGE = {
+  "15d": "2m",
+  // 1m temporarily hidden in toolbar — restore when upgrading the 1-month view
+  "1m": "2m",
+};
 
 function migrateDayRange(dayRange) {
   const migrated = RETIRED_DAY_RANGE[dayRange] ?? dayRange;

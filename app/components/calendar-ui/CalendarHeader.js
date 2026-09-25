@@ -506,9 +506,12 @@ function DayHeaderCell({
         py: 0,
         px: 0.25,
         top: stickyTop,
-        borderLeft: isMonthStart && idx > 0
-          ? "2px solid rgba(0,194,184,0.55)"
-          : undefined,
+        // Soft cue only — month band above already marks the boundary.
+        // Keep a light edge so day headers stay readable without slicing bars.
+        borderLeft:
+          isMonthStart && idx > 0
+            ? "1px solid rgba(0,194,184,0.28)"
+            : undefined,
         "& .calendar-header-day-date": {
           fontSize: HEADER_STYLES.dayFontSize,
           lineHeight: HEADER_STYLES.dayLineHeight,

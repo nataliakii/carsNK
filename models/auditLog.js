@@ -88,6 +88,7 @@ const auditLogSchema = new mongoose.Schema(
         "COMPANY_DELIVERY_PRICING_UPDATED",
         "MARKETPLACE_BOOKING_FEE_CHANGED",
         "MARKETPLACE_PRICE_CORRECTED_AFTER_PAYMENT",
+        "ORDER_CALENDAR_RELOCATED",
         // Company admin account management (superadmin only)
         "COMPANY_ADMIN_INVITED",
         "COMPANY_ADMIN_INVITE_RESENT",
@@ -282,6 +283,7 @@ auditLogSchema.virtual("description").get(function () {
     DELETE_CONFIRMED_ORDER: "Удаление подтверждённого заказа",
     OVERRIDE_CONFLICT: "Переопределение конфликта",
     CHANGE_ORDER_STATUS: "Изменение статуса заказа",
+    ORDER_CALENDAR_RELOCATED: "Перемещение оплаченного заказа на календаре",
     ADMIN_LOGIN: "Вход администратора",
     SUPERADMIN_ACTION: "Действие суперадмина",
     OTHER: "Другое действие",

@@ -3,17 +3,23 @@
  */
 
 /**
- * Получает информацию о start/end для даты
+ * Получает информацию о start/end для даты.
+ * Scans all matching entries so a date that is both a start and an end
+ * (another order starts when this one ends) still reports both flags.
+ * Prefer the end entry for `info` when both exist (overlap CASE 3).
+ *
  * @param {Array} startEndDates - массив start/end дат
  * @param {string} dateStr - дата
  * @returns {{ isStartDate: boolean, isEndDate: boolean, info: Object|null }}
  */
 export function getStartEndInfo(startEndDates, dateStr) {
-  const info = startEndDates.find((d) => d.date === dateStr);
+  const matches = (startEndDates || []).filter((d) => d?.date === dateStr);
+  const startInfo = matches.find((d) => d.type === "start") || null;
+  const endInfo = matches.find((d) => d.type === "end") || null;
   return {
-    isStartDate: info?.type === "start",
-    isEndDate: info?.type === "end",
-    info: info || null,
+    isStartDate: Boolean(startInfo),
+    isEndDate: Boolean(endInfo),
+    info: endInfo || startInfo || null,
   };
 }
 

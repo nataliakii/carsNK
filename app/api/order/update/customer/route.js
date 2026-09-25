@@ -38,7 +38,7 @@ export const PUT = async (req) => {
     const existingOrder = await Order.findById(_id);
     
     if (!existingOrder) {
-      return new Response(JSON.stringify({ message: "Заказ не найден" }), {
+      return new Response(JSON.stringify({ message: "Order not found" }), {
         status: 404,
         success: false,
       });
@@ -63,7 +63,7 @@ export const PUT = async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false,
-          message: "У вас нет прав на редактирование этого заказа",
+          message: "You do not have permission to edit this order",
           code: "PERMISSION_DENIED",
         }),
         { status: 403, headers: { "Content-Type": "application/json" } }
@@ -81,7 +81,7 @@ export const PUT = async (req) => {
         return new Response(
           JSON.stringify({
             success: false,
-            message: "Некорректный номер телефона",
+            message: "Invalid phone number",
             code: "INVALID_PHONE",
             messageKey: phoneResult.messageKey,
           }),
@@ -120,7 +120,7 @@ export const PUT = async (req) => {
     });
 
     if (!updatedOrder) {
-      return new Response(JSON.stringify({ message: "Заказ не найден" }), {
+      return new Response(JSON.stringify({ message: "Order not found" }), {
         status: 404,
         success: false,
       });
@@ -129,7 +129,7 @@ export const PUT = async (req) => {
     return new Response(
       JSON.stringify({
         updatedOrder,
-        message: "Данные клиента обновлены успешно",
+        message: "Customer details updated successfully",
       }),
       {
         status: 200,
@@ -139,7 +139,7 @@ export const PUT = async (req) => {
     );
   } catch (error) {
     return new Response(
-      JSON.stringify({ message: "Ошибка. Данные клиента не обновлены" }),
+      JSON.stringify({ message: "Error. Customer details were not updated" }),
       { status: 500, success: false }
     );
   }

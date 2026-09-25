@@ -22,7 +22,13 @@ async function handler(request, context) {
       return json({ success: false, message: "Not found" }, 404);
     }
 
-    const order = await Order.findById(orderId).lean();
+    const order = await Order.findById(orderId)
+      .populate({
+        path: "car",
+        select:
+          "model class transmission fueltype seats numberOfDoors airConditioning registration carNumber regNumber deposit franchise photoUrl photos ownerId",
+      })
+      .lean();
     const access = supplierCanReadOrder(session.user, order);
     if (!access.ok) {
       return json({ success: false, message: "Not found" }, access.status === 401 ? 401 : 404);

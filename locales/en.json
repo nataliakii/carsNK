@@ -598,6 +598,12 @@
     "returnTime": "Return time",
     "CompleteBook": "Complete booking",
     "offline": "Offline (not via website)",
+    "companyMetaTitle": "Company notes & tags",
+    "companyTags": "Tags",
+    "companyTagsPlaceholder": "Type a tag and press Enter",
+    "companyTagsHelp": "Your own chips — e.g. paid, bob-confirmed. Only for internal bookings.",
+    "companyNotes": "Internal notes",
+    "companyNotesHelp": "Private company notes. Not shown to customers or on Rovaro bookings.",
     "waitForPriceCalc": "Wait until the price is calculated",
     "startDateNotBeforeToday": "Pick-up date cannot be earlier than today",
     "addedSuccess": "Order added successfully",
@@ -917,7 +923,7 @@
     "pending": "Pending",
     "clientOrder": "Client",
     "adminOrder": "Internal",
-    "internalOrderHint": "Company calendar booking. No Rovaro fee and no payouts. Superadmin cannot change it.",
+    "internalOrderHint": "Company calendar booking. No payouts. Superadmin cannot change it.",
     "internalOrderLock": "Internal company booking — superadmin cannot edit, confirm, or run payments.",
     "internalNotRovaro": "Not Rovaro",
     "reset": "Reset",
@@ -981,7 +987,10 @@
     "priceHistoryEmpty": "No price history yet",
     "priceHistoryFailed": "Could not load price history",
     "priceHistoryCurrent": "Current",
+    "yourResponse": "Your response",
     "supplierResponse": "Supplier response",
+    "responseConfirmedShort": "Confirmed",
+    "responseActorUnknown": "No confirmer recorded",
     "platformStatus": "Platform status",
     "vehicleAvailable": "Vehicle available",
     "cannotProvide": "Cannot provide",
@@ -1009,7 +1018,9 @@
     "customerAwaitingAcceptance": "Awaiting customer acceptance",
     "customerFeePaid": "Booking Fee paid",
     "confirmVehicleAvailability": "Confirm vehicle availability",
-    "supplierConfirmationStatement": "We confirm that the requested vehicle is available for the shown dates, pickup and return locations, and confirmed price.",
+    "supplierConfirmationStatement": "By confirming, I commit to provide this vehicle for the shown dates, pickup and return locations, and confirmed price. If I cannot keep that commitment, I must promptly offer an equivalent replacement or decline before the customer pays.",
+    "supplierConfirmationObligation": "You are committing to provide this car. If something changes, you must offer an equivalent replacement — do not leave the customer without a vehicle.",
+    "supplierConfirmationConfirm": "Yes, I commit to provide this vehicle",
     "suggestAlternative": "Suggest an alternative",
     "askRovaro": "Ask Rovaro a question",
     "viewDetails": "View details",
@@ -1100,6 +1111,31 @@
       "bufferSettingsButton": "Buffer between orders settings",
       "legendSection": "Legend"
     },
+    "bufferModal": {
+      "title": "Time buffer settings",
+      "intro": "A buffer is the minimum time between returning one car and handing over the next. This time is needed for:",
+      "bullets": {
+        "check": "Vehicle condition checks",
+        "refuel": "Refueling (if needed)",
+        "clean": "Interior cleaning",
+        "docs": "Document preparation"
+      },
+      "hoursLabel": "Buffer (hours)",
+      "currentValue": "Current value: {{hours}} h",
+      "fromDatabase": "(from database)",
+      "fallbackValue": "(fallback value)",
+      "affectsConflicts": "Changing the buffer affects all order conflict checks.",
+      "updated": "Buffer updated to {{hours}} h.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "errors": {
+        "companyMissing": "Company not found",
+        "invalidRange": "Buffer must be a number from 0 to 24 hours",
+        "unchanged": "Value was not changed",
+        "saveFailed": "Could not save buffer settings"
+      }
+    },
     "legend": {
       "PAID_AND_CLOSED": "Closed",
       "CONFIRMED_CLIENT": "Client",
@@ -1134,7 +1170,7 @@
       "supplierResponseNeeded": "New request — confirm whether the car is available",
       "waitingForCustomerPayment": "Waiting for customer payment",
       "confirmedCustomerPaid": "Confirmed — customer paid",
-      "internalNoFee": "Internal booking — no Rovaro fee",
+      "internalNoFee": "Internal booking",
       "unresolved": "Needs review"
     },
     "ordersByDate": {
@@ -1160,6 +1196,8 @@
     "moveConfirmDeltaDays": " ({{signed}} d)",
     "moveConfirmYes": "YES",
     "moveConfirmNo": "NO",
+    "moveConfirmPaidWarning": "This booking is already paid. Moving it changes what the customer agreed to.",
+    "moveConfirmCustomerAck": "I confirmed with the customer that this booking may move to another car and/or new dates.",
     "daysShort": "{{count}} d",
     "orderFallback": "Order",
     "dragHudDates": "Dates → {{range}}",
@@ -1180,6 +1218,8 @@
       "confirmedConflictDates": "Conflict with confirmed orders. Move not possible.",
       "confirmedConflictCar": "Conflict with confirmed orders. Can't move to this car.",
       "noPermission": "No permission to change this order",
+      "fieldLocked": "This field cannot be changed for this order ({{field}})",
+      "customerAckRequired": "Confirm that the customer agreed before moving a paid booking",
       "datesError": "Could not move dates",
       "movedToCar": "Order on {{car}}{{conflicts}}",
       "carError": "Could not move order",
@@ -1869,7 +1909,13 @@
       "options": "Rental options",
       "price": "Price summary",
       "customer": "Customer information",
-      "documents": "Driving documents"
+      "documents": "Driving documents",
+      "activity": "Activity"
+    },
+    "activity": {
+      "empty": "No activity recorded yet.",
+      "loadFailed": "Could not load activity.",
+      "relocated": "Calendar relocate{{car}}"
     },
     "status": {
       "newRequest": {
@@ -1976,11 +2022,13 @@
       "decline": "Decline request",
       "contactRovaro": "Contact Rovaro",
       "reportProblem": "Report a problem",
-      "amend": "Amend booking"
+      "amend": "Edit booking"
     },
     "confirmDialog": {
       "title": "Confirm requested vehicle",
-      "intro": "You are committing to these terms:"
+      "intro": "Please re-confirm before you continue:",
+      "obligation": "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+      "confirm": "Yes, I commit to provide this vehicle"
     },
     "declineDialog": {
       "title": "Decline request",
@@ -2009,6 +2057,11 @@
     },
     "replacementDialog": {
       "intro": "The requested vehicle stays as it is. Your proposal is sent to the customer, who accepts it by paying.",
+      "reminderTitle": "Requested vehicle terms",
+      "reminderClass": "Class: {{class}}",
+      "reminderTransmission": "Transmission: {{transmission}}",
+      "reminderPrice": "Total price ceiling: {{price}}",
+      "guaranteeAck": "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
       "kind": "Replacement type",
       "kinds": {
         "COMPANY_VEHICLE": "A vehicle from your fleet",
@@ -2025,13 +2078,14 @@
       "totalPrice": "Total rental price",
       "totalPriceHelp": "Same or lower than the requested price.",
       "comment": "Comment for the customer",
+      "commentHelp": "Optional note for the customer.",
       "submit": "Send proposal",
       "fleetPlaceholder": "Choose a vehicle",
       "internalFleet": "(internal) {{name}}",
       "notOfferable": "Not offerable for this booking:"
     },
     "amendDialog": {
-      "notice": "Every amendment is recorded with its reason and a before-and-after snapshot. A material term of a paid booking cannot change without the customer's consent.",
+      "notice": "Every edit is recorded with its reason and a before-and-after snapshot. A material term of a paid booking cannot change without the customer's consent.",
       "requestedBy": "Requested by",
       "requesters": {
         "CUSTOMER": "Customer",
@@ -2042,14 +2096,14 @@
       "reasonHelp": "At least 10 characters. Stored in the audit trail.",
       "consentNote": "Customer consent",
       "consentHelp": "Required before a material term of a paid booking can change. Describe how consent was given.",
-      "submit": "Save amendment"
+      "submit": "Save changes"
     },
     "notices": {
       "confirmed": "Vehicle confirmed.",
       "declined": "Request declined.",
       "messageSent": "Message sent to Rovaro.",
       "replacementOffered": "Replacement proposal sent.",
-      "amended": "Amendment saved."
+      "amended": "Changes saved."
     },
     "header": {
       "sourcePlatform": "Rovaro booking",

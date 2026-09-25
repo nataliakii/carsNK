@@ -21,6 +21,20 @@ export const ALL_UI_LOCALES = [
 export const ALL_UI_LOCALE_CODES = ALL_UI_LOCALES.map((item) => item.code);
 
 /**
+ * Admin UI languages for now (EN / ES / RU). Others stay in ALL_UI_LOCALES
+ * for the public storefront and for a later admin re-enable.
+ */
+export const ADMIN_UI_LOCALE_CODES = ["en", "es", "ru"];
+
+export function getAdminUiLocales() {
+  return ALL_UI_LOCALES.filter((item) =>
+    ADMIN_UI_LOCALE_CODES.includes(item.code)
+  );
+  // Later: uncomment to restore more admin languages
+  // return getAvailableUiLocales(countryCode);
+}
+
+/**
  * Paused on the Spanish (ES) deployment for now — keep in ALL_UI_LOCALES so
  * Greece can still enable them; strip via getAvailableUiLocales / filterForCountry.
  */
@@ -28,6 +42,10 @@ export const SPAIN_PAUSED_UI_LOCALES = ["bg", "sr"];
 
 export function isUiLocaleCode(code) {
   return ALL_UI_LOCALE_CODES.includes(String(code || "").trim().toLowerCase());
+}
+
+export function isAdminUiLocaleCode(code) {
+  return ADMIN_UI_LOCALE_CODES.includes(String(code || "").trim().toLowerCase());
 }
 
 export function getAvailableUiLocales(countryCode = "GR") {

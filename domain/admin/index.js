@@ -8,6 +8,7 @@ export {
   resolveBookingSource,
   isPlatformBooking,
   isInternalBooking,
+  isMarketplaceBookingFeePaid,
   sourceForNewOrder,
   assertBookingSourceUnchanged,
   resolveContractorCalendarTone,

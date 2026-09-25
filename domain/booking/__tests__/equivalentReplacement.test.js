@@ -41,6 +41,33 @@ function proposal(overrides = {}) {
 }
 
 describe("equivalent replacement before payment", () => {
+  it("accepts a guaranteed-class acknowledgement that inherits the original specs", () => {
+    const result = evaluateEquivalentReplacement({
+      original: original(),
+      proposal: {
+        replacementSource: "GUARANTEED_CLASS",
+        guaranteeAck: true,
+        supplierMessage: "Workshop delay.",
+      },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.snapshot.replacement.class).toBe("economy");
+    expect(result.snapshot.replacement.transmission).toBe("manual");
+    expect(result.snapshot.totalPrice).toBe(200);
+  });
+
+  it("rejects a guaranteed-class offer without acknowledgement", () => {
+    const result = evaluateEquivalentReplacement({
+      original: original(),
+      proposal: {
+        replacementSource: "GUARANTEED_CLASS",
+        guaranteeAck: false,
+      },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("guarantee_ack_required");
+  });
+
   it("rejects a different transmission", () => {
     const result = evaluateEquivalentReplacement({
       original: original(),

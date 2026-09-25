@@ -13,20 +13,20 @@ const cellSrc = fs.readFileSync(
   path.join(__dirname, "../components/SupplierResponseCell.js"),
   "utf8"
 );
-const customerSrc = fs.readFileSync(
-  path.join(__dirname, "../components/CustomerConfirmationCell.js"),
-  "utf8"
-);
 
 describe("orders table confirmation UX", () => {
-  test("table shows supplier response and customer confirmation separately", () => {
-    expect(tableSrc).toMatch(/table\.supplierResponse/);
-    expect(tableSrc).toMatch(/table\.customerConfirmation/);
+  test("table leads with Your response and drops Customer confirmation", () => {
+    expect(tableSrc).toMatch(/table\.yourResponse/);
     expect(tableSrc).toMatch(/SupplierResponseCell/);
-    expect(tableSrc).toMatch(/CustomerConfirmationCell/);
+    expect(tableSrc).not.toMatch(/CustomerConfirmationCell/);
+    expect(tableSrc).not.toMatch(/table\.customerConfirmation/);
     expect(tableSrc).not.toMatch(/PlatformStatusCell/);
     expect(tableSrc).not.toMatch(/Confirmed by Rovaro/i);
     expect(tableSrc).not.toMatch(/bookingConfirmedByRovaro/);
+  });
+
+  test("system price line is gated to offline orders", () => {
+    expect(tableSrc).toMatch(/showSystemPrice = Boolean\(order\.offline\)/);
   });
 
   test("supplier cell confirms availability and does not say Rovaro confirmed the booking", () => {
@@ -34,20 +34,13 @@ describe("orders table confirmation UX", () => {
     expect(cellSrc).toMatch(/table\.declineRequest/);
     expect(cellSrc).toMatch(/table\.offerEquivalentReplacement/);
     expect(cellSrc).toMatch(/View request details/);
+    expect(cellSrc).toMatch(/InfoOutlinedIcon/);
     expect(cellSrc).not.toMatch(/<Switch/);
     expect(cellSrc).not.toMatch(/bookingConfirmedByRovaro/);
     expect(cellSrc.toLowerCase()).not.toContain("confirmed by rovaro");
   });
 
-  test("customer confirmation is a badge, not a toggle", () => {
-    expect(customerSrc).toMatch(/customerFeePaid/);
-    expect(customerSrc).not.toMatch(/<Switch/);
-    expect(customerSrc).not.toMatch(/onToggleConfirm/);
-  });
-
-  test("edit modal confirms internal bookings only", () => {
-    expect(modalSrc).toMatch(/!isPlatformBooking\(editedOrder\)/);
-    expect(modalSrc).toMatch(/confirmInternally/);
+  test("edit modal does not use Rovaro-confirmed wording", () => {
     expect(modalSrc.toLowerCase()).not.toContain("confirmed by rovaro");
   });
 });

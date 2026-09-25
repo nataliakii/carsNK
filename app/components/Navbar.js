@@ -54,6 +54,7 @@ import {
 import {
   ALL_UI_LOCALES,
   filterLocalesForCountry,
+  getAdminUiLocales,
 } from "@/domain/platform/uiLocales";
 import { translateCarEnumValue } from "@/domain/cars/translateCarEnum";
 import { getSiteCountryCode, getSiteCountryConfig } from "@config/siteCountry";
@@ -609,9 +610,9 @@ export default function NavBar({
       : getSiteCountryConfig().defaultLocales,
     siteCountryCode
   );
-  const languageOptions = ALL_UI_LOCALES.filter((item) =>
-    enabledLocales.includes(item.code)
-  );
+  const languageOptions = isAdmin
+    ? getAdminUiLocales()
+    : ALL_UI_LOCALES.filter((item) => enabledLocales.includes(item.code));
 
   const adminIdentityLabel = viewAsActive
     ? viewAsCompany?.name || partnerCompanyName || t("header.adminRole")

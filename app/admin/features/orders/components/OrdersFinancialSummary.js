@@ -16,7 +16,9 @@ function euro(amount) {
 }
 
 const SummaryRoot = styled(Box)(({ theme }) => ({
-  marginTop: theme.spacing(2),
+  marginTop: theme.spacing(1),
+  paddingTop: theme.spacing(0.75),
+  borderTop: `1px solid ${theme.palette.divider}`,
 }));
 
 const SummaryGrid = styled(Box)(({ theme }) => ({
@@ -80,7 +82,12 @@ function SummaryMoneyLine({ label, value, emphasize = false }) {
  * Свёрнута по умолчанию; выбор запоминается в localStorage.
  * Только отображение: суммы приходят готовыми из summarizeFilteredOrders.
  */
-const OrdersFinancialSummary = ({ summary, filteredCount, totalCount }) => {
+const OrdersFinancialSummary = ({
+  summary,
+  filteredCount,
+  totalCount,
+  showBookingFee = true,
+}) => {
   const { t } = useTranslation();
   const { open, toggleOpen } = useAdminSectionOpen(
     ADMIN_ORDERS_FINANCIAL_SUMMARY_SECTION
@@ -130,11 +137,13 @@ const OrdersFinancialSummary = ({ summary, filteredCount, totalCount }) => {
               label={t("table.platformBookingValue", { defaultValue: "Rental value" })}
               value={euro(totals.platformBookingValue)}
             />
-            <SummaryMoneyLine
-              label={t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })}
-              value={euro(totals.rovaroBookingFees)}
-              emphasize
-            />
+            {showBookingFee ? (
+              <SummaryMoneyLine
+                label={t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })}
+                value={euro(totals.rovaroBookingFees)}
+                emphasize
+              />
+            ) : null}
             <SummaryMoneyLine
               label={t("table.dueToCompanies", { defaultValue: "Due to companies" })}
               value={euro(totals.supplierPlatformAmount)}

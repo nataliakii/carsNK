@@ -86,7 +86,10 @@ export async function loadReplacementFleetCars(orderId) {
 }
 
 export async function proposeEquivalentReplacement(orderId, proposal) {
-  const source = proposal.replacementSource;
+  const source = proposal.replacementSource || REPLACEMENT_KIND.GUARANTEED_CLASS;
+
+  // Fleet pick remains available to API callers; Booking Details UI uses the
+  // guaranteed-class acknowledgement only.
   if (source === REPLACEMENT_KIND.COMPANY_VEHICLE) {
     const carId = String(proposal.proposedCarId || "").trim();
     if (!carId) {
@@ -100,15 +103,34 @@ export async function proposeEquivalentReplacement(orderId, proposal) {
     return { ok: result?.ok === true, message: result?.message || "" };
   }
 
+  if (source === REPLACEMENT_KIND.GUARANTEED_CLASS && proposal.guaranteeAck !== true) {
+    return {
+      ok: false,
+      message:
+        "Confirm that the replacement keeps the same class, transmission and price ceiling.",
+    };
+  }
+
+  const defaultMessage =
+    "Equivalent replacement: same or higher class, same transmission, same or lower total price.";
   const result = await offerEquivalentReplacement(orderId, {
-    replacementSource: source,
+    replacementSource: source === REPLACEMENT_KIND.EXTERNAL_VEHICLE
+      ? REPLACEMENT_KIND.EXTERNAL_VEHICLE
+      : REPLACEMENT_KIND.GUARANTEED_CLASS,
+    guaranteeAck: true,
     model: proposal.model,
     category: proposal.category,
     transmission: proposal.transmission,
-    seats: Number(proposal.seats) || 0,
-    luggage: proposal.luggage === "" ? null : Number(proposal.luggage),
-    totalPrice: Number(proposal.totalPrice),
-    supplierMessage: proposal.supplierMessage,
+    seats: proposal.seats === "" || proposal.seats == null ? undefined : Number(proposal.seats),
+    luggage:
+      proposal.luggage === "" || proposal.luggage == null
+        ? undefined
+        : Number(proposal.luggage),
+    totalPrice:
+      proposal.totalPrice === "" || proposal.totalPrice == null
+        ? undefined
+        : Number(proposal.totalPrice),
+    supplierMessage: String(proposal.supplierMessage || "").trim() || defaultMessage,
   });
   return { ok: result?.ok === true, message: result?.message || "" };
 }

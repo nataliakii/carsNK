@@ -3,14 +3,22 @@
 import { useState } from "react";
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
+  IconButton,
+  Menu,
+  MenuItem,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
 import {
@@ -22,9 +30,7 @@ import {
 } from "@/domain/orders/supplierResponseStatus";
 import {
   askRovaroAboutBooking,
-  loadAlternativeCars,
   offerEquivalentReplacement,
-  suggestAlternativeVehicle,
 } from "@/app/admin/features/orders/actions/supplierBookingActions";
 import {
   contractorSupplierResponseCopy,
@@ -33,10 +39,75 @@ import {
 } from "@/domain/admin/rovaroContractorAdmin";
 import { REPLACEMENT_SOURCE } from "@/domain/booking/equivalentReplacementCopy";
 
+const COMPACT_BTN_SX = {
+  textTransform: "none",
+  fontSize: "0.7rem",
+  fontWeight: 700,
+  minWidth: 0,
+  px: 1,
+  py: 0,
+  height: 26,
+  lineHeight: 1.2,
+};
+
 function formatWhen(value) {
   if (!value) return "";
   const d = dayjs(value);
   return d.isValid() ? d.format("DD.MM.YYYY HH:mm") : "";
+}
+
+function stopRowOpen(e) {
+  e?.stopPropagation?.();
+}
+
+function responseInfoTitle(t, actorName, when) {
+  const who = actorName
+    ? t("table.confirmedByAdmin", { name: actorName })
+    : t("table.responseActorUnknown", {
+        defaultValue: "No confirmer recorded",
+      });
+  return when ? `${who} · ${when}` : who;
+}
+
+function CompactResponseStatus({ label, when, infoTitle, color = "success.main" }) {
+  return (
+    <Stack
+      direction="row"
+      spacing={0.35}
+      alignItems="flex-start"
+      onClick={stopRowOpen}
+      onDoubleClick={stopRowOpen}
+      sx={{ minWidth: 0 }}
+    >
+      <Stack spacing={0} sx={{ minWidth: 0 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 700,
+            color,
+            lineHeight: 1.2,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {label}
+        </Typography>
+        {when ? (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ lineHeight: 1.2, whiteSpace: "nowrap", fontSize: "0.65rem" }}
+          >
+            {when}
+          </Typography>
+        ) : null}
+      </Stack>
+      <Tooltip title={infoTitle}>
+        <InfoOutlinedIcon
+          sx={{ fontSize: 14, color: "text.secondary", mt: 0.15, flexShrink: 0 }}
+        />
+      </Tooltip>
+    </Stack>
+  );
 }
 
 export default function SupplierResponseCell({
@@ -46,25 +117,20 @@ export default function SupplierResponseCell({
   onRespond,
   onViewDetails,
   onChanged,
+  hideAwaitingLabel = false,
+  compact = false,
 }) {
   const { t } = useTranslation();
   const [declineOpen, setDeclineOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [changeOpen, setChangeOpen] = useState(false);
   const [statementOpen, setStatementOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [alternativeOpen, setAlternativeOpen] = useState(false);
-  const [alternativeCars, setAlternativeCars] = useState([]);
-  const [proposedCarId, setProposedCarId] = useState("");
-  const [replacementSource, setReplacementSource] = useState(REPLACEMENT_SOURCE.COMPANY_VEHICLE);
-  const [replacementClass, setReplacementClass] = useState("");
-  const [replacementTransmission, setReplacementTransmission] = useState("");
-  const [replacementSeats, setReplacementSeats] = useState("");
-  const [replacementLuggage, setReplacementLuggage] = useState("");
-  const [replacementModel, setReplacementModel] = useState("");
   const [alternativeReason, setAlternativeReason] = useState("");
+  const [guaranteeAck, setGuaranteeAck] = useState(false);
   const [localError, setLocalError] = useState("");
+  const [moreAnchor, setMoreAnchor] = useState(null);
 
   if (!isClient) {
     return (
@@ -86,14 +152,17 @@ export default function SupplierResponseCell({
       order?.declinedAt ||
       order?.supplierRespondedAt
   );
+  const infoTitle = responseInfoTitle(t, actorName, when);
+  const shortCopy = contractorSupplierResponseCopy(order);
+  const shortLabel = t(shortCopy.key, { defaultValue: shortCopy.fallback });
 
   if (locked) {
     return (
-      <Typography variant="caption" color="success.main" sx={{ fontWeight: 700 }}>
-        {t(contractorSupplierResponseCopy(order).key, {
-          defaultValue: contractorSupplierResponseCopy(order).fallback,
-        })}
-      </Typography>
+      <CompactResponseStatus
+        label={shortLabel}
+        when={when}
+        infoTitle={infoTitle}
+      />
     );
   }
 
@@ -114,63 +183,29 @@ export default function SupplierResponseCell({
     resolvePlatformWorkflowStage(order) ===
       PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION
   ) {
-    return (
+    const openReplacement = () => {
+      setMoreAnchor(null);
+      setLocalError("");
+      setGuaranteeAck(false);
+      setAlternativeReason("");
+      setAlternativeOpen(true);
+    };
+
+    const requestedClass =
+      order?.vehicleSnapshot?.class ||
+      order?.car?.class ||
+      order?.carClass ||
+      "—";
+    const requestedTransmission =
+      order?.vehicleSnapshot?.transmission ||
+      order?.car?.transmission ||
+      order?.transmission ||
+      "—";
+    const requestedPrice =
+      order?.totalPrice != null ? `€${Number(order.totalPrice).toFixed(2)}` : "—";
+
+    const awaitingDialogs = (
       <>
-        <Stack spacing={0.5} alignItems="center">
-          <Typography variant="caption" sx={{ fontWeight: 700 }}>
-            {t("table.supplierAwaitingYours", { defaultValue: "Awaiting your response" })}
-          </Typography>
-          <Button
-            size="small"
-            variant="contained"
-            color="success"
-            disabled={busy}
-            onClick={() => setStatementOpen(true)}
-          >
-            {t("table.confirmRequestedVehicle", {
-              defaultValue: "Confirm requested vehicle",
-            })}
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={busy}
-            onClick={async () => {
-              setLocalError("");
-              setAlternativeOpen(true);
-              const loaded = await loadAlternativeCars(order._id);
-              if (!loaded.ok) {
-                setLocalError(loaded.message);
-                return;
-              }
-              setAlternativeCars(loaded.cars || []);
-            }}
-          >
-            {t("table.offerEquivalentReplacement", {
-              defaultValue: "Offer equivalent replacement",
-            })}
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            color="error"
-            disabled={busy}
-            onClick={() => setDeclineOpen(true)}
-          >
-            {t("table.declineRequest", { defaultValue: "Decline request" })}
-          </Button>
-          <Button size="small" variant="text" onClick={onViewDetails}>
-            {t("table.viewDetails", { defaultValue: "View request details" })}
-          </Button>
-          <Button size="small" variant="text" onClick={() => setAskOpen(true)}>
-            {t("table.askRovaro", { defaultValue: "Ask Rovaro a question" })}
-          </Button>
-          {localError ? (
-            <Typography variant="caption" color="error">
-              {localError}
-            </Typography>
-          ) : null}
-        </Stack>
         <Dialog open={statementOpen} onClose={() => setStatementOpen(false)} fullWidth maxWidth="sm">
           <DialogTitle>
             {t("table.confirmRequestedVehicle", {
@@ -178,17 +213,25 @@ export default function SupplierResponseCell({
             })}
           </DialogTitle>
           <DialogContent>
-            <Typography variant="body2">
-              {t("table.supplierConfirmationStatement", {
-                defaultValue: SUPPLIER_AVAILABILITY_STATEMENT,
-              })}
-            </Typography>
+            <Stack spacing={1.5} sx={{ pt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t("table.supplierConfirmationObligation", {
+                  defaultValue:
+                    "You are committing to provide this car. If something changes, you must offer an equivalent replacement — do not leave the customer without a vehicle.",
+                })}
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {t("table.supplierConfirmationStatement", {
+                  defaultValue: SUPPLIER_AVAILABILITY_STATEMENT,
+                })}
+              </Typography>
+            </Stack>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setStatementOpen(false)}>{t("table.reset")}</Button>
             <Button color="success" variant="contained" disabled={busy} onClick={accept}>
-              {t("table.confirmRequestedVehicle", {
-                defaultValue: "Confirm requested vehicle",
+              {t("table.supplierConfirmationConfirm", {
+                defaultValue: "Yes, I commit to provide this vehicle",
               })}
             </Button>
           </DialogActions>
@@ -232,122 +275,85 @@ export default function SupplierResponseCell({
             })}
           </DialogTitle>
           <DialogContent>
-            <TextField
-              select
-              fullWidth
-              margin="dense"
-              label="Replacement source"
-              value={replacementSource}
-              onChange={(e) => setReplacementSource(e.target.value)}
-              SelectProps={{ native: true }}
-            >
-              <option value={REPLACEMENT_SOURCE.COMPANY_VEHICLE}>Another company vehicle</option>
-              <option value={REPLACEMENT_SOURCE.EXTERNAL_VEHICLE}>Unlisted vehicle</option>
-              <option value={REPLACEMENT_SOURCE.GUARANTEED_CLASS}>
-                Guaranteed same or higher class
-              </option>
-            </TextField>
-            {replacementSource === REPLACEMENT_SOURCE.COMPANY_VEHICLE ? (
-              <TextField
-                select
-                fullWidth
-                margin="dense"
-                label={t("table.carModel")}
-                value={proposedCarId}
-                onChange={(e) => setProposedCarId(e.target.value)}
-                SelectProps={{ native: true }}
-              >
-                <option value="" />
-                {alternativeCars.map((car) => (
-                  <option key={car.carId || car._id} value={car.carId || car._id}>
-                    {car.name || car.model || car.carId}
-                  </option>
-                ))}
-              </TextField>
-            ) : (
-              <>
-                <TextField
-                  fullWidth
-                  margin="dense"
-                  label="Class"
-                  value={replacementClass}
-                  onChange={(e) => setReplacementClass(e.target.value)}
-                />
-                <TextField
-                  fullWidth
-                  margin="dense"
-                  label="Transmission"
-                  value={replacementTransmission}
-                  onChange={(e) => setReplacementTransmission(e.target.value)}
-                />
-                <TextField
-                  fullWidth
-                  margin="dense"
-                  label="Seats"
-                  value={replacementSeats}
-                  onChange={(e) => setReplacementSeats(e.target.value)}
-                />
-                <TextField
-                  fullWidth
-                  margin="dense"
-                  label="Luggage"
-                  value={replacementLuggage}
-                  onChange={(e) => setReplacementLuggage(e.target.value)}
-                />
-                {replacementSource === REPLACEMENT_SOURCE.EXTERNAL_VEHICLE ? (
-                  <TextField
-                    fullWidth
-                    margin="dense"
-                    label="Make and model"
-                    value={replacementModel}
-                    onChange={(e) => setReplacementModel(e.target.value)}
+            <Stack spacing={1.25} sx={{ pt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t("bookingDetails.replacementDialog.intro", {
+                  defaultValue:
+                    "The requested vehicle stays as it is. Your proposal is sent to the customer, who accepts it by paying.",
+                })}
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                {t("bookingDetails.replacementDialog.reminderTitle", {
+                  defaultValue: "Requested vehicle terms",
+                })}
+              </Typography>
+              <Typography variant="body2">
+                {t("bookingDetails.replacementDialog.reminderClass", {
+                  defaultValue: "Class: {{class}}",
+                  class: requestedClass,
+                })}
+              </Typography>
+              <Typography variant="body2">
+                {t("bookingDetails.replacementDialog.reminderTransmission", {
+                  defaultValue: "Transmission: {{transmission}}",
+                  transmission: requestedTransmission,
+                })}
+              </Typography>
+              <Typography variant="body2">
+                {t("bookingDetails.replacementDialog.reminderPrice", {
+                  defaultValue: "Total price ceiling: {{price}}",
+                  price: requestedPrice,
+                })}
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={guaranteeAck}
+                    onChange={(e) => setGuaranteeAck(e.target.checked)}
                   />
-                ) : null}
-              </>
-            )}
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              margin="dense"
-              label={t("table.supplierReason")}
-              value={alternativeReason}
-              onChange={(e) => setAlternativeReason(e.target.value)}
-            />
+                }
+                label={t("bookingDetails.replacementDialog.guaranteeAck", {
+                  defaultValue:
+                    "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
+                })}
+                sx={{
+                  alignItems: "flex-start",
+                  m: 0,
+                  "& .MuiFormControlLabel-label": { fontSize: "0.875rem" },
+                }}
+              />
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                margin="dense"
+                label={t("bookingDetails.replacementDialog.comment", {
+                  defaultValue: "Comment for the customer",
+                })}
+                value={alternativeReason}
+                onChange={(e) => setAlternativeReason(e.target.value)}
+                helperText={t("bookingDetails.replacementDialog.commentHelp", {
+                  defaultValue: "Optional note for the customer.",
+                })}
+              />
+              {localError ? (
+                <Typography variant="caption" color="error">
+                  {localError}
+                </Typography>
+              ) : null}
+            </Stack>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setAlternativeOpen(false)}>{t("table.reset")}</Button>
             <Button
               variant="contained"
-              disabled={busy}
+              disabled={busy || !guaranteeAck}
               onClick={async () => {
-                if (replacementSource === REPLACEMENT_SOURCE.COMPANY_VEHICLE) {
-                  if (!proposedCarId) return;
-                  const offered = await suggestAlternativeVehicle(
-                    order._id,
-                    proposedCarId,
-                    alternativeReason
-                  );
-                  if (!offered.ok) {
-                    setLocalError(offered.message);
-                    return;
-                  }
-                  setAlternativeOpen(false);
-                  if (typeof onChanged === "function") await onChanged();
-                  return;
-                }
-                const proposal = {
-                  replacementSource,
-                  category: replacementClass,
-                  transmission: replacementTransmission,
-                  seats: Number(replacementSeats),
-                  luggage: replacementLuggage === "" ? null : Number(replacementLuggage),
-                  model: replacementModel,
-                  totalPrice: order.totalPrice,
+                const offered = await offerEquivalentReplacement(order._id, {
+                  replacementSource: REPLACEMENT_SOURCE.GUARANTEED_CLASS,
+                  guaranteeAck: true,
                   supplierMessage: alternativeReason,
-                  reason: alternativeReason,
-                };
-                const offered = await offerEquivalentReplacement(order._id, proposal);
+                });
                 if (!offered.ok) {
                   setLocalError(offered.message);
                   return;
@@ -373,102 +379,181 @@ export default function SupplierResponseCell({
         />
       </>
     );
-  }
 
-  if (status === SUPPLIER_RESPONSE.ACCEPTED) {
-    return (
-      <>
-        <Stack spacing={0.25} alignItems="flex-start">
-          <Typography variant="caption" sx={{ fontWeight: 700, color: "success.main" }}>
-            {t(contractorSupplierResponseCopy(order).key, {
-              defaultValue: contractorSupplierResponseCopy(order).fallback,
-            })}
-          </Typography>
-          {actorName ? (
-            <Typography variant="caption" color="text.secondary">
-              {t("table.confirmedByAdmin", { name: actorName })}
-            </Typography>
-          ) : null}
-          {when ? (
-            <Typography variant="caption" color="text.secondary">
-              {when}
-            </Typography>
-          ) : null}
-          <Button
-            size="small"
-            variant="text"
-            disabled={busy}
-            onClick={() => setChangeOpen(true)}
-            sx={{ textTransform: "none", fontSize: "0.65rem", minWidth: 0, px: 0 }}
+    if (compact) {
+      return (
+        <>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            alignItems="center"
+            onClick={stopRowOpen}
+            onDoubleClick={stopRowOpen}
           >
-            {t("table.changeResponse")}
-          </Button>
-        </Stack>
-        <Dialog open={changeOpen} onClose={() => setChangeOpen(false)}>
-          <DialogTitle>{t("table.changeResponse")}</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2">{t("table.changeResponseConfirm")}</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setChangeOpen(false)}>{t("table.reset")}</Button>
             <Button
+              size="small"
+              variant="contained"
+              color="success"
+              disabled={busy}
+              sx={COMPACT_BTN_SX}
+              onClick={(e) => {
+                stopRowOpen(e);
+                setStatementOpen(true);
+              }}
+            >
+              {t("table.acceptShort", { defaultValue: "Accept" })}
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
               color="error"
-              onClick={() => {
-                setChangeOpen(false);
+              disabled={busy}
+              sx={COMPACT_BTN_SX}
+              onClick={(e) => {
+                stopRowOpen(e);
                 setDeclineOpen(true);
               }}
             >
-              {t("table.cannotProvide")}
+              {t("table.refuseShort", { defaultValue: "Refuse" })}
             </Button>
-          </DialogActions>
-        </Dialog>
-        <DeclineDialog
-          open={declineOpen}
-          reason={reason}
-          setReason={setReason}
-          onClose={() => setDeclineOpen(false)}
-          onConfirm={decline}
-          busy={busy}
-          t={t}
-        />
+            <IconButton
+              size="small"
+              aria-label={t("table.moreActions", { defaultValue: "More actions" })}
+              onClick={(e) => {
+                stopRowOpen(e);
+                setMoreAnchor(e.currentTarget);
+              }}
+              sx={{ p: 0.25 }}
+            >
+              <MoreVertIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+            <Menu
+              anchorEl={moreAnchor}
+              open={Boolean(moreAnchor)}
+              onClose={() => setMoreAnchor(null)}
+              onClick={stopRowOpen}
+            >
+              <MenuItem
+                onClick={() => {
+                  void openReplacement();
+                }}
+              >
+                {t("table.offerEquivalentReplacement", {
+                  defaultValue: "Offer equivalent replacement",
+                })}
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setMoreAnchor(null);
+                  onViewDetails?.();
+                }}
+              >
+                {t("table.viewDetails", { defaultValue: "View request details" })}
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setMoreAnchor(null);
+                  setAskOpen(true);
+                }}
+              >
+                {t("table.askRovaro", { defaultValue: "Ask Rovaro a question" })}
+              </MenuItem>
+            </Menu>
+          </Stack>
+          {localError ? (
+            <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.25 }}>
+              {localError}
+            </Typography>
+          ) : null}
+          {awaitingDialogs}
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Stack spacing={0.5} alignItems="center">
+          {hideAwaitingLabel ? null : (
+            <Typography variant="caption" sx={{ fontWeight: 700 }}>
+              {t("table.supplierAwaitingYours", { defaultValue: "Awaiting your response" })}
+            </Typography>
+          )}
+          <Button
+            size="small"
+            variant="contained"
+            color="success"
+            disabled={busy}
+            onClick={() => setStatementOpen(true)}
+          >
+            {t("table.confirmRequestedVehicle", {
+              defaultValue: "Confirm requested vehicle",
+            })}
+          </Button>
+          <Button size="small" variant="outlined" disabled={busy} onClick={() => void openReplacement()}>
+            {t("table.offerEquivalentReplacement", {
+              defaultValue: "Offer equivalent replacement",
+            })}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            disabled={busy}
+            onClick={() => setDeclineOpen(true)}
+          >
+            {t("table.declineRequest", { defaultValue: "Decline request" })}
+          </Button>
+          <Button size="small" variant="text" onClick={onViewDetails}>
+            {t("table.viewDetails", { defaultValue: "View request details" })}
+          </Button>
+          <Button size="small" variant="text" onClick={() => setAskOpen(true)}>
+            {t("table.askRovaro", { defaultValue: "Ask Rovaro a question" })}
+          </Button>
+          {localError ? (
+            <Typography variant="caption" color="error">
+              {localError}
+            </Typography>
+          ) : null}
+        </Stack>
+        {awaitingDialogs}
       </>
     );
   }
 
-  if (status !== SUPPLIER_RESPONSE.DECLINED) {
-    const copy = contractorSupplierResponseCopy(order);
+  if (status === SUPPLIER_RESPONSE.ACCEPTED) {
     return (
-      <Typography variant="caption" sx={{ fontWeight: 700 }}>
-        {t(copy.key, { defaultValue: copy.fallback })}
-      </Typography>
+      <CompactResponseStatus
+        label={t("table.responseConfirmedShort", {
+          defaultValue: "Confirmed",
+        })}
+        when={when}
+        infoTitle={infoTitle}
+      />
+    );
+  }
+
+  if (status !== SUPPLIER_RESPONSE.DECLINED) {
+    return (
+      <CompactResponseStatus
+        label={shortLabel}
+        when={when}
+        infoTitle={infoTitle}
+        color="text.primary"
+      />
     );
   }
 
   return (
-    <Stack spacing={0.25} alignItems="flex-start">
-      <Typography variant="caption" sx={{ fontWeight: 700, color: "error.main" }}>
-        {t("table.toneDeclined", { defaultValue: "Declined" })}
-      </Typography>
-      {order.declineReason || order.supplierDeclineReason ? (
-        <Typography variant="caption" color="text.secondary">
-          {t("table.supplierReason")}: {order.declineReason || order.supplierDeclineReason}
-        </Typography>
-      ) : null}
-      {when ? (
-        <Typography variant="caption" color="text.secondary">
-          {t("table.sentAt", { when })}
-        </Typography>
-      ) : null}
-      <Button
-        size="small"
-        variant="text"
-        disabled={busy}
-        onClick={accept}
-        sx={{ textTransform: "none", fontSize: "0.65rem", minWidth: 0, px: 0 }}
-      >
-        {t("table.changeResponse")}
-      </Button>
-    </Stack>
+    <CompactResponseStatus
+      label={t("table.toneDeclined", { defaultValue: "Declined" })}
+      when={when}
+      infoTitle={
+        order.declineReason || order.supplierDeclineReason
+          ? `${infoTitle} · ${order.declineReason || order.supplierDeclineReason}`
+          : infoTitle
+      }
+      color="error.main"
+    />
   );
 }
 

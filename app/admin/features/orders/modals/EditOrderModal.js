@@ -58,13 +58,13 @@ import MailThreadPanel from "@/app/admin/emails/MailThreadPanel";
 import ContactRovaroSupportButton from "@/app/admin/features/orders/ContactRovaroSupportButton";
 import PartnerSupportMessagesList from "@/app/admin/features/orders/PartnerSupportMessagesList";
 import MarketplacePaymentOpsPanel from "@/app/admin/features/orders/MarketplacePaymentOpsPanel";
+import InternalBookingCompanyMeta from "@/app/admin/features/orders/components/InternalBookingCompanyMeta";
 import OrderPriceBreakdown from "@/app/admin/features/orders/OrderPriceBreakdown";
 import OfferAlternativePanel from "@/app/admin/features/orders/OfferAlternativePanel";
 import { ORDER_COLORS } from "@/config/orderColors";
 import { getSecondDriverPriceLabelValue } from "@utils/secondDriverPricing";
 
 import {
-  toggleConfirmedStatus,
   getConfirmedOrders,
   updateOrder,
 } from "@utils/action";
@@ -576,7 +576,6 @@ const EditOrderModal = ({
   };
 
   // Local state for confirmation toggle (separate from save operation)
-  const [confirmToggleUpdating, setConfirmToggleUpdating] = useState(false);
   const [closeOrderUpdating, setCloseOrderUpdating] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [isPriceBreakdownExpanded, setIsPriceBreakdownExpanded] = useState(false);
@@ -614,106 +613,6 @@ const EditOrderModal = ({
   useEffect(() => {
     setIsPriceBreakdownExpanded(false);
   }, [order?._id]);
-
-  // Подтверждение: PATCH switchConfirm → confirmOrderFlow → notifyOrderAction.
-  // Письмо клиенту при CONFIRM не шлётся для клиентского заказа (my_order === true);
-  // для админского заказа — шлётся на английском (domain/orders/orderNotificationPolicy.js).
-  const handleConfirmationToggle = async () => {
-    if (permissions.viewOnly || !permissions.canConfirm) return;
-
-    // 🔧 FIX: Check for unsaved time changes before confirmation
-    // Confirmation toggle ONLY changes confirmed status, NOT time fields
-    // If user changed time and clicks Confirm, those changes would be lost
-    const hasUnsavedTimeChanges = (() => {
-      if (!order || !startTime || !endTime) return false;
-      const origTimeIn = fromServerUTC(order.timeIn);
-      const origTimeOut = fromServerUTC(order.timeOut);
-      const timeInChanged =
-        startTime.format("HH:mm") !== origTimeIn?.format("HH:mm");
-      const timeOutChanged =
-        endTime.format("HH:mm") !== origTimeOut?.format("HH:mm");
-      return timeInChanged || timeOutChanged;
-    })();
-
-    if (hasUnsavedTimeChanges) {
-      const proceed = window.confirm(
-        'Есть несохранённые изменения времени. Нажмите "Обновить данные заказа", чтобы сохранить изменения, или "ОК", чтобы продолжить подтверждение без сохранения.'
-      );
-      if (!proceed) return;
-    }
-
-    setConfirmToggleUpdating(true);
-    setUpdateMessage(null);
-    const wasConfirmedBeforeToggle = editedOrder?.confirmed === true;
-    try {
-      const result = await toggleConfirmedStatus(editedOrder._id);
-
-      if (!result.success) {
-        setUpdateMessage(result.message);
-        return;
-      }
-
-      // ============================================
-      // BUG FIX: После подтверждения нужно перезагрузить заказ,
-      // чтобы получить данные клиента (visibility применяется на сервере)
-      // ============================================
-      let freshOrder = result.updatedOrder;
-      try {
-        const refetchRes = await fetch(`/api/order/refetch/${editedOrder._id}`);
-        if (refetchRes.ok) {
-          freshOrder = await refetchRes.json();
-        }
-      } catch (refetchError) {
-        console.warn(
-          "Failed to refetch order after confirmation:",
-          refetchError
-        );
-        // Fallback to result.updatedOrder if refetch fails
-      }
-
-      // ✅ ПРАВИЛЬНЫЙ ФИКС: Полностью заменяем editedOrder свежими данными
-      // Трансформируем даты в Athens timezone как это делает useEditOrderState
-      if (freshOrder) {
-        const transformedOrder = {
-          ...freshOrder,
-          rentalStartDate: athensStartOfDay(
-            formatDateYYYYMMDD(fromServerUTC(freshOrder.rentalStartDate))
-          ),
-          rentalEndDate: athensStartOfDay(
-            formatDateYYYYMMDD(fromServerUTC(freshOrder.rentalEndDate))
-          ),
-          timeIn: fromServerUTC(freshOrder.timeIn),
-          timeOut: fromServerUTC(freshOrder.timeOut),
-          OverridePrice:
-            freshOrder.OverridePrice !== undefined
-              ? freshOrder.OverridePrice
-              : null,
-        };
-        setEditedOrder(transformedOrder);
-      }
-
-      // Show message
-      const isWarning = result.level === "warning";
-      setUpdateMessage(result.message);
-      onSave(freshOrder);
-
-      // После снятия подтверждения оставляем модалку открытой, чтобы админ мог править дальше.
-      // После подтверждения — как раньше: закрыть через паузу.
-      if (!wasConfirmedBeforeToggle) {
-        setTimeout(
-          () => {
-            onClose();
-          },
-          isWarning ? 3000 : 1500
-        );
-      }
-    } catch (error) {
-      console.error("Error toggling confirmation status:", error);
-      setUpdateMessage(error.message || "Статус не обновлен. Ошибка сервера.");
-    } finally {
-      setConfirmToggleUpdating(false);
-    }
-  };
 
   const handleCloseOrder = useCallback(async () => {
     if (!editedOrder?._id) return;
@@ -834,17 +733,6 @@ const EditOrderModal = ({
     }
   }, [order, currentUser, permissions]);
 
-  // Стили для отключенных элементов
-  const disabledStyles = {
-    opacity: 0.6,
-    cursor: "not-allowed",
-  };
-
-  const enabledStyles = {
-    opacity: 1,
-    cursor: "pointer",
-  };
-
   // 🎯 Проверяем, может ли pending заказ быть подтверждён
   // Всегда считаем по текущим данным (editedOrder + startTime/endTime + allOrders), чтобы при сдвиге
   // подтверждённого заказа или обновлении списка сообщение было актуальным (не из кеша).
@@ -953,7 +841,6 @@ const EditOrderModal = ({
 
   // Проверка, заблокирована ли кнопка подтверждения
   // Unconfirm (true→false): company admin may unconfirm internals; platform superadmin cannot mutate internals.
-  const isClientOrder = isPlatformBooking(order);
 
   // Everything Rovaro mediates — asking us a question, our mail thread, our
   // support replies — exists only on a booking Rovaro is a party to.
@@ -964,14 +851,6 @@ const EditOrderModal = ({
   const canContactRovaro =
     orderCapabilities[BOOKING_CAPABILITY.CONTACT_ROVARO] === true;
   const isPlatformMediated = isPlatformBooking(editedOrder || order);
-  const isConfirmationDisabled =
-    permissions.viewOnly ||
-    !permissions.canConfirm ||
-    (permissions.isCurrentOrder &&
-      editedOrder?.confirmed &&
-      isClientOrder &&
-      !isCurrentUserSuperAdmin) ||
-    (!editedOrder?.confirmed && !confirmationCheck.canConfirm);
   const confirmationEmailHistory = useMemo(() => {
     const history = Array.isArray(editedOrder?.confirmationEmailHistory)
       ? editedOrder.confirmationEmailHistory
@@ -1656,40 +1535,6 @@ const EditOrderModal = ({
                     flexDirection: { xs: "column", sm: "row" },
                   }}
                 >
-                  {access?.canConfirm && !isPlatformBooking(editedOrder) && (
-                  <ActionButton
-                    fullWidth
-                    onClick={handleConfirmationToggle}
-                    disabled={
-                      isPaidAndClosed ||
-                      confirmToggleUpdating ||
-                      isConfirmationDisabled
-                    }
-                    color={editedOrder?.confirmed ? "success" : "primary"}
-                    label={
-                      editedOrder?.confirmed
-                        ? t("table.markTentative", { defaultValue: "Mark tentative" })
-                        : t("table.confirmInternally", { defaultValue: "Confirm internally" })
-                    }
-                    title={
-                      permissions.isCurrentOrder &&
-                      editedOrder?.confirmed &&
-                      isClientOrder &&
-                      !isCurrentUserSuperAdmin
-                        ? "Нельзя снять подтверждение у текущего заказа"
-                        : maskConfirmationConflictPII(
-                            confirmationCheck.message
-                          ) || ""
-                    }
-                    sx={{
-                      ...(isConfirmationDisabled
-                        ? disabledStyles
-                        : enabledStyles),
-                      flex: 1,
-                      ...formMetrics.compactActionButtonSx,
-                    }}
-                  />
-                  )}
                   {showCloseOrderButton && canCloseOrder && (
                     <ActionButton
                       fullWidth
@@ -1735,6 +1580,24 @@ const EditOrderModal = ({
                   }
                   label={t("order.offline")}
                   sx={{ mt: 1, mb: 0.5 }}
+                />
+                <InternalBookingCompanyMeta
+                  order={editedOrder}
+                  disabled={
+                    isPaidAndClosed ||
+                    Boolean(access?.isViewOnly) ||
+                    Boolean(permissions?.viewOnly)
+                  }
+                  onNotesChange={(value) =>
+                    setEditedOrder((prev) =>
+                      prev ? { ...prev, companyNotes: value } : prev
+                    )
+                  }
+                  onTagsChange={(tags) =>
+                    setEditedOrder((prev) =>
+                      prev ? { ...prev, companyTags: tags } : prev
+                    )
+                  }
                 />
                 {/* 🔴 BLOCK: показываем сообщение о блокировке подтверждения (только если canConfirm === false) */}
                 {!editedOrder?.confirmed &&

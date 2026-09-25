@@ -8,21 +8,21 @@ import { BOOKING_DETAILS_LABEL_COLUMN } from "@/domain/admin/bookingDetailsLayou
 
 const FieldRow = styled(Box)(({ theme }) => ({
   display: "grid",
-  gridTemplateColumns: "1fr",
-  gap: theme.spacing(0.25),
-  padding: theme.spacing(0.5, 0),
+  gridTemplateColumns: "minmax(0, max-content) minmax(0, 1fr)",
+  gap: theme.spacing(0.75),
+  alignItems: "baseline",
+  padding: theme.spacing(0.2, 0),
   borderBottom: `1px solid ${theme.palette.divider}`,
   "&:last-of-type": { borderBottom: "none" },
-  [theme.breakpoints.up("sm")]: {
-    gridTemplateColumns: `minmax(0, ${BOOKING_DETAILS_LABEL_COLUMN}px) minmax(0, 1fr)`,
-    alignItems: "baseline",
-    gap: theme.spacing(2),
-  },
 }));
 
 const FieldLabel = styled(Typography)(({ theme }) => ({
   color: theme.palette.text.secondary,
-  overflowWrap: "anywhere",
+  overflowWrap: "break-word",
+  wordBreak: "normal",
+  fontSize: "0.72rem",
+  lineHeight: 1.3,
+  maxWidth: BOOKING_DETAILS_LABEL_COLUMN,
 }));
 
 const FieldValue = styled(Typography, {
@@ -32,7 +32,11 @@ const FieldValue = styled(Typography, {
   fontWeight: strong
     ? theme.typography.fontWeightBold
     : theme.typography.fontWeightMedium,
-  overflowWrap: "anywhere",
+  overflowWrap: "break-word",
+  wordBreak: "normal",
+  fontSize: "0.8125rem",
+  lineHeight: 1.35,
+  minWidth: 0,
 }));
 
 /**

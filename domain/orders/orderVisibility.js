@@ -17,8 +17,10 @@
 import { ROLE } from "./admin-rbac";
 import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
+import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
 import {
   isInternalBooking,
+  isMarketplaceBookingFeePaid,
   isPlatformBooking,
 } from "@/domain/admin/rovaroContractorAdmin";
 import {
@@ -46,6 +48,14 @@ const PERMANENT_DOCUMENT_FIELDS = [
 /** Licence fields that must never survive serialisation to a company admin. */
 const LICENCE_SNAPSHOT_FIELD = "drivingLicenceSnapshot";
 
+/** Same paid stages as bookingCapabilities — reveal contacts once here. */
+const PLATFORM_PAID_BOOKING_STATUSES = new Set([
+  BOOKING_STATUS.BOOKING_CONFIRMED,
+  BOOKING_STATUS.RENTAL_IN_PROGRESS,
+  BOOKING_STATUS.COMPLETION_PENDING,
+  BOOKING_STATUS.COMPLETED,
+]);
+
 export function maskCustomerName(name) {
   const parts = String(name || "")
     .trim()
@@ -57,19 +67,37 @@ export function maskCustomerName(name) {
     .join(" ");
 }
 
-function bookingFeePaid(order) {
-  return String(order?.payment?.status || "").toLowerCase() === "paid";
+function platformBookingInPaidStage(order) {
+  if (isMarketplaceBookingFeePaid(order)) return true;
+  if (
+    PLATFORM_PAID_BOOKING_STATUSES.has(String(order?.bookingStatus || "").trim())
+  ) {
+    return true;
+  }
+  return String(order?.payment?.status || "")
+    .trim()
+    .toLowerCase() === "paid";
+}
+
+/**
+ * Same paid unlock used for contacts, calendar name reveal, and driving docs.
+ * Prefer this over reading `payment.status` alone — stage can lead the webhook.
+ */
+export function isPlatformCustomerDataUnlocked(order) {
+  return platformBookingInPaidStage(order);
 }
 
 /**
  * Company admins see marketplace customer identity only after the Booking
- * Fee webhook. Internal records stay visible to the company that created them.
+ * Fee / confirmed-paid stage. Internal records stay visible to the company
+ * that created them. Uses the same paid signals as Booking Details capabilities.
  */
 export function companyMustHideCustomerIdentity(order) {
   if (isInternalBooking(order)) return false;
   if (!isPlatformBooking(order)) return true;
-  if (isMarketplaceRequestMode(order?.bookingMode)) return !bookingFeePaid(order);
-  return !(order?.confirmed === true || bookingFeePaid(order));
+  if (platformBookingInPaidStage(order)) return false;
+  if (isMarketplaceRequestMode(order?.bookingMode)) return true;
+  return order?.confirmed !== true;
 }
 
 function withoutPermanentDocumentUrls(order) {

@@ -4,6 +4,11 @@ import { connectToDB } from "@lib/database";
 import { requireAdmin } from "@/lib/adminAuth";
 import { ROLE } from "@models/user";
 import { orderOwnershipResponse } from "@/domain/orders/orderOwnershipGuard";
+import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
+import { getTimeBucket } from "@/domain/time/athensTime";
+import { assertCalendarRelocateAllowed } from "@/domain/orders/calendarRelocate";
+import { recordPaidCalendarRelocate } from "@/domain/orders/recordPaidCalendarRelocate";
+import { extractAuditContext } from "@/domain/legal/auditTrail";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -101,7 +106,7 @@ export const PUT = async (request) => {
 
     // Parse and validate request body
     const body = await request.json();
-    const { orderId, newCarId, newCarNumber } = body;
+    const { orderId, newCarId, newCarNumber, customerAck } = body;
 
     // Validation: required fields
     if (!orderId || !newCarId || !newCarNumber) {
@@ -118,7 +123,10 @@ export const PUT = async (request) => {
         console.log("[moveCar] Role check failed:", { userRole, allowed: [ROLE.ADMIN, ROLE.SUPERADMIN] });
       }
       return new Response(
-        JSON.stringify({ message: "Forbidden: Only ADMIN and SUPERADMIN can move orders" }),
+        JSON.stringify({
+          message: "Forbidden: Only ADMIN and SUPERADMIN can move orders",
+          code: "PERMISSION_DENIED",
+        }),
         { status: 403, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -140,6 +148,48 @@ export const PUT = async (request) => {
     // Role and state are not company scope: check whose booking this is.
     const foreignOrder = orderOwnershipResponse(session.user, order);
     if (foreignOrder) return foreignOrder;
+
+    const previousSnapshot = {
+      _id: order._id,
+      orderNumber: order.orderNumber,
+      carNumber: order.carNumber,
+      carModel: order.carModel,
+      rentalStartDate: order.rentalStartDate,
+      rentalEndDate: order.rentalEndDate,
+      timeIn: order.timeIn,
+      timeOut: order.timeOut,
+      car: order.car?._id || order.car,
+    };
+
+    const timeBucket = getTimeBucket(order);
+    const access = getOrderAccess({
+      role: userRole === ROLE.SUPERADMIN ? "SUPERADMIN" : "ADMIN",
+      isClientOrder: order.my_order === true,
+      confirmed: order.confirmed === true,
+      isPast: timeBucket === "PAST",
+      timeBucket,
+      bookingMode: order.bookingMode || "",
+      paymentStatus: order.payment?.status || "",
+    });
+
+    const relocateGate = assertCalendarRelocateAllowed({
+      order,
+      access,
+      fieldsInPayload: ["car"],
+      customerAck: customerAck === true,
+    });
+    if (!relocateGate.ok) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: relocateGate.message,
+          code: relocateGate.code,
+          field: relocateGate.field,
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const paidRelocate = relocateGate.paidRelocate === true;
 
     // Verify new car exists
     const newCar = await Car.findById(newCarId);
@@ -207,10 +257,26 @@ export const PUT = async (request) => {
 
     const updatedOrder = await order.save();
 
+    if (paidRelocate) {
+      const auditCtx = extractAuditContext(request);
+      await recordPaidCalendarRelocate({
+        order: {
+          ...updatedOrder.toObject?.() || updatedOrder,
+          carNumber: newCarNumber,
+          carModel: newCar.model,
+        },
+        previous: previousSnapshot,
+        user: session.user,
+        kind: "car",
+        ipAddress: auditCtx.ipAddress,
+        userAgent: auditCtx.userAgent,
+      });
+    }
+
     if (process.env.NODE_ENV === "development") {
       console.log("[moveCar] Order moved successfully:", {
         orderId,
-        oldCar: order.car,
+        oldCar: previousSnapshot.car,
         newCar: newCarId,
       });
     }

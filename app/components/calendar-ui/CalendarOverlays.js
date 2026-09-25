@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { Modal, Grid, Box, Typography } from "@mui/material";
+import { Modal, Grid, Box, Typography, FormControlLabel, Checkbox } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
@@ -72,6 +72,7 @@ export default function CalendarOverlays({
     getRegNumberByCarNumber,
     handleCloseConfirmModal,
     handleConfirmMove,
+    setMoveCustomerAck,
     setIsEditCarOpen,
     setSelectedCarForEdit,
   } = actions;
@@ -241,7 +242,7 @@ export default function CalendarOverlays({
         size="small"
         centerVertically={false}
       >
-        <Typography sx={{ mb: 3, color: "text.primary" }}>
+        <Typography sx={{ mb: 2, color: "text.primary" }}>
           {(() => {
             const delta =
               confirmModal.dayDelta != null && confirmModal.dayDelta !== 0
@@ -276,6 +277,28 @@ export default function CalendarOverlays({
           })()}
         </Typography>
 
+        {confirmModal.requiresCustomerAck ? (
+          <Box sx={{ mb: 2 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: "warning.dark", mb: 1, fontWeight: 600 }}
+            >
+              {t("calendar.moveConfirmPaidWarning")}
+            </Typography>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={Boolean(confirmModal.customerAck)}
+                  onChange={(e) => setMoveCustomerAck?.(e.target.checked)}
+                  size="small"
+                />
+              }
+              label={t("calendar.moveConfirmCustomerAck")}
+              sx={{ alignItems: "flex-start", m: 0 }}
+            />
+          </Box>
+        ) : null}
+
         <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
           <CancelButton
             onClick={handleCloseConfirmModal}
@@ -284,6 +307,10 @@ export default function CalendarOverlays({
           <ActionButton
             color="success"
             onClick={handleConfirmMove}
+            disabled={
+              Boolean(confirmModal.requiresCustomerAck) &&
+              !confirmModal.customerAck
+            }
             label={t("calendar.moveConfirmYes")}
           />
         </Box>

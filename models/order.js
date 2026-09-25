@@ -408,6 +408,24 @@ const OrderSchema = new mongoose.Schema({
     index: true,
   },
   /**
+   * Company-only free text on INTERNAL bookings (ops notes). Never used for
+   * Rovaro marketplace workflow or customer-facing copy.
+   */
+  companyNotes: {
+    type: String,
+    default: "",
+    trim: true,
+    maxlength: 2000,
+  },
+  /**
+   * Company-only freeform tags/chips on INTERNAL bookings
+   * (e.g. "paid", "bob-confirmed"). Company decides the vocabulary.
+   */
+  companyTags: {
+    type: [String],
+    default: [],
+  },
+  /**
    * Role of admin who created this order:
    * 0 = regular admin (default)
    * 1 = superadmin

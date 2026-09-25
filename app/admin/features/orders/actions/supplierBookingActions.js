@@ -42,8 +42,14 @@ export function suggestAlternativeVehicle(orderId, proposedCarId, reasonForRepla
 }
 
 export function offerEquivalentReplacement(orderId, proposal) {
+  const supplierMessage =
+    String(proposal?.supplierMessage || proposal?.reason || "").trim() ||
+    "Equivalent replacement: same or higher class, same transmission, same or lower total price.";
   return postJson("/api/admin/legal/alternative-offers", {
     orderId,
     ...proposal,
+    replacementSource: proposal?.replacementSource || "GUARANTEED_CLASS",
+    guaranteeAck: proposal?.guaranteeAck !== false,
+    supplierMessage,
   });
 }

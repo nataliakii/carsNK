@@ -14,6 +14,8 @@ import {
   shiftOrderByDays,
 } from "./calendarDays";
 import { moveOrderToCar, changeRentalDates } from "@utils/action";
+import { requiresCustomerAckForRelocate } from "@/domain/orders/calendarRelocate";
+import { CALENDAR_RELOCATE_CODE } from "@/domain/orders/calendarRelocate";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -52,6 +54,8 @@ function emptyConfirm() {
     fromRange: null,
     toRange: null,
     shifted: null,
+    requiresCustomerAck: false,
+    customerAck: false,
   };
 }
 
@@ -384,9 +388,39 @@ export function useCalendarMoveMode({
           ? formatRange(shifted.rentalStartDate, shifted.rentalEndDate)
           : formatRange(range.start, range.end),
         shifted: shifted || null,
+        requiresCustomerAck: requiresCustomerAckForRelocate(order),
+        customerAck: false,
       });
     },
     [selectedMoveOrder, cars]
+  );
+
+  const setMoveCustomerAck = useCallback((checked) => {
+    setConfirmModal((prev) =>
+      prev?.open ? { ...prev, customerAck: Boolean(checked) } : prev
+    );
+  }, []);
+
+  const moveErrorMessage = useCallback(
+    (result) => {
+      const code = result?.code;
+      if (code === CALENDAR_RELOCATE_CODE.CUSTOMER_ACK_REQUIRED) {
+        return t("calendar.move.customerAckRequired");
+      }
+      if (code === CALENDAR_RELOCATE_CODE.FIELD_LOCKED) {
+        return t("calendar.move.fieldLocked", {
+          field: result.field || "",
+        });
+      }
+      if (
+        code === CALENDAR_RELOCATE_CODE.PERMISSION_DENIED ||
+        result?.status === 403
+      ) {
+        return t("calendar.move.noPermission");
+      }
+      return null;
+    },
+    [t]
   );
 
   const handleCarSelectForMove = useCallback(
@@ -576,7 +610,7 @@ export function useCalendarMoveMode({
   }, [isDraggingOrder, scrollContainerRef]);
 
   const applyChangeDates = useCallback(
-    async (order, shifted, carOverride) => {
+    async (order, shifted, carOverride, customerAck = false) => {
       const carId =
         carOverride?._id || order.car?._id || order.car || null;
       const carNumber = carOverride?.carNumber || order.carNumber;
@@ -589,7 +623,15 @@ export function useCalendarMoveMode({
         order.placeIn || "",
         order.placeOut || "",
         carId,
-        carNumber
+        carNumber,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { customerAck }
       );
     },
     []
@@ -600,11 +642,19 @@ export function useCalendarMoveMode({
     const newCar = confirmModal.newCar;
     const order = selectedMoveOrder;
     const shifted = confirmModal.shifted;
+    const customerAck = Boolean(confirmModal.customerAck);
 
     if (!order?._id) {
       showSingleSnackbar(t("calendar.move.noData"), { variant: "error" });
       exitMoveMode();
       setConfirmModal(emptyConfirm());
+      return;
+    }
+
+    if (confirmModal.requiresCustomerAck && !customerAck) {
+      showSingleSnackbar(t("calendar.move.customerAckRequired"), {
+        variant: "warning",
+      });
       return;
     }
 
@@ -620,7 +670,8 @@ export function useCalendarMoveMode({
         const result = await applyChangeDates(
           order,
           shifted,
-          kind === "car+dates" ? newCar : null
+          kind === "car+dates" ? newCar : null,
+          customerAck
         );
 
         if (result?.status === 201 || result?.status === 202) {
@@ -646,18 +697,25 @@ export function useCalendarMoveMode({
           );
         } else if (result?.status === 409) {
           showSingleSnackbar(
-            result.message || t("calendar.move.confirmedConflictDates"),
+            moveErrorMessage(result) ||
+              result.message ||
+              t("calendar.move.confirmedConflictDates"),
             { variant: "error", autoHideDuration: 5000 }
           );
         } else if (result?.status === 403) {
           showSingleSnackbar(
-            result.message || t("calendar.move.noPermission"),
+            moveErrorMessage(result) || t("calendar.move.noPermission"),
             { variant: "error", autoHideDuration: 5000 }
           );
         } else {
-          showSingleSnackbar(result.message || t("calendar.move.datesError"), {
-            variant: "error",
-          });
+          showSingleSnackbar(
+            moveErrorMessage(result) ||
+              result.message ||
+              t("calendar.move.datesError"),
+            {
+              variant: "error",
+            }
+          );
         }
         return;
       }
@@ -673,7 +731,8 @@ export function useCalendarMoveMode({
       const result = await moveOrderToCar(
         order._id,
         newCar._id,
-        newCar.carNumber
+        newCar.carNumber,
+        { customerAck }
       );
 
       if (result?.status === 201 || result?.status === 202) {
@@ -693,13 +752,25 @@ export function useCalendarMoveMode({
         );
       } else if (result?.status === 409) {
         showSingleSnackbar(
-          result.message || t("calendar.move.confirmedConflictCar"),
+          moveErrorMessage(result) ||
+            result.message ||
+            t("calendar.move.confirmedConflictCar"),
+          { variant: "error", autoHideDuration: 5000 }
+        );
+      } else if (result?.status === 403) {
+        showSingleSnackbar(
+          moveErrorMessage(result) || t("calendar.move.noPermission"),
           { variant: "error", autoHideDuration: 5000 }
         );
       } else {
-        showSingleSnackbar(result.message || t("calendar.move.carError"), {
-          variant: "error",
-        });
+        showSingleSnackbar(
+          moveErrorMessage(result) ||
+            result.message ||
+            t("calendar.move.carError"),
+          {
+            variant: "error",
+          }
+        );
       }
     } catch (error) {
       showSingleSnackbar(
@@ -718,6 +789,7 @@ export function useCalendarMoveMode({
     showSingleSnackbar,
     exitMoveMode,
     applyChangeDates,
+    moveErrorMessage,
     t,
   ]);
 
@@ -743,6 +815,7 @@ export function useCalendarMoveMode({
     exitMoveMode,
     handleConfirmMove,
     handleCloseConfirmModal,
+    setMoveCustomerAck,
     handleOrderDragStart,
     handleOrderDragEnd,
     handleRowDragOver,

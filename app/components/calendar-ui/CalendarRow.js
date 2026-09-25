@@ -2111,10 +2111,8 @@ export default function CarTableRow({
             minWidth: "var(--calendar-day-width, 34px)",
             maxWidth: "var(--calendar-day-width, 34px)",
             boxSizing: "border-box",
-            borderLeft:
-              day.isMonthStart && colIndex > 0
-                ? "2px solid rgba(0,194,184,0.45)"
-                : undefined,
+            // Month cue lives in the header band only — a cell borderLeft
+            // slices booking pills and looks like a rendering glitch.
             ...(rowDropInvalid
               ? {
                   boxShadow: `inset 0 0 0 2px ${theme.palette.error.main}`,

@@ -111,10 +111,33 @@ function marketplacePaidSignal(order) {
     .trim()
     .toLowerCase();
   if (pay === "paid") return true;
+  if (
+    String(order?.bookingFeePaymentStatus || "").toUpperCase() === "PAID"
+  ) {
+    return true;
+  }
+  if (
+    String(order?.customerConfirmation || "").toUpperCase() ===
+    "CONFIRMED_BY_PAYMENT"
+  ) {
+    return true;
+  }
+  const status = String(order?.bookingStatus || "").trim();
+  const confirmedPaidStage =
+    status === BOOKING_STATUS.BOOKING_CONFIRMED ||
+    status === BOOKING_STATUS.RENTAL_IN_PROGRESS ||
+    status === BOOKING_STATUS.COMPLETION_PENDING ||
+    status === BOOKING_STATUS.COMPLETED;
+  // Status alone is only trusted for marketplace rows (source classification
+  // must not treat an internal draft as “paid”).
   return (
-    String(order?.bookingStatus || "") === BOOKING_STATUS.BOOKING_CONFIRMED &&
-    isMarketplaceRequestMode(order?.bookingMode)
+    confirmedPaidStage && isMarketplaceRequestMode(order?.bookingMode)
   );
+}
+
+/** True when the Booking Fee / confirmed-paid stage has been reached. */
+export function isMarketplaceBookingFeePaid(order) {
+  return marketplacePaidSignal(order);
 }
 
 /**

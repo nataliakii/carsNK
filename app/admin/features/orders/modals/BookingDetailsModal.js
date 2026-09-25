@@ -5,11 +5,13 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
+  FormControlLabel,
   IconButton,
   MenuItem,
   TextField,
@@ -26,8 +28,10 @@ import timezone from "dayjs/plugin/timezone";
 
 import { CollapsibleSection, SummaryField, SummaryList } from "@/app/components/ui";
 import CopyableContact from "@/app/admin/features/orders/components/CopyableContact";
+import BookingDetailsActivity from "@/app/admin/features/orders/components/BookingDetailsActivity";
 import { buildBookingDetailsView } from "@/domain/booking/bookingDetailsView";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import { ROLE } from "@models/user";
 import { LEGACY_FALLBACK_TZ } from "@/domain/time/resolveBusinessTimezone";
 import {
   BOOKING_DETAILS_FOOTER_CLEARANCE,
@@ -46,7 +50,6 @@ import {
   contactRovaroAboutBooking,
   declineBookingRequest,
   loadAdminOrder,
-  loadReplacementFleetCars,
   loadSignedDrivingLicence,
   proposeEquivalentReplacement,
   reportBookingProblem,
@@ -62,8 +65,8 @@ const StickyHeader = styled(Box)(({ theme }) => ({
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: theme.spacing(2),
-  padding: theme.spacing(2, 3),
+  gap: theme.spacing(1.5),
+  padding: theme.spacing(1.5, 2),
   backgroundColor: theme.palette.background.paper,
   borderBottom: `1px solid ${theme.palette.divider}`,
 }));
@@ -75,8 +78,8 @@ const StickyFooter = styled(DialogActions)(({ theme }) => ({
   display: "flex",
   flexWrap: "wrap",
   justifyContent: "flex-end",
-  gap: theme.spacing(1),
-  padding: theme.spacing(1.5, 3),
+  gap: theme.spacing(0.75),
+  padding: theme.spacing(1, 2),
   backgroundColor: theme.palette.background.paper,
   borderTop: `1px solid ${theme.palette.divider}`,
 }));
@@ -84,8 +87,8 @@ const StickyFooter = styled(DialogActions)(({ theme }) => ({
 const ContentColumn = styled(DialogContent)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
-  gap: theme.spacing(2),
-  padding: theme.spacing(2, 3),
+  gap: theme.spacing(1),
+  padding: theme.spacing(1.25, 1.75),
   overflowX: "hidden",
   // The footer floats over the end of the content, so the content has to end
   // above it. Without this the last price line is unreadable when scrolled.
@@ -95,42 +98,57 @@ const ContentColumn = styled(DialogContent)(({ theme }) => ({
 const SectionsGrid = styled(Box)(({ theme }) => ({
   display: "grid",
   gridTemplateColumns: "1fr",
-  gap: theme.spacing(1.5),
+  gap: theme.spacing(0.85),
   width: "100%",
   [theme.breakpoints.up(BOOKING_DETAILS_SECTION_GRID_BREAKPOINT)]: {
     gridTemplateColumns: `repeat(${BOOKING_DETAILS_SECTION_GRID_COLUMNS}, minmax(0, 1fr))`,
-    gap: theme.spacing(2),
+    gap: theme.spacing(1),
   },
 }));
 
 const SectionPanel = styled(Box)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
-  gap: theme.spacing(0.5),
+  gap: theme.spacing(0.15),
   minWidth: 0,
-  padding: theme.spacing(1.5, 2),
+  padding: theme.spacing(0.75, 1),
   borderRadius: theme.shape.borderRadius,
   border: `1px solid ${theme.palette.divider}`,
-  backgroundColor: theme.palette.background.default,
+  backgroundColor: theme.palette.background.paper,
 }));
 
 const GridFullWidth = styled(Box)({
   gridColumn: "1 / -1",
 });
 
+/**
+ * Specs share one dense two-column list. Nested SummaryField rows stay stacked
+ * (label above value) so class/transmission values are not crushed.
+ */
+const VehicleSpecGrid = styled(SummaryList)(({ theme }) => ({
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  columnGap: theme.spacing(1),
+  rowGap: 0,
+  "& > *": {
+    gridTemplateColumns: "1fr !important",
+    gap: theme.spacing(0.05),
+    alignItems: "start",
+    maxWidth: "none",
+  },
+}));
+
 const PriceLayout = styled(Box)(({ theme }) => ({
   display: "grid",
   gridTemplateColumns: "1fr",
-  gap: theme.spacing(2),
-  [theme.breakpoints.up(BOOKING_DETAILS_SECTION_GRID_BREAKPOINT)]: {
-    gridTemplateColumns: "minmax(0, 1fr) minmax(0, max-content)",
-    alignItems: "start",
-  },
+  gap: theme.spacing(1),
 }));
 
 const SectionTitle = styled(Typography)(({ theme }) => ({
   fontWeight: theme.typography.fontWeightBold,
   color: theme.palette.text.primary,
+  fontSize: "0.8rem",
+  marginBottom: theme.spacing(0.25),
 }));
 
 const ReferenceText = styled(Typography)(({ theme }) => ({
@@ -164,15 +182,6 @@ const BadgeRow = styled(Box)(({ theme }) => ({
   justifyContent: "flex-end",
   gap: theme.spacing(0.5),
   minWidth: 0,
-}));
-
-/** Name/class above the specification grid — no photo in this modal. */
-const VehicleIdentity = styled(Box)(({ theme }) => ({
-  display: "flex",
-  flexDirection: "column",
-  gap: theme.spacing(0.5),
-  minWidth: 0,
-  marginBottom: theme.spacing(1.5),
 }));
 
 const TONE_PALETTE = {
@@ -237,50 +246,10 @@ const DocumentPreview = styled("img")(({ theme }) => ({
 }));
 
 const EMPTY_REPLACEMENT = Object.freeze({
-  replacementSource: REPLACEMENT_KIND.COMPANY_VEHICLE,
-  model: "",
-  category: "",
-  transmission: "",
-  seats: "",
-  luggage: "",
-  totalPrice: "",
+  replacementSource: REPLACEMENT_KIND.GUARANTEED_CLASS,
   supplierMessage: "",
+  guaranteeAck: false,
 });
-
-/**
- * The replacement rules are checked server-side; these are the values they
- * need in order to compare the proposal against the original.
- */
-const REPLACEMENT_FIELDS = Object.freeze([
-  { name: "model", labelKey: "bookingDetails.replacementDialog.model" },
-  {
-    name: "category",
-    labelKey: "bookingDetails.replacementDialog.category",
-    helperKey: "bookingDetails.replacementDialog.categoryHelp",
-  },
-  {
-    name: "transmission",
-    labelKey: "bookingDetails.replacementDialog.transmission",
-    helperKey: "bookingDetails.replacementDialog.transmissionHelp",
-  },
-  { name: "seats", labelKey: "bookingDetails.replacementDialog.seats", type: "number" },
-  {
-    name: "luggage",
-    labelKey: "bookingDetails.replacementDialog.luggage",
-    type: "number",
-  },
-  {
-    name: "totalPrice",
-    labelKey: "bookingDetails.replacementDialog.totalPrice",
-    type: "number",
-    helperKey: "bookingDetails.replacementDialog.totalPriceHelp",
-  },
-  {
-    name: "supplierMessage",
-    labelKey: "bookingDetails.replacementDialog.comment",
-    multiline: true,
-  },
-]);
 
 /** Matches the minimum the amendment validator enforces server-side. */
 const AMENDMENT_REASON_MIN = 10;
@@ -340,11 +309,6 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   const [licenceUrls, setLicenceUrls] = useState([]);
   const [priceOpen, setPriceOpen] = useState(true);
   const [replacement, setReplacement] = useState(EMPTY_REPLACEMENT);
-  const [fleetCars, setFleetCars] = useState([]);
-  const [excludedFleetCars, setExcludedFleetCars] = useState([]);
-  const [proposedCarId, setProposedCarId] = useState("");
-  const [fleetCarsLoading, setFleetCarsLoading] = useState(false);
-  const [fleetLoadError, setFleetLoadError] = useState("");
   const [amendment, setAmendment] = useState(EMPTY_AMENDMENT);
 
   const orderId = order?._id ? String(order._id) : "";
@@ -367,6 +331,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
     () => (current ? buildBookingDetailsView(current, session?.user) : null),
     [current, session?.user]
   );
+  const isSuperAdmin = Number(session?.user?.role) === ROLE.SUPERADMIN;
 
   useEffect(() => {
     if (!open || !orderId || !view?.showLicence) {
@@ -383,30 +348,10 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   }, [open, orderId, view?.showLicence]);
 
   useEffect(() => {
-    if (dialog !== "replace" || !orderId) return undefined;
-    let alive = true;
-    setFleetCars([]);
-    setExcludedFleetCars([]);
-    setProposedCarId("");
-    setFleetLoadError("");
-    setFleetCarsLoading(true);
-    loadReplacementFleetCars(orderId).then((result) => {
-      if (!alive) return;
-      setFleetCarsLoading(false);
-      if (!result.ok) {
-        setFleetLoadError(result.message || "");
-        return;
-      }
-      setFleetCars(result.cars || []);
-      setExcludedFleetCars(result.excludedCars || []);
-      if (result.eligibilityError?.message) {
-        setFleetLoadError(result.eligibilityError.message);
-      }
-    });
-    return () => {
-      alive = false;
-    };
-  }, [dialog, orderId]);
+    if (dialog !== "replace") return undefined;
+    setReplacement(EMPTY_REPLACEMENT);
+    return undefined;
+  }, [dialog]);
 
   const formatMoment = useBookingClock(current);
 
@@ -452,15 +397,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   if (!open || !current || !view || !isPlatformBooking(current)) return null;
 
   const { price } = view;
-  const fleetReplacement =
-    replacement.replacementSource === REPLACEMENT_KIND.COMPANY_VEHICLE;
-  const replacementReady = fleetReplacement
-    ? Boolean(proposedCarId) && replacement.supplierMessage.trim().length > 0
-    : replacement.model.trim().length > 0 &&
-      replacement.transmission.trim().length > 0 &&
-      Number(replacement.seats) > 0 &&
-      Number(replacement.totalPrice) > 0 &&
-      replacement.supplierMessage.trim().length > 0;
+  const replacementReady = replacement.guaranteeAck === true;
   const priceBreakdown = (
     <SummaryList component="dl">
       {price.lines.map((line) => (
@@ -570,90 +507,87 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
 
         <SectionsGrid>
           {showVehiclePanel ? (
-            <GridFullWidth>
-              <SectionPanel data-testid="vehicle-snapshot">
-                <SectionTitle variant="subtitle2">
-                  {t(
-                    view.replacement
-                      ? "bookingDetails.replacement.originallyRequested"
-                      : "bookingDetails.sections.vehicle"
-                  )}
-                </SectionTitle>
-                {view.vehicleIsLegacy ? (
-                  <Alert severity="warning" data-testid="vehicle-legacy-notice">
-                    {t("bookingDetails.vehicle.legacyNotice")}
-                  </Alert>
+            <SectionPanel data-testid="vehicle-snapshot">
+              <SectionTitle variant="subtitle2">
+                {t(
+                  view.replacement
+                    ? "bookingDetails.replacement.originallyRequested"
+                    : "bookingDetails.sections.vehicle"
+                )}
+              </SectionTitle>
+              {view.vehicleIsLegacy ? (
+                <Alert severity="warning" data-testid="vehicle-legacy-notice">
+                  {t("bookingDetails.vehicle.legacyNotice")}
+                </Alert>
+              ) : null}
+              <SummaryField
+                label={t("bookingDetails.vehicle.requested")}
+                value={vehicle.displayName}
+                strong
+              />
+              <VehicleSpecGrid component="dl">
+                <SummaryField
+                  label={t("bookingDetails.vehicle.class")}
+                  value={vehicle.class}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.transmission")}
+                  value={vehicle.transmission}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.fuel")}
+                  value={vehicle.fuelType}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.seats")}
+                  value={vehicle.seats}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.doors")}
+                  value={vehicle.doors}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.luggage")}
+                  value={vehicle.luggage}
+                />
+                {/* Absence is not the same as "no air conditioning", so
+                    the row appears only when the answer was recorded. */}
+                {typeof vehicle.airConditioning === "boolean" ? (
+                  <SummaryField
+                    label={t("bookingDetails.vehicle.airConditioning")}
+                    value={t(
+                      vehicle.airConditioning
+                        ? "bookingDetails.options.yes"
+                        : "bookingDetails.options.no"
+                    )}
+                  />
                 ) : null}
-                <VehicleIdentity>
-                  <ReferenceText variant="subtitle1" component="div">
-                    {vehicle.displayName}
-                  </ReferenceText>
-                  {vehicle.class ? (
-                    <HeaderMeta variant="body2" component="div">
-                      {vehicle.class}
-                    </HeaderMeta>
-                  ) : null}
-                </VehicleIdentity>
-                <SummaryList component="dl">
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.transmission")}
-                    value={vehicle.transmission}
-                  />
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.fuel")}
-                    value={vehicle.fuelType}
-                  />
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.seats")}
-                    value={vehicle.seats}
-                  />
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.doors")}
-                    value={vehicle.doors}
-                  />
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.luggage")}
-                    value={vehicle.luggage}
-                  />
-                  {/* Absence is not the same as "no air conditioning", so
-                      the row appears only when the answer was recorded. */}
-                  {typeof vehicle.airConditioning === "boolean" ? (
+                <SummaryField
+                  label={t("bookingDetails.vehicle.modelYear")}
+                  value={vehicle.modelYear}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.includedMileage")}
+                  value={vehicle.includedMileage ?? vehicle.mileagePolicy}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.deposit")}
+                  value={vehicle.deposit}
+                />
+                {showFleetIdentity ? (
+                  <>
                     <SummaryField
-                      label={t("bookingDetails.vehicle.airConditioning")}
-                      value={t(
-                        vehicle.airConditioning
-                          ? "bookingDetails.options.yes"
-                          : "bookingDetails.options.no"
-                      )}
+                      label={t("bookingDetails.vehicle.fleetCode")}
+                      value={vehicle.fleetCode}
                     />
-                  ) : null}
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.modelYear")}
-                    value={vehicle.modelYear}
-                  />
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.includedMileage")}
-                    value={vehicle.includedMileage ?? vehicle.mileagePolicy}
-                  />
-                  <SummaryField
-                    label={t("bookingDetails.vehicle.deposit")}
-                    value={vehicle.deposit}
-                  />
-                  {showFleetIdentity ? (
-                    <>
-                      <SummaryField
-                        label={t("bookingDetails.vehicle.fleetCode")}
-                        value={vehicle.fleetCode}
-                      />
-                      <SummaryField
-                        label={t("bookingDetails.vehicle.registration")}
-                        value={vehicle.registrationNumber}
-                      />
-                    </>
-                  ) : null}
-                </SummaryList>
-              </SectionPanel>
-            </GridFullWidth>
+                    <SummaryField
+                      label={t("bookingDetails.vehicle.registration")}
+                      value={vehicle.registrationNumber}
+                    />
+                  </>
+                ) : null}
+              </VehicleSpecGrid>
+            </SectionPanel>
           ) : null}
 
           <SectionPanel>
@@ -886,6 +820,31 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                     alt={t("bookingDetails.documents.preview")}
                   />
                 ))}
+                {!view.licence?.holderName &&
+                !view.licence?.licenceNumber &&
+                licenceUrls.length === 0 ? (
+                  <Typography variant="caption" color="text.secondary">
+                    {current?.hasDrivingLicence
+                      ? t("bookingDetails.documents.onFile", {
+                          defaultValue:
+                            "Driving licence is on file. Open the preview once images load.",
+                        })
+                      : t("bookingDetails.documents.noneUploaded", {
+                          defaultValue: "No driving licence was uploaded for this booking.",
+                        })}
+                  </Typography>
+                ) : null}
+              </SectionPanel>
+            </GridFullWidth>
+          ) : null}
+
+          {isSuperAdmin && orderId ? (
+            <GridFullWidth>
+              <SectionPanel data-testid="booking-activity">
+                <SectionTitle variant="subtitle2">
+                  {t("bookingDetails.sections.activity")}
+                </SectionTitle>
+                <BookingDetailsActivity orderId={orderId} />
               </SectionPanel>
             </GridFullWidth>
           ) : null}
@@ -923,6 +882,12 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         </StickyHeader>
         <ContentColumn>
           {error ? <Alert severity="error">{error}</Alert> : null}
+          <Alert severity="warning">
+            {t("bookingDetails.confirmDialog.obligation", {
+              defaultValue:
+                "You are committing to provide this car for the dates, locations, and price shown. If something happens and you cannot, you must promptly offer an equivalent replacement or decline — do not leave the customer without a vehicle.",
+            })}
+          </Alert>
           <Typography variant="body2">
             {t("bookingDetails.confirmDialog.intro")}
           </Typography>
@@ -970,7 +935,9 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               )
             }
           >
-            {t("bookingDetails.actions.confirm")}
+            {t("bookingDetails.confirmDialog.confirm", {
+              defaultValue: "Yes, I commit to provide this vehicle",
+            })}
           </Button>
         </StickyFooter>
       </Dialog>
@@ -985,89 +952,50 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
           <Typography variant="body2">
             {t("bookingDetails.replacementDialog.intro")}
           </Typography>
-          <TextField
-            select
-            label={t("bookingDetails.replacementDialog.kind")}
-            value={replacement.replacementSource}
-            onChange={(event) => {
-              setProposedCarId("");
-              setReplacement((was) => ({
-                ...was,
-                replacementSource: event.target.value,
-              }));
-            }}
-            fullWidth
-          >
-            {Object.values(REPLACEMENT_KIND).map((kind) => (
-              <MenuItem key={kind} value={kind}>
-                {t(`bookingDetails.replacementDialog.kinds.${kind}`)}
-              </MenuItem>
-            ))}
-          </TextField>
-          {fleetReplacement ? (
-            <>
-              {fleetCarsLoading ? (
-                <CircularProgress size={theme.typography.body1.fontSize} />
-              ) : null}
-              {fleetLoadError ? (
-                <Alert severity="info">{fleetLoadError}</Alert>
-              ) : null}
-              <TextField
-                select
-                label={t("bookingDetails.replacementDialog.model")}
-                value={proposedCarId}
-                onChange={(event) => setProposedCarId(event.target.value)}
-                fullWidth
-                disabled={fleetCarsLoading || fleetCars.length === 0}
-                helperText={t("bookingDetails.replacementDialog.categoryHelp")}
-              >
-                <MenuItem value="">
-                  {t("bookingDetails.replacementDialog.fleetPlaceholder")}
-                </MenuItem>
-                {fleetCars.map((car) => (
-                  <MenuItem key={car.carId} value={car.carId}>
-                    {car.unpublished
-                      ? t("bookingDetails.replacementDialog.internalFleet", {
-                          name: car.name,
-                        })
-                      : car.name}
-                    {car.category ? ` · ${car.category}` : ""}
-                  </MenuItem>
-                ))}
-              </TextField>
-              {excludedFleetCars.length > 0 ? (
-                <Typography variant="caption" color="text.secondary" component="div">
-                  {t("bookingDetails.replacementDialog.notOfferable")}
-                  {excludedFleetCars.slice(0, 12).map((row) => (
-                    <Box key={row.carId} component="span" sx={{ display: "block" }}>
-                      {row.name}: {row.message}
-                    </Box>
-                  ))}
-                </Typography>
-              ) : null}
-            </>
-          ) : (
-            REPLACEMENT_FIELDS.filter((field) => field.name !== "supplierMessage").map(
-              (field) => (
-                <TextField
-                  key={field.name}
-                  label={t(field.labelKey)}
-                  value={replacement[field.name]}
-                  type={field.type || "text"}
-                  onChange={(event) =>
-                    setReplacement((was) => ({
-                      ...was,
-                      [field.name]: event.target.value,
-                    }))
-                  }
-                  fullWidth
-                  multiline={field.multiline || false}
-                  minRows={field.multiline ? 3 : undefined}
-                  helperText={field.helperKey ? t(field.helperKey) : undefined}
-                />
-              )
-            )
-          )}
+          <Alert severity="info" sx={{ "& .MuiAlert-message": { width: "100%" } }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              {t("bookingDetails.replacementDialog.reminderTitle", {
+                defaultValue: "Requested vehicle terms",
+              })}
+            </Typography>
+            <Typography variant="body2" component="div">
+              {t("bookingDetails.replacementDialog.reminderClass", {
+                defaultValue: "Class: {{class}}",
+                class: vehicle?.class || "—",
+              })}
+            </Typography>
+            <Typography variant="body2" component="div">
+              {t("bookingDetails.replacementDialog.reminderTransmission", {
+                defaultValue: "Transmission: {{transmission}}",
+                transmission: vehicle?.transmission || "—",
+              })}
+            </Typography>
+            <Typography variant="body2" component="div">
+              {t("bookingDetails.replacementDialog.reminderPrice", {
+                defaultValue: "Total price ceiling: {{price}}",
+                price: price.totalText || "—",
+              })}
+            </Typography>
+          </Alert>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={Boolean(replacement.guaranteeAck)}
+                onChange={(event) =>
+                  setReplacement((was) => ({
+                    ...was,
+                    guaranteeAck: event.target.checked,
+                    replacementSource: REPLACEMENT_KIND.GUARANTEED_CLASS,
+                  }))
+                }
+              />
+            }
+            label={t("bookingDetails.replacementDialog.guaranteeAck", {
+              defaultValue:
+                "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
+            })}
+            sx={{ alignItems: "flex-start", m: 0, "& .MuiFormControlLabel-label": { fontSize: "0.875rem" } }}
+          />
           <TextField
             label={t("bookingDetails.replacementDialog.comment")}
             value={replacement.supplierMessage}
@@ -1079,7 +1007,10 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             }
             fullWidth
             multiline
-            minRows={3}
+            minRows={2}
+            helperText={t("bookingDetails.replacementDialog.commentHelp", {
+              defaultValue: "Optional note for the customer.",
+            })}
           />
         </ContentColumn>
         <StickyFooter>
@@ -1093,8 +1024,9 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               run(
                 () =>
                   proposeEquivalentReplacement(orderId, {
-                    ...replacement,
-                    proposedCarId,
+                    replacementSource: REPLACEMENT_KIND.GUARANTEED_CLASS,
+                    guaranteeAck: true,
+                    supplierMessage: replacement.supplierMessage,
                   }),
                 "bookingDetails.notices.replacementOffered"
               )

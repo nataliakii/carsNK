@@ -14,7 +14,7 @@ export const SUPPLIER_RESPONSE = Object.freeze({
 });
 
 export const SUPPLIER_AVAILABILITY_STATEMENT =
-  "We confirm that the requested vehicle is available for the shown dates, pickup and return locations, and confirmed price.";
+  "By confirming, I commit to provide this vehicle for the shown dates, pickup and return locations, and confirmed price. If I cannot keep that commitment, I must promptly offer an equivalent replacement or decline before the customer pays.";
 
 export const CUSTOMER_CONFIRMATION = Object.freeze({
   NOT_REQUESTED: "NOT_REQUESTED",

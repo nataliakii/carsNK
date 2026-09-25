@@ -47,6 +47,7 @@ const CarDetailsModal = lazy(() => import("./CarDetailsModal"));
 import { useTranslation } from "react-i18next";
 import CarPhotoCarousel from "./CarPhotoCarousel";
 import CarBookingPanel from "./CarBookingPanel";
+import SearchPriceBadge from "./SearchPriceBadge";
 import { useCarCalendarSlice } from "@/app/hooks/useCarCalendar";
 import CarCitiesSummary from "./CarCitiesSummary";
 import { resolveCarOperatingZones } from "@/domain/cars/carOperatingZones";
@@ -54,6 +55,10 @@ import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocatio
 import { listCarPhotos } from "@/domain/cars/carPhotos";
 import { useSnackbar } from "notistack";
 import dayjs from "dayjs";
+import { getSiteCountryCode } from "@config/siteCountry";
+import { isSpainBookingSite } from "@/domain/orders/catalogPlaceOptions";
+import { rentalDayCount } from "@/domain/booking/carBookingPanel";
+import { BOOKING_MODE, resolvePublicBookingMode } from "@/domain/booking/publicBookingMode";
 
 /**
  * Client-side slug for car link when DB slug is missing (e.g. cached API response).
@@ -224,6 +229,22 @@ const CarItemComponent = React.memo(function CarItemComponent({
   // --- Скидка теперь приходит из родителя ---
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isSearchFirst =
+    resolvePublicBookingMode(searchRequest) === BOOKING_MODE.SEARCH_FIRST;
+  const searchQuote = catalogQuote?.quote || null;
+  const searchQuoteReady =
+    isSearchFirst &&
+    catalogQuote?.status === "ready" &&
+    Number(searchQuote?.totalPrice) > 0;
+  const searchQuoteLoading =
+    isSearchFirst &&
+    (!catalogQuote ||
+      catalogQuote.status === "loading" ||
+      catalogQuote.status === "idle");
+  const searchDays =
+    Number(searchQuote?.days) > 0
+      ? Number(searchQuote.days)
+      : rentalDayCount(searchRequest?.startDate, searchRequest?.endDate);
 
   const [bookDates, setBookedDates] = useState({ start: null, end: null });
   const [modalOpen, setModalOpen] = useState(false);
@@ -250,8 +271,14 @@ const CarItemComponent = React.memo(function CarItemComponent({
   // Оптимизация: деструктурируем только нужные поля из контекста
   // и мемоизируем carOrders, чтобы избежать лишних ре-рендеров
   // ✅ CLIENT-SAFE: используем fetchAndUpdateActiveOrders (только активные заказы)
-  const { fetchAndUpdateActiveOrders, isLoading, ordersByCarId, allOrders, company } =
+  const { fetchAndUpdateActiveOrders, isLoading, ordersByCarId, allOrders, company, bookingPlaceIn, bookingPlaceOut } =
     useMainContext();
+
+  const showSearchApprox =
+    isSpainBookingSite(getSiteCountryCode()) &&
+    Boolean(
+      String(bookingPlaceIn || "").trim() || String(bookingPlaceOut || "").trim()
+    );
 
   const ownerCompanyId = car?.ownerId || company?._id;
   const { names: coverageCityNames, coverageReady } =
@@ -314,6 +341,15 @@ const CarItemComponent = React.memo(function CarItemComponent({
         ) : (
           <CarTitle variant="h5">{car.model}</CarTitle>
         )}
+        {/* Mobile search-first: price above the photo so shoppers see it before scrolling */}
+        {isMobile && isSearchFirst && (searchQuoteLoading || searchQuoteReady) ? (
+          <SearchPriceBadge
+            loading={searchQuoteLoading && !searchQuoteReady}
+            totalPrice={searchQuoteReady ? Number(searchQuote.totalPrice) : null}
+            days={searchQuoteReady ? searchDays : null}
+            showApprox={showSearchApprox}
+          />
+        ) : null}
         <MediaRow>
           <Box
             className="car-image-wrapper"
@@ -338,6 +374,8 @@ const CarItemComponent = React.memo(function CarItemComponent({
                 marginBottom: 0,
                 "@media (max-width:600px) and (orientation: portrait)": {
                   marginBottom: 0,
+                  // Search results: slightly shorter photo so price + CTA fit above the fold
+                  ...(isSearchFirst ? { paddingBottom: "48%" } : null),
                 },
               }}
             >
