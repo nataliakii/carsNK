@@ -36,8 +36,7 @@ export default function LoginForm() {
           setError(result.error || "An error occurred during login");
         }
       } else if (result?.ok) {
-        const returnTo = new URLSearchParams(window.location.search).get("returnTo");
-        window.location.href = destinationAfterLogin(returnTo);
+        window.location.href = "/admin";
       } else {
         setError("Unexpected response. Please try again.");
       }

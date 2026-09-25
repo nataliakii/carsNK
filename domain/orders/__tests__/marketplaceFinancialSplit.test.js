@@ -285,6 +285,95 @@ describe("€500 marketplace emails", () => {
   });
 });
 
+describe("a stored supplier balance that contradicts gross minus fee", () => {
+  const CORRUPT_AUTH = {
+    currency: "EUR",
+    grossMinor: 43700,
+    marketplaceBookingFeeBps: 1000,
+    platformAmountMinor: 4370,
+    prepaymentMinor: 4370,
+    stripeAmountMinor: 4370,
+    supplierBalanceMinor: 100,
+    balanceMinor: 100,
+  };
+
+  test("the stale balance is corrected to gross minus the stored fee", () => {
+    const split = marketplaceFinancialSplit(CORRUPT_AUTH);
+    expect(split.grossMinor).toBe(43700);
+    expect(split.platformAmountMinor).toBe(4370);
+    expect(split.supplierBalanceMinor).toBe(39330);
+    expect(split.balanceMinor).toBe(39330);
+    expect(split.platformAmountMinor + split.supplierBalanceMinor).toBe(
+      split.grossMinor
+    );
+  });
+
+  test("a consistent stored triple resolves exactly as the corrected one", () => {
+    const consistent = marketplaceFinancialSplit({
+      ...CORRUPT_AUTH,
+      supplierBalanceMinor: 39330,
+      balanceMinor: 39330,
+    });
+    expect(consistent.supplierBalanceMinor).toBe(39330);
+    expect(consistent).toEqual(marketplaceFinancialSplit(CORRUPT_AUTH));
+  });
+
+  test("a paid 11% capture keeps every field it was captured with", () => {
+    expect(
+      marketplaceFinancialSplit({
+        currency: "EUR",
+        grossMinor: 16500,
+        marketplaceBookingFeeBps: 1100,
+        platformAmountMinor: 1815,
+        prepaymentMinor: 1815,
+        stripeAmountMinor: 1815,
+        supplierBalanceMinor: 14685,
+        balanceMinor: 14685,
+      })
+    ).toEqual({
+      currency: "EUR",
+      marketplaceBookingFeeBps: 1100,
+      feePercent: 11,
+      supplierBalanceBps: 8900,
+      supplierBalancePercent: 89,
+      prepaymentPercent: 11,
+      grossMinor: 16500,
+      prepaymentMinor: 1815,
+      balanceMinor: 14685,
+      stripeAmountMinor: 1815,
+      platformAmountMinor: 1815,
+      supplierBalanceMinor: 14685,
+      payoutMinor: 0,
+    });
+  });
+
+  test("a price with no booking fee at all keeps its full stored balance", () => {
+    // Greece / ops: prepaymentPercent 0, so the supplier collects the lot.
+    // The default marketplace rate was never charged here.
+    const split = marketplaceFinancialSplit({
+      currency: "EUR",
+      grossMinor: EUR_500_MINOR,
+      prepaymentMinor: 0,
+      balanceMinor: EUR_500_MINOR,
+      platformAmountMinor: 0,
+      supplierBalanceMinor: EUR_500_MINOR,
+      prepaymentPercent: 0,
+    });
+    expect(split.supplierBalanceMinor).toBe(EUR_500_MINOR);
+    expect(split.balanceMinor).toBe(EUR_500_MINOR);
+  });
+
+  test("the partner confirmation page shows the corrected balance", () => {
+    const financials = resolveConfirmationFinancials(
+      euro500Order({ authoritativePrice: CORRUPT_AUTH })
+    );
+    expect(financials.grossMinor).toBe(43700);
+    expect(financials.prepaymentMinor).toBe(4370);
+    expect(financials.balanceMinor).toBe(39330);
+    expect(financials.supplierBalanceMinor).toBe(39330);
+  });
+});
+
 describe("marketplace labels", () => {
   test("EN/ES surfaces use the compact three lines", () => {
     expect(marketplaceSplitLabels("en")).toMatchObject({

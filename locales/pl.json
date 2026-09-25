@@ -207,7 +207,33 @@
     "flightNumber": "Nr lotu",
     "minAllowed": "Nie wcześniej niż:",
     "maxAllowed": "Nie później niż:",
-    "invalidBoundaryInterval": "Nieprawidłowy odstęp między zamówieniami granicznymi. Proszę wybrać inne daty."
+    "invalidBoundaryInterval": "Nieprawidłowy odstęp między zamówieniami granicznymi. Proszę wybrać inne daty.",
+    "licenceSectionTitle": "Prawo jazdy",
+    "licenceSectionHint": "Wymagane do potwierdzenia rezerwacji. Dane i zdjęcie są przechowywane bezpiecznie i przekazywane wypożyczalni tylko po potwierdzeniu płatności.",
+    "licenceHolderLabel": "Imię i nazwisko z prawa jazdy",
+    "licenceNumberLabel": "Numer prawa jazdy",
+    "licenceCountryLabel": "Kraj wydania",
+    "licenceExpiryLabel": "Data ważności",
+    "licenceIssueDateLabel": "Data wydania",
+    "licenceIssueDateHint": "Zgodnie z zapisem na prawie jazdy.",
+    "licenceUploadDocument": "Wyślij zdjęcie prawa jazdy",
+    "licenceReplaceDocument": "Zmień zdjęcie",
+    "licenceUploading": "Wysyłanie…",
+    "licenceDocumentAttached": "Zdjęcie dołączone",
+    "licenceUploadUnsupportedType": "Użyj pliku JPEG, PNG, WebP, HEIC lub PDF.",
+    "licenceUploadTooLarge": "Plik jest większy niż 10 MB. Wyślij mniejszy plik.",
+    "licenceUploadRateLimited": "Zbyt wiele prób wysyłania. Odczekaj kilka minut i spróbuj ponownie.",
+    "licenceRequired": "Do rezerwacji wymagane są dane prawa jazdy oraz jego zdjęcie.",
+    "licenceUploadMissing": "Wyślij zdjęcie prawa jazdy, aby kontynuować.",
+    "licenceUploadFailed": "Wysyłanie prawa jazdy nie zostało zakończone. Wyślij zdjęcie ponownie.",
+    "licenceHolderRequired": "Podaj pełne imię i nazwisko widoczne na prawie jazdy.",
+    "licenceNumberRequired": "Podaj numer prawa jazdy.",
+    "licenceCountryRequired": "Wybierz kraj, który wydał prawo jazdy.",
+    "licenceExpiryRequired": "Podaj datę ważności prawa jazdy.",
+    "licenceExpiresBeforeReturn": "Prawo jazdy traci ważność przed końcem wynajmu. Użyj prawa jazdy ważnego przez cały okres wynajmu.",
+    "licenceIssueDateRequired": "Podaj datę wydania prawa jazdy.",
+    "licenceIssueDateInvalid": "Data wydania musi być w przeszłości i wcześniejsza niż data ważności.",
+    "licenceNotProvided": "Nie podano"
   },
   "car": {
     "viewDetails": "Zobacz więcej szczegółów",
@@ -660,5 +686,189 @@
     ],
     "swap": "Zamień miejsca",
     "distanceApprox": "Około: ~{{km}} km · ~{{minutes}} min"
+  },
+  "bookingDetails": {
+    "title": "Szczegóły rezerwacji",
+    "close": "Zamknij",
+    "back": "Wstecz",
+    "privacyNotice": "Dane kontaktowe klienta i dokumenty prawa jazdy stają się dostępne po otrzymaniu opłaty rezerwacyjnej.",
+    "errors": {
+      "generic": "Coś poszło nie tak. Spróbuj ponownie."
+    },
+    "sections": {
+      "vehicle": "Pojazd",
+      "dates": "Terminy i lokalizacje",
+      "options": "Opcje wynajmu",
+      "price": "Podsumowanie ceny",
+      "customer": "Dane klienta",
+      "documents": "Dokumenty prawa jazdy"
+    },
+    "status": {
+      "newRequest": {
+        "title": "Nowe zapytanie",
+        "detail": "Oczekuje na Twoje potwierdzenie."
+      },
+      "awaitingPayment": {
+        "title": "Pojazd potwierdzony",
+        "detail": "Czekamy, aż klient zapłaci {{rate}}% opłaty rezerwacyjnej.",
+        "detailNoRate": "Czekamy, aż klient zapłaci opłatę rezerwacyjną."
+      },
+      "replacementOffered": {
+        "title": "Zaproponowano zamiennik",
+        "detail": "Czekamy, aż klient zaakceptuje ten zamiennik."
+      },
+      "confirmedPaid": {
+        "title": "Potwierdzona i opłacona",
+        "detail": "Klient opłacił rezerwację Rovaro."
+      },
+      "declined": {
+        "title": "Odrzucona"
+      },
+      "generic": {
+        "title": "Rezerwacja"
+      }
+    },
+    "vehicle": {
+      "requested": "Zamówiony pojazd",
+      "class": "Klasa",
+      "transmission": "Skrzynia biegów",
+      "seats": "Miejsca",
+      "luggage": "Bagaż",
+      "fuel": "Rodzaj paliwa"
+    },
+    "dates": {
+      "pickup": "Data i godzina odbioru",
+      "return": "Data i godzina zwrotu",
+      "days": "Dni wynajmu",
+      "pickupLocation": "Miejsce odbioru",
+      "returnLocation": "Miejsce zwrotu"
+    },
+    "options": {
+      "insurance": "Ubezpieczenie",
+      "excess": "Udział własny",
+      "childSeats": "Foteliki dziecięce",
+      "secondDriver": "Drugi kierowca",
+      "yes": "Tak",
+      "no": "Nie"
+    },
+    "price": {
+      "rental": "Wynajem",
+      "insurance": "Ubezpieczenie",
+      "childSeat": "Fotelik dziecięcy",
+      "secondDriver": "Drugi kierowca",
+      "extras": "Dodatki",
+      "discount": "Rabat",
+      "afterHours": "Obsługa poza godzinami pracy",
+      "other": "Inne",
+      "manualAdjustment": "Korekta ręczna",
+      "officeBoth": "Odbiór i zwrot w biurze",
+      "pickupOffice": "Odbiór w biurze",
+      "returnOffice": "Zwrot w biurze",
+      "pickupDelivery": "Dostawa na miejsce odbioru",
+      "returnDelivery": "Odbiór z miejsca zwrotu",
+      "free": "W cenie",
+      "totalRentalPrice": "Łączna cena wynajmu",
+      "paidToRovaro": "Zapłacone Rovaro ({{rate}}%)",
+      "payableToSupplier": "Pobierasz od klienta",
+      "payableToSupplierHint": "Tę kwotę klient płaci Tobie bezpośrednio przy wydaniu auta.",
+      "dataWarning": "Zapisane pozycje ceny tej rezerwacji nie sumują się do zapisanej kwoty łącznej. Działania finansowe są zablokowane, dopóki Rovaro nie naprawi rekordu."
+    },
+    "customer": {
+      "name": "Imię i nazwisko",
+      "phone": "Telefon",
+      "email": "E-mail",
+      "messengers": "Komunikatory",
+      "notes": "Uwagi klienta",
+      "whatsapp": "WhatsApp",
+      "viber": "Viber",
+      "telegram": "Telegram",
+      "openChat": "Otwórz czat"
+    },
+    "documents": {
+      "holder": "Posiadacz prawa jazdy",
+      "number": "Numer prawa jazdy",
+      "country": "Kraj wydania",
+      "expires": "Data ważności",
+      "preview": "Prawo jazdy"
+    },
+    "actions": {
+      "confirm": "Potwierdź zamówiony pojazd",
+      "replace": "Zaproponuj równorzędny zamiennik",
+      "decline": "Odrzuć zapytanie",
+      "contactCustomer": "Skontaktuj się z klientem",
+      "contactRovaro": "Skontaktuj się z Rovaro",
+      "reportProblem": "Zgłoś problem",
+      "amend": "Zmień rezerwację"
+    },
+    "confirmDialog": {
+      "title": "Potwierdź zamówiony pojazd",
+      "intro": "Zobowiązujesz się do tych warunków:"
+    },
+    "declineDialog": {
+      "title": "Odrzuć zapytanie",
+      "intro": "Wyjaśnij Rovaro, dlaczego ta rezerwacja nie może zostać zrealizowana.",
+      "reason": "Powód"
+    },
+    "contactDialog": {
+      "reference": "Numer rezerwacji",
+      "category": "Kategoria sprawy",
+      "message": "Wiadomość",
+      "send": "Wyślij",
+      "problemNotice": "Rovaro zostaje powiadomione natychmiast. Potwierdzona rezerwacja pozostaje bez zmian — nic nie jest anulowane ani zwracane.",
+      "categories": {
+        "BOOKING_DETAILS": "Szczegóły rezerwacji",
+        "VEHICLE": "Pojazd",
+        "DATES": "Terminy",
+        "PRICE": "Cena",
+        "CUSTOMER": "Klient",
+        "OTHER": "Inne"
+      }
+    },
+    "replacement": {
+      "originallyRequested": "Pierwotnie zamówione",
+      "confirmedAs": "Potwierdzone jako zamiennik",
+      "supplierComment": "Komentarz dla klienta"
+    },
+    "replacementDialog": {
+      "intro": "Zamówiony pojazd pozostaje bez zmian. Twoja propozycja trafia do klienta, który akceptuje ją, płacąc.",
+      "kind": "Rodzaj zamiennika",
+      "kinds": {
+        "COMPANY_VEHICLE": "Pojazd z Twojej floty",
+        "EXTERNAL_VEHICLE": "Pojazd spoza Twojej floty",
+        "GUARANTEED_CLASS": "Gwarantowana klasa, model do potwierdzenia"
+      },
+      "model": "Pojazd zastępczy",
+      "category": "Klasa",
+      "categoryHelp": "Taka sama lub wyższa klasa niż zamówiony pojazd.",
+      "transmission": "Skrzynia biegów",
+      "transmissionHelp": "Musi odpowiadać zamówionej skrzyni biegów.",
+      "seats": "Miejsca",
+      "luggage": "Bagaż",
+      "totalPrice": "Łączna cena wynajmu",
+      "totalPriceHelp": "Taka sama lub niższa niż zamówiona cena.",
+      "comment": "Komentarz dla klienta",
+      "submit": "Wyślij propozycję"
+    },
+    "amendDialog": {
+      "notice": "Każda zmiana jest zapisywana wraz z powodem oraz stanem przed i po. Istotny warunek opłaconej rezerwacji nie może się zmienić bez zgody klienta.",
+      "requestedBy": "Zgłoszone przez",
+      "requesters": {
+        "CUSTOMER": "Klient",
+        "SUPPLIER": "Wypożyczalnia",
+        "ROVARO": "Rovaro"
+      },
+      "reason": "Powód",
+      "reasonHelp": "Co najmniej 10 znaków. Zapisywane w dzienniku audytu.",
+      "consentNote": "Zgoda klienta",
+      "consentHelp": "Wymagana przed zmianą istotnego warunku opłaconej rezerwacji. Opisz, w jaki sposób uzyskano zgodę.",
+      "submit": "Zapisz zmianę"
+    },
+    "notices": {
+      "confirmed": "Pojazd potwierdzony.",
+      "declined": "Zapytanie odrzucone.",
+      "messageSent": "Wiadomość wysłana do Rovaro.",
+      "replacementOffered": "Propozycja zamiennika wysłana.",
+      "amended": "Zmiana zapisana."
+    }
   }
 }

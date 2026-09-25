@@ -23,6 +23,14 @@ import {
   BookingFlightField,
 } from "../ui";
 import BookingContactSection from "@/app/components/orders/BookingContactSection";
+import {
+  DrivingLicenceCaptureField,
+  emptyDrivingLicenceValue,
+} from "@/app/components/ui/inputs";
+import {
+  licenceCaptureMessageKey,
+  validateDrivingLicenceFields,
+} from "@/domain/legal/drivingLicenceSnapshot";
 import { useTranslation } from "react-i18next";
 import { addOrderNew } from "@utils/action";
 import SuccessMessage from "@/app/components/ui/feedback/SuccessMessage";
@@ -318,6 +326,8 @@ const BookingModal = ({
     companyAccepted: true,
     companyRequired: false,
   });
+  const [drivingLicence, setDrivingLicence] = useState(emptyDrivingLicenceValue);
+  const [licenceSubmitAttempted, setLicenceSubmitAttempted] = useState(false);
 
   const placeInIsOffice =
     pickupMethod === "office" ||
@@ -1128,6 +1138,22 @@ const BookingModal = ({
       newErrors.time = t("order.requiredValidTimes") || "Valid pickup/return times";
     }
     if (timeErrors) newErrors.time = timeErrors;
+    // Mirrors the server gate in domain/legal/drivingLicenceCreateGate so the
+    // customer is corrected before submitting. The server decides regardless.
+    setLicenceSubmitAttempted(true);
+    const licenceCheck = validateDrivingLicenceFields({
+      payload: drivingLicence,
+      pickupAtUtc: presetDates?.startDate || null,
+      returnAtUtc: presetDates?.endDate || null,
+    });
+    if (!licenceCheck.ok) {
+      newErrors.drivingLicence = t(
+        licenceCaptureMessageKey(licenceCheck.code),
+        licenceCheck.message
+      );
+    } else if (!drivingLicence?.uploadReceipt) {
+      newErrors.drivingLicence = t("order.licenceUploadMissing");
+    }
     const locationCheck = validateCustomerBookingLocation({
       pickupMethod,
       pickupOfficeId,
@@ -1233,6 +1259,15 @@ const BookingModal = ({
         flightNumber: flightNumber,
         locale: lang || "en",
         termsAcceptance: termsState.payload,
+        drivingLicence: {
+          holderName: drivingLicence.holderName,
+          licenceNumber: drivingLicence.licenceNumber,
+          issuingCountry: drivingLicence.issuingCountry,
+          expiryDate: drivingLicence.expiryDate,
+          issueDate: drivingLicence.issueDate,
+          // Opaque proof the upload landed. The browser never holds a storage URL.
+          uploadReceipt: drivingLicence.uploadReceipt,
+        },
       };
 
       const response = await addOrderNew(orderData);
@@ -1292,6 +1327,8 @@ const BookingModal = ({
     setName("");
     setEmail("");
     setPhone("");
+    setDrivingLicence(emptyDrivingLicenceValue);
+    setLicenceSubmitAttempted(false);
     setSecondDriver(false);
     setViber(false);
     setWhatsapp(false);
@@ -2040,6 +2077,20 @@ const BookingModal = ({
                     errors={errors}
                     showDrivingLicenceUpload={false}
                   />
+                  <DrivingLicenceCaptureField
+                    value={drivingLicence}
+                    onChange={setDrivingLicence}
+                    pickupAtUtc={presetDates?.startDate || null}
+                    returnAtUtc={presetDates?.endDate || null}
+                    disabled={isSubmitting}
+                    showErrors={licenceSubmitAttempted}
+                    serverErrorKey=""
+                  />
+                  {errors.drivingLicence && (
+                    <Typography color="error" variant="body2">
+                      {errors.drivingLicence}
+                    </Typography>
+                  )}
                 </Box>
                 <BookingContractsBlock
                   companyId={car?.ownerId || company?._id}

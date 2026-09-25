@@ -5,6 +5,7 @@
 import {
   contractorOrderModalStage,
 } from "@/domain/admin/rovaroContractorAdmin";
+import { bookingModalName } from "@/domain/booking/resolveBookingCapabilities";
 
 export function searchWithOrderId(search, orderId) {
   const params = new URLSearchParams(
@@ -45,7 +46,7 @@ export function resolveOrdersModalTarget({ orderId, order, access }) {
   const stageView = contractorOrderModalStage(order);
   return {
     open: true,
-    modal: "EditOrderModal",
+    modal: bookingModalName(order),
     orderId: id,
     stage: stageView.stage,
     supplierActions: stageView.supplierActions === true,

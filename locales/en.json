@@ -672,7 +672,33 @@
     "addressOutsideCity": "This address looks outside the selected city — delivery fee may apply.",
     "addressOutsideCityWithFee": "Outside city — estimated delivery €{{fee}}",
     "addressOutsideCityBreakdown": "{{km}} km outside {{city}} × €{{rate}}/km ≈ €{{fee}}",
-    "addressBeyondServiceArea": "This address is beyond the service area — we will confirm delivery with your order."
+    "addressBeyondServiceArea": "This address is beyond the service area — we will confirm delivery with your order.",
+    "licenceSectionTitle": "Driving licence",
+    "licenceSectionHint": "Required to confirm your booking. Your details and photo are stored securely and are shared with the rental company only after your payment is confirmed.",
+    "licenceHolderLabel": "Name on the licence",
+    "licenceNumberLabel": "Licence number",
+    "licenceCountryLabel": "Issuing country",
+    "licenceExpiryLabel": "Expiry date",
+    "licenceIssueDateLabel": "Issue date",
+    "licenceIssueDateHint": "As printed on your licence.",
+    "licenceUploadDocument": "Upload licence photo",
+    "licenceReplaceDocument": "Replace photo",
+    "licenceUploading": "Uploading…",
+    "licenceDocumentAttached": "Photo attached",
+    "licenceUploadUnsupportedType": "Use a JPEG, PNG, WebP, HEIC or PDF file.",
+    "licenceUploadTooLarge": "The file is larger than 10 MB. Please upload a smaller file.",
+    "licenceUploadRateLimited": "Too many upload attempts. Please wait a few minutes and try again.",
+    "licenceRequired": "Driving licence details and a photo of the licence are required to book.",
+    "licenceUploadMissing": "Upload a photo of the driving licence to continue.",
+    "licenceUploadFailed": "The driving licence upload did not complete. Please upload the photo again.",
+    "licenceHolderRequired": "Enter the full name printed on the driving licence.",
+    "licenceNumberRequired": "Enter the driving licence number.",
+    "licenceCountryRequired": "Select the country that issued the driving licence.",
+    "licenceExpiryRequired": "Enter the driving licence expiry date.",
+    "licenceExpiresBeforeReturn": "The driving licence expires before the end of the rental. Use a licence that is valid for the whole rental.",
+    "licenceIssueDateRequired": "Enter the date the driving licence was issued.",
+    "licenceIssueDateInvalid": "The issue date must be in the past and before the expiry date.",
+    "licenceNotProvided": "Not provided"
   },
   "car": {
     "viewDetails": "View more details",
@@ -1791,6 +1817,190 @@
       "payment_issue": "Payment issue",
       "pickup_return_issue": "Pickup or return issue",
       "other": "Other"
+    }
+  },
+  "bookingDetails": {
+    "title": "Booking details",
+    "close": "Close",
+    "back": "Back",
+    "privacyNotice": "Customer contact details and driving documents become available after the booking payment is received.",
+    "errors": {
+      "generic": "Something went wrong. Please try again."
+    },
+    "sections": {
+      "vehicle": "Vehicle",
+      "dates": "Dates and locations",
+      "options": "Rental options",
+      "price": "Price summary",
+      "customer": "Customer information",
+      "documents": "Driving documents"
+    },
+    "status": {
+      "newRequest": {
+        "title": "New request",
+        "detail": "Waiting for your confirmation."
+      },
+      "awaitingPayment": {
+        "title": "Vehicle confirmed",
+        "detail": "Waiting for the customer to pay the {{rate}}% booking payment.",
+        "detailNoRate": "Waiting for the customer to pay the booking payment."
+      },
+      "replacementOffered": {
+        "title": "Replacement offered",
+        "detail": "Waiting for the customer to accept this replacement."
+      },
+      "confirmedPaid": {
+        "title": "Confirmed and paid",
+        "detail": "The customer has paid the Rovaro booking payment."
+      },
+      "declined": {
+        "title": "Declined"
+      },
+      "generic": {
+        "title": "Booking"
+      }
+    },
+    "vehicle": {
+      "requested": "Requested vehicle",
+      "class": "Class",
+      "transmission": "Transmission",
+      "seats": "Seats",
+      "luggage": "Luggage",
+      "fuel": "Fuel type"
+    },
+    "dates": {
+      "pickup": "Pickup date and time",
+      "return": "Return date and time",
+      "days": "Rental days",
+      "pickupLocation": "Pickup location",
+      "returnLocation": "Return location"
+    },
+    "options": {
+      "insurance": "Insurance",
+      "excess": "Excess",
+      "childSeats": "Child seats",
+      "secondDriver": "Second driver",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "price": {
+      "rental": "Rental",
+      "insurance": "Insurance",
+      "childSeat": "Child seat",
+      "secondDriver": "Second driver",
+      "extras": "Extras",
+      "discount": "Discount",
+      "afterHours": "After-hours service",
+      "other": "Other",
+      "manualAdjustment": "Manual adjustment",
+      "officeBoth": "Office pickup and return",
+      "pickupOffice": "Pickup at office",
+      "returnOffice": "Return to office",
+      "pickupDelivery": "Delivery to pickup address",
+      "returnDelivery": "Collection from return address",
+      "free": "Included",
+      "totalRentalPrice": "Total rental price",
+      "paidToRovaro": "Paid to Rovaro ({{rate}}%)",
+      "payableToSupplier": "You collect from the customer",
+      "payableToSupplierHint": "The customer pays this amount to you directly at handover.",
+      "dataWarning": "The stored price lines of this booking do not add up to the stored total. Money actions are disabled until Rovaro repairs the record."
+    },
+    "customer": {
+      "name": "Full name",
+      "phone": "Phone",
+      "email": "Email",
+      "messengers": "Messengers",
+      "notes": "Customer notes",
+      "whatsapp": "WhatsApp",
+      "viber": "Viber",
+      "telegram": "Telegram",
+      "openChat": "Open chat"
+    },
+    "documents": {
+      "holder": "Licence holder",
+      "number": "Licence number",
+      "country": "Issuing country",
+      "expires": "Expiry date",
+      "preview": "Driving licence"
+    },
+    "actions": {
+      "confirm": "Confirm requested vehicle",
+      "replace": "Offer equivalent replacement",
+      "decline": "Decline request",
+      "contactCustomer": "Contact customer",
+      "contactRovaro": "Contact Rovaro",
+      "reportProblem": "Report a problem",
+      "amend": "Amend booking"
+    },
+    "confirmDialog": {
+      "title": "Confirm requested vehicle",
+      "intro": "You are committing to these terms:"
+    },
+    "declineDialog": {
+      "title": "Decline request",
+      "intro": "Tell Rovaro why this booking cannot be served.",
+      "reason": "Reason"
+    },
+    "contactDialog": {
+      "reference": "Booking reference",
+      "category": "Issue category",
+      "message": "Message",
+      "send": "Send",
+      "problemNotice": "Rovaro is alerted immediately. The confirmed booking is kept as it is — nothing is cancelled or refunded.",
+      "categories": {
+        "BOOKING_DETAILS": "Booking details",
+        "VEHICLE": "Vehicle",
+        "DATES": "Dates",
+        "PRICE": "Price",
+        "CUSTOMER": "Customer",
+        "OTHER": "Other"
+      }
+    },
+    "replacement": {
+      "originallyRequested": "Originally requested",
+      "confirmedAs": "Confirmed as replacement",
+      "supplierComment": "Comment for the customer"
+    },
+    "replacementDialog": {
+      "intro": "The requested vehicle stays as it is. Your proposal is sent to the customer, who accepts it by paying.",
+      "kind": "Replacement type",
+      "kinds": {
+        "COMPANY_VEHICLE": "A vehicle from your fleet",
+        "EXTERNAL_VEHICLE": "A vehicle not listed in your fleet",
+        "GUARANTEED_CLASS": "Guaranteed class, model to be confirmed"
+      },
+      "model": "Replacement vehicle",
+      "category": "Class",
+      "categoryHelp": "Same or higher class than the requested vehicle.",
+      "transmission": "Transmission",
+      "transmissionHelp": "Must match the requested transmission.",
+      "seats": "Seats",
+      "luggage": "Luggage",
+      "totalPrice": "Total rental price",
+      "totalPriceHelp": "Same or lower than the requested price.",
+      "comment": "Comment for the customer",
+      "submit": "Send proposal"
+    },
+    "amendDialog": {
+      "notice": "Every amendment is recorded with its reason and a before-and-after snapshot. A material term of a paid booking cannot change without the customer's consent.",
+      "requestedBy": "Requested by",
+      "requesters": {
+        "CUSTOMER": "Customer",
+        "SUPPLIER": "Supplier",
+        "ROVARO": "Rovaro"
+      },
+      "reason": "Reason",
+      "reasonHelp": "At least 10 characters. Stored in the audit trail.",
+      "consentNote": "Customer consent",
+      "consentHelp": "Required before a material term of a paid booking can change. Describe how consent was given.",
+      "submit": "Save amendment"
+    },
+    "notices": {
+      "confirmed": "Vehicle confirmed.",
+      "declined": "Request declined.",
+      "messageSent": "Message sent to Rovaro.",
+      "replacementOffered": "Replacement proposal sent.",
+      "amended": "Amendment saved."
     }
   }
 }

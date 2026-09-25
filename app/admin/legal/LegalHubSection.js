@@ -202,10 +202,11 @@ function ConfigTab() {
         <Row label="Platform default">
           {data.marketplaceBookingFee?.percentLabel
             ? `${data.marketplaceBookingFee.percentLabel}%`
-            : "10%"}
+            : "Not resolved"}
         </Row>
         <Typography variant="caption" color="text.secondary">
-          Change the default under Settings. Partner overrides stay on each partner.
+          Change the default under Settings. Each partner may have a negotiated
+          rate instead; the published documents never state a percentage.
         </Typography>
       </Box>
 

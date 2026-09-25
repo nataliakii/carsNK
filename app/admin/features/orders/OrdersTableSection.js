@@ -85,6 +85,7 @@ import {
 } from "@/domain/admin/rovaroContractorAdmin";
 import { extractArraysOfStartEndConfPending } from "@/domain/calendar";
 import EditOrderModal from "@/app/admin/features/orders/modals/EditOrderModal";
+import BookingDetailsModal from "@/app/admin/features/orders/modals/BookingDetailsModal";
 import { loadAdminOrder } from "@/app/admin/features/orders/actions/loadAdminOrder";
 import {
   mergeOrderRow,
@@ -113,57 +114,6 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const ATHENS_TZ = "Europe/Athens";
-
-function euro(amount) {
-  const n = Number(amount);
-  return `€${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
-}
-
-const SummaryGrid = styled(Box)(({ theme }) => ({
-  marginTop: theme.spacing(2),
-  display: "grid",
-  gridTemplateColumns: "1fr",
-  gap: theme.spacing(2),
-  [theme.breakpoints.up("md")]: {
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  },
-}));
-
-const SummaryCard = styled(Box)(({ theme }) => ({
-  display: "flex",
-  flexDirection: "column",
-  gap: theme.spacing(0.75),
-  minWidth: 0,
-  padding: theme.spacing(1.5, 2),
-  borderRadius: theme.shape.borderRadius,
-  border: `1px solid ${theme.palette.divider}`,
-  backgroundColor: theme.palette.background.paper,
-}));
-
-const SummaryLine = styled(Box)(({ theme }) => ({
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "baseline",
-  gap: theme.spacing(2),
-}));
-
-function SummaryMoneyLine({ label, value, emphasize = false }) {
-  return (
-    <SummaryLine>
-      <Typography variant="body2" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography
-        variant="body2"
-        color={emphasize ? "primary.main" : "text.primary"}
-        fontWeight={600}
-        noWrap
-      >
-        {value}
-      </Typography>
-    </SummaryLine>
-  );
-}
 
 /** Возврат уже в прошлом (по timeOut или концу дня rentalEndDate). */
 function isOrderEndedInPast(order) {
@@ -1648,58 +1598,11 @@ export default function OrdersTableSection() {
           </Stack>
         </Stack>
 
-        <SummaryGrid>
-          <SummaryCard>
-            <Typography variant="subtitle2" fontWeight={700}>
-              {t("table.allBookingValue", { defaultValue: "All booking value" })}
-            </Typography>
-            <Typography variant="h6" fontWeight={700}>
-              {euro(filteredSummary.combinedCalendarValue)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t("table.allOrders")}: {filteredOrders.length} / {orders.length}
-            </Typography>
-          </SummaryCard>
-          <SummaryCard>
-            <Typography variant="subtitle2" fontWeight={700}>
-              {t("table.rovaroBookingsTitle", { defaultValue: "Rovaro bookings" })}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t("table.rovaroBookingCount", {
-                defaultValue: "{{count}} bookings",
-                count: filteredSummary.platformCount,
-              })}
-            </Typography>
-            <SummaryMoneyLine
-              label={t("table.platformBookingValue", { defaultValue: "Rental value" })}
-              value={euro(filteredSummary.platformBookingValue)}
-            />
-            <SummaryMoneyLine
-              label={t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })}
-              value={euro(filteredSummary.rovaroBookingFees)}
-              emphasize
-            />
-            <SummaryMoneyLine
-              label={t("table.dueToCompanies", { defaultValue: "Due to companies" })}
-              value={euro(filteredSummary.supplierPlatformAmount)}
-            />
-          </SummaryCard>
-          <SummaryCard>
-            <Typography variant="subtitle2" fontWeight={700}>
-              {t("table.internalBookingsTitle", { defaultValue: "Internal bookings" })}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t("table.rovaroBookingCount", {
-                defaultValue: "{{count}} bookings",
-                count: filteredSummary.internalCount,
-              })}
-            </Typography>
-            <SummaryMoneyLine
-              label={t("table.internalBookingValue", { defaultValue: "Internal booking value" })}
-              value={euro(filteredSummary.internalBookingValue)}
-            />
-          </SummaryCard>
-        </SummaryGrid>
+        <OrdersFinancialSummary
+          summary={filteredSummary}
+          filteredCount={filteredOrders.length}
+          totalCount={orders.length}
+        />
       </Paper>
 
       {/* Orders Table */}
@@ -2609,6 +2512,14 @@ export default function OrdersTableSection() {
           >
             {selectedOrderForEdit && (
               <Grid item xs={12}>
+                {isPlatformBooking(selectedOrderForEdit) ? (
+                  <BookingDetailsModal
+                    order={selectedOrderForEdit}
+                    open={editModalOpen}
+                    onClose={performEditModalClose}
+                    onChanged={refreshOrderAfterSupplierAction}
+                  />
+                ) : (
                 <EditOrderModal
                   order={selectedOrderForEdit}
                   open={editModalOpen}
@@ -2628,6 +2539,7 @@ export default function OrdersTableSection() {
                   isViewOnly={isPast(selectedOrderForEdit.rentalEndDate)}
                   ordersInBatch={1}
                 />
+                )}
               </Grid>
             )}
           </Grid>

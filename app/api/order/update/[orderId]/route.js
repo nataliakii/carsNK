@@ -8,6 +8,7 @@ import { getTimeBucket } from "@/domain/time/athensTime";
 import { checkFieldAccess } from "@/middleware/withOrderAccess";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import { assignOfflineFlag, isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import { decideOrderUpdate } from "@/domain/booking/resolveBookingCapabilities";
 import { getActionFromChangedFields } from "@/domain/orders/orderNotificationPolicy";
 import { notifyOrderAction } from "@/domain/orders/orderNotificationDispatcher";
 import { getBusinessRentalDaysByMinutes } from "@/domain/orders/numberOfDays";
@@ -274,6 +275,32 @@ export const PATCH = async (request, { params }) => {
       return new Response(
         JSON.stringify({ success: false, message: "Order not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const mutation = decideOrderUpdate({
+      order,
+      user: session.user,
+      payload,
+    });
+    if (!mutation.ok) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          code: mutation.code,
+          message: mutation.message,
+        }),
+        { status: mutation.status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (mutation.reportProblem) {
+      order.hasProblem = true;
+      order.problemReportedAt = new Date();
+      order.problemReportedBy = "supplier";
+      await order.save();
+      return new Response(
+        JSON.stringify({ success: true, data: { hasProblem: true, bookingStatus: order.bookingStatus } }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 

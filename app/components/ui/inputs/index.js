@@ -16,4 +16,8 @@ export { default as CityPlacesAutocomplete } from "./CityPlacesAutocomplete";
 export { default as FilterLocationAutocomplete } from "./FilterLocationAutocomplete";
 export { default as BookingFlightField } from "./BookingFlightField";
 export { default as DrivingLicenceUploadField } from "./DrivingLicenceUploadField";
+export {
+  default as DrivingLicenceCaptureField,
+  emptyDrivingLicenceValue,
+} from "./DrivingLicenceCaptureField";
 

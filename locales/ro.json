@@ -212,7 +212,33 @@
     "unsavedChangesMessage": "Datele comenzii au fost modificate. Ieșire fără salvare, rămânere sau salvare și ieșire?",
     "leaveWithoutSaving": "Ieșire fără salvare",
     "leaveWithSaving": "Salvează și ieși",
-    "unsavedSaveBlocked": "Nu se poate salva: remediați conflictele sau erorile de validare."
+    "unsavedSaveBlocked": "Nu se poate salva: remediați conflictele sau erorile de validare.",
+    "licenceSectionTitle": "Permis de conducere",
+    "licenceSectionHint": "Necesar pentru confirmarea rezervării. Datele și fotografia sunt păstrate în siguranță și sunt transmise companiei de închirieri doar după confirmarea plății.",
+    "licenceHolderLabel": "Numele din permis",
+    "licenceNumberLabel": "Numărul permisului",
+    "licenceCountryLabel": "Țara emitentă",
+    "licenceExpiryLabel": "Data expirării",
+    "licenceIssueDateLabel": "Data emiterii",
+    "licenceIssueDateHint": "Așa cum apare pe permisul dumneavoastră.",
+    "licenceUploadDocument": "Încarcă fotografia permisului",
+    "licenceReplaceDocument": "Înlocuiește fotografia",
+    "licenceUploading": "Se încarcă…",
+    "licenceDocumentAttached": "Fotografie atașată",
+    "licenceUploadUnsupportedType": "Folosiți un fișier JPEG, PNG, WebP, HEIC sau PDF.",
+    "licenceUploadTooLarge": "Fișierul depășește 10 MB. Încărcați un fișier mai mic.",
+    "licenceUploadRateLimited": "Prea multe încercări de încărcare. Așteptați câteva minute și încercați din nou.",
+    "licenceRequired": "Pentru rezervare sunt necesare datele permisului de conducere și o fotografie a acestuia.",
+    "licenceUploadMissing": "Încărcați o fotografie a permisului de conducere pentru a continua.",
+    "licenceUploadFailed": "Încărcarea permisului de conducere nu s-a finalizat. Încărcați din nou fotografia.",
+    "licenceHolderRequired": "Introduceți numele complet așa cum apare pe permisul de conducere.",
+    "licenceNumberRequired": "Introduceți numărul permisului de conducere.",
+    "licenceCountryRequired": "Selectați țara care a emis permisul de conducere.",
+    "licenceExpiryRequired": "Introduceți data de expirare a permisului de conducere.",
+    "licenceExpiresBeforeReturn": "Permisul de conducere expiră înainte de sfârșitul închirierii. Folosiți un permis valabil pe toată durata închirierii.",
+    "licenceIssueDateRequired": "Introduceți data emiterii permisului de conducere.",
+    "licenceIssueDateInvalid": "Data emiterii trebuie să fie în trecut și anterioară datei de expirare.",
+    "licenceNotProvided": "Nu a fost furnizat"
   },
   "car": {
     "viewDetails": "Mai multe detalii",
@@ -567,5 +593,189 @@
     "internalCancelled": "Cancelled",
     "toneCompletionPending": "Completion pending",
     "toneAlternative": "Alternative offered"
+  },
+  "bookingDetails": {
+    "title": "Detaliile rezervării",
+    "close": "Închide",
+    "back": "Înapoi",
+    "privacyNotice": "Datele de contact ale clientului și documentele de conducere devin disponibile după primirea plății rezervării.",
+    "errors": {
+      "generic": "Ceva nu a mers bine. Încercați din nou."
+    },
+    "sections": {
+      "vehicle": "Vehicul",
+      "dates": "Date și locații",
+      "options": "Opțiuni de închiriere",
+      "price": "Sumar de preț",
+      "customer": "Informații despre client",
+      "documents": "Documente de conducere"
+    },
+    "status": {
+      "newRequest": {
+        "title": "Cerere nouă",
+        "detail": "Se așteaptă confirmarea dumneavoastră."
+      },
+      "awaitingPayment": {
+        "title": "Vehicul confirmat",
+        "detail": "Așteptăm ca clientul să plătească rezervarea de {{rate}}%.",
+        "detailNoRate": "Așteptăm ca clientul să plătească rezervarea."
+      },
+      "replacementOffered": {
+        "title": "Înlocuire propusă",
+        "detail": "Așteptăm ca clientul să accepte această înlocuire."
+      },
+      "confirmedPaid": {
+        "title": "Confirmată și plătită",
+        "detail": "Clientul a plătit rezervarea Rovaro."
+      },
+      "declined": {
+        "title": "Respinsă"
+      },
+      "generic": {
+        "title": "Rezervare"
+      }
+    },
+    "vehicle": {
+      "requested": "Vehiculul solicitat",
+      "class": "Clasă",
+      "transmission": "Transmisie",
+      "seats": "Locuri",
+      "luggage": "Bagaje",
+      "fuel": "Tip de combustibil"
+    },
+    "dates": {
+      "pickup": "Data și ora preluării",
+      "return": "Data și ora returnării",
+      "days": "Zile de închiriere",
+      "pickupLocation": "Locul preluării",
+      "returnLocation": "Locul returnării"
+    },
+    "options": {
+      "insurance": "Asigurare",
+      "excess": "Franșiză",
+      "childSeats": "Scaune pentru copii",
+      "secondDriver": "Al doilea șofer",
+      "yes": "Da",
+      "no": "Nu"
+    },
+    "price": {
+      "rental": "Închiriere",
+      "insurance": "Asigurare",
+      "childSeat": "Scaun pentru copil",
+      "secondDriver": "Al doilea șofer",
+      "extras": "Extraopțiuni",
+      "discount": "Reducere",
+      "afterHours": "Serviciu în afara programului",
+      "other": "Altele",
+      "manualAdjustment": "Ajustare manuală",
+      "officeBoth": "Preluare și returnare la birou",
+      "pickupOffice": "Preluare la birou",
+      "returnOffice": "Returnare la birou",
+      "pickupDelivery": "Livrare la locul preluării",
+      "returnDelivery": "Ridicare de la locul returnării",
+      "free": "Inclus",
+      "totalRentalPrice": "Preț total al închirierii",
+      "paidToRovaro": "Plătit către Rovaro ({{rate}}%)",
+      "payableToSupplier": "Încasați de la client",
+      "payableToSupplierHint": "Clientul vă plătește această sumă direct, la predare.",
+      "dataWarning": "Liniile de preț salvate ale acestei rezervări nu însumează totalul salvat. Acțiunile financiare sunt blocate până când Rovaro corectează înregistrarea."
+    },
+    "customer": {
+      "name": "Nume complet",
+      "phone": "Telefon",
+      "email": "E-mail",
+      "messengers": "Aplicații de mesagerie",
+      "notes": "Observațiile clientului",
+      "whatsapp": "WhatsApp",
+      "viber": "Viber",
+      "telegram": "Telegram",
+      "openChat": "Deschide conversația"
+    },
+    "documents": {
+      "holder": "Titularul permisului",
+      "number": "Numărul permisului",
+      "country": "Țara emitentă",
+      "expires": "Data expirării",
+      "preview": "Permis de conducere"
+    },
+    "actions": {
+      "confirm": "Confirmă vehiculul solicitat",
+      "replace": "Propune o înlocuire echivalentă",
+      "decline": "Respinge cererea",
+      "contactCustomer": "Contactează clientul",
+      "contactRovaro": "Contactează Rovaro",
+      "reportProblem": "Raportează o problemă",
+      "amend": "Modifică rezervarea"
+    },
+    "confirmDialog": {
+      "title": "Confirmă vehiculul solicitat",
+      "intro": "Vă angajați la aceste condiții:"
+    },
+    "declineDialog": {
+      "title": "Respinge cererea",
+      "intro": "Explicați-i Rovaro de ce această rezervare nu poate fi onorată.",
+      "reason": "Motiv"
+    },
+    "contactDialog": {
+      "reference": "Referința rezervării",
+      "category": "Categoria problemei",
+      "message": "Mesaj",
+      "send": "Trimite",
+      "problemNotice": "Rovaro este anunțată imediat. Rezervarea confirmată rămâne neschimbată — nimic nu este anulat sau rambursat.",
+      "categories": {
+        "BOOKING_DETAILS": "Detaliile rezervării",
+        "VEHICLE": "Vehicul",
+        "DATES": "Date",
+        "PRICE": "Preț",
+        "CUSTOMER": "Client",
+        "OTHER": "Altele"
+      }
+    },
+    "replacement": {
+      "originallyRequested": "Solicitat inițial",
+      "confirmedAs": "Confirmat ca înlocuire",
+      "supplierComment": "Comentariu pentru client"
+    },
+    "replacementDialog": {
+      "intro": "Vehiculul solicitat rămâne neschimbat. Propunerea dumneavoastră este trimisă clientului, care o acceptă plătind.",
+      "kind": "Tipul înlocuirii",
+      "kinds": {
+        "COMPANY_VEHICLE": "Un vehicul din flota dumneavoastră",
+        "EXTERNAL_VEHICLE": "Un vehicul din afara flotei dumneavoastră",
+        "GUARANTEED_CLASS": "Clasă garantată, modelul urmează a fi confirmat"
+      },
+      "model": "Vehicul de înlocuire",
+      "category": "Clasă",
+      "categoryHelp": "Aceeași clasă sau una superioară față de vehiculul solicitat.",
+      "transmission": "Transmisie",
+      "transmissionHelp": "Trebuie să corespundă transmisiei solicitate.",
+      "seats": "Locuri",
+      "luggage": "Bagaje",
+      "totalPrice": "Preț total al închirierii",
+      "totalPriceHelp": "Egal sau mai mic decât prețul solicitat.",
+      "comment": "Comentariu pentru client",
+      "submit": "Trimite propunerea"
+    },
+    "amendDialog": {
+      "notice": "Fiecare modificare este înregistrată cu motivul ei și cu starea dinainte și de după. O condiție esențială a unei rezervări plătite nu se poate schimba fără acordul clientului.",
+      "requestedBy": "Solicitat de",
+      "requesters": {
+        "CUSTOMER": "Client",
+        "SUPPLIER": "Furnizor",
+        "ROVARO": "Rovaro"
+      },
+      "reason": "Motiv",
+      "reasonHelp": "Cel puțin 10 caractere. Se păstrează în jurnalul de audit.",
+      "consentNote": "Acordul clientului",
+      "consentHelp": "Necesar înainte de schimbarea unei condiții esențiale a unei rezervări plătite. Descrieți cum a fost obținut acordul.",
+      "submit": "Salvează modificarea"
+    },
+    "notices": {
+      "confirmed": "Vehicul confirmat.",
+      "declined": "Cerere respinsă.",
+      "messageSent": "Mesaj trimis către Rovaro.",
+      "replacementOffered": "Propunerea de înlocuire a fost trimisă.",
+      "amended": "Modificare salvată."
+    }
   }
 }

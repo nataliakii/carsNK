@@ -21,8 +21,7 @@ function AdminContent({ children }) {
         return;
       }
       if (!session) {
-        const current = `${window.location.pathname}${window.location.search}`;
-        router.replace(loginUrlForReturn(current));
+        router.replace("/login");
       } else if (!session.user?.isAdmin) {
         router.replace("/");
       }

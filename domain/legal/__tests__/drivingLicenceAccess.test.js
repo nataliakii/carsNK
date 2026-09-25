@@ -1,4 +1,5 @@
 import {
+  canViewDrivingLicenceDocuments,
   evaluateDrivingLicenceAccess,
   isPastRetention,
   issuedUrlIsPermanent,
@@ -39,16 +40,26 @@ describe("who may see a driving licence", () => {
     expect(evaluate().allowed).toBe(true);
   });
 
-  it("refuses another fleet", () => {
+  it("gives another fleet a generic not-found, not a 403 that confirms the booking", () => {
     const result = evaluate({}, { sessionOwnerId: OTHER_OWNER });
     expect(result.allowed).toBe(false);
-    expect(result.code).toBe("wrong_fleet");
-    expect(result.status).toBe(403);
+    expect(result.code).toBe("not_found");
+    expect(result.status).toBe(404);
+    // Indistinguishable from a booking id that does not exist at all.
+    const missing = evaluateDrivingLicenceAccess({
+      order: null,
+      isSuperadmin: false,
+      sessionOwnerId: OTHER_OWNER,
+    });
+    expect(result.status).toBe(missing.status);
+    expect(result.code).toBe(missing.code);
+    expect(result.message).toBe(missing.message);
   });
 
   it("refuses a session with no fleet at all", () => {
     const result = evaluate({}, { sessionOwnerId: null });
-    expect(result.code).toBe("wrong_fleet");
+    expect(result.code).toBe("not_found");
+    expect(result.status).toBe(404);
   });
 
   it("lets superadmin through for dispute handling", () => {

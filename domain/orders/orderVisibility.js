@@ -21,6 +21,10 @@ import {
   isInternalBooking,
   isPlatformBooking,
 } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  hasDrivingLicenceSnapshot,
+  redactDrivingLicenceSnapshot,
+} from "@/domain/legal/drivingLicenceSnapshot";
 
 export const CLIENT_PRIVATE_FIELDS = [
   "customerName",
@@ -38,6 +42,9 @@ const PERMANENT_DOCUMENT_FIELDS = [
   "passportUrls",
   "identityDocumentUrls",
 ];
+
+/** Licence fields that must never survive serialisation to a company admin. */
+const LICENCE_SNAPSHOT_FIELD = "drivingLicenceSnapshot";
 
 export function maskCustomerName(name) {
   const parts = String(name || "")
@@ -68,9 +75,17 @@ export function companyMustHideCustomerIdentity(order) {
 function withoutPermanentDocumentUrls(order) {
   const clean = { ...order };
   const hadLicence =
-    Array.isArray(order?.drivingLicenceUrls) && order.drivingLicenceUrls.length > 0;
+    (Array.isArray(order?.drivingLicenceUrls) &&
+      order.drivingLicenceUrls.length > 0) ||
+    hasDrivingLicenceSnapshot(order);
   for (const field of PERMANENT_DOCUMENT_FIELDS) delete clean[field];
   if (hadLicence) clean.hasDrivingLicence = true;
+  // Metadata is allowed here (the company already passed the access gate), but
+  // the storage pointer never is — documents are read only through the
+  // authorised download endpoint.
+  const licence = redactDrivingLicenceSnapshot(order?.drivingLicenceSnapshot);
+  if (licence) clean.drivingLicenceSnapshot = licence;
+  else delete clean.drivingLicenceSnapshot;
   return clean;
 }
 
@@ -88,6 +103,9 @@ function stripPII(order) {
   for (const field of PERMANENT_DOCUMENT_FIELDS) {
     delete clean[field];
   }
+  // Before the verified Booking Fee payment the company may not see the licence
+  // at all — not the holder's name, not the number, not even that one exists.
+  delete clean[LICENCE_SNAPSHOT_FIELD];
   delete clean.hasDrivingLicence;
   clean.customerName = maskCustomerName(order?.customerName);
   clean._visibility = {
@@ -108,7 +126,15 @@ export function applyVisibilityToOrder(order, user) {
   if (!order) return order;
 
   if (user?.isAdmin && policyRoleFromUser(user) === ROLE.SUPERADMIN) {
-    return order;
+    // Superadmin sees the licence metadata (support and security review), but
+    // the storage pointer is stripped for everyone without exception.
+    if (!order.drivingLicenceSnapshot) return order;
+    return {
+      ...order,
+      drivingLicenceSnapshot: redactDrivingLicenceSnapshot(
+        order.drivingLicenceSnapshot
+      ),
+    };
   }
 
   if (!companyMustHideCustomerIdentity(order)) {

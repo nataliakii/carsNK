@@ -110,6 +110,8 @@ export function recordDrivingLicenceAccess({
   userAgent,
   mode,
   assetRef = "",
+  result = "success",
+  reason,
 }) {
   return recordAuditEvent({
     action: "DRIVING_LICENCE_ACCESSED",
@@ -117,10 +119,50 @@ export function recordDrivingLicenceAccess({
     userId,
     userEmail,
     severity: "high",
+    result,
+    reason,
     ipAddress,
     userAgent,
     orderData: { orderId },
+    // assetRef is a storage reference. Signed URLs, download grants and
+    // document bytes must never reach the audit trail.
     metadata: { mode, assetRef },
+  });
+}
+
+/**
+ * A refused attempt to reach a driving licence.
+ *
+ * Logged with the same care as a success: security review needs to see who
+ * tried, on which booking and why it was refused — including the case where the
+ * caller was told "not found" because they belong to another company.
+ *
+ * @param {{ orderId: string, userId?: string, userEmail?: string,
+ *           userRole?: string, ipAddress?: string, userAgent?: string,
+ *           mode?: "view"|"download", reason?: string }} params
+ */
+export function recordDrivingLicenceAccessDenied({
+  orderId,
+  userId,
+  userEmail,
+  userRole = "admin",
+  ipAddress,
+  userAgent,
+  mode = "view",
+  reason = "denied",
+}) {
+  return recordAuditEvent({
+    action: "DRIVING_LICENCE_ACCESS_DENIED",
+    userRole,
+    userId,
+    userEmail,
+    severity: "high",
+    result: "failure",
+    reason,
+    ipAddress,
+    userAgent,
+    orderData: { orderId },
+    metadata: { mode },
   });
 }
 

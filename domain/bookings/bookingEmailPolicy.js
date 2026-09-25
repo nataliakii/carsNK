@@ -29,7 +29,6 @@ import {
 } from "@/domain/admin/rovaroContractorAdmin";
 import {
   bpsToPercentNumber,
-  DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
   formatMarketplaceFeePercent,
   marketplacePlatformAmountMinor,
   snapshotMarketplaceBookingFeeBps,
@@ -789,12 +788,11 @@ export function assertNoCustomerPiiBeforePayment(content, order) {
  * 9. Money and Stripe presentation
  * ──────────────────────────────────────────────────────────────── */
 
-export const CANONICAL_BOOKING_FEE_BPS = DEFAULT_MARKETPLACE_BOOKING_FEE_BPS;
-
 /**
- * Canonical split. €165 at 10% is €16.50 now and €148.50 to the supplier.
- * Reads the stored snapshot first; the configured rate is used only when an
- * order has no snapshot yet.
+ * Canonical split. At 10%, €165 is €16.50 now and €148.50 to the supplier; at
+ * 30% the same gross is €180.60 and €421.40. Reads the stored snapshot first,
+ * so a paid order keeps the rate it was charged at; the company's configured
+ * rate is used only when an order has no snapshot yet.
  */
 export function bookingPaymentAmounts(order) {
   const snap = resolveBookingFinancialSnapshot(order);
@@ -830,7 +828,9 @@ export function bookingPaymentAmounts(order) {
  * Stripe product title. Never says "non-refundable" — the accepted Booking
  * Terms remain the legal source for cancellation and refunds.
  *
- * `10% booking payment — Seat Leon`
+ * The percentage is the rate resolved for this order, never a literal: a
+ * partner negotiated at 30% sees `30% booking payment — Seat Leon`, and an
+ * already-paid order keeps the rate captured in its snapshot.
  */
 export function stripeBookingProductTitle({ order, vehicle } = {}) {
   const { feePercentLabel } = bookingPaymentAmounts(order);

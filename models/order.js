@@ -565,6 +565,38 @@ const OrderSchema = new mongoose.Schema({
     default: null,
   },
   /**
+   * Immutable driving licence capture for a public PLATFORM request.
+   *
+   * Captured once at create time and never recomputed, like
+   * bookingFinancialSnapshot. `storageReference` is an internal storage
+   * pointer, not a delivery URL, and is stripped before any API response —
+   * documents are read only through the authorised download endpoint.
+   *
+   * INTERNAL bookings and legacy orders leave this undefined; screens must
+   * render a "not provided" state rather than assume it exists.
+   *
+   * See domain/legal/drivingLicenceSnapshot.js.
+   */
+  drivingLicenceSnapshot: {
+    type: new mongoose.Schema(
+      {
+        storageReference: { type: String, default: "" },
+        storageType: { type: String, default: "authenticated" },
+        checksum: { type: String, default: "" },
+        uploadedAt: { type: Date, default: null },
+        holderName: { type: String, default: "" },
+        licenceNumber: { type: String, default: "" },
+        issuingCountry: { type: String, default: "", uppercase: true, trim: true },
+        expiryDate: { type: Date, default: null },
+        issueDate: { type: Date, default: null },
+        verificationStatus: { type: String, default: "PENDING" },
+        capturedAt: { type: Date, default: null },
+      },
+      { _id: false }
+    ),
+    default: undefined,
+  },
+  /**
    * pricingDrift — tracks pricing-input changes on confirmed orders.
    *
    * When an order is confirmed, its price is frozen (PriceBreakdown gets frozenAt).
@@ -977,6 +1009,37 @@ if (Order?.schema && !Order.schema.path("drivingLicencePurgedAt")) {
     drivingLicencePurgedAt: {
       type: Date,
       default: null,
+    },
+  });
+}
+
+// HMR/cache safety: driving licence capture on cached schema. Keep in sync with
+// the drivingLicenceSnapshot definition in the schema above.
+if (Order?.schema && !Order.schema.path("drivingLicenceSnapshot.checksum")) {
+  Order.schema.add({
+    drivingLicenceSnapshot: {
+      type: new mongoose.Schema(
+        {
+          storageReference: { type: String, default: "" },
+          storageType: { type: String, default: "authenticated" },
+          checksum: { type: String, default: "" },
+          uploadedAt: { type: Date, default: null },
+          holderName: { type: String, default: "" },
+          licenceNumber: { type: String, default: "" },
+          issuingCountry: {
+            type: String,
+            default: "",
+            uppercase: true,
+            trim: true,
+          },
+          expiryDate: { type: Date, default: null },
+          issueDate: { type: Date, default: null },
+          verificationStatus: { type: String, default: "PENDING" },
+          capturedAt: { type: Date, default: null },
+        },
+        { _id: false }
+      ),
+      default: undefined,
     },
   });
 }

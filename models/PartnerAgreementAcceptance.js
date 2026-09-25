@@ -69,6 +69,22 @@ const partnerAgreementAcceptanceSchema = new mongoose.Schema(
     documents: { type: [documentRefSchema], required: true },
     /** sha256 over the whole immutable snapshot. */
     packageChecksum: { type: String, required: true, index: true },
+    /**
+     * sha256 over document identity only (type, language, version, checksum).
+     * Proves which template versions were on offer, independently of rendering.
+     */
+    templateChecksum: { type: String, default: "" },
+    /**
+     * The per-company commercial terms resolved at the moment of acceptance —
+     * the negotiated Rovaro Booking Fee percentage and the supplier share,
+     * with their own checksum. The shared documents never state a percentage,
+     * so this is the record of what this partner actually agreed to. Frozen:
+     * it is absent from MUTABLE_AFTER_SIGNING.
+     */
+    commercialTermsSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
 
     acceptanceMethod: {
       type: String,

@@ -17,6 +17,8 @@ import {
 import { computeSnapshotChecksum } from "./checksum";
 import { MASTER_AGREEMENT_PACKAGE } from "./documentTypes";
 import { companySetupHref, legacySetupRedirect } from "./companySetupReadiness";
+import { buildCompanyCommercialTokens } from "./companyCommercialTerms";
+import { substituteTokens } from "./tokens";
 
 export const COMPANY_LEGAL_PATH = "/admin/company/legal";
 export const COMPANY_TERMS_PATH = "/admin/company/setup?step=terms";
@@ -165,7 +167,7 @@ function snapshotRows(documents) {
   }));
 }
 
-function applyOverrides(documents, overrides) {
+function applyOverrides(documents, overrides, tokenValues) {
   if (!overrides.length) return documents;
   return documents.map((doc) => {
     const hits = overrides.filter(
@@ -176,7 +178,11 @@ function applyOverrides(documents, overrides) {
       ...doc,
       renderedSections: (doc.renderedSections || []).map((section) => {
         const hit = hits.find((item) => item.heading === section.heading);
-        return hit ? { ...section, text: String(hit.text || "") } : section;
+        if (!hit) return section;
+        return {
+          ...section,
+          text: substituteTokens(String(hit.text || ""), tokenValues),
+        };
       }),
     };
   });
@@ -186,12 +192,26 @@ function applyOverrides(documents, overrides) {
  * Standard published terms, plus a custom agreement only when one is assigned.
  * Sections of the standard text change only where the custom agreement
  * names that heading. The standard checksum is left untouched otherwise.
+ *
+ * The per-company annex is the one place where `{{company.*}}` tokens resolve:
+ * a negotiated percentage belongs in the terms this partner alone signed, not
+ * in the shared documents every partner signs identically. Because the annex
+ * already produces its own per-company `packageChecksum`, the resolved number
+ * is covered by that checksum and by the frozen commercial-terms snapshot.
+ *
+ * @param {object} pkg
+ * @param {object|null|undefined} customAgreement
+ * @param {{ commercialTerms?: object|null }} [opts]
  */
-export function withCustomAgreement(pkg, customAgreement) {
+export function withCustomAgreement(pkg, customAgreement, opts = {}) {
   const custom = normalizeCustomAgreement(customAgreement);
   if (!pkg || !custom) return pkg;
 
-  const documents = applyOverrides(pkg.documents || [], custom.overrides);
+  const documents = applyOverrides(
+    pkg.documents || [],
+    custom.overrides,
+    buildCompanyCommercialTokens(opts.commercialTerms ?? pkg.commercialTerms)
+  );
   const sample = documents[0] || {};
   const customDoc = {
     documentType: "custom-agreement",

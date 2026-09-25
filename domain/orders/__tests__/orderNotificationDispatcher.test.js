@@ -263,6 +263,33 @@ describe("orderNotificationDispatcher", () => {
     expect(telegramText).toContain("New price: €120.00");
   });
 
+  test("supplier request email quotes gross minus fee, not a stale stored balance", async () => {
+    await notifyOrderAction({
+      order: {
+        ...baseOrder,
+        authoritativePrice: {
+          currency: "EUR",
+          grossMinor: 43700,
+          marketplaceBookingFeeBps: 1000,
+          platformAmountMinor: 4370,
+          prepaymentMinor: 4370,
+          supplierBalanceMinor: 100,
+          balanceMinor: 100,
+        },
+      },
+      user: baseUser,
+      action: "CREATE",
+      source: "BACKEND",
+      companyEmail: "company@example.com",
+      notifyLocales: { langAdmin: "en", langSuperadmin: "en" },
+    });
+
+    const matrix = notifyBookingRequested.mock.calls[0][0];
+    expect(matrix.totalFormatted).toBe("EUR 437.00");
+    expect(matrix.feeFormatted).toBe("EUR 43.70");
+    expect(matrix.remainingFormatted).toBe("EUR 393.30");
+  });
+
   test("AuditLog persistence failure does not block notifications", async () => {
     AuditLog.create.mockRejectedValueOnce(new Error("mongo down"));
     await expect(

@@ -20,6 +20,8 @@ import {
   ModalLayout,
 } from "../ui";
 import EditOrderModal from "@/app/admin/features/orders/modals/EditOrderModal";
+import BookingDetailsModal from "@/app/admin/features/orders/modals/BookingDetailsModal";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import AddOrderModal from "@/app/admin/features/orders/modals/AddOrderModal";
 import OrderUnsavedCloseDialog from "@/app/admin/features/orders/components/OrderUnsavedCloseDialog";
 import EditCarModal from "@/app/admin/features/cars/modals/EditCarModal";
@@ -158,6 +160,13 @@ export default function CalendarOverlays({
                       : 3
                   }
                 >
+                  {isPlatformBooking(order) ? (
+                    <BookingDetailsModal
+                      order={order}
+                      open={open}
+                      onClose={performEditModalClose}
+                    />
+                  ) : (
                   <EditOrderModal
                     order={order}
                     open={open}
@@ -172,6 +181,7 @@ export default function CalendarOverlays({
                     isViewOnly={isPast(order.rentalEndDate)}
                     ordersInBatch={selectedOrders.length}
                   />
+                  )}
                 </Grid>
               ))}
           </Grid>

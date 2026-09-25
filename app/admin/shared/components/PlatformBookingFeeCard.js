@@ -12,23 +12,33 @@ import {
   Typography,
 } from "@mui/material";
 import {
+  bpsToPercentNumber,
   formatMarketplaceFeePercent,
   parseMarketplaceBookingFeePercent,
   DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
+  MAX_MARKETPLACE_BOOKING_FEE_BPS,
+  MIN_MARKETPLACE_BOOKING_FEE_BPS,
 } from "@/domain/orders/marketplaceBookingFee";
 import { useRegisterSettingsDirty } from "@/app/admin/settings/SettingsDirtyGuard";
 
+const MIN_FEE_PERCENT = bpsToPercentNumber(MIN_MARKETPLACE_BOOKING_FEE_BPS);
+const MAX_FEE_PERCENT = bpsToPercentNumber(MAX_MARKETPLACE_BOOKING_FEE_BPS);
+
 /**
  * SUPERADMIN: platform default Rovaro booking fee for Spain marketplace.
+ *
+ * The default is one number; each partner may be negotiated away from it, so
+ * the card also reports how the fleet is split between the two.
  */
 export default function PlatformBookingFeeCard({ embedded = false } = {}) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
-  const [percentInput, setPercentInput] = useState("10");
-  const [savedPercent, setSavedPercent] = useState("10");
-  const [effectiveLabel, setEffectiveLabel] = useState("10");
+  // Blank until the live default is read — never pre-filled with a guess.
+  const [percentInput, setPercentInput] = useState("");
+  const [savedPercent, setSavedPercent] = useState("");
+  const [effectiveLabel, setEffectiveLabel] = useState("");
   const [overrideCount, setOverrideCount] = useState(0);
   const [defaultCount, setDefaultCount] = useState(0);
 
@@ -125,7 +135,11 @@ export default function PlatformBookingFeeCard({ embedded = false } = {}) {
             value={percentInput}
             onChange={(e) => setPercentInput(e.target.value)}
             disabled={loading || busy}
-            inputProps={{ min: 1, max: 30, step: 0.01 }}
+            inputProps={{
+              min: MIN_FEE_PERCENT,
+              max: MAX_FEE_PERCENT,
+              step: 0.01,
+            }}
             InputProps={{ endAdornment: <Typography sx={{ pr: 1 }}>%</Typography> }}
             sx={{ maxWidth: 220 }}
           />
@@ -135,10 +149,12 @@ export default function PlatformBookingFeeCard({ embedded = false } = {}) {
         </Stack>
         <Box sx={{ mt: 1.5 }}>
           <Typography variant="body2" color="text.secondary">
-            Effective default: {effectiveLabel}%
+            Effective default:{" "}
+            {effectiveLabel ? `${effectiveLabel}%` : "loading…"}
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block">
-            Partners on default: {defaultCount} · Custom rates: {overrideCount}
+            Partners on this default: {defaultCount} · Partners on a negotiated
+            rate: {overrideCount}
           </Typography>
         </Box>
       </CardContent>

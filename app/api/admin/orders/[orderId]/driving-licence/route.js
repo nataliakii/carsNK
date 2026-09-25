@@ -12,22 +12,51 @@ import {
   signedDocumentDelivery,
   SIGNED_URL_TTL_SECONDS,
 } from "@/domain/legal/drivingLicenceAccess";
+import { redactDrivingLicenceSnapshot } from "@/domain/legal/drivingLicenceSnapshot";
+import { createDownloadGrant } from "@/domain/legal/drivingLicenceDownloadGrant";
 import {
   recordDrivingLicenceAccess,
+  recordDrivingLicenceAccessDenied,
   extractAuditContext,
 } from "@/domain/legal/auditTrail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** Fields the access decision and the licence view both need. */
+const LICENCE_SELECT = [
+  "ownerId",
+  "confirmed",
+  "payment",
+  "source",
+  "my_order",
+  "offline",
+  "bookingMode",
+  "bookingFeePaymentStatus",
+  "pickupAtUtc",
+  "returnAtUtc",
+  "timeIn",
+  "timeOut",
+  "rentalStartDate",
+  "rentalEndDate",
+  "drivingLicenceUrls",
+  "drivingLicenceSnapshot",
+  "drivingLicencePurgedAt",
+  "orderNumber",
+].join(" ");
+
 /**
  * GET /api/admin/orders/{orderId}/driving-licence
  *
- * Returns short-lived signed URLs for the customer's driving licence images.
+ * Licence metadata plus short-lived handles for the documents.
  *
- * There is deliberately no public variant of this route: the session check,
- * the fleet-ownership check and the lawful-stage check all run before any URL
- * is produced, and every successful access is written to the audit log.
+ * There is deliberately no public variant: the session check, the ownership
+ * check and the verified-payment check all run before anything is produced, and
+ * every attempt — allowed or refused — is written to the audit log.
+ *
+ * The captured snapshot is served as a short-lived grant, never as a storage
+ * reference or delivery URL. Legacy admin-uploaded images still return signed
+ * expiring URLs for the existing gallery.
  */
 export async function GET(request, { params }) {
   const { session, errorResponse } = await requireAdmin(request);
@@ -36,11 +65,7 @@ export async function GET(request, { params }) {
   const { orderId } = await params;
   await connectToDB();
 
-  const order = await Order.findById(orderId)
-    .select(
-      "ownerId confirmed payment pickupAtUtc returnAtUtc timeIn timeOut rentalStartDate rentalEndDate drivingLicenceUrls orderNumber"
-    )
-    .lean();
+  const order = await Order.findById(orderId).select(LICENCE_SELECT).lean();
 
   const isSuperadmin = Number(session.user?.role) === ROLE.SUPERADMIN;
   const decision = evaluateDrivingLicenceAccess({
@@ -49,18 +74,54 @@ export async function GET(request, { params }) {
     sessionOwnerId: session.user?.ownerId || null,
   });
 
+  const { ipAddress, userAgent } = extractAuditContext(request);
+  const actorRole = isSuperadmin ? "superadmin" : "admin";
+  const mode =
+    request.nextUrl.searchParams.get("mode") === "download" ? "download" : "view";
+
   if (!decision.allowed) {
+    // A refusal is as interesting to security review as a success.
+    await recordDrivingLicenceAccessDenied({
+      orderId: String(orderId),
+      userId: session.user?.id,
+      userEmail: session.user?.email || "",
+      userRole: actorRole,
+      ipAddress,
+      userAgent,
+      mode,
+      reason: decision.code,
+    });
     return NextResponse.json(
       { success: false, message: decision.message, code: decision.code },
       { status: decision.status }
     );
   }
 
-  const urls = Array.isArray(order.drivingLicenceUrls)
+  const snapshot = order.drivingLicenceSnapshot || null;
+  const legacyUrls = Array.isArray(order.drivingLicenceUrls)
     ? order.drivingLicenceUrls
     : [];
-  if (urls.length === 0) {
-    return NextResponse.json({ success: true, documents: [] });
+  const storageReference = String(snapshot?.storageReference || "").trim();
+
+  if (legacyUrls.length === 0 && !storageReference) {
+    await recordDrivingLicenceAccess({
+      orderId: String(orderId),
+      userId: session.user?.id,
+      userEmail: session.user?.email || "",
+      userRole: actorRole,
+      ipAddress,
+      userAgent,
+      mode,
+      assetRef: "",
+      result: "success",
+      reason: "no_document",
+    });
+    return NextResponse.json({
+      success: true,
+      documents: [],
+      licence: redactDrivingLicenceSnapshot(snapshot),
+      purgedAt: order.drivingLicencePurgedAt || null,
+    });
   }
 
   const cfg = ensureCloudinaryConfigured();
@@ -71,36 +132,60 @@ export async function GET(request, { params }) {
     );
   }
 
-  const delivery = signedDocumentDelivery();
   const documents = [];
-
-  for (const url of urls) {
-    const publicId = cloudinaryPublicIdFromSecureUrl(url);
-    if (!publicId) continue;
-    const signedUrl = cloudinary.url(publicId, delivery.options);
-    if (issuedUrlIsPermanent(url, signedUrl)) continue;
-    documents.push({
-      publicId,
-      url: signedUrl,
-      expiresAt: delivery.expiresAt,
-    });
+  if (legacyUrls.length > 0) {
+    const delivery = signedDocumentDelivery();
+    for (const url of legacyUrls) {
+      const publicId = cloudinaryPublicIdFromSecureUrl(url);
+      if (!publicId) continue;
+      const signedUrl = cloudinary.url(publicId, delivery.options);
+      if (issuedUrlIsPermanent(url, signedUrl)) continue;
+      documents.push({
+        publicId,
+        url: signedUrl,
+        expiresAt: delivery.expiresAt,
+      });
+    }
   }
 
-  const { ipAddress, userAgent } = extractAuditContext(request);
+  let capturedDocument = null;
+  if (storageReference) {
+    const grant = createDownloadGrant({
+      orderId: String(orderId),
+      storageReference,
+      storageType: snapshot?.storageType || "authenticated",
+      resourceType: "image",
+    });
+    if (grant.ok) {
+      capturedDocument = {
+        grant: grant.grant,
+        expiresAt: grant.expiresAt,
+        ttlSeconds: grant.ttlSeconds,
+      };
+    }
+  }
+
   await recordDrivingLicenceAccess({
     orderId: String(orderId),
     userId: session.user?.id,
     userEmail: session.user?.email || "",
-    userRole: isSuperadmin ? "superadmin" : "admin",
+    userRole: actorRole,
     ipAddress,
     userAgent,
-    mode: request.nextUrl.searchParams.get("mode") === "download" ? "download" : "view",
-    assetRef: documents.map((d) => d.publicId).join(","),
+    mode,
+    // Storage references only. Never the bytes, never the signed URL or grant.
+    assetRef: [...documents.map((d) => d.publicId), storageReference]
+      .filter(Boolean)
+      .join(","),
+    result: "success",
   });
 
   return NextResponse.json({
     success: true,
     documents,
+    licence: redactDrivingLicenceSnapshot(snapshot),
+    capturedDocument,
+    purgedAt: order.drivingLicencePurgedAt || null,
     ttlSeconds: SIGNED_URL_TTL_SECONDS,
   });
 }

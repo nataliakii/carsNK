@@ -56,6 +56,7 @@ import {
   resolveCreateDrivingLicenceUrls,
   resolveCreateTotalPrice,
 } from "@/domain/orders/publicOrderCreatePolicy";
+import { resolveDrivingLicenceForCreate } from "@/domain/legal/drivingLicenceCreateGate";
 import { toBusinessStartOfDay, toStoredBusinessDate } from "@/domain/time/businessDate";
 import DiscountSetting from "@models/DiscountSetting";
 import { isCompanyInSiteCountry } from "@/domain/platform/companyCountryScope";
@@ -501,6 +502,7 @@ async function postOrderAddHandler(request) {
       totalPrice: totalPriceFromClient,
       locale: clientLocale,
       drivingLicenceUrls: drivingLicenceUrlsRaw,
+      drivingLicence,
       termsAcceptance: termsAcceptanceRaw,
     } = await request.json();
 
@@ -831,6 +833,45 @@ async function postOrderAddHandler(request) {
 
     const pickupAtUtc = startDate.utc().toDate();
     const returnAtUtc = endDate.utc().toDate();
+
+    // A public PLATFORM request cannot exist without a driving licence. This runs
+    // before the first write and before any Stripe session, so a refusal here
+    // leaves no order, no discount link and no orphaned checkout behind.
+    // INTERNAL records and admin-created bookings are out of scope.
+    const licenceDecision = resolveDrivingLicenceForCreate({
+      isAdminSession,
+      bookingSource,
+      payload: drivingLicence,
+      pickupAtUtc,
+      returnAtUtc,
+    });
+    if (!licenceDecision.ok) {
+      console.error("[ORDER-ADD] driving licence rejected", {
+        correlationId,
+        code: ORDER_CREATE_CODE.DRIVING_LICENCE_REQUIRED,
+        failingGuard: "resolveDrivingLicenceForCreate",
+        licenceCode: licenceDecision.code,
+        // Reason only — never the receipt, the storage reference or the bytes.
+        receiptCode: licenceDecision.receiptCode || "",
+        companyId: String(ownerCompany?._id || ""),
+        carId: String(existingCar?._id || ""),
+      });
+      return new Response(
+        JSON.stringify({
+          error: ORDER_CREATE_CODE.DRIVING_LICENCE_REQUIRED,
+          licenceCode: licenceDecision.code,
+          field: licenceDecision.field || "",
+          message: licenceDecision.message,
+          messageKey: licenceDecision.messageKey,
+          correlationId,
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+    const drivingLicenceSnapshotToSave = licenceDecision.snapshot;
 
     if (isCustomerSelfServiceBooking) {
       const ownerBookingCityNames = bookingCities.map((city) => city.name);
@@ -1297,7 +1338,6 @@ async function postOrderAddHandler(request) {
       isAdminSession,
       raw: drivingLicenceUrlsRaw,
     });
-
     const localPickup = localSnapshotFromUtc(pickupAtUtc, timezone);
     const localReturn = localSnapshotFromUtc(returnAtUtc, timezone);
     const timeInToSave = timeIn ? timeIn : setTimeToDatejs(startDate, null, true);
@@ -1350,6 +1390,7 @@ async function postOrderAddHandler(request) {
         (isMarketplaceRequestMode(bookingMode) ? null : COMPANY_ID),
       fromLocalhost,
       drivingLicenceUrls,
+      drivingLicenceSnapshot: drivingLicenceSnapshotToSave,
       termsAcceptance: termsAcceptanceToSave,
       legalSnapshot: legalSnapshotToSave,
       bookingMode,
@@ -1382,6 +1423,11 @@ async function postOrderAddHandler(request) {
     }
     if (legalSnapshotToSave) {
       newOrder.set("legalSnapshot", legalSnapshotToSave, { strict: false });
+    }
+    if (drivingLicenceSnapshotToSave) {
+      newOrder.set("drivingLicenceSnapshot", drivingLicenceSnapshotToSave, {
+        strict: false,
+      });
     }
     if (
       isMarketplaceRequestMode(bookingMode) &&

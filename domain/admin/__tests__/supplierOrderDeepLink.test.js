@@ -89,7 +89,7 @@ describe("live order modal", () => {
       access: supplierCanReadOrder(companyUser, platform()),
     });
     expect(waiting.open).toBe(true);
-    expect(waiting.modal).toBe("EditOrderModal");
+    expect(waiting.modal).toBe("BookingDetailsModal");
     expect(waiting.stage).toBe(PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION);
     expect(waiting.supplierActions).toBe(true);
     expect(waiting.refreshInbox).toBeUndefined();

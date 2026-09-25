@@ -279,7 +279,33 @@
     "addressOutsideCity": "Adresse scheint außerhalb der Stadt — Liefergebühr möglich.",
     "addressOutsideCityWithFee": "Außerhalb der Stadt — ca. €{{fee}}",
     "addressOutsideCityBreakdown": "{{km}} km außerhalb {{city}} × €{{rate}}/km ≈ €{{fee}}",
-    "addressBeyondServiceArea": "Außerhalb des Servicegebiets — wir bestätigen die Lieferung mit der Bestellung."
+    "addressBeyondServiceArea": "Außerhalb des Servicegebiets — wir bestätigen die Lieferung mit der Bestellung.",
+    "licenceSectionTitle": "Führerschein",
+    "licenceSectionHint": "Für die Bestätigung Ihrer Buchung erforderlich. Ihre Angaben und das Foto werden sicher gespeichert und erst nach bestätigter Zahlung an die Mietwagenfirma weitergegeben.",
+    "licenceHolderLabel": "Name auf dem Führerschein",
+    "licenceNumberLabel": "Führerscheinnummer",
+    "licenceCountryLabel": "Ausstellungsland",
+    "licenceExpiryLabel": "Gültig bis",
+    "licenceIssueDateLabel": "Ausstellungsdatum",
+    "licenceIssueDateHint": "Wie auf Ihrem Führerschein angegeben.",
+    "licenceUploadDocument": "Führerscheinfoto hochladen",
+    "licenceReplaceDocument": "Foto ersetzen",
+    "licenceUploading": "Wird hochgeladen…",
+    "licenceDocumentAttached": "Foto angehängt",
+    "licenceUploadUnsupportedType": "Verwenden Sie eine JPEG-, PNG-, WebP-, HEIC- oder PDF-Datei.",
+    "licenceUploadTooLarge": "Die Datei ist größer als 10 MB. Bitte laden Sie eine kleinere Datei hoch.",
+    "licenceUploadRateLimited": "Zu viele Upload-Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
+    "licenceRequired": "Für die Buchung sind Führerscheindaten und ein Foto des Führerscheins erforderlich.",
+    "licenceUploadMissing": "Laden Sie ein Foto des Führerscheins hoch, um fortzufahren.",
+    "licenceUploadFailed": "Der Upload des Führerscheins wurde nicht abgeschlossen. Bitte laden Sie das Foto erneut hoch.",
+    "licenceHolderRequired": "Geben Sie den vollständigen Namen ein, der auf dem Führerschein steht.",
+    "licenceNumberRequired": "Geben Sie die Führerscheinnummer ein.",
+    "licenceCountryRequired": "Wählen Sie das Land aus, das den Führerschein ausgestellt hat.",
+    "licenceExpiryRequired": "Geben Sie das Ablaufdatum des Führerscheins ein.",
+    "licenceExpiresBeforeReturn": "Der Führerschein läuft vor dem Ende der Mietzeit ab. Verwenden Sie einen Führerschein, der für die gesamte Mietzeit gültig ist.",
+    "licenceIssueDateRequired": "Geben Sie das Datum ein, an dem der Führerschein ausgestellt wurde.",
+    "licenceIssueDateInvalid": "Das Ausstellungsdatum muss in der Vergangenheit und vor dem Ablaufdatum liegen.",
+    "licenceNotProvided": "Nicht angegeben"
   },
   "car": {
     "viewDetails": "Mehr Details",
@@ -968,10 +994,10 @@
     "acceptedBodyUnpaid": "Ihre Buchung läuft mit dem Ersatzfahrzeug zum angezeigten Preis weiter. Die Zahlung erfolgt wie gewohnt und nie über dem Betrag Ihrer ursprünglichen Buchung.",
     "acceptedBodyPaid": "Ihre Buchung läuft mit dem Ersatzfahrzeug weiter. Bereits Gezahltes wird übernommen, für den Wechsel wird nichts zusätzlich berechnet.",
     "declinedTitle": "Sie haben diesen Ersatz abgelehnt",
-    "declinedBodyRefund": "Sie haben den Ersatz abgelehnt. Die nicht erstattungsfähige Rovaro-Buchungsgebühr von 10 % wird einbehalten, außer soweit geltendes Recht dies verlangt oder Rovaro dies ausdrücklich in außergewöhnlichen Umständen genehmigt.",
+    "declinedBodyRefund": "Sie haben den Ersatz abgelehnt. Die nicht erstattungsfähige Rovaro-Buchungsgebühr von {{percent}} % wird einbehalten, außer soweit geltendes Recht dies verlangt oder Rovaro dies ausdrücklich in außergewöhnlichen Umständen genehmigt.",
     "declinedBodyNoPayment": "Ihre Buchung wurde storniert. Es wurde nichts abgebucht, also gibt es nichts zu erstatten.",
     "refundStep1": "Ihre Entscheidung wurde festgehalten und der Anbieter wurde informiert.",
-    "refundStep2": "Die Rovaro-Buchungsgebühr von 10 % ist nicht erstattungsfähig und wird nicht automatisch erstattet.",
+    "refundStep2": "Die Rovaro-Buchungsgebühr von {{percent}} % ist nicht erstattungsfähig und wird nicht automatisch erstattet.",
     "refundStep3": "Die Erstattung geht auf die Karte oder das Konto zurück, von dem Sie gezahlt haben. Wenn Sie stattdessen ein anderes Ersatzfahrzeug möchten, melden Sie sich bei uns.",
     "expiredTitle": "Dieses Angebot ist abgelaufen",
     "expiredBodyPaid": "Das Angebot ist ohne Entscheidung abgelaufen und kann nicht mehr angenommen werden. Nach den Buchungsbedingungen haben Sie Anspruch auf die volle Rückerstattung Ihrer Anzahlung oder auf ein weiteres Ersatzangebot. Melden Sie sich bei uns, damit wir das regeln.",
@@ -1020,5 +1046,189 @@
     "internalCancelled": "Cancelled",
     "toneCompletionPending": "Completion pending",
     "toneAlternative": "Alternative offered"
+  },
+  "bookingDetails": {
+    "title": "Buchungsdetails",
+    "close": "Schließen",
+    "back": "Zurück",
+    "privacyNotice": "Kontaktdaten des Kunden und Führerscheindokumente werden nach Eingang der Buchungszahlung sichtbar.",
+    "errors": {
+      "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen."
+    },
+    "sections": {
+      "vehicle": "Fahrzeug",
+      "dates": "Termine und Orte",
+      "options": "Mietoptionen",
+      "price": "Preisübersicht",
+      "customer": "Kundendaten",
+      "documents": "Führerscheindokumente"
+    },
+    "status": {
+      "newRequest": {
+        "title": "Neue Anfrage",
+        "detail": "Wartet auf Ihre Bestätigung."
+      },
+      "awaitingPayment": {
+        "title": "Fahrzeug bestätigt",
+        "detail": "Warten auf die Buchungszahlung von {{rate}}% durch den Kunden.",
+        "detailNoRate": "Warten auf die Buchungszahlung durch den Kunden."
+      },
+      "replacementOffered": {
+        "title": "Ersatz angeboten",
+        "detail": "Warten darauf, dass der Kunde diesen Ersatz annimmt."
+      },
+      "confirmedPaid": {
+        "title": "Bestätigt und bezahlt",
+        "detail": "Der Kunde hat die Rovaro-Buchungszahlung geleistet."
+      },
+      "declined": {
+        "title": "Abgelehnt"
+      },
+      "generic": {
+        "title": "Buchung"
+      }
+    },
+    "vehicle": {
+      "requested": "Angefragtes Fahrzeug",
+      "class": "Klasse",
+      "transmission": "Getriebe",
+      "seats": "Sitzplätze",
+      "luggage": "Gepäck",
+      "fuel": "Kraftstoffart"
+    },
+    "dates": {
+      "pickup": "Abholdatum und -zeit",
+      "return": "Rückgabedatum und -zeit",
+      "days": "Miettage",
+      "pickupLocation": "Abholort",
+      "returnLocation": "Rückgabeort"
+    },
+    "options": {
+      "insurance": "Versicherung",
+      "excess": "Selbstbeteiligung",
+      "childSeats": "Kindersitze",
+      "secondDriver": "Zweiter Fahrer",
+      "yes": "Ja",
+      "no": "Nein"
+    },
+    "price": {
+      "rental": "Miete",
+      "insurance": "Versicherung",
+      "childSeat": "Kindersitz",
+      "secondDriver": "Zweiter Fahrer",
+      "extras": "Extras",
+      "discount": "Rabatt",
+      "afterHours": "Service außerhalb der Öffnungszeiten",
+      "other": "Sonstiges",
+      "manualAdjustment": "Manuelle Anpassung",
+      "officeBoth": "Abholung und Rückgabe im Büro",
+      "pickupOffice": "Abholung im Büro",
+      "returnOffice": "Rückgabe im Büro",
+      "pickupDelivery": "Lieferung zum Abholort",
+      "returnDelivery": "Abholung vom Rückgabeort",
+      "free": "Inklusive",
+      "totalRentalPrice": "Gesamtmietpreis",
+      "paidToRovaro": "An Rovaro gezahlt ({{rate}}%)",
+      "payableToSupplier": "Sie kassieren vom Kunden",
+      "payableToSupplierHint": "Diesen Betrag zahlt der Kunde bei der Übergabe direkt an Sie.",
+      "dataWarning": "Die gespeicherten Preiszeilen dieser Buchung ergeben nicht die gespeicherte Gesamtsumme. Geldbezogene Aktionen sind gesperrt, bis Rovaro den Datensatz korrigiert."
+    },
+    "customer": {
+      "name": "Vollständiger Name",
+      "phone": "Telefon",
+      "email": "E-Mail",
+      "messengers": "Messenger",
+      "notes": "Kundenhinweise",
+      "whatsapp": "WhatsApp",
+      "viber": "Viber",
+      "telegram": "Telegram",
+      "openChat": "Chat öffnen"
+    },
+    "documents": {
+      "holder": "Führerscheininhaber",
+      "number": "Führerscheinnummer",
+      "country": "Ausstellungsland",
+      "expires": "Gültig bis",
+      "preview": "Führerschein"
+    },
+    "actions": {
+      "confirm": "Angefragtes Fahrzeug bestätigen",
+      "replace": "Gleichwertigen Ersatz anbieten",
+      "decline": "Anfrage ablehnen",
+      "contactCustomer": "Kunden kontaktieren",
+      "contactRovaro": "Rovaro kontaktieren",
+      "reportProblem": "Problem melden",
+      "amend": "Buchung ändern"
+    },
+    "confirmDialog": {
+      "title": "Angefragtes Fahrzeug bestätigen",
+      "intro": "Sie verpflichten sich zu diesen Bedingungen:"
+    },
+    "declineDialog": {
+      "title": "Anfrage ablehnen",
+      "intro": "Teilen Sie Rovaro mit, warum diese Buchung nicht erfüllt werden kann.",
+      "reason": "Grund"
+    },
+    "contactDialog": {
+      "reference": "Buchungsnummer",
+      "category": "Kategorie des Anliegens",
+      "message": "Nachricht",
+      "send": "Senden",
+      "problemNotice": "Rovaro wird sofort benachrichtigt. Die bestätigte Buchung bleibt unverändert — nichts wird storniert oder erstattet.",
+      "categories": {
+        "BOOKING_DETAILS": "Buchungsdetails",
+        "VEHICLE": "Fahrzeug",
+        "DATES": "Termine",
+        "PRICE": "Preis",
+        "CUSTOMER": "Kunde",
+        "OTHER": "Sonstiges"
+      }
+    },
+    "replacement": {
+      "originallyRequested": "Ursprünglich angefragt",
+      "confirmedAs": "Als Ersatz bestätigt",
+      "supplierComment": "Kommentar für den Kunden"
+    },
+    "replacementDialog": {
+      "intro": "Das angefragte Fahrzeug bleibt unverändert. Ihr Vorschlag geht an den Kunden, der ihn durch Zahlung annimmt.",
+      "kind": "Art des Ersatzes",
+      "kinds": {
+        "COMPANY_VEHICLE": "Ein Fahrzeug aus Ihrer Flotte",
+        "EXTERNAL_VEHICLE": "Ein Fahrzeug außerhalb Ihrer Flotte",
+        "GUARANTEED_CLASS": "Garantierte Klasse, Modell folgt"
+      },
+      "model": "Ersatzfahrzeug",
+      "category": "Klasse",
+      "categoryHelp": "Gleiche oder höhere Klasse als das angefragte Fahrzeug.",
+      "transmission": "Getriebe",
+      "transmissionHelp": "Muss dem angefragten Getriebe entsprechen.",
+      "seats": "Sitzplätze",
+      "luggage": "Gepäck",
+      "totalPrice": "Gesamtmietpreis",
+      "totalPriceHelp": "Gleicher oder niedrigerer Preis als angefragt.",
+      "comment": "Kommentar für den Kunden",
+      "submit": "Vorschlag senden"
+    },
+    "amendDialog": {
+      "notice": "Jede Änderung wird mit Grund sowie Vorher-Nachher-Stand protokolliert. Eine wesentliche Bedingung einer bezahlten Buchung kann sich nicht ohne Zustimmung des Kunden ändern.",
+      "requestedBy": "Angefragt von",
+      "requesters": {
+        "CUSTOMER": "Kunde",
+        "SUPPLIER": "Vermieter",
+        "ROVARO": "Rovaro"
+      },
+      "reason": "Grund",
+      "reasonHelp": "Mindestens 10 Zeichen. Wird im Prüfprotokoll gespeichert.",
+      "consentNote": "Zustimmung des Kunden",
+      "consentHelp": "Erforderlich, bevor sich eine wesentliche Bedingung einer bezahlten Buchung ändern darf. Beschreiben Sie, wie die Zustimmung erteilt wurde.",
+      "submit": "Änderung speichern"
+    },
+    "notices": {
+      "confirmed": "Fahrzeug bestätigt.",
+      "declined": "Anfrage abgelehnt.",
+      "messageSent": "Nachricht an Rovaro gesendet.",
+      "replacementOffered": "Ersatzvorschlag gesendet.",
+      "amended": "Änderung gespeichert."
+    }
   }
 }

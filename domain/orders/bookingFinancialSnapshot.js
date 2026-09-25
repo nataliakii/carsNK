@@ -16,6 +16,7 @@ import {
   DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
   bpsToPercentNumber,
   marketplacePlatformAmountMinor,
+  marketplaceSupplierBalanceMinor,
   resolveMarketplaceBookingFeeBps,
   snapshotMarketplaceBookingFeeBps,
 } from "@/domain/orders/marketplaceBookingFee";
@@ -60,7 +61,10 @@ export function buildBookingFinancialSnapshot({
   const gross = Math.max(0, Math.round(Number(grossMinor) || 0));
   const bps = Math.round(Number(feeBps) || DEFAULT_MARKETPLACE_BOOKING_FEE_BPS);
   const bookingFeeMinor = marketplacePlatformAmountMinor(gross, bps);
-  const supplierBalanceMinor = Math.max(0, gross - bookingFeeMinor);
+  const supplierBalanceMinor = marketplaceSupplierBalanceMinor(
+    gross,
+    bookingFeeMinor
+  );
   return {
     calculationVersion: BOOKING_FEE_CALCULATION_VERSION,
     currency: String(currency || "EUR").trim().toUpperCase() || "EUR",
@@ -91,7 +95,10 @@ export function bookingFinancialSnapshotFromQuote(quote) {
     return {
       ...built,
       bookingFeeMinor: quotedFee,
-      supplierBalanceMinor: Math.max(0, built.grossMinor - quotedFee),
+      supplierBalanceMinor: marketplaceSupplierBalanceMinor(
+        built.grossMinor,
+        quotedFee
+      ),
       feeBps: quote.marketplaceBookingFeeBps ?? built.feeBps,
       feePercent:
         quote.feePercent != null ? Number(quote.feePercent) : built.feePercent,
@@ -134,7 +141,7 @@ function snapshotFromStoredAmounts(order) {
   // follows supplierMinor = grossMinor - platformMinor. A consistent stored
   // balance is identical to this; one that disagrees is stale and would
   // understate what the customer still owes the rental company.
-  const supplier = Math.max(0, grossMinor - fee);
+  const supplier = marketplaceSupplierBalanceMinor(grossMinor, fee);
   return {
     calculationVersion: BOOKING_FEE_CALCULATION_VERSION,
     currency,

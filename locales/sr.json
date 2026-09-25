@@ -212,7 +212,33 @@
     "unsavedChangesMessage": "Podaci narudžbine su izmenjeni. Izađi bez čuvanja, ostati ili sačuvati i izaći?",
     "leaveWithoutSaving": "Izađi bez čuvanja",
     "leaveWithSaving": "Sačuvaj i izađi",
-    "unsavedSaveBlocked": "Nije moguće sačuvati: rešite konflikte ili greške provere."
+    "unsavedSaveBlocked": "Nije moguće sačuvati: rešite konflikte ili greške provere.",
+    "licenceSectionTitle": "Vozačka dozvola",
+    "licenceSectionHint": "Potrebno za potvrdu rezervacije. Vaši podaci i fotografija se čuvaju bezbedno i dostupni su rent-a-car kompaniji samo nakon potvrđene uplate.",
+    "licenceHolderLabel": "Ime na dozvoli",
+    "licenceNumberLabel": "Broj dozvole",
+    "licenceCountryLabel": "Država izdavanja",
+    "licenceExpiryLabel": "Važi do",
+    "licenceIssueDateLabel": "Datum izdavanja",
+    "licenceIssueDateHint": "Kako je navedeno na vašoj dozvoli.",
+    "licenceUploadDocument": "Otpremi fotografiju dozvole",
+    "licenceReplaceDocument": "Zameni fotografiju",
+    "licenceUploading": "Otpremanje…",
+    "licenceDocumentAttached": "Fotografija je priložena",
+    "licenceUploadUnsupportedType": "Koristite JPEG, PNG, WebP, HEIC ili PDF datoteku.",
+    "licenceUploadTooLarge": "Datoteka je veća od 10 MB. Otpremite manju datoteku.",
+    "licenceUploadRateLimited": "Previše pokušaja otpremanja. Sačekajte nekoliko minuta i pokušajte ponovo.",
+    "licenceRequired": "Za rezervaciju su potrebni podaci o vozačkoj dozvoli i njena fotografija.",
+    "licenceUploadMissing": "Otpremite fotografiju vozačke dozvole da biste nastavili.",
+    "licenceUploadFailed": "Otpremanje vozačke dozvole nije završeno. Otpremite fotografiju ponovo.",
+    "licenceHolderRequired": "Unesite puno ime kako je navedeno na vozačkoj dozvoli.",
+    "licenceNumberRequired": "Unesite broj vozačke dozvole.",
+    "licenceCountryRequired": "Izaberite državu koja je izdala vozačku dozvolu.",
+    "licenceExpiryRequired": "Unesite datum isteka vozačke dozvole.",
+    "licenceExpiresBeforeReturn": "Vozačka dozvola ističe pre završetka najma. Koristite dozvolu koja važi tokom celog najma.",
+    "licenceIssueDateRequired": "Unesite datum izdavanja vozačke dozvole.",
+    "licenceIssueDateInvalid": "Datum izdavanja mora biti u prošlosti i pre datuma isteka.",
+    "licenceNotProvided": "Nije dostavljeno"
   },
   "car": {
     "viewDetails": "Više detalja",
@@ -567,5 +593,189 @@
     "internalCancelled": "Cancelled",
     "toneCompletionPending": "Completion pending",
     "toneAlternative": "Alternative offered"
+  },
+  "bookingDetails": {
+    "title": "Детаљи резервације",
+    "close": "Затвори",
+    "back": "Назад",
+    "privacyNotice": "Контакт подаци клијента и возачка документа постају доступни након примљене уплате за резервацију.",
+    "errors": {
+      "generic": "Нешто је пошло наопако. Покушајте поново."
+    },
+    "sections": {
+      "vehicle": "Возило",
+      "dates": "Датуми и локације",
+      "options": "Опције изнајмљивања",
+      "price": "Преглед цене",
+      "customer": "Подаци о клијенту",
+      "documents": "Возачка документа"
+    },
+    "status": {
+      "newRequest": {
+        "title": "Нов захтев",
+        "detail": "Чека се ваша потврда."
+      },
+      "awaitingPayment": {
+        "title": "Возило потврђено",
+        "detail": "Чекамо да клијент плати {{rate}}% за резервацију.",
+        "detailNoRate": "Чекамо да клијент плати резервацију."
+      },
+      "replacementOffered": {
+        "title": "Понуђена замена",
+        "detail": "Чекамо да клијент прихвати ову замену."
+      },
+      "confirmedPaid": {
+        "title": "Потврђена и плаћена",
+        "detail": "Клијент је платио Rovaro резервацију."
+      },
+      "declined": {
+        "title": "Одбијена"
+      },
+      "generic": {
+        "title": "Резервација"
+      }
+    },
+    "vehicle": {
+      "requested": "Тражено возило",
+      "class": "Класа",
+      "transmission": "Мењач",
+      "seats": "Седишта",
+      "luggage": "Пртљаг",
+      "fuel": "Врста горива"
+    },
+    "dates": {
+      "pickup": "Датум и време преузимања",
+      "return": "Датум и време враћања",
+      "days": "Дана изнајмљивања",
+      "pickupLocation": "Место преузимања",
+      "returnLocation": "Место враћања"
+    },
+    "options": {
+      "insurance": "Осигурање",
+      "excess": "Учешће",
+      "childSeats": "Дечја седишта",
+      "secondDriver": "Други возач",
+      "yes": "Да",
+      "no": "Не"
+    },
+    "price": {
+      "rental": "Изнајмљивање",
+      "insurance": "Осигурање",
+      "childSeat": "Дечје седиште",
+      "secondDriver": "Други возач",
+      "extras": "Додаци",
+      "discount": "Попуст",
+      "afterHours": "Услуга ван радног времена",
+      "other": "Остало",
+      "manualAdjustment": "Ручна исправка",
+      "officeBoth": "Преузимање и враћање у пословници",
+      "pickupOffice": "Преузимање у пословници",
+      "returnOffice": "Враћање у пословницу",
+      "pickupDelivery": "Достава на место преузимања",
+      "returnDelivery": "Преузимање са места враћања",
+      "free": "Укључено",
+      "totalRentalPrice": "Укупна цена изнајмљивања",
+      "paidToRovaro": "Плаћено Rovaro ({{rate}}%)",
+      "payableToSupplier": "Ви наплаћујете од клијента",
+      "payableToSupplierHint": "Овај износ клијент плаћа вама директно приликом преузимања.",
+      "dataWarning": "Сачуване ставке цене ове резервације не дају сачувани укупан износ. Новчане радње су закључане док Rovaro не исправи запис."
+    },
+    "customer": {
+      "name": "Име и презиме",
+      "phone": "Телефон",
+      "email": "Имејл",
+      "messengers": "Апликације за поруке",
+      "notes": "Напомене клијента",
+      "whatsapp": "WhatsApp",
+      "viber": "Viber",
+      "telegram": "Telegram",
+      "openChat": "Отвори ћаскање"
+    },
+    "documents": {
+      "holder": "Власник дозволе",
+      "number": "Број дозволе",
+      "country": "Земља издавања",
+      "expires": "Важи до",
+      "preview": "Возачка дозвола"
+    },
+    "actions": {
+      "confirm": "Потврди тражено возило",
+      "replace": "Понуди равноправну замену",
+      "decline": "Одбиј захтев",
+      "contactCustomer": "Контактирај клијента",
+      "contactRovaro": "Контактирај Rovaro",
+      "reportProblem": "Пријави проблем",
+      "amend": "Измени резервацију"
+    },
+    "confirmDialog": {
+      "title": "Потврди тражено возило",
+      "intro": "Обавезујете се на следеће услове:"
+    },
+    "declineDialog": {
+      "title": "Одбиј захтев",
+      "intro": "Објасните Rovaro зашто ова резервација не може да се испуни.",
+      "reason": "Разлог"
+    },
+    "contactDialog": {
+      "reference": "Број резервације",
+      "category": "Категорија питања",
+      "message": "Порука",
+      "send": "Пошаљи",
+      "problemNotice": "Rovaro се обавештава одмах. Потврђена резервација остаје непромењена — ништа се не отказује нити рефундира.",
+      "categories": {
+        "BOOKING_DETAILS": "Детаљи резервације",
+        "VEHICLE": "Возило",
+        "DATES": "Датуми",
+        "PRICE": "Цена",
+        "CUSTOMER": "Клијент",
+        "OTHER": "Остало"
+      }
+    },
+    "replacement": {
+      "originallyRequested": "Првобитно тражено",
+      "confirmedAs": "Потврђено као замена",
+      "supplierComment": "Коментар за клијента"
+    },
+    "replacementDialog": {
+      "intro": "Тражено возило остаје непромењено. Ваш предлог се шаље клијенту, који га прихвата плаћањем.",
+      "kind": "Врста замене",
+      "kinds": {
+        "COMPANY_VEHICLE": "Возило из вашег возног парка",
+        "EXTERNAL_VEHICLE": "Возило ван вашег возног парка",
+        "GUARANTEED_CLASS": "Гарантована класа, модел се накнадно потврђује"
+      },
+      "model": "Возило за замену",
+      "category": "Класа",
+      "categoryHelp": "Иста или виша класа од траженог возила.",
+      "transmission": "Мењач",
+      "transmissionHelp": "Мора да одговара траженом мењачу.",
+      "seats": "Седишта",
+      "luggage": "Пртљаг",
+      "totalPrice": "Укупна цена изнајмљивања",
+      "totalPriceHelp": "Иста или нижа од тражене цене.",
+      "comment": "Коментар за клијента",
+      "submit": "Пошаљи предлог"
+    },
+    "amendDialog": {
+      "notice": "Свака измена се бележи са разлогом и стањем пре и после. Суштински услов плаћене резервације не може да се промени без сагласности клијента.",
+      "requestedBy": "Тражио",
+      "requesters": {
+        "CUSTOMER": "Клијент",
+        "SUPPLIER": "Изнајмљивач",
+        "ROVARO": "Rovaro"
+      },
+      "reason": "Разлог",
+      "reasonHelp": "Најмање 10 знакова. Чува се у ревизорском трагу.",
+      "consentNote": "Сагласност клијента",
+      "consentHelp": "Обавезна пре промене суштинског услова плаћене резервације. Опишите како је сагласност дата.",
+      "submit": "Сачувај измену"
+    },
+    "notices": {
+      "confirmed": "Возило је потврђено.",
+      "declined": "Захтев је одбијен.",
+      "messageSent": "Порука је послата Rovaro.",
+      "replacementOffered": "Предлог замене је послат.",
+      "amended": "Измена је сачувана."
+    }
   }
 }

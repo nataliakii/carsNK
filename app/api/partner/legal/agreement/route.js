@@ -59,12 +59,14 @@ export async function GET(request) {
 
   await connectToDB();
   const [built, active, history, profile] = await Promise.all([
-    buildAgreementPackage({ language }),
+    buildAgreementPackage({ language, companyId }),
     getActiveAgreement(companyId),
     listAgreements(companyId),
     PartnerLegalProfile.findOne({ companyId }).select("customAgreement").lean(),
   ]);
-  const pkg = withCustomAgreement(built, profile?.customAgreement);
+  const pkg = withCustomAgreement(built, profile?.customAgreement, {
+    commercialTerms: built.commercialTerms,
+  });
 
   const { ipAddress, userAgent } = extractAuditContext(request);
   await recordAuditEvent({
@@ -83,6 +85,8 @@ export async function GET(request) {
     success: true,
     acceptanceStatement: CLICKWRAP_ACCEPTANCE_STATEMENT,
     packageChecksum: pkg.packageChecksum,
+    /** This partner's negotiated rate. Not part of packageChecksum. */
+    commercialTerms: pkg.commercialTerms || null,
     esignMode,
     /** true while the documents are still drafts — signing is blocked. */
     containsDrafts: pkg.anyDraft,
@@ -106,6 +110,8 @@ export async function GET(request) {
           signerRole: active.signerRole,
           signerEmail: active.signerEmail,
           packageChecksum: active.packageChecksum,
+          /** The rate frozen when this agreement was signed, not today's. */
+          commercialTerms: active.commercialTermsSnapshot || null,
           acceptanceMethod: active.acceptanceMethod,
           documents: (active.documents || []).map((d) => ({
             documentType: d.documentType,

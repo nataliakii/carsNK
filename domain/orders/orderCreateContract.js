@@ -15,6 +15,8 @@ export const ORDER_CREATE_CODE = Object.freeze({
   PRICE_CHANGED: "PRICE_CHANGED",
   ORDER_CREATE_FAILED: "ORDER_CREATE_FAILED",
   PLATFORM_MAINTENANCE: "PLATFORM_MAINTENANCE",
+  /** Public PLATFORM request without the required licence data or upload. */
+  DRIVING_LICENCE_REQUIRED: "DRIVING_LICENCE_REQUIRED",
 });
 
 const CUSTOMER_MESSAGE = Object.freeze({
@@ -38,6 +40,8 @@ const CUSTOMER_MESSAGE = Object.freeze({
     "We couldn’t create your booking. Please try again.",
   [ORDER_CREATE_CODE.PLATFORM_MAINTENANCE]:
     "Order creation is temporarily blocked",
+  [ORDER_CREATE_CODE.DRIVING_LICENCE_REQUIRED]:
+    "Driving licence details and a photo of the licence are required to book.",
 });
 
 export function customerMessageForCode(code) {

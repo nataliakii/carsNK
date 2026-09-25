@@ -2,6 +2,7 @@ import { Order } from "@models/order";
 import { connectToDB } from "@lib/database";
 import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
 import {
+  MARKETPLACE_FEE_BPS_DENOMINATOR,
   formatMarketplaceFeePercent,
   snapshotMarketplaceBookingFeeBps,
 } from "@/domain/orders/marketplaceBookingFee";
@@ -41,7 +42,9 @@ export async function readRentalPaymentStatus(sessionId) {
       paymentStatus: order.payment?.status || "",
       marketplaceBookingFeeBps: fee.bps,
       feePercent: formatMarketplaceFeePercent(fee.bps),
-      supplierPercent: formatMarketplaceFeePercent(10000 - fee.bps),
+      supplierPercent: formatMarketplaceFeePercent(
+        MARKETPLACE_FEE_BPS_DENOMINATOR - fee.bps
+      ),
     },
   };
 }

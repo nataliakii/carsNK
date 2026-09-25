@@ -18,7 +18,9 @@
 import { toMinorUnits } from "@/domain/money/minorUnits";
 import {
   DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
+  MARKETPLACE_BOOKING_FEE_SOURCE,
   marketplacePlatformAmountMinor,
+  marketplaceSupplierBalanceMinor,
   snapshotMarketplaceBookingFeeBps,
 } from "@/domain/orders/marketplaceBookingFee";
 
@@ -58,9 +60,28 @@ export function marketplaceFinancialSplit(source = {}, opts = {}) {
   const platformAmountMinor = storedPlatform
     ? storedPlatform
     : marketplacePlatformAmountMinor(grossMinor, feeBps);
-  const supplierBalanceMinor = storedSupplier
-    ? storedSupplier
-    : Math.max(0, grossMinor - platformAmountMinor);
+
+  // The gross and the fee are the authoritative pair, so the balance always
+  // follows supplierMinor = grossMinor - platformMinor. A consistent stored
+  // balance is identical to this; one that disagrees is stale and would
+  // understate what the customer still owes the rental company.
+  //
+  // This only holds where a fee genuinely applies. A non-marketplace price
+  // with no prepayment stores balanceMinor === grossMinor and carries no fee
+  // at all; the only rate available here is the marketplace default, which
+  // was never charged on it. Deriving there would invent a 10% cut out of
+  // the supplier's balance, so the stored balance stands instead.
+  const feeIsAuthoritative =
+    storedPlatform > 0 ||
+    Number(opts.feeBps) > 0 ||
+    snapshot.source !== MARKETPLACE_BOOKING_FEE_SOURCE.DEFAULT;
+  const derivedSupplierMinor = marketplaceSupplierBalanceMinor(
+    grossMinor,
+    platformAmountMinor
+  );
+  const supplierBalanceMinor = feeIsAuthoritative
+    ? derivedSupplierMinor
+    : storedSupplier || derivedSupplierMinor;
 
   const feePercent = Number((feeBps / 100).toFixed(2));
   const supplierBalancePercent = Number(((10000 - feeBps) / 100).toFixed(2));

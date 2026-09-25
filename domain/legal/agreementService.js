@@ -19,8 +19,10 @@ import crypto from "crypto";
 
 import PartnerAgreementAcceptance from "@models/PartnerAgreementAcceptance";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
+import Company from "@models/company";
 import { connectToDB } from "@lib/database";
 import { getPublicLegalEntity } from "@config/legalEntity";
+import { getPlatformMarketplaceFeeSettings } from "@/domain/platform/platformSettingsService";
 
 import {
   LEGAL_PLATFORM,
@@ -40,6 +42,10 @@ import {
   canPartnerOperate,
 } from "./partnerVerification";
 import { recordAuditEvent } from "./auditTrail";
+import {
+  freezeCompanyCommercialTerms,
+  resolveCompanyCommercialTerms,
+} from "./companyCommercialTerms";
 import { notifyAgreementAccepted } from "@/domain/mail/notificationPolicy";
 
 /** Stable, non-guessable public identifier for one agreement instance. */
@@ -48,21 +54,52 @@ export function generateAgreementId() {
 }
 
 /**
+ * Resolve the commercial terms that apply to one partner company.
+ * Returns null when there is no company context to resolve against.
+ *
+ * @param {string} companyId
+ */
+export async function loadCompanyCommercialTerms(companyId) {
+  const id = String(companyId || "").trim();
+  if (!id) return null;
+  await connectToDB();
+  const [company, platformSettings] = await Promise.all([
+    Company.findById(id).select("marketplaceBookingFeeBps").lean(),
+    getPlatformMarketplaceFeeSettings(),
+  ]);
+  if (!company) return null;
+  return resolveCompanyCommercialTerms({ company, platformSettings });
+}
+
+/**
  * Build the exact package the partner must read and accept.
  *
- * @param {{ language?: string }} [opts]
+ * `packageChecksum` covers the rendered shared text and is deliberately
+ * company-independent: it is the value that decides whether a partner's
+ * acceptance is still current, and an out-of-date acceptance hides the
+ * partner's fleet and cancels open checkouts. `commercialTerms` travels beside
+ * it so the partner's negotiated percentage can be displayed and frozen
+ * without ever entering that checksum.
+ *
+ * @param {{ language?: string, companyId?: string }} [opts]
  * @returns {Promise<{
  *   documents: Array<object>,
  *   packageChecksum: string,
+ *   templateChecksum: string,
  *   settings: object,
+ *   commercialTerms: object|null,
  *   anyDraft: boolean,
  * }>}
  */
-export async function buildAgreementPackage({ language = "en" } = {}) {
+export async function buildAgreementPackage({
+  language = "en",
+  companyId = "",
+} = {}) {
   const lang = normalizeLegalLanguage(language);
-  const { settings, tokens } = await loadLegalSettingsWithTokens({
-    language: lang,
-  });
+  const [{ settings, tokens }, commercialTerms] = await Promise.all([
+    loadLegalSettingsWithTokens({ language: lang }),
+    loadCompanyCommercialTerms(companyId),
+  ]);
 
   const documents = [];
   let anyDraft = false;
@@ -104,7 +141,17 @@ export async function buildAgreementPackage({ language = "en" } = {}) {
         renderedSections: d.renderedSections,
       }))
     ),
+    /** Template identity alone — proves which versions were on offer. */
+    templateChecksum: computeSnapshotChecksum(
+      documents.map((d) => ({
+        documentType: d.documentType,
+        language: d.language,
+        version: d.version,
+        checksum: d.checksum,
+      }))
+    ),
     settings,
+    commercialTerms,
     anyDraft,
   };
 }
@@ -174,10 +221,35 @@ export async function acceptMasterAgreement(input) {
     };
   }
 
-  const built = await buildAgreementPackage({ language: input.language });
-  const pkg = withCustomAgreement(built, profile.customAgreement);
+  const built = await buildAgreementPackage({
+    language: input.language,
+    companyId: input.companyId,
+  });
+  const pkg = withCustomAgreement(built, profile.customAgreement, {
+    commercialTerms: built.commercialTerms,
+  });
   const packageOk = assertAgreementPackageAcceptable(pkg);
   if (!packageOk.ok) return packageOk;
+
+  // The negotiated percentage is resolved once, here, and frozen below. An
+  // unusable stored rate throws: nobody is recorded as agreeing to a
+  // percentage the platform cannot state.
+  let commercialTermsSnapshot;
+  try {
+    commercialTermsSnapshot = freezeCompanyCommercialTerms({
+      company: await Company.findById(input.companyId)
+        .select("marketplaceBookingFeeBps")
+        .lean(),
+      platformSettings: await getPlatformMarketplaceFeeSettings(),
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      status: 409,
+      code: "commercial_terms_unusable",
+      message: err?.message || "The negotiated Rovaro Booking Fee is unusable",
+    };
+  }
 
   const { mode, provider } = resolveEsignProvider(pkg.settings.esignProvider);
   const context = {
@@ -218,6 +290,8 @@ export async function acceptMasterAgreement(input) {
     authorityStatement: CLICKWRAP_ACCEPTANCE_STATEMENT,
     documents: snapshotAcceptedDocuments(pkg.documents),
     packageChecksum: pkg.packageChecksum,
+    templateChecksum: pkg.templateChecksum || "",
+    commercialTermsSnapshot,
     acceptanceMethod: signature.acceptanceMethod,
     esignProvider: signature.esignProvider,
     esignEnvelopeId: signature.esignEnvelopeId,
@@ -264,6 +338,9 @@ export async function acceptMasterAgreement(input) {
       acceptanceMethod: signature.acceptanceMethod,
       esignMode: mode,
       packageChecksum: pkg.packageChecksum,
+      bookingFeeBps: commercialTermsSnapshot.bookingFeeBps,
+      bookingFeeRateSource: commercialTermsSnapshot.rateSource,
+      commercialTermsChecksum: commercialTermsSnapshot.checksum,
       documents: pkg.documents.map((d) => ({
         ref: d.ref,
         checksum: d.checksum,
@@ -288,7 +365,10 @@ export async function acceptMasterAgreement(input) {
   return { ok: true, agreementId, acceptance: acceptance.toObject() };
 }
 
-/** Checksum of the currently published (or draft fallback) master package. */
+/**
+ * Checksum of the currently published (or draft fallback) master package.
+ * Company-independent by construction — see {@link buildAgreementPackage}.
+ */
 export async function getCurrentPackageChecksum(language = "en") {
   const pkg = await buildAgreementPackage({ language });
   return pkg.packageChecksum || "";
@@ -375,6 +455,9 @@ export async function getAgreementVersionRef(companyId) {
   return {
     agreementId: agreement.agreementId,
     packageChecksum: agreement.packageChecksum,
+    templateChecksum: agreement.templateChecksum || "",
+    /** The percentage this partner actually agreed to, frozen at signing. */
+    commercialTerms: agreement.commercialTermsSnapshot || null,
     acceptedAt: agreement.acceptedAt,
     documents: (agreement.documents || []).map((d) => ({
       documentType: d.documentType,

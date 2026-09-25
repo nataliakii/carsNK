@@ -10,6 +10,7 @@ import {
   isPlatformBooking,
   summarizeContractorAdminTotals,
 } from "@/domain/admin/rovaroContractorAdmin";
+import { hasDrivingLicenceSnapshot } from "@/domain/legal/drivingLicenceSnapshot";
 
 /**
  * GET /api/admin/orders
@@ -111,9 +112,12 @@ async function handler(request) {
       hasProblem: order.hasProblem === true,
       problemReportedAt: order.problemReportedAt || null,
       supplierRemainingPaidAt: order.supplierRemainingPaidAt || null,
+      // Presence flag only. Visibility middleware removes it before the verified
+      // Booking Fee payment, so a company cannot learn a licence exists early.
       hasDrivingLicence:
-        Array.isArray(order.drivingLicenceUrls) &&
-        order.drivingLicenceUrls.length > 0,
+        (Array.isArray(order.drivingLicenceUrls) &&
+          order.drivingLicenceUrls.length > 0) ||
+        hasDrivingLicenceSnapshot(order),
       createdByRole: order.createdByRole ?? 0,
       createdByAdminId: order.createdByAdminId || null,
       totalPrice: order.totalPrice,

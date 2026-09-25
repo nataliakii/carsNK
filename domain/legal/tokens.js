@@ -9,6 +9,12 @@
  * value is unset the whole section is dropped from public/partner output — we
  * never render "[INSERT ADDRESS]" or an invented value. The superadmin Legal
  * Configuration Status panel reports what is missing.
+ *
+ * `{{company.*}}` tokens are the per-company commercial terms and resolve only
+ * when a caller supplies `commercialTerms`. Without that context the token is
+ * unresolved and any section declaring `requires: ["bookingFeePercent"]` is
+ * dropped, which is what keeps the shared documents — and therefore the shared
+ * package checksum — free of one partner's negotiated percentage.
  */
 
 import {
@@ -19,6 +25,11 @@ import {
 } from "@config/legalEntity";
 import { PAYMENT_PROCESSOR_NAME } from "@config/stripe";
 import { repairAccidentalHeadingSections } from "@/domain/legal/documentMarkup";
+import {
+  COMPANY_COMMERCIAL_TOKEN_KEYS,
+  buildCompanyCommercialTokens,
+  companyCommercialRequirables,
+} from "@/domain/legal/companyCommercialTerms";
 
 const TOKEN_RE = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g;
 
@@ -27,9 +38,17 @@ const TOKEN_RE = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g;
  * identifiers are deliberately absent so they can never leak into a rendered
  * public document.
  *
- * @param {{ settings?: Record<string, unknown>, language?: string }} [opts]
+ * @param {{
+ *   settings?: Record<string, unknown>,
+ *   language?: string,
+ *   commercialTerms?: object|null,
+ * }} [opts]
  */
-export function buildTokenValues({ settings = {}, language = "en" } = {}) {
+export function buildTokenValues({
+  settings = {},
+  language = "en",
+  commercialTerms = null,
+} = {}) {
   const e = getPublicLegalEntity(language);
   const profile =
     settings?.businessProfile && typeof settings.businessProfile === "object"
@@ -56,6 +75,7 @@ export function buildTokenValues({ settings = {}, language = "en" } = {}) {
     "operator.dpa": e.dataProtectionAuthority,
     "operator.dpaUrl": e.dataProtectionAuthorityUrl,
     "operator.paymentProcessorName": PAYMENT_PROCESSOR_NAME,
+    ...buildCompanyCommercialTokens(commercialTerms),
     ...Object.fromEntries(
       Object.entries(settings)
         .filter(([, value]) => value == null || typeof value !== "object")
@@ -68,7 +88,7 @@ export function buildTokenValues({ settings = {}, language = "en" } = {}) {
 }
 
 /** Configurable values that a section may declare in `requires`. */
-export function getRequirableValues(settings = {}) {
+export function getRequirableValues(settings = {}, commercialTerms = null) {
   const e = getPublicLegalEntity();
   const profile =
     settings?.businessProfile && typeof settings.businessProfile === "object"
@@ -77,6 +97,7 @@ export function getRequirableValues(settings = {}) {
   return {
     businessAddress: profile.businessAddress || e.businessAddress,
     businessNameNumber: profile.businessNameNumber || e.businessNameNumber,
+    ...companyCommercialRequirables(commercialTerms),
   };
 }
 
@@ -104,15 +125,23 @@ export function sectionRequirementsMet(section, requirable = getRequirableValues
  * Render a stored document into display form.
  *
  * @param {object} doc               registry/db document
- * @param {{ settings?: Record<string, unknown>, language?: string }} [opts]
+ * @param {{
+ *   settings?: Record<string, unknown>,
+ *   language?: string,
+ *   commercialTerms?: object|null,
+ * }} [opts]
  * @returns {{ title: string, sections: Array<{ id: string, heading: string, text: string }> }}
  */
-export function renderLegalDocument(doc, { settings = {}, language } = {}) {
+export function renderLegalDocument(
+  doc,
+  { settings = {}, language, commercialTerms = null } = {}
+) {
   const values = buildTokenValues({
     settings,
     language: language || doc?.language || "en",
+    commercialTerms,
   });
-  const requirable = getRequirableValues(settings);
+  const requirable = getRequirableValues(settings, commercialTerms);
   // Repair select-all→Heading damage at read time so published pages recover
   // without requiring every language to be re-saved.
   const sections = repairAccidentalHeadingSections(doc?.content?.sections || [])
@@ -130,11 +159,19 @@ export function renderLegalDocument(doc, { settings = {}, language } = {}) {
 }
 
 /**
- * Sections hidden from output because configuration is incomplete.
+ * Sections hidden from output because platform configuration is incomplete.
  * Used by the superadmin panel only.
+ *
+ * Per-company commercial values are not platform configuration, so a section
+ * that only depends on them is not reported as missing here.
  */
 export function findSuppressedSections(doc) {
-  const requirable = getRequirableValues();
+  const requirable = {
+    ...getRequirableValues(),
+    ...Object.fromEntries(
+      COMPANY_COMMERCIAL_TOKEN_KEYS.map((key) => [key, "per-company"])
+    ),
+  };
   return (doc?.content?.sections || [])
     .filter((section) => !sectionRequirementsMet(section, requirable))
     .map((section) => ({

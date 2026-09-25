@@ -18,6 +18,8 @@
  */
 
 import { isInternalBooking } from "@/domain/admin/rovaroContractorAdmin";
+import { policyRoleFromUser } from "@/domain/admin/adminViewMode";
+import { ROLE } from "@/domain/orders/admin-rbac";
 
 /** How long a generated signed URL stays valid. */
 export const SIGNED_URL_TTL_SECONDS = 120;
@@ -58,16 +60,22 @@ export function evaluateDrivingLicenceAccess({
 
   const owner = sessionOwnerId ? String(sessionOwnerId) : "";
   if (!owner || String(order.ownerId || "") !== owner) {
+    // Generic not-found on purpose. A 403 would confirm that this booking
+    // reference exists, which is itself information another company should not
+    // be able to harvest by guessing ids.
     return {
       allowed: false,
-      status: 403,
-      code: "wrong_fleet",
-      message: "This booking belongs to another fleet",
+      status: 404,
+      code: "not_found",
+      message: "Booking not found",
     };
   }
 
   if (isInternalBooking(order)) return { allowed: true };
 
+  // The verified Stripe Booking Fee webhook is the only writer of this value.
+  // A success redirect, an existing Checkout session or a created Booking Fee
+  // session must never open the licence to the company.
   const paid = order?.payment?.status === "paid";
   if (!paid) {
     return {
@@ -98,18 +106,49 @@ export function evaluateDrivingLicenceAccess({
 }
 
 /**
+ * THE licence-visibility helper.
+ *
+ * Anything that decides whether to show, serialise or serve driving licence
+ * data must call this — the contractor admin's VIEW_DRIVING_DOCUMENTS
+ * capability, the download endpoint, and the API response stripper alike. It
+ * delegates to evaluateDrivingLicenceAccess so a UI capability and the endpoint
+ * that serves the bytes can never drift apart.
+ *
+ * @param {{ order: object, user: object|null, now?: Date }} params
+ *   `user` is the session user (session.user), not a role number.
+ * @returns {boolean}
+ */
+export function canViewDrivingLicenceDocuments({ order, user, now = new Date() }) {
+  if (!order || !user?.isAdmin) return false;
+  const decision = evaluateDrivingLicenceAccess({
+    order,
+    isSuperadmin: policyRoleFromUser(user) === ROLE.SUPERADMIN,
+    sessionOwnerId: user?.ownerId || null,
+    now,
+  });
+  return decision.allowed === true;
+}
+
+/**
  * Options for a short-lived signed document URL. Callers must not return the
  * stored Cloudinary URL in its place.
+ *
+ * `authenticated` assets have no usable plain delivery URL at all, which is why
+ * new licence captures are stored that way; `upload` is kept for the legacy
+ * admin-uploaded images that predate the capture snapshot.
  */
-export function signedDocumentDelivery(now = new Date()) {
+export function signedDocumentDelivery(
+  now = new Date(),
+  { storageType = "upload", resourceType = "image" } = {}
+) {
   const expiresAt =
     Math.floor(new Date(now).getTime() / 1000) + SIGNED_URL_TTL_SECONDS;
   return {
     options: {
       secure: true,
       sign_url: true,
-      type: "upload",
-      resource_type: "image",
+      type: storageType === "authenticated" ? "authenticated" : "upload",
+      resource_type: resourceType === "raw" ? "raw" : "image",
       expires_at: expiresAt,
     },
     expiresAt: new Date(expiresAt * 1000).toISOString(),

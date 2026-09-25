@@ -15,12 +15,16 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { styled } from "@mui/material/styles";
 import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 import { ROLE } from "@/domain/orders/admin-rbac";
 import {
   DEFAULT_MARKETPLACE_BOOKING_FEE_BPS,
   MARKETPLACE_BOOKING_FEE_SOURCE,
+  MAX_MARKETPLACE_BOOKING_FEE_BPS,
+  MIN_MARKETPLACE_BOOKING_FEE_BPS,
+  bpsToPercentNumber,
   formatMarketplaceFeePercent,
   parseMarketplaceBookingFeePercent,
   resolveMarketplaceBookingFeeBps,
@@ -33,6 +37,25 @@ import {
 function isSpainMarketplaceCompany(company) {
   return String(company?.country || "").trim().toUpperCase() === "ES";
 }
+
+const MIN_FEE_PERCENT = bpsToPercentNumber(MIN_MARKETPLACE_BOOKING_FEE_BPS);
+const MAX_FEE_PERCENT = bpsToPercentNumber(MAX_MARKETPLACE_BOOKING_FEE_BPS);
+
+const FeePercentField = styled(TextField)(({ theme }) => ({
+  maxWidth: theme.spacing(28),
+  marginTop: theme.spacing(1),
+  marginBottom: theme.spacing(1),
+}));
+
+const PercentAdornment = styled(Typography)(({ theme }) => ({
+  paddingRight: theme.spacing(1),
+}));
+
+const EffectiveRateLine = styled(Typography)(({ theme }) => ({
+  marginTop: theme.spacing(0.5),
+  marginBottom: theme.spacing(1),
+  fontWeight: theme.typography.fontWeightMedium,
+}));
 
 /**
  * Per-company rental Stripe / on-site payment settings.
@@ -55,8 +78,10 @@ export default function CompanyRentalPaymentsCard({
   const [timing, setTiming] = useState("after_confirm");
   const [prepaymentPercent, setPrepaymentPercent] = useState("");
   const [feeMode, setFeeMode] = useState("default");
-  const [feePercentInput, setFeePercentInput] = useState("10");
-  const [platformDefaultLabel, setPlatformDefaultLabel] = useState("10");
+  const [feePercentInput, setFeePercentInput] = useState("");
+  // Empty until the live platform default is read — never pre-filled with a
+  // guessed percentage, so a stale number can't be saved onto a partner.
+  const [platformDefaultLabel, setPlatformDefaultLabel] = useState("");
   const [platformSettings, setPlatformSettings] = useState(null);
 
   useEffect(() => {
@@ -78,7 +103,7 @@ export default function CompanyRentalPaymentsCard({
         );
         setPlatformSettings({ marketplaceBookingFeeBps: bps });
       } catch {
-        /* keep 10% label */
+        /* leave the label blank rather than showing a guessed rate */
       }
     })();
     return () => {
@@ -117,10 +142,20 @@ export default function CompanyRentalPaymentsCard({
 
   if (!company?._id) return null;
 
-  const effectiveLabel =
+  const platformDefaultText = platformDefaultLabel
+    ? `${platformDefaultLabel}%`
+    : "loading…";
+  const effectiveText =
     feeMode === "custom"
-      ? feePercentInput || "—"
-      : platformDefaultLabel;
+      ? feePercentInput
+        ? `${feePercentInput}%`
+        : "—"
+      : platformDefaultText;
+  const storedRateInvalid =
+    resolvedFee.source === MARKETPLACE_BOOKING_FEE_SOURCE.INVALID;
+  const rateOrigin = resolvedFee.isNegotiated
+    ? "Negotiated rate for this partner"
+    : "Platform default";
 
   const saveRentalPayments = async () => {
     if (!canEdit) return;
@@ -157,7 +192,7 @@ export default function CompanyRentalPaymentsCard({
     let payload;
     if (feeMode === "default") {
       const confirmed = window.confirm(
-        `Use platform default (${platformDefaultLabel}%) for this partner? Existing bookings stay the same.`
+        `Use platform default (${platformDefaultText}) for this partner? Existing bookings stay the same.`
       );
       if (!confirmed) return;
       payload = {
@@ -243,8 +278,14 @@ export default function CompanyRentalPaymentsCard({
 
           {spainMarketplace ? (
             <Box>
+              {storedRateInvalid ? (
+                <Alert severity="error" sx={{ mb: 1 }}>
+                  {resolvedFee.error} The stored value for this partner cannot be
+                  used, so no new booking can be priced until it is corrected.
+                </Alert>
+              ) : null}
               <FormControl disabled={!canEdit}>
-                <FormLabel sx={{ mb: 0.5, fontSize: "0.85rem" }}>Booking fee</FormLabel>
+                <FormLabel sx={{ mb: 0.5 }}>Booking fee</FormLabel>
                 <RadioGroup
                   value={feeMode}
                   onChange={(e) => setFeeMode(e.target.value)}
@@ -252,31 +293,36 @@ export default function CompanyRentalPaymentsCard({
                   <FormControlLabel
                     value="default"
                     control={<Radio size="small" />}
-                    label={`Use platform default: ${platformDefaultLabel}%`}
+                    label={`Use platform default: ${platformDefaultText}`}
                   />
                   <FormControlLabel
                     value="custom"
                     control={<Radio size="small" />}
-                    label="Custom rate"
+                    label="Negotiated rate for this partner"
                   />
                 </RadioGroup>
               </FormControl>
               {feeMode === "custom" ? (
-                <TextField
+                <FeePercentField
                   size="small"
-                  label="Custom booking fee"
+                  label="Negotiated booking fee"
                   type="number"
                   value={feePercentInput}
                   onChange={(e) => setFeePercentInput(e.target.value)}
                   disabled={!canEdit || busy}
-                  inputProps={{ min: 1, max: 30, step: 0.01, "aria-label": "Custom booking fee" }}
-                  InputProps={{ endAdornment: <Typography sx={{ pr: 1 }}>%</Typography> }}
-                  sx={{ maxWidth: 200, mt: 1, mb: 1 }}
+                  helperText={`Any rate from ${MIN_FEE_PERCENT}% to ${MAX_FEE_PERCENT}%.`}
+                  inputProps={{
+                    min: MIN_FEE_PERCENT,
+                    max: MAX_FEE_PERCENT,
+                    step: 0.01,
+                    "aria-label": "Negotiated booking fee",
+                  }}
+                  InputProps={{ endAdornment: <PercentAdornment>%</PercentAdornment> }}
                 />
               ) : null}
-              <Typography variant="body2" sx={{ mt: 0.5, mb: 1 }}>
-                Effective rate: {effectiveLabel}%
-              </Typography>
+              <EffectiveRateLine variant="body2">
+                Effective rate: {effectiveText} · {rateOrigin}
+              </EffectiveRateLine>
               {canEdit ? (
                 <Button
                   variant="contained"
@@ -285,13 +331,7 @@ export default function CompanyRentalPaymentsCard({
                 >
                   Save commercial terms
                 </Button>
-              ) : (
-                <Typography variant="caption" color="text.secondary">
-                  {resolvedFee.source === MARKETPLACE_BOOKING_FEE_SOURCE.OVERRIDE
-                    ? "Custom rate"
-                    : "Platform default"}
-                </Typography>
-              )}
+              ) : null}
             </Box>
           ) : null}
 
