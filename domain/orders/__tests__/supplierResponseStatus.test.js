@@ -72,6 +72,13 @@ describe("supplier vs platform status", () => {
     expect(validateSupplierResponsePayload({ response: "ACCEPTED" }).ok).toBe(true);
   });
 
+  test("legacy availability strings are rejected", () => {
+    expect(validateSupplierResponsePayload({ response: "unavailable", reason: "no car" }).ok).toBe(
+      false
+    );
+    expect(validateSupplierResponsePayload({ response: "available" }).ok).toBe(false);
+  });
+
   test("platform confirmed locks supplier response", () => {
     const order = {
       my_order: true,

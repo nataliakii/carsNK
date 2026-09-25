@@ -23,7 +23,13 @@ export async function loadAlternativeCars(orderId) {
   if (!res.ok || payload.success === false) {
     return { ok: false, message: payload.message || "Could not load vehicles", cars: [] };
   }
-  return { ok: true, cars: payload.eligibleCars || [] };
+  return {
+    ok: true,
+    cars: payload.eligibleCars || [],
+    excludedCars: payload.excludedCars || [],
+    eligibilityError: payload.eligibilityError || null,
+    paidOrderBlocked: payload.paidOrderBlocked === true,
+  };
 }
 
 export function suggestAlternativeVehicle(orderId, proposedCarId, reasonForReplacement) {

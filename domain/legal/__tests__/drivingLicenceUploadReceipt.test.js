@@ -117,3 +117,43 @@ describe("checksum", () => {
     expect(checksumForBytes(Buffer.from("other-bytes"))).not.toBe(checksum);
   });
 });
+
+describe("receipt secret fallbacks", () => {
+  const KEYS = [
+    "DRIVING_LICENCE_RECEIPT_SECRET",
+    "BOOKING_CONFIRM_SECRET",
+    "EMAIL_ACTION_SECRET",
+    "NEXTAUTH_SECRET",
+    "AUTH_SECRET",
+    "CLOUDINARY_API_SECRET",
+    "CLOUDINARY_URL",
+  ];
+
+  function clearSecrets() {
+    for (const key of KEYS) delete process.env[key];
+  }
+
+  afterEach(() => {
+    clearSecrets();
+    process.env.DRIVING_LICENCE_RECEIPT_SECRET =
+      "test-licence-receipt-secret-value";
+  });
+
+  it("mints a receipt when only CLOUDINARY_URL carries the API secret", () => {
+    clearSecrets();
+    process.env.CLOUDINARY_URL =
+      "cloudinary://123456789012345:cloudinary-api-secret-value@demo";
+
+    const minted = createUploadReceipt(descriptor());
+    expect(minted.ok).toBe(true);
+    expect(verifyUploadReceipt(minted.receipt, { now: NOW }).ok).toBe(true);
+  });
+
+  it("refuses to mint when no signing secret is configured", () => {
+    clearSecrets();
+    expect(createUploadReceipt(descriptor())).toEqual({
+      ok: false,
+      code: "RECEIPT_SECRET_MISSING",
+    });
+  });
+});

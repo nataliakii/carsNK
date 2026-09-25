@@ -6,11 +6,15 @@
  * normalised `{ ok, message }` result.
  */
 
+import { SUPPLIER_RESPONSE_PAYLOAD } from "@/domain/orders/supplierResponseStatus";
+
 import { updateOrder, updateOrderSupplierResponse } from "@utils/action";
 
 import {
   askRovaroAboutBooking,
+  loadAlternativeCars,
   offerEquivalentReplacement,
+  suggestAlternativeVehicle,
 } from "./supplierBookingActions";
 import { reportPlatformBookingProblem } from "./bookingCompletionActions";
 
@@ -49,7 +53,7 @@ export const SUPPORT_CATEGORIES = Object.freeze(Object.values(SUPPORT_CATEGORY))
  */
 export async function confirmRequestedVehicle(orderId) {
   const result = await updateOrderSupplierResponse(orderId, {
-    response: "available",
+    response: SUPPLIER_RESPONSE_PAYLOAD.ACCEPTED,
   });
   return {
     ok: result?.success === true,
@@ -61,7 +65,7 @@ export async function confirmRequestedVehicle(orderId) {
 
 export async function declineBookingRequest(orderId, reason) {
   const result = await updateOrderSupplierResponse(orderId, {
-    response: "unavailable",
+    response: SUPPLIER_RESPONSE_PAYLOAD.DECLINED,
     reason,
   });
   return {
@@ -76,9 +80,28 @@ export async function declineBookingRequest(orderId, reason) {
  * mutated; the server stores this as an immutable snapshot the customer then
  * accepts by paying.
  */
+/** Fleet cars the supplier may offer for this booking (scoped to the order's company). */
+export async function loadReplacementFleetCars(orderId) {
+  return loadAlternativeCars(orderId);
+}
+
 export async function proposeEquivalentReplacement(orderId, proposal) {
+  const source = proposal.replacementSource;
+  if (source === REPLACEMENT_KIND.COMPANY_VEHICLE) {
+    const carId = String(proposal.proposedCarId || "").trim();
+    if (!carId) {
+      return { ok: false, message: "Choose a vehicle from your fleet." };
+    }
+    const result = await suggestAlternativeVehicle(
+      orderId,
+      carId,
+      proposal.supplierMessage
+    );
+    return { ok: result?.ok === true, message: result?.message || "" };
+  }
+
   const result = await offerEquivalentReplacement(orderId, {
-    replacementSource: proposal.replacementSource,
+    replacementSource: source,
     model: proposal.model,
     category: proposal.category,
     transmission: proposal.transmission,

@@ -10,7 +10,7 @@ const FieldRow = styled(Box)(({ theme }) => ({
   display: "grid",
   gridTemplateColumns: "1fr",
   gap: theme.spacing(0.25),
-  padding: theme.spacing(0.75, 0),
+  padding: theme.spacing(0.5, 0),
   borderBottom: `1px solid ${theme.palette.divider}`,
   "&:last-of-type": { borderBottom: "none" },
   [theme.breakpoints.up("sm")]: {

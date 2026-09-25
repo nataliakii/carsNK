@@ -49,6 +49,7 @@ describe("booking details modal wiring", () => {
   it("the modal makes no API call of its own", () => {
     expect(MODAL).not.toContain("fetch(");
     expect(MODAL).toContain("actions/bookingDetailsActions");
+    expect(MODAL).toContain("loadReplacementFleetCars");
     // The support task reuses the endpoint that already exists.
     expect(read("app/admin/features/orders/actions/supplierBookingActions.js")).toContain(
       "ask-rovaro"
@@ -115,5 +116,14 @@ describe("booking details modal wiring", () => {
     expect(MODAL).toContain("bookingDetails.contactDialog.reference");
     expect(ACTIONS).toContain("askRovaroAboutBooking");
     expect(ACTIONS).not.toContain("updateOrderConfirmation");
+  });
+
+  it("supplier confirm/decline use the API response enum, not legacy availability strings", () => {
+    expect(ACTIONS).toContain("SUPPLIER_RESPONSE_PAYLOAD");
+    expect(ACTIONS).toContain("SUPPLIER_RESPONSE_PAYLOAD.ACCEPTED");
+    expect(ACTIONS).toContain("SUPPLIER_RESPONSE_PAYLOAD.DECLINED");
+    expect(ACTIONS).not.toMatch(/response:\s*"available"/);
+    expect(ACTIONS).not.toMatch(/response:\s*"unavailable"/);
+    expect(MODAL).toMatch(/dialog === "decline"[\s\S]*severity="error"/);
   });
 });

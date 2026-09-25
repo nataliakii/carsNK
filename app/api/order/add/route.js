@@ -56,7 +56,10 @@ import {
   resolveCreateDrivingLicenceUrls,
   resolveCreateTotalPrice,
 } from "@/domain/orders/publicOrderCreatePolicy";
-import { resolveDrivingLicenceForCreate } from "@/domain/legal/drivingLicenceCreateGate";
+import {
+  drivingLicenceRequiredForCreate,
+  resolveDrivingLicenceForCreate,
+} from "@/domain/legal/drivingLicenceCreateGate";
 import { toBusinessStartOfDay, toStoredBusinessDate } from "@/domain/time/businessDate";
 import DiscountSetting from "@models/DiscountSetting";
 import { isCompanyInSiteCountry } from "@/domain/platform/companyCountryScope";
@@ -1338,6 +1341,30 @@ async function postOrderAddHandler(request) {
       isAdminSession,
       raw: drivingLicenceUrlsRaw,
     });
+    if (
+      drivingLicenceRequiredForCreate({ isAdminSession, bookingSource }) &&
+      !drivingLicenceSnapshotToSave
+    ) {
+      console.error("[ORDER-ADD] platform booking missing licence snapshot", {
+        correlationId,
+        bookingSource,
+        companyId: String(ownerCompany?._id || ""),
+        carId: String(existingCar?._id || ""),
+      });
+      return new Response(
+        JSON.stringify({
+          error: ORDER_CREATE_CODE.DRIVING_LICENCE_REQUIRED,
+          licenceCode: "LICENCE_REQUIRED",
+          message: customerMessageForCode(ORDER_CREATE_CODE.DRIVING_LICENCE_REQUIRED),
+          messageKey: "order.licenceRequired",
+          correlationId,
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
     const localPickup = localSnapshotFromUtc(pickupAtUtc, timezone);
     const localReturn = localSnapshotFromUtc(returnAtUtc, timezone);
     const timeInToSave = timeIn ? timeIn : setTimeToDatejs(startDate, null, true);

@@ -41,6 +41,8 @@ function CarGrid() {
 
   const skipScrollOnFilterMount = useRef(true);
   const hasActiveDateSearch = Boolean(searchDates?.start && searchDates?.end);
+  // Scroll to top for class/transmission/location/text filters only — not when
+  // searchDates change from a car card (shared global range).
   useEffect(() => {
     if (skipScrollOnFilterMount.current) {
       skipScrollOnFilterMount.current = false;
@@ -55,8 +57,6 @@ function CarGrid() {
     deferredSearchQuery,
     bookingPlaceIn,
     bookingPlaceOut,
-    searchDates?.start,
-    searchDates?.end,
   ]);
 
   // --- Состояния для скидки ---

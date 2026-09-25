@@ -79,6 +79,21 @@ describe("capturing a driving licence", () => {
   });
 });
 
+describe("photo-only public checkout (typed fields optional)", () => {
+  it("stores the verified upload without typed metadata", () => {
+    const result = validateDrivingLicenceCapture({
+      payload: { uploadReceipt: "opaque" },
+      upload: upload(),
+      requireTypedFields: false,
+      now: NOW,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.snapshot.holderName).toBe("");
+    expect(result.snapshot.licenceNumber).toBe("");
+    expect(result.snapshot.expiryDate).toBeNull();
+  });
+});
+
 describe("refusing an incomplete capture", () => {
   it.each([
     ["holderName", { holderName: " " }, LICENCE_CAPTURE_CODE.HOLDER_NAME_REQUIRED],

@@ -15,6 +15,12 @@ export const BOOKING_DETAILS_LABEL_COLUMN = 220;
 /** Below this breakpoint the modal becomes a full-screen sheet. */
 export const BOOKING_DETAILS_SHEET_BREAKPOINT = "sm";
 
+/** From this breakpoint upward, detail sections use a multi-column grid. */
+export const BOOKING_DETAILS_SECTION_GRID_BREAKPOINT = "md";
+
+/** Number of columns for grouped detail sections on desktop. */
+export const BOOKING_DETAILS_SECTION_GRID_COLUMNS = 2;
+
 /** Section ids, in render order. Mirrors sections A–I of the specification. */
 export const BOOKING_DETAILS_SECTION = Object.freeze({
   STATUS: "status",

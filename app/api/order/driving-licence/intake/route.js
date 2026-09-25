@@ -124,9 +124,29 @@ export async function POST(request) {
   });
 
   if (!receipt.ok) {
+    // File is in storage but we cannot prove it to order-create — refuse so the
+    // booking stays impossible, and drop the orphan so it is not left readable.
     console.error("[licence-intake] receipt unavailable", receipt.code);
+    try {
+      await cloudinary.uploader.destroy(stored.publicId, {
+        resource_type: resourceType,
+        type: stored.storageType || "authenticated",
+        invalidate: true,
+      });
+    } catch (cleanupErr) {
+      console.error(
+        "[licence-intake] orphan cleanup failed",
+        cleanupErr?.message || cleanupErr
+      );
+    }
     return NextResponse.json(
-      { success: false, code: "UPLOAD_FAILED" },
+      {
+        success: false,
+        code:
+          receipt.code === "RECEIPT_SECRET_MISSING"
+            ? "RECEIPT_UNAVAILABLE"
+            : "UPLOAD_FAILED",
+      },
       { status: 503 }
     );
   }

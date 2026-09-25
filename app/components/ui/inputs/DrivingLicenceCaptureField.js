@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
-  Autocomplete,
   Box,
   Button,
   CircularProgress,
+  FormLabel,
   Paper,
-  TextField,
   Typography,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
@@ -21,11 +20,6 @@ import {
   LICENCE_UPLOAD_ERROR,
   uploadDrivingLicenceDocument,
 } from "@/app/actions/drivingLicence";
-import { issuingCountryOptions } from "@/domain/legal/issuingCountries";
-import {
-  licenceCaptureMessageKey,
-  validateDrivingLicenceFields,
-} from "@/domain/legal/drivingLicenceSnapshot";
 
 const Frame = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),
@@ -49,21 +43,17 @@ const HeaderIcon = styled(BadgeOutlinedIcon)(({ theme }) => ({
   flexShrink: 0,
 }));
 
-const FieldGrid = styled(Box)(({ theme }) => ({
-  display: "grid",
-  gap: theme.spacing(2),
-  gridTemplateColumns: "1fr 1fr",
-  [theme.breakpoints.down("sm")]: {
-    gridTemplateColumns: "1fr",
-  },
-}));
-
 const UploadRow = styled(Box)(({ theme }) => ({
   display: "flex",
   alignItems: "center",
   flexWrap: "wrap",
   gap: theme.spacing(1.5),
-  marginTop: theme.spacing(2),
+  marginTop: theme.spacing(1),
+}));
+
+const UploadLabel = styled(FormLabel)(({ theme }) => ({
+  display: "block",
+  marginBottom: theme.spacing(0.5),
 }));
 
 const UploadedNote = styled(Box)(({ theme }) => ({
@@ -97,20 +87,15 @@ export const emptyDrivingLicenceValue = Object.freeze({
 });
 
 /**
- * Driving licence capture for the public booking flow.
- *
- * Client-side validation here mirrors the server rules in
- * domain/legal/drivingLicenceSnapshot so the customer is corrected immediately,
- * and it deliberately shares that module rather than restating the rules. The
- * server re-checks everything: this component cannot admit a booking.
+ * Driving licence photo capture for the public booking flow.
  *
  * The browser only ever holds an opaque upload receipt — never a storage URL.
+ * Typed licence fields are not collected here; the server stores the verified
+ * upload and optional metadata when provided elsewhere.
  *
  * @param {{
  *   value: object,
  *   onChange: (next: object) => void,
- *   pickupAtUtc?: string|Date|null,
- *   returnAtUtc?: string|Date|null,
  *   disabled?: boolean,
  *   showErrors?: boolean,
  *   serverErrorKey?: string,
@@ -119,60 +104,18 @@ export const emptyDrivingLicenceValue = Object.freeze({
 export default function DrivingLicenceCaptureField({
   value,
   onChange,
-  pickupAtUtc = null,
-  returnAtUtc = null,
   disabled = false,
   showErrors = false,
   serverErrorKey = "",
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [uploadErrorKey, setUploadErrorKey] = useState("");
-  const [touched, setTouched] = useState({});
 
   const capture = value || emptyDrivingLicenceValue;
-  const countryOptions = useMemo(
-    () => issuingCountryOptions(i18n?.language || "en"),
-    [i18n?.language]
-  );
-  const selectedCountry = useMemo(
-    () =>
-      countryOptions.find((option) => option.code === capture.issuingCountry) ||
-      null,
-    [countryOptions, capture.issuingCountry]
-  );
-
-  const fieldCheck = useMemo(
-    () =>
-      validateDrivingLicenceFields({
-        payload: capture,
-        pickupAtUtc,
-        returnAtUtc,
-      }),
-    [capture, pickupAtUtc, returnAtUtc]
-  );
-
-  const setField = useCallback(
-    (field, next) => {
-      onChange({ ...capture, [field]: next });
-    },
-    [capture, onChange]
-  );
-
-  const markTouched = useCallback((field) => {
-    setTouched((prev) => ({ ...prev, [field]: true }));
-  }, []);
-
-  /** Show a field error once the customer has left it, or on submit. */
-  const errorFor = useCallback(
-    (field) => {
-      if (fieldCheck.ok || fieldCheck.field !== field) return "";
-      if (!showErrors && !touched[field]) return "";
-      return t(licenceCaptureMessageKey(fieldCheck.code), fieldCheck.message);
-    },
-    [fieldCheck, showErrors, touched, t]
-  );
+  const captureRef = useRef(capture);
+  captureRef.current = capture;
 
   const handleFile = useCallback(
     async (event) => {
@@ -187,20 +130,22 @@ export default function DrivingLicenceCaptureField({
       const result = await uploadDrivingLicenceDocument(file);
       setUploading(false);
 
+      const current = captureRef.current || emptyDrivingLicenceValue;
       if (!result.ok) {
         setUploadErrorKey(
           UPLOAD_ERROR_KEY[result.code] || UPLOAD_ERROR_KEY.UPLOAD_FAILED
         );
-        onChange({ ...capture, uploadReceipt: "", documentName: "" });
+        onChange({ ...current, uploadReceipt: "", documentName: "" });
         return;
       }
+      setUploadErrorKey("");
       onChange({
-        ...capture,
+        ...current,
         uploadReceipt: result.receipt,
         documentName: result.fileName || file.name || "",
       });
     },
-    [capture, onChange]
+    [onChange]
   );
 
   const hasDocument = Boolean(capture.uploadReceipt);
@@ -222,78 +167,9 @@ export default function DrivingLicenceCaptureField({
         </Box>
       </Header>
 
-      <FieldGrid>
-        <TextField
-          label={t("order.licenceHolderLabel")}
-          value={capture.holderName || ""}
-          onChange={(event) => setField("holderName", event.target.value)}
-          onBlur={() => markTouched("holderName")}
-          error={Boolean(errorFor("holderName"))}
-          helperText={errorFor("holderName")}
-          disabled={disabled}
-          required
-          fullWidth
-        />
-        <TextField
-          label={t("order.licenceNumberLabel")}
-          value={capture.licenceNumber || ""}
-          onChange={(event) => setField("licenceNumber", event.target.value)}
-          onBlur={() => markTouched("licenceNumber")}
-          error={Boolean(errorFor("licenceNumber"))}
-          helperText={errorFor("licenceNumber")}
-          disabled={disabled}
-          required
-          fullWidth
-        />
-        <Autocomplete
-          options={countryOptions}
-          value={selectedCountry}
-          getOptionLabel={(option) => option?.label || ""}
-          isOptionEqualToValue={(option, selected) =>
-            option.code === selected?.code
-          }
-          onChange={(_event, next) => setField("issuingCountry", next?.code || "")}
-          onBlur={() => markTouched("issuingCountry")}
-          disabled={disabled}
-          fullWidth
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label={t("order.licenceCountryLabel")}
-              error={Boolean(errorFor("issuingCountry"))}
-              helperText={errorFor("issuingCountry")}
-              required
-            />
-          )}
-        />
-        <TextField
-          label={t("order.licenceExpiryLabel")}
-          type="date"
-          value={capture.expiryDate || ""}
-          onChange={(event) => setField("expiryDate", event.target.value)}
-          onBlur={() => markTouched("expiryDate")}
-          error={Boolean(errorFor("expiryDate"))}
-          helperText={errorFor("expiryDate")}
-          disabled={disabled}
-          required
-          fullWidth
-          InputLabelProps={{ shrink: true }}
-        />
-        <TextField
-          label={t("order.licenceIssueDateLabel")}
-          type="date"
-          value={capture.issueDate || ""}
-          onChange={(event) => setField("issueDate", event.target.value)}
-          onBlur={() => markTouched("issueDate")}
-          error={Boolean(errorFor("issueDate"))}
-          helperText={errorFor("issueDate") || t("order.licenceIssueDateHint")}
-          disabled={disabled}
-          required
-          fullWidth
-          InputLabelProps={{ shrink: true }}
-        />
-      </FieldGrid>
-
+      <UploadLabel required>
+        {t("order.licenceUploadDocument")}
+      </UploadLabel>
       <UploadRow>
         <input
           ref={inputRef}

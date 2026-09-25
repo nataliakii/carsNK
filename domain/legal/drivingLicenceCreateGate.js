@@ -21,6 +21,8 @@ import {
 import { storageResourceType } from "@/domain/legal/drivingLicenceFileRules";
 import { verifyUploadReceipt } from "@/domain/legal/drivingLicenceUploadReceipt";
 
+export { clientDrivingLicenceReadyForCreate } from "@/domain/legal/drivingLicenceCreateGateClient";
+
 /**
  * Only new public PLATFORM requests are in scope.
  *
@@ -100,6 +102,7 @@ export function resolveDrivingLicenceForCreate({
     upload: { ...upload, resourceType: storageResourceType(upload.contentType) },
     pickupAtUtc,
     returnAtUtc,
+    requireTypedFields: false,
     now,
   });
   if (!result.ok) return { ...result, required: true };

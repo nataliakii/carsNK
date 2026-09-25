@@ -29,6 +29,8 @@ import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { LEGACY_FALLBACK_TZ } from "@/domain/time/resolveBusinessTimezone";
 import {
   BOOKING_DETAILS_MODAL_MAX_WIDTH,
+  BOOKING_DETAILS_SECTION_GRID_BREAKPOINT,
+  BOOKING_DETAILS_SECTION_GRID_COLUMNS,
   BOOKING_DETAILS_SHEET_BREAKPOINT,
 } from "@/domain/admin/bookingDetailsLayout";
 import {
@@ -41,6 +43,7 @@ import {
   contactRovaroAboutBooking,
   declineBookingRequest,
   loadAdminOrder,
+  loadReplacementFleetCars,
   loadSignedDrivingLicence,
   proposeEquivalentReplacement,
   reportBookingProblem,
@@ -83,10 +86,40 @@ const ContentColumn = styled(DialogContent)(({ theme }) => ({
   overflowX: "hidden",
 }));
 
-const Section = styled(Box)(({ theme }) => ({
+const SectionsGrid = styled(Box)(({ theme }) => ({
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: theme.spacing(1.5),
+  width: "100%",
+  [theme.breakpoints.up(BOOKING_DETAILS_SECTION_GRID_BREAKPOINT)]: {
+    gridTemplateColumns: `repeat(${BOOKING_DETAILS_SECTION_GRID_COLUMNS}, minmax(0, 1fr))`,
+    gap: theme.spacing(2),
+  },
+}));
+
+const SectionPanel = styled(Box)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
   gap: theme.spacing(0.5),
+  minWidth: 0,
+  padding: theme.spacing(1.5, 2),
+  borderRadius: theme.shape.borderRadius,
+  border: `1px solid ${theme.palette.divider}`,
+  backgroundColor: theme.palette.background.default,
+}));
+
+const GridFullWidth = styled(Box)({
+  gridColumn: "1 / -1",
+});
+
+const PriceLayout = styled(Box)(({ theme }) => ({
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: theme.spacing(2),
+  [theme.breakpoints.up(BOOKING_DETAILS_SECTION_GRID_BREAKPOINT)]: {
+    gridTemplateColumns: "minmax(0, 1fr) minmax(0, max-content)",
+    alignItems: "start",
+  },
 }));
 
 const SectionTitle = styled(Typography)(({ theme }) => ({
@@ -96,7 +129,7 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
 
 const ReferenceText = styled(Typography)(({ theme }) => ({
   fontWeight: theme.typography.fontWeightBold,
-  lineHeight: theme.typography.h5.lineHeight,
+  lineHeight: theme.typography.h6.lineHeight,
 }));
 
 /**
@@ -108,7 +141,6 @@ const SupplierPayout = styled(Box)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
   gap: theme.spacing(0.5),
-  marginTop: theme.spacing(1),
   padding: theme.spacing(2),
   borderRadius: theme.shape.borderRadius,
   border: `1px solid ${theme.palette.primary.main}`,
@@ -215,6 +247,10 @@ function messengerList(customer, t) {
   return names.join(", ");
 }
 
+function summaryHasValue(value) {
+  return value != null && value !== "";
+}
+
 /**
  * The one Booking Details modal. Calendar, Orders list and the email deep link
  * all render this component against the current server state, so a booking
@@ -242,6 +278,11 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   const [licenceUrls, setLicenceUrls] = useState([]);
   const [priceOpen, setPriceOpen] = useState(true);
   const [replacement, setReplacement] = useState(EMPTY_REPLACEMENT);
+  const [fleetCars, setFleetCars] = useState([]);
+  const [excludedFleetCars, setExcludedFleetCars] = useState([]);
+  const [proposedCarId, setProposedCarId] = useState("");
+  const [fleetCarsLoading, setFleetCarsLoading] = useState(false);
+  const [fleetLoadError, setFleetLoadError] = useState("");
   const [amendment, setAmendment] = useState(EMPTY_AMENDMENT);
 
   const orderId = order?._id ? String(order._id) : "";
@@ -279,6 +320,32 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
     };
   }, [open, orderId, view?.showLicence]);
 
+  useEffect(() => {
+    if (dialog !== "replace" || !orderId) return undefined;
+    let alive = true;
+    setFleetCars([]);
+    setExcludedFleetCars([]);
+    setProposedCarId("");
+    setFleetLoadError("");
+    setFleetCarsLoading(true);
+    loadReplacementFleetCars(orderId).then((result) => {
+      if (!alive) return;
+      setFleetCarsLoading(false);
+      if (!result.ok) {
+        setFleetLoadError(result.message || "");
+        return;
+      }
+      setFleetCars(result.cars || []);
+      setExcludedFleetCars(result.excludedCars || []);
+      if (result.eligibilityError?.message) {
+        setFleetLoadError(result.eligibilityError.message);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [dialog, orderId]);
+
   const formatMoment = useBookingClock(current);
 
   const refresh = useCallback(async () => {
@@ -308,12 +375,15 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   if (!open || !current || !view || !isPlatformBooking(current)) return null;
 
   const { price } = view;
-  const replacementReady =
-    replacement.model.trim().length > 0 &&
-    replacement.transmission.trim().length > 0 &&
-    Number(replacement.seats) > 0 &&
-    Number(replacement.totalPrice) > 0 &&
-    replacement.supplierMessage.trim().length > 0;
+  const fleetReplacement =
+    replacement.replacementSource === REPLACEMENT_KIND.COMPANY_VEHICLE;
+  const replacementReady = fleetReplacement
+    ? Boolean(proposedCarId) && replacement.supplierMessage.trim().length > 0
+    : replacement.model.trim().length > 0 &&
+      replacement.transmission.trim().length > 0 &&
+      Number(replacement.seats) > 0 &&
+      Number(replacement.totalPrice) > 0 &&
+      replacement.supplierMessage.trim().length > 0;
   const priceBreakdown = (
     <SummaryList component="dl">
       {price.lines.map((line) => (
@@ -336,6 +406,15 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
 
   // The total stays outside the collapsible so it is visible on a phone even
   // when the breakdown is folded away.
+  const showVehiclePanel = [
+    current.carModel || current.car?.model,
+    current.car?.class || current.car?.category,
+    current.car?.transmission,
+    current.car?.seats,
+    current.car?.luggage,
+    current.car?.fueltype || current.car?.fuelType,
+  ].some(summaryHasValue);
+
   const priceTotal = price.totalText ? (
     <TotalRow data-testid="total-rental-price">
       <Typography variant="body1">
@@ -367,7 +446,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
           <Typography variant="overline" color="text.secondary" component="div">
             {t("bookingDetails.title")}
           </Typography>
-          <ReferenceText variant="h5" component="h2" id="booking-details-title">
+          <ReferenceText variant="h6" component="h2" id="booking-details-title">
             {view.reference}
           </ReferenceText>
           <Typography variant="subtitle1" component="div">
@@ -402,236 +481,266 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             {t("bookingDetails.price.dataWarning")}
           </Alert>
         ) : null}
-        {error ? <Alert severity="error">{error}</Alert> : null}
+        {error && !dialog ? <Alert severity="error">{error}</Alert> : null}
         {notice ? <Alert severity="success">{notice}</Alert> : null}
 
-        <Section>
-          <SectionTitle variant="subtitle2">
-            {t(
-              view.replacement
-                ? "bookingDetails.replacement.originallyRequested"
-                : "bookingDetails.sections.vehicle"
-            )}
-          </SectionTitle>
-          <SummaryList component="dl">
-            <SummaryField
-              label={t("bookingDetails.vehicle.requested")}
-              value={current.carModel || current.car?.model}
-              strong
-            />
-            <SummaryField
-              label={t("bookingDetails.vehicle.class")}
-              value={current.car?.class || current.car?.category}
-            />
-            <SummaryField
-              label={t("bookingDetails.vehicle.transmission")}
-              value={current.car?.transmission}
-            />
-            <SummaryField
-              label={t("bookingDetails.vehicle.seats")}
-              value={current.car?.seats}
-            />
-            <SummaryField
-              label={t("bookingDetails.vehicle.luggage")}
-              value={current.car?.luggage}
-            />
-            <SummaryField
-              label={t("bookingDetails.vehicle.fuel")}
-              value={current.car?.fueltype || current.car?.fuelType}
-            />
-          </SummaryList>
-        </Section>
-
-        {view.replacement ? (
-          <Section data-testid="replacement-proposal">
-            <SectionTitle variant="subtitle2">
-              {t("bookingDetails.replacement.confirmedAs")}
-            </SectionTitle>
-            <SummaryList component="dl">
-              <SummaryField
-                label={t("bookingDetails.vehicle.requested")}
-                value={view.replacement.model}
-                strong
-              />
-              <SummaryField
-                label={t("bookingDetails.vehicle.class")}
-                value={view.replacement.category}
-              />
-              <SummaryField
-                label={t("bookingDetails.vehicle.transmission")}
-                value={view.replacement.transmission}
-              />
-              <SummaryField
-                label={t("bookingDetails.vehicle.seats")}
-                value={view.replacement.seats}
-              />
-              <SummaryField
-                label={t("bookingDetails.replacement.supplierComment")}
-                value={view.replacement.supplierMessage}
-              />
-            </SummaryList>
-          </Section>
-        ) : null}
-
-        <Section>
-          <SectionTitle variant="subtitle2">
-            {t("bookingDetails.sections.dates")}
-          </SectionTitle>
-          <SummaryList component="dl">
-            <SummaryField
-              label={t("bookingDetails.dates.pickup")}
-              value={formatMoment(current.pickupAtUtc || current.timeIn)}
-            />
-            <SummaryField
-              label={t("bookingDetails.dates.return")}
-              value={formatMoment(current.returnAtUtc || current.timeOut)}
-            />
-            <SummaryField
-              label={t("bookingDetails.dates.days")}
-              value={current.numberOfDays}
-            />
-            <SummaryField
-              label={t("bookingDetails.dates.pickupLocation")}
-              value={[current.placeIn, current.placeInDetail]
-                .filter(Boolean)
-                .join(" — ")}
-            />
-            <SummaryField
-              label={t("bookingDetails.dates.returnLocation")}
-              value={[current.placeOut, current.placeOutDetail]
-                .filter(Boolean)
-                .join(" — ")}
-            />
-          </SummaryList>
-        </Section>
-
-        <Section>
-          <SectionTitle variant="subtitle2">
-            {t("bookingDetails.sections.options")}
-          </SectionTitle>
-          <SummaryList component="dl">
-            <SummaryField
-              label={t("bookingDetails.options.insurance")}
-              value={current.insurance}
-            />
-            <SummaryField
-              label={t("bookingDetails.options.excess")}
-              value={current.franchiseOrder}
-            />
-            <SummaryField
-              label={t("bookingDetails.options.childSeats")}
-              value={current.ChildSeats}
-            />
-            <SummaryField
-              label={t("bookingDetails.options.secondDriver")}
-              value={t(
-                current.secondDriver
-                  ? "bookingDetails.options.yes"
-                  : "bookingDetails.options.no"
-              )}
-            />
-          </SummaryList>
-        </Section>
-
-        <Section>
-          {isSheet ? (
-            <CollapsibleSection
-              title={t("bookingDetails.sections.price")}
-              open={priceOpen}
-              onToggle={() => setPriceOpen((was) => !was)}
-              toggleLabel={t("bookingDetails.sections.price")}
-              contentId="booking-details-price"
-            >
-              {priceBreakdown}
-            </CollapsibleSection>
-          ) : (
-            <>
+        <SectionsGrid>
+          {showVehiclePanel ? (
+            <SectionPanel>
               <SectionTitle variant="subtitle2">
-                {t("bookingDetails.sections.price")}
+                {t(
+                  view.replacement
+                    ? "bookingDetails.replacement.originallyRequested"
+                    : "bookingDetails.sections.vehicle"
+                )}
               </SectionTitle>
-              {priceBreakdown}
-            </>
-          )}
-          {priceTotal}
-          {price.payableToSupplierText ? (
-            <SupplierPayout data-testid="payable-to-supplier">
-              <Typography variant="subtitle2" color="text.secondary">
-                {t("bookingDetails.price.payableToSupplier")}
-              </Typography>
-              <SupplierPayoutAmount variant="h4" component="p">
-                {price.payableToSupplierText}
-              </SupplierPayoutAmount>
-              <Typography variant="body2" color="text.secondary">
-                {t("bookingDetails.price.payableToSupplierHint")}
-              </Typography>
-            </SupplierPayout>
+              <SummaryList component="dl">
+                <SummaryField
+                  label={t("bookingDetails.vehicle.requested")}
+                  value={current.carModel || current.car?.model}
+                  strong
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.class")}
+                  value={current.car?.class || current.car?.category}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.transmission")}
+                  value={current.car?.transmission}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.seats")}
+                  value={current.car?.seats}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.luggage")}
+                  value={current.car?.luggage}
+                />
+                <SummaryField
+                  label={t("bookingDetails.vehicle.fuel")}
+                  value={current.car?.fueltype || current.car?.fuelType}
+                />
+              </SummaryList>
+            </SectionPanel>
           ) : null}
-        </Section>
 
-        {view.customer ? (
-          <Section>
+          <SectionPanel>
             <SectionTitle variant="subtitle2">
-              {t("bookingDetails.sections.customer")}
+              {t("bookingDetails.sections.dates")}
             </SectionTitle>
             <SummaryList component="dl">
               <SummaryField
-                label={t("bookingDetails.customer.name")}
-                value={view.customer.name}
-              />
-              <SummaryField label={t("bookingDetails.customer.phone")}>
-                <Box component="a" href={`tel:${view.customer.phone}`}>
-                  {view.customer.phone}
-                </Box>
-              </SummaryField>
-              <SummaryField label={t("bookingDetails.customer.email")}>
-                <Box component="a" href={`mailto:${view.customer.email}`}>
-                  {view.customer.email}
-                </Box>
-              </SummaryField>
-              <SummaryField
-                label={t("bookingDetails.customer.messengers")}
-                value={messengerList(view.customer, t)}
+                label={t("bookingDetails.dates.pickup")}
+                value={formatMoment(current.pickupAtUtc || current.timeIn)}
               />
               <SummaryField
-                label={t("bookingDetails.customer.notes")}
-                value={view.customer.notes}
+                label={t("bookingDetails.dates.return")}
+                value={formatMoment(current.returnAtUtc || current.timeOut)}
+              />
+              <SummaryField
+                label={t("bookingDetails.dates.days")}
+                value={current.numberOfDays}
+              />
+              <SummaryField
+                label={t("bookingDetails.dates.pickupLocation")}
+                value={[current.placeIn, current.placeInDetail]
+                  .filter(Boolean)
+                  .join(" — ")}
+              />
+              <SummaryField
+                label={t("bookingDetails.dates.returnLocation")}
+                value={[current.placeOut, current.placeOutDetail]
+                  .filter(Boolean)
+                  .join(" — ")}
               />
             </SummaryList>
-          </Section>
-        ) : null}
+          </SectionPanel>
 
-        {view.showLicence ? (
-          <Section>
+          {view.replacement ? (
+            <GridFullWidth>
+              <SectionPanel data-testid="replacement-proposal">
+                <SectionTitle variant="subtitle2">
+                  {t("bookingDetails.replacement.confirmedAs")}
+                </SectionTitle>
+                <SummaryList component="dl">
+                  <SummaryField
+                    label={t("bookingDetails.vehicle.requested")}
+                    value={view.replacement.model}
+                    strong
+                  />
+                  <SummaryField
+                    label={t("bookingDetails.vehicle.class")}
+                    value={view.replacement.category}
+                  />
+                  <SummaryField
+                    label={t("bookingDetails.vehicle.transmission")}
+                    value={view.replacement.transmission}
+                  />
+                  <SummaryField
+                    label={t("bookingDetails.vehicle.seats")}
+                    value={view.replacement.seats}
+                  />
+                  <SummaryField
+                    label={t("bookingDetails.replacement.supplierComment")}
+                    value={view.replacement.supplierMessage}
+                  />
+                </SummaryList>
+              </SectionPanel>
+            </GridFullWidth>
+          ) : null}
+
+          <SectionPanel>
             <SectionTitle variant="subtitle2">
-              {t("bookingDetails.sections.documents")}
+              {t("bookingDetails.sections.options")}
             </SectionTitle>
             <SummaryList component="dl">
               <SummaryField
-                label={t("bookingDetails.documents.holder")}
-                value={view.licence?.holderName}
+                label={t("bookingDetails.options.insurance")}
+                value={current.insurance}
               />
               <SummaryField
-                label={t("bookingDetails.documents.number")}
-                value={view.licence?.licenceNumber}
+                label={t("bookingDetails.options.excess")}
+                value={current.franchiseOrder}
               />
               <SummaryField
-                label={t("bookingDetails.documents.country")}
-                value={view.licence?.issuingCountry}
+                label={t("bookingDetails.options.childSeats")}
+                value={current.ChildSeats}
               />
               <SummaryField
-                label={t("bookingDetails.documents.expires")}
-                value={view.licence?.expiryDate}
+                label={t("bookingDetails.options.secondDriver")}
+                value={t(
+                  current.secondDriver
+                    ? "bookingDetails.options.yes"
+                    : "bookingDetails.options.no"
+                )}
               />
             </SummaryList>
-            {licenceUrls.map((url) => (
-              <DocumentPreview
-                key={url}
-                src={url}
-                alt={t("bookingDetails.documents.preview")}
-              />
-            ))}
-          </Section>
-        ) : null}
+          </SectionPanel>
+
+          {view.customer ? (
+            <SectionPanel>
+              <SectionTitle variant="subtitle2">
+                {t("bookingDetails.sections.customer")}
+              </SectionTitle>
+              <SummaryList component="dl">
+                <SummaryField
+                  label={t("bookingDetails.customer.name")}
+                  value={view.customer.name}
+                />
+                <SummaryField label={t("bookingDetails.customer.phone")}>
+                  <Box component="a" href={`tel:${view.customer.phone}`}>
+                    {view.customer.phone}
+                  </Box>
+                </SummaryField>
+                <SummaryField label={t("bookingDetails.customer.email")}>
+                  <Box component="a" href={`mailto:${view.customer.email}`}>
+                    {view.customer.email}
+                  </Box>
+                </SummaryField>
+                <SummaryField
+                  label={t("bookingDetails.customer.messengers")}
+                  value={messengerList(view.customer, t)}
+                />
+                <SummaryField
+                  label={t("bookingDetails.customer.notes")}
+                  value={view.customer.notes}
+                />
+              </SummaryList>
+            </SectionPanel>
+          ) : null}
+
+          <GridFullWidth>
+            <SectionPanel>
+              {isSheet ? (
+                <CollapsibleSection
+                  title={t("bookingDetails.sections.price")}
+                  open={priceOpen}
+                  onToggle={() => setPriceOpen((was) => !was)}
+                  toggleLabel={t("bookingDetails.sections.price")}
+                  contentId="booking-details-price"
+                >
+                  {priceBreakdown}
+                </CollapsibleSection>
+              ) : (
+                <PriceLayout>
+                  <Box>
+                    <SectionTitle variant="subtitle2">
+                      {t("bookingDetails.sections.price")}
+                    </SectionTitle>
+                    {priceBreakdown}
+                    {priceTotal}
+                  </Box>
+                  {price.payableToSupplierText ? (
+                    <SupplierPayout data-testid="payable-to-supplier">
+                      <Typography variant="subtitle2" color="text.secondary">
+                        {t("bookingDetails.price.payableToSupplier")}
+                      </Typography>
+                      <SupplierPayoutAmount variant="h4" component="p">
+                        {price.payableToSupplierText}
+                      </SupplierPayoutAmount>
+                      <Typography variant="body2" color="text.secondary">
+                        {t("bookingDetails.price.payableToSupplierHint")}
+                      </Typography>
+                    </SupplierPayout>
+                  ) : null}
+                </PriceLayout>
+              )}
+              {isSheet ? (
+                <>
+                  {priceTotal}
+                  {price.payableToSupplierText ? (
+                    <SupplierPayout data-testid="payable-to-supplier">
+                      <Typography variant="subtitle2" color="text.secondary">
+                        {t("bookingDetails.price.payableToSupplier")}
+                      </Typography>
+                      <SupplierPayoutAmount variant="h4" component="p">
+                        {price.payableToSupplierText}
+                      </SupplierPayoutAmount>
+                      <Typography variant="body2" color="text.secondary">
+                        {t("bookingDetails.price.payableToSupplierHint")}
+                      </Typography>
+                    </SupplierPayout>
+                  ) : null}
+                </>
+              ) : null}
+            </SectionPanel>
+          </GridFullWidth>
+
+          {view.showLicence ? (
+            <GridFullWidth>
+              <SectionPanel>
+                <SectionTitle variant="subtitle2">
+                  {t("bookingDetails.sections.documents")}
+                </SectionTitle>
+                <SummaryList component="dl">
+                  <SummaryField
+                    label={t("bookingDetails.documents.holder")}
+                    value={view.licence?.holderName}
+                  />
+                  <SummaryField
+                    label={t("bookingDetails.documents.number")}
+                    value={view.licence?.licenceNumber}
+                  />
+                  <SummaryField
+                    label={t("bookingDetails.documents.country")}
+                    value={view.licence?.issuingCountry}
+                  />
+                  <SummaryField
+                    label={t("bookingDetails.documents.expires")}
+                    value={view.licence?.expiryDate}
+                  />
+                </SummaryList>
+                {licenceUrls.map((url) => (
+                  <DocumentPreview
+                    key={url}
+                    src={url}
+                    alt={t("bookingDetails.documents.preview")}
+                  />
+                ))}
+              </SectionPanel>
+            </GridFullWidth>
+          ) : null}
+        </SectionsGrid>
       </ContentColumn>
 
       <StickyFooter>
@@ -664,6 +773,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
           </Typography>
         </StickyHeader>
         <ContentColumn>
+          {error ? <Alert severity="error">{error}</Alert> : null}
           <Typography variant="body2">
             {t("bookingDetails.confirmDialog.intro")}
           </Typography>
@@ -730,12 +840,13 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             select
             label={t("bookingDetails.replacementDialog.kind")}
             value={replacement.replacementSource}
-            onChange={(event) =>
+            onChange={(event) => {
+              setProposedCarId("");
               setReplacement((was) => ({
                 ...was,
                 replacementSource: event.target.value,
-              }))
-            }
+              }));
+            }}
             fullWidth
           >
             {Object.values(REPLACEMENT_KIND).map((kind) => (
@@ -744,24 +855,83 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               </MenuItem>
             ))}
           </TextField>
-          {REPLACEMENT_FIELDS.map((field) => (
-            <TextField
-              key={field.name}
-              label={t(field.labelKey)}
-              value={replacement[field.name]}
-              type={field.type || "text"}
-              onChange={(event) =>
-                setReplacement((was) => ({
-                  ...was,
-                  [field.name]: event.target.value,
-                }))
-              }
-              fullWidth
-              multiline={field.multiline || false}
-              minRows={field.multiline ? 3 : undefined}
-              helperText={field.helperKey ? t(field.helperKey) : undefined}
-            />
-          ))}
+          {fleetReplacement ? (
+            <>
+              {fleetCarsLoading ? (
+                <CircularProgress size={theme.typography.body1.fontSize} />
+              ) : null}
+              {fleetLoadError ? (
+                <Alert severity="info">{fleetLoadError}</Alert>
+              ) : null}
+              <TextField
+                select
+                label={t("bookingDetails.replacementDialog.model")}
+                value={proposedCarId}
+                onChange={(event) => setProposedCarId(event.target.value)}
+                fullWidth
+                disabled={fleetCarsLoading || fleetCars.length === 0}
+                helperText={t("bookingDetails.replacementDialog.categoryHelp")}
+              >
+                <MenuItem value="">
+                  {t("bookingDetails.replacementDialog.fleetPlaceholder")}
+                </MenuItem>
+                {fleetCars.map((car) => (
+                  <MenuItem key={car.carId} value={car.carId}>
+                    {car.unpublished
+                      ? t("bookingDetails.replacementDialog.internalFleet", {
+                          name: car.name,
+                        })
+                      : car.name}
+                    {car.category ? ` · ${car.category}` : ""}
+                  </MenuItem>
+                ))}
+              </TextField>
+              {excludedFleetCars.length > 0 ? (
+                <Typography variant="caption" color="text.secondary" component="div">
+                  {t("bookingDetails.replacementDialog.notOfferable")}
+                  {excludedFleetCars.slice(0, 12).map((row) => (
+                    <Box key={row.carId} component="span" sx={{ display: "block" }}>
+                      {row.name}: {row.message}
+                    </Box>
+                  ))}
+                </Typography>
+              ) : null}
+            </>
+          ) : (
+            REPLACEMENT_FIELDS.filter((field) => field.name !== "supplierMessage").map(
+              (field) => (
+                <TextField
+                  key={field.name}
+                  label={t(field.labelKey)}
+                  value={replacement[field.name]}
+                  type={field.type || "text"}
+                  onChange={(event) =>
+                    setReplacement((was) => ({
+                      ...was,
+                      [field.name]: event.target.value,
+                    }))
+                  }
+                  fullWidth
+                  multiline={field.multiline || false}
+                  minRows={field.multiline ? 3 : undefined}
+                  helperText={field.helperKey ? t(field.helperKey) : undefined}
+                />
+              )
+            )
+          )}
+          <TextField
+            label={t("bookingDetails.replacementDialog.comment")}
+            value={replacement.supplierMessage}
+            onChange={(event) =>
+              setReplacement((was) => ({
+                ...was,
+                supplierMessage: event.target.value,
+              }))
+            }
+            fullWidth
+            multiline
+            minRows={3}
+          />
         </ContentColumn>
         <StickyFooter>
           <Button onClick={() => setDialog(null)} disabled={busy}>
@@ -772,7 +942,11 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             disabled={busy || !replacementReady}
             onClick={() =>
               run(
-                () => proposeEquivalentReplacement(orderId, replacement),
+                () =>
+                  proposeEquivalentReplacement(orderId, {
+                    ...replacement,
+                    proposedCarId,
+                  }),
                 "bookingDetails.notices.replacementOffered"
               )
             }
@@ -917,13 +1091,18 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
           </Typography>
         </StickyHeader>
         <ContentColumn>
+          {error ? <Alert severity="error">{error}</Alert> : null}
           <Typography variant="body2">
             {t("bookingDetails.declineDialog.intro")}
           </Typography>
           <TextField
             label={t("bookingDetails.declineDialog.reason")}
             value={declineReason}
-            onChange={(event) => setDeclineReason(event.target.value)}
+            onChange={(event) => {
+              setDeclineReason(event.target.value);
+              if (error) setError("");
+            }}
+            error={Boolean(error)}
             fullWidth
             multiline
             minRows={3}

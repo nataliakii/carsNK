@@ -80,6 +80,7 @@ export default function BookingContactSection({
       <Box className={!isAdmin && errors?.name ? "booking-field-shake" : ""}>
         <BookingTextField
           label={nameLabel}
+          name="name"
           value={values.customerName || ""}
           onChange={(e) => onFieldChange("customerName", e.target.value)}
           required={nameRequired}
@@ -100,6 +101,7 @@ export default function BookingContactSection({
       >
         <BookingTextField
           label={phoneLabel}
+          name="phone"
           value={values.phone || ""}
           onChange={(e) => onFieldChange("phone", e.target.value)}
           required={phoneRequired}
@@ -110,9 +112,10 @@ export default function BookingContactSection({
         />
         <BookingTextField
           label={emailLabel}
+          name="email"
+          type="email"
           value={values.email || ""}
           onChange={(e) => onFieldChange("email", e.target.value)}
-          type="email"
           required={emailRequired}
           error={Boolean(errors?.email)}
           helperText={errors?.email}

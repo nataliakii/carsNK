@@ -3,6 +3,7 @@ process.env.DRIVING_LICENCE_RECEIPT_SECRET = "test-licence-receipt-secret-value"
 import { BOOKING_SOURCE } from "@/domain/admin/rovaroContractorAdmin";
 import { LICENCE_CAPTURE_CODE } from "@/domain/legal/drivingLicenceSnapshot";
 import {
+  clientDrivingLicenceReadyForCreate,
   drivingLicenceRequiredForCreate,
   resolveDrivingLicenceForCreate,
 } from "@/domain/legal/drivingLicenceCreateGate";
@@ -15,14 +16,14 @@ const NOW = new Date("2026-06-10T12:00:00Z");
 const PICKUP = new Date("2026-07-01T10:00:00Z");
 const RETURN = new Date("2026-07-08T10:00:00Z");
 
-function receipt(now = NOW) {
+function receipt(now = NOW, contentType = "image/jpeg") {
   const minted = createUploadReceipt({
     storageReference: "carsnk/orders/licence-intake/2026-06/abc123",
     storageType: "authenticated",
     checksum: "d".repeat(64),
     uploadedAt: now,
     byteSize: 1024,
-    contentType: "image/jpeg",
+    contentType,
   });
   return minted.receipt;
 }
@@ -115,18 +116,20 @@ describe("a public PLATFORM request without a licence", () => {
     expect(result.field).toBe("document");
   });
 
-  it("is rejected when required licence fields are missing", () => {
-    expect(resolve({ payload: payload({ licenceNumber: "" }) }).code).toBe(
-      LICENCE_CAPTURE_CODE.NUMBER_REQUIRED
-    );
-    expect(resolve({ payload: payload({ expiryDate: "" }) }).code).toBe(
-      LICENCE_CAPTURE_CODE.EXPIRY_REQUIRED
-    );
-  });
-
-  it("is rejected when the licence expires during the rental", () => {
-    expect(resolve({ payload: payload({ expiryDate: "2026-07-02" }) }).code).toBe(
-      LICENCE_CAPTURE_CODE.EXPIRES_BEFORE_RETURN
+  it("accepts photo-only capture without typed licence fields", () => {
+    const result = resolve({
+      payload: {
+        uploadReceipt: receipt(),
+      },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.snapshot).toEqual(
+      expect.objectContaining({
+        storageReference: "carsnk/orders/licence-intake/2026-06/abc123",
+        holderName: "",
+        licenceNumber: "",
+        issuingCountry: "",
+      })
     );
   });
 });
@@ -180,6 +183,28 @@ describe("a failed upload cannot be talked into a booking", () => {
   });
 });
 
+describe("clientDrivingLicenceReadyForCreate", () => {
+  it("is not ready until the upload receipt is present", () => {
+    expect(
+      clientDrivingLicenceReadyForCreate({
+        payload: payload({ uploadReceipt: "" }),
+      }).code
+    ).toBe(LICENCE_CAPTURE_CODE.UPLOAD_MISSING);
+
+    expect(
+      clientDrivingLicenceReadyForCreate({
+        payload: { uploadReceipt: receipt() },
+      })
+    ).toEqual({ ok: true });
+  });
+
+  it("rejects a missing payload", () => {
+    expect(clientDrivingLicenceReadyForCreate({ payload: null }).code).toBe(
+      LICENCE_CAPTURE_CODE.REQUIRED
+    );
+  });
+});
+
 describe("a complete public request", () => {
   it("produces the snapshot the order will store", () => {
     const result = resolve();
@@ -194,5 +219,29 @@ describe("a complete public request", () => {
         verificationStatus: "PENDING",
       })
     );
+  });
+
+  it("records the resource type storage will need to deliver the file", () => {
+    // An image and a PDF scan live under different Cloudinary resource types.
+    // Getting this wrong means the admin download fails for PDF licences.
+    expect(resolve().snapshot.resourceType).toBe("image");
+
+    const asPdf = resolve({
+      payload: payload({ uploadReceipt: receipt(NOW, "application/pdf") }),
+    });
+    expect(asPdf.ok).toBe(true);
+    expect(asPdf.snapshot.resourceType).toBe("raw");
+  });
+
+  it("takes the resource type from the signed receipt, not the request body", () => {
+    // A client claiming "image" for a PDF must not change where we look.
+    const spoofed = resolve({
+      payload: {
+        ...payload({ uploadReceipt: receipt(NOW, "application/pdf") }),
+        resourceType: "image",
+        upload: { resourceType: "image" },
+      },
+    });
+    expect(spoofed.snapshot.resourceType).toBe("raw");
   });
 });

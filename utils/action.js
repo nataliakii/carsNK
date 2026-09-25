@@ -293,6 +293,9 @@ export const addOrderNew = async (orderData) => {
         status: "error",
         message: result.message,
         messageKey: result.messageKey,
+        error: result.error,
+        licenceCode: result.licenceCode,
+        field: result.field,
       };
       // throw new Error(`Unexpected response status: ${response.status}`);
     }

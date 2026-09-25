@@ -293,29 +293,28 @@ describe("a public PLATFORM request without licence data", () => {
     expect(carSave).not.toHaveBeenCalled();
   });
 
-  it("is rejected when licence fields are missing even though the upload is fine", async () => {
-    const { res, body: payload } = await post(
-      body({ drivingLicence: licence({ licenceNumber: "" }) })
+  it("accepts photo-only licence data when the upload receipt is valid", async () => {
+    const { res } = await post(
+      body({
+        drivingLicence: {
+          uploadReceipt: VALID_RECEIPT,
+        },
+      })
     );
-    expect(res.status).toBe(400);
-    expect(payload.licenceCode).toBe("LICENCE_NUMBER_REQUIRED");
-    expect(payload.field).toBe("licenceNumber");
-    expect(savedOrders).toHaveLength(0);
-    expect(createRentalCheckoutSession).not.toHaveBeenCalled();
-  });
-
-  it("is rejected when the licence expires during the rental", async () => {
-    const { res, body: payload } = await post(
-      body({ drivingLicence: licence({ expiryDate: "2027-07-02" }) })
+    expect([201, 202]).toContain(res.status);
+    expect(savedOrders).toHaveLength(1);
+    expect(savedOrders[0].drivingLicenceSnapshot).toEqual(
+      expect.objectContaining({
+        storageReference: "carsnk/orders/licence-intake/2026-06/abc123",
+        holderName: "",
+        licenceNumber: "",
+      })
     );
-    expect(res.status).toBe(400);
-    expect(payload.licenceCode).toBe("LICENCE_EXPIRES_BEFORE_RETURN");
-    expect(savedOrders).toHaveLength(0);
   });
 
   it("never echoes the upload receipt back to the customer", async () => {
     const { body: payload } = await post(
-      body({ drivingLicence: licence({ licenceNumber: "" }) })
+      body({ drivingLicence: licence({ uploadReceipt: "" }) })
     );
     expect(JSON.stringify(payload)).not.toContain(VALID_RECEIPT);
   });

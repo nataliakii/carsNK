@@ -22,13 +22,41 @@ export const UPLOAD_RECEIPT_TTL_MS = 2 * 60 * 60 * 1000;
 
 const VERSION = "v1";
 
+/**
+ * Prefer a dedicated licence receipt secret. Fall back through the same family
+ * of server signing secrets used elsewhere (booking confirm, email actions,
+ * NextAuth), then the Cloudinary API secret — including the one embedded in
+ * CLOUDINARY_URL — because intake already requires Cloudinary to be configured.
+ *
+ * Without any of these, createUploadReceipt refuses to mint and the customer
+ * sees "upload did not complete" even though the file reached storage.
+ */
+function secretFromCloudinaryUrl() {
+  const url = String(process.env.CLOUDINARY_URL || "").trim();
+  const match = /^cloudinary:\/\/[^:]+:([^@]+)@/i.exec(url);
+  if (!match?.[1]) return "";
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 function receiptSecret() {
-  const secret =
-    process.env.DRIVING_LICENCE_RECEIPT_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    process.env.AUTH_SECRET ||
-    "";
-  return String(secret);
+  const candidates = [
+    process.env.DRIVING_LICENCE_RECEIPT_SECRET,
+    process.env.BOOKING_CONFIRM_SECRET,
+    process.env.EMAIL_ACTION_SECRET,
+    process.env.NEXTAUTH_SECRET,
+    process.env.AUTH_SECRET,
+    process.env.CLOUDINARY_API_SECRET,
+    secretFromCloudinaryUrl(),
+  ];
+  for (const candidate of candidates) {
+    const secret = String(candidate || "").trim();
+    if (secret.length >= 16) return secret;
+  }
+  return "";
 }
 
 export function uploadReceiptSecretConfigured() {

@@ -67,7 +67,7 @@ export function licenceCaptureMessageKey(code) {
 export function licenceCaptureFallbackMessage(code) {
   const map = {
     [LICENCE_CAPTURE_CODE.REQUIRED]:
-      "Driving licence details and a photo of the licence are required to book.",
+      "Upload a photo of your driving licence to book.",
     [LICENCE_CAPTURE_CODE.UPLOAD_MISSING]:
       "Upload a photo of the driving licence to continue.",
     [LICENCE_CAPTURE_CODE.UPLOAD_FAILED]:
@@ -164,6 +164,7 @@ export function validateDrivingLicenceCapture({
   returnAtUtc = null,
   pickupAtUtc = null,
   requireIssueDate = true,
+  requireTypedFields = true,
   now = new Date(),
 } = {}) {
   const fields = validateDrivingLicenceFields({
@@ -171,6 +172,7 @@ export function validateDrivingLicenceCapture({
     returnAtUtc,
     pickupAtUtc,
     requireIssueDate,
+    requireTypedFields,
     now,
   });
   if (!fields.ok) return fields;
@@ -223,10 +225,29 @@ export function validateDrivingLicenceFields({
   returnAtUtc = null,
   pickupAtUtc = null,
   requireIssueDate = true,
+  requireTypedFields = true,
   now = new Date(),
 } = {}) {
   if (!payload || typeof payload !== "object") {
     return refuse(LICENCE_CAPTURE_CODE.REQUIRED);
+  }
+
+  if (!requireTypedFields) {
+    const holderName = cleanText(payload.holderName);
+    const licenceNumber = cleanLicenceNumber(payload.licenceNumber);
+    const issuingCountry = cleanCountry(payload.issuingCountry);
+    const expiryDate = parseDate(payload.expiryDate);
+    const issueDate = parseDate(payload.issueDate);
+    return {
+      ok: true,
+      values: {
+        holderName: holderName || "",
+        licenceNumber: licenceNumber || "",
+        issuingCountry: issuingCountry || "",
+        expiryDate: expiryDate || null,
+        issueDate: issueDate || null,
+      },
+    };
   }
 
   const holderName = cleanText(payload.holderName);

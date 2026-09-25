@@ -165,6 +165,27 @@ describe("rejected uploads produce no receipt", () => {
       })
     );
   });
+
+  it("gives no receipt when the signing secret is missing", async () => {
+    const previous = process.env.DRIVING_LICENCE_RECEIPT_SECRET;
+    delete process.env.DRIVING_LICENCE_RECEIPT_SECRET;
+    delete process.env.BOOKING_CONFIRM_SECRET;
+    delete process.env.EMAIL_ACTION_SECRET;
+    delete process.env.NEXTAUTH_SECRET;
+    delete process.env.AUTH_SECRET;
+    delete process.env.CLOUDINARY_API_SECRET;
+    delete process.env.CLOUDINARY_URL;
+    try {
+      const res = await upload();
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.code).toBe("RECEIPT_UNAVAILABLE");
+      expect(body.receipt).toBeUndefined();
+    } finally {
+      process.env.DRIVING_LICENCE_RECEIPT_SECRET = previous;
+    }
+  });
 });
 
 describe("rate limiting", () => {

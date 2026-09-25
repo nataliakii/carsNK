@@ -318,7 +318,7 @@ const CalendarPicker = ({
   // Wait until the CTA has a real box — it was display:none, and scrollIntoView
   // on a 0×0 node jumps the page to the top instead of the price.
   useEffect(() => {
-    if (!showBookButton) return;
+    if (!showBookButton || embedded) return;
 
     let cancelled = false;
     let frame = 0;
@@ -345,7 +345,7 @@ const CalendarPicker = ({
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [showBookButton]);
+  }, [showBookButton, embedded]);
 
   // Modified onSelect to handle double clicks
   // const onSelect = (date) => {
@@ -1160,7 +1160,9 @@ const CalendarPicker = ({
 
   return (
     <Box
-      onPointerDown={() => {
+      // Capture phase: Ant Design calls onSelect from the cell during pointerdown,
+      // before this wrapper would see a bubble-phase pointerdown.
+      onPointerDownCapture={() => {
         userPickedRef.current = true;
       }}
       sx={{

@@ -27,10 +27,8 @@ import {
   DrivingLicenceCaptureField,
   emptyDrivingLicenceValue,
 } from "@/app/components/ui/inputs";
-import {
-  licenceCaptureMessageKey,
-  validateDrivingLicenceFields,
-} from "@/domain/legal/drivingLicenceSnapshot";
+import { licenceCaptureMessageKey } from "@/domain/legal/drivingLicenceSnapshot";
+import { clientDrivingLicenceReadyForCreate } from "@/domain/legal/drivingLicenceCreateGateClient";
 import { useTranslation } from "react-i18next";
 import { addOrderNew } from "@utils/action";
 import SuccessMessage from "@/app/components/ui/feedback/SuccessMessage";
@@ -328,6 +326,11 @@ const BookingModal = ({
   });
   const [drivingLicence, setDrivingLicence] = useState(emptyDrivingLicenceValue);
   const [licenceSubmitAttempted, setLicenceSubmitAttempted] = useState(false);
+
+  const licenceCaptureReady = useMemo(
+    () => clientDrivingLicenceReadyForCreate({ payload: drivingLicence }),
+    [drivingLicence]
+  );
 
   const placeInIsOffice =
     pickupMethod === "office" ||
@@ -1138,21 +1141,13 @@ const BookingModal = ({
       newErrors.time = t("order.requiredValidTimes") || "Valid pickup/return times";
     }
     if (timeErrors) newErrors.time = timeErrors;
-    // Mirrors the server gate in domain/legal/drivingLicenceCreateGate so the
-    // customer is corrected before submitting. The server decides regardless.
+    // Mirrors resolveDrivingLicenceForCreate — server re-verifies the receipt.
     setLicenceSubmitAttempted(true);
-    const licenceCheck = validateDrivingLicenceFields({
-      payload: drivingLicence,
-      pickupAtUtc: presetDates?.startDate || null,
-      returnAtUtc: presetDates?.endDate || null,
-    });
-    if (!licenceCheck.ok) {
+    if (!licenceCaptureReady.ok) {
       newErrors.drivingLicence = t(
-        licenceCaptureMessageKey(licenceCheck.code),
-        licenceCheck.message
+        licenceCaptureMessageKey(licenceCaptureReady.code),
+        licenceCaptureReady.message
       );
-    } else if (!drivingLicence?.uploadReceipt) {
-      newErrors.drivingLicence = t("order.licenceUploadMissing");
     }
     const locationCheck = validateCustomerBookingLocation({
       pickupMethod,
@@ -1176,15 +1171,28 @@ const BookingModal = ({
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       const focus =
+        (newErrors.phone &&
+          typeof document !== "undefined" &&
+          document.querySelector('input[name="phone"], input[type="tel"]')) ||
+        (newErrors.email &&
+          typeof document !== "undefined" &&
+          document.querySelector('input[name="email"], input[type="email"]')) ||
+        (newErrors.name &&
+          typeof document !== "undefined" &&
+          document.querySelector('input[name="name"]')) ||
         (newErrors.placeIn && pickupOfficeRef.current) ||
         (newErrors.placeInDetail && pickupAddressRef.current) ||
         (newErrors.placeOut && returnOfficeRef.current) ||
         (newErrors.placeOutDetail && returnAddressRef.current) ||
         null;
       if (focus) {
-        focus.scrollIntoView({ behavior: "smooth", block: "center" });
-        const field = focus.querySelector?.("input, textarea, [tabindex]");
-        field?.focus?.();
+        focus.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        if (typeof focus.focus === "function") {
+          focus.focus();
+        } else {
+          const field = focus.querySelector?.("input, textarea, [tabindex]");
+          field?.focus?.();
+        }
       }
       return;
     }
@@ -1298,11 +1306,21 @@ const BookingModal = ({
           setErrors({ submit: response.message });
           break;
         case "error":
-          setErrors({
-            submit: response.messageKey
-              ? t(response.messageKey, { defaultValue: response.message })
-              : response.message,
-          });
+          if (response.licenceCode) {
+            setLicenceSubmitAttempted(true);
+            setErrors({
+              drivingLicence: t(
+                licenceCaptureMessageKey(response.licenceCode),
+                { defaultValue: response.message }
+              ),
+            });
+          } else {
+            setErrors({
+              submit: response.messageKey
+                ? t(response.messageKey, { defaultValue: response.message })
+                : response.message,
+            });
+          }
           break;
         default:
           setErrors({
@@ -2079,9 +2097,12 @@ const BookingModal = ({
                   />
                   <DrivingLicenceCaptureField
                     value={drivingLicence}
-                    onChange={setDrivingLicence}
-                    pickupAtUtc={presetDates?.startDate || null}
-                    returnAtUtc={presetDates?.endDate || null}
+                    onChange={(next) => {
+                      setDrivingLicence(next);
+                      if (errors.drivingLicence) {
+                        setErrors((prev) => ({ ...prev, drivingLicence: undefined }));
+                      }
+                    }}
                     disabled={isSubmitting}
                     showErrors={licenceSubmitAttempted}
                     serverErrorKey=""
@@ -2110,7 +2131,6 @@ const BookingModal = ({
                     {errors.submit}
                   </Typography>
                 )}
-                {/* Кнопки: Бронировать всегда активна, при ошибках подсвечиваются поля (Formik-стиль) */}
                 <Box
                   sx={{
                     display: "flex",

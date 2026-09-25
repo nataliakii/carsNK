@@ -43,6 +43,17 @@ export async function uploadDrivingLicenceDocument(file) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body?.success || !body?.receipt) {
     const code = String(body?.code || "");
+    // Receipt signing misconfig and storage failures share one customer sentence:
+    // the photo did not finish attaching to the booking.
+    if (
+      code === "RECEIPT_UNAVAILABLE" ||
+      code === "STORAGE_UNAVAILABLE" ||
+      code === "NO_FILE" ||
+      code === "EMPTY_FILE" ||
+      code === "INVALID_REQUEST"
+    ) {
+      return { ok: false, code: LICENCE_UPLOAD_ERROR.UPLOAD_FAILED };
+    }
     return {
       ok: false,
       code: Object.values(LICENCE_UPLOAD_ERROR).includes(code)

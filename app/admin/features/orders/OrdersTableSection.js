@@ -1900,20 +1900,18 @@ export default function OrdersTableSection() {
                               }}
                             />
                           ) : null}
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontSize: "0.65rem",
-                              lineHeight: 1.1,
-                              color: order.IsConfirmedEmailSent
-                                ? palette.status.success
-                                : palette.neutral.gray500,
-                            }}
-                          >
-                            {`Email sent: ${
-                              order.IsConfirmedEmailSent ? "true" : "false"
-                            }`}
-                          </Typography>
+                          {order.IsConfirmedEmailSent ? (
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontSize: "0.65rem",
+                                lineHeight: 1.1,
+                                color: "success.main",
+                              }}
+                            >
+                              {t("order.confirmationEmailSent")}
+                            </Typography>
+                          ) : null}
                           {isBlocked && (
                             <Tooltip title={isBlocked}>
                               <BlockIcon 

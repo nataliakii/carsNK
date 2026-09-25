@@ -23,8 +23,12 @@ import {
   Slider,
   InputAdornment,
   Tooltip,
+  Collapse,
+  ButtonBase,
 } from "@mui/material";
 import IconButton from "@mui/material/IconButton";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import TuneIcon from "@mui/icons-material/Tune";
 import { useTranslation } from "react-i18next";
 import { useSession } from "next-auth/react";
 import { ROLE } from "@/domain/orders/admin-rbac";
@@ -119,6 +123,33 @@ export const CATALOG_CHROME_OFFSET_VAR = "--catalog-chrome-offset";
 const CATALOG_HEADER_HEIGHT = 64;
 /** Breathing room below the black filter bar for catalog meta/intro text. */
 const CATALOG_TEXT_GAP_BELOW_FILTERS = 20;
+const CATALOG_FILTERS_EXPANDED_STORAGE_KEY = "catalogFiltersExpanded";
+
+const CatalogFiltersToggle = styled(ButtonBase)(({ theme }) => ({
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: theme.spacing(1),
+  padding: theme.spacing(0.75, 0.25),
+  color: theme.palette.backgroundDark1?.text || theme.palette.common.white,
+  borderRadius: theme.shape.borderRadius,
+  textAlign: "left",
+  "&:hover": {
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+}));
+
+const CatalogFiltersChevron = styled(ExpandMoreIcon, {
+  shouldForwardProp: (prop) => prop !== "expanded",
+})(({ theme, expanded }) => ({
+  flexShrink: 0,
+  color: "rgba(255,255,255,0.75)",
+  transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+  transition: theme.transitions.create("transform", {
+    duration: theme.transitions.duration.shortest,
+  }),
+}));
 
 const GradientAppBar = styled(AppBar, {
   shouldForwardProp: (prop) => prop !== "scrolled",
@@ -298,6 +329,7 @@ export default function NavBar({
   };
   const headerRef = useRef(null);
   const filterBarRef = useRef(null);
+  const [catalogFiltersExpanded, setCatalogFiltersExpanded] = useState(true);
   const [languageAnchor, setLanguageAnchor] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -346,6 +378,27 @@ export default function NavBar({
     } catch (err) {
       console.error("❌ Ошибка при загрузке скидки:", err);
     }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = sessionStorage.getItem(CATALOG_FILTERS_EXPANDED_STORAGE_KEY);
+    if (stored === "0") {
+      setCatalogFiltersExpanded(false);
+    }
+  }, []);
+
+  const toggleCatalogFilters = useCallback(() => {
+    setCatalogFiltersExpanded((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(
+          CATALOG_FILTERS_EXPANDED_STORAGE_KEY,
+          next ? "1" : "0"
+        );
+      }
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -447,6 +500,38 @@ export default function NavBar({
     isAccessLink,
     bookingLocationOptions.length,
     arrayOfAvailableSeats.length,
+    catalogFiltersExpanded,
+  ]);
+
+  const catalogFiltersSummary = useMemo(() => {
+    if (searchDates?.start && searchDates?.end) {
+      return t("header.searchDatesToggleApplied", {
+        from: searchDates.start,
+        to: searchDates.end,
+      });
+    }
+    if (carSearchQuery?.trim()) {
+      return carSearchQuery.trim();
+    }
+    const parts = [];
+    if (selectedClass && selectedClass !== "All") parts.push(selectedClass);
+    if (selectedTransmission && selectedTransmission !== "All") {
+      parts.push(selectedTransmission);
+    }
+    if (selectedSeats && selectedSeats !== "All") {
+      parts.push(t("header.seatsOption", { count: Number(selectedSeats) }));
+    }
+    if (bookingPlaceIn?.trim()) parts.push(bookingPlaceIn.trim());
+    return parts.length ? parts.join(" · ") : "";
+  }, [
+    searchDates?.start,
+    searchDates?.end,
+    carSearchQuery,
+    selectedClass,
+    selectedTransmission,
+    selectedSeats,
+    bookingPlaceIn,
+    t,
   ]);
 
   const filterPairRowSx = {
@@ -1290,12 +1375,65 @@ export default function NavBar({
               display: { xs: "flex" },
               overflow: "visible",
               px: { xs: 1.5, sm: 2.5 },
-              py: { xs: 1.25, sm: 1.5 },
+              py: catalogFiltersExpanded
+                ? { xs: 1.25, sm: 1.5 }
+                : { xs: 0.75, sm: 0.75 },
               "@media (max-width:900px) and (orientation: landscape)": {
                 display: "flex",
               },
             }}
           >
+            <Stack
+              spacing={catalogFiltersExpanded ? 1 : 0}
+              sx={{
+                width: "100%",
+                maxWidth: "100%",
+                mx: "auto",
+              }}
+            >
+              <CatalogFiltersToggle
+                onClick={toggleCatalogFilters}
+                aria-expanded={catalogFiltersExpanded}
+                aria-controls="catalog-filters-panel"
+                aria-label={
+                  catalogFiltersExpanded
+                    ? t("header.catalogFiltersCollapse")
+                    : t("header.catalogFiltersExpand")
+                }
+              >
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={1}
+                  sx={{ minWidth: 0, flex: 1 }}
+                >
+                  <TuneIcon sx={{ fontSize: 20, opacity: 0.85, flexShrink: 0 }} />
+                  <Typography
+                    component="span"
+                    variant="body2"
+                    sx={{ fontWeight: 700, flexShrink: 0 }}
+                  >
+                    {t("header.catalogFiltersToggle")}
+                  </Typography>
+                  {!catalogFiltersExpanded && catalogFiltersSummary ? (
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      noWrap
+                      sx={{
+                        opacity: 0.72,
+                        minWidth: 0,
+                        flex: 1,
+                        textAlign: "left",
+                      }}
+                    >
+                      {catalogFiltersSummary}
+                    </Typography>
+                  ) : null}
+                </Stack>
+                <CatalogFiltersChevron expanded={catalogFiltersExpanded} />
+              </CatalogFiltersToggle>
+              <Collapse in={catalogFiltersExpanded} id="catalog-filters-panel">
             <Stack
               direction={{ xs: "column", sm: "row" }}
               spacing={{ xs: 1, sm: 2 }}
@@ -1305,6 +1443,7 @@ export default function NavBar({
                 width: "100%",
                 maxWidth: "100%",
                 mx: "auto",
+                pt: 0.5,
               }}
             >
               <Box
@@ -1573,6 +1712,8 @@ export default function NavBar({
                       )}
                 </Box>
               </Stack>
+            </Stack>
+              </Collapse>
             </Stack>
           </StyledBox>
         )}
