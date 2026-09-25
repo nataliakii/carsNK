@@ -40,7 +40,7 @@ describe("company setup inbox tasks", () => {
     });
     expect(tasks).toHaveLength(1);
     expect(tasks[0].id).toBe("TERMS_READY_TO_ACCEPT");
-    expect(tasks[0].href).toBe("/admin/company/setup?step=terms");
+    expect(tasks[0].href).toBe("/admin/company/setup?step=details");
   });
 
   it("7. Updated terms produce one task", () => {
@@ -148,7 +148,7 @@ describe("company setup inbox tasks", () => {
     }
     expect(bell).toContain("adminInboxGroups");
     expect(read("domain/legal/companySetupTasks.js")).toContain(
-      'companySetupHref("terms")'
+      'companySetupHref("details")'
     );
   });
 

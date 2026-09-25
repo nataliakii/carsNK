@@ -29,4 +29,10 @@ describe("CompanyOfficesEditor identity contract", () => {
     expect(editorSrc).toMatch(/checked=\{Boolean\(isActive\)\}/);
     expect(editorSrc).toMatch(/updateOffice\(officeId, \{[\s\S]*active:/);
   });
+
+  test("persists drafts without database id via POST", () => {
+    expect(editorSrc).toMatch(/if \(!persistedId\)/);
+    expect(editorSrc).toMatch(/method: "POST"/);
+    expect(editorSrc).toMatch(/Save office/);
+  });
 });

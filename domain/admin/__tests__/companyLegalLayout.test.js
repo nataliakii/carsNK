@@ -17,6 +17,7 @@ describe("company legal shared layout", () => {
     expect(section).toContain('panel="documents"');
     expect(section).toContain('panel="details"');
     expect(section).toContain("<CompanyTermsPanel");
+    expect(section).toContain("data-testid=\"company-legal-details\"");
     expect(section).toContain("data-testid=\"company-legal-terms\"");
     expect(layout).toContain("COMPANY_SETTINGS_SHELL");
     expect(layout).toContain("data-testid=\"company-settings-page\"");
@@ -45,17 +46,20 @@ describe("company legal shared layout", () => {
     expect(rental).not.toContain("overflow: \"hidden\"");
   });
 
-  it("keeps document actions accessible as outlined rows", () => {
+  it("keeps document actions accessible as outlined rows that open a modal", () => {
     expect(terms).toContain("View document");
-    expect(terms).toContain("OpenInNewIcon");
+    expect(terms).toContain("LegalDocumentModal");
     expect(terms).toContain("company-terms-doc-");
+    expect(terms).toContain("onReachedEnd");
     expect(terms).toContain("variant=\"outlined\"");
+    expect(terms).not.toContain("OpenInNewIcon");
   });
 
-  it("renders rental terms and booking fee in the same Terms flow", () => {
+  it("puts Rovaro Terms on Company details and rental terms on the Terms tab", () => {
     expect(section).toContain("CompanyRentalTermsPanel");
-    expect(section).toContain("BookingFeeOutcomesTable");
-    expect(section).toContain("compact");
+    expect(section).toContain("CompanyTermsPanel");
+    expect(section).toContain("data-testid=\"company-legal-details\"");
+    expect(section).not.toContain("BookingFeeOutcomesTable");
     expect(section).toContain("Divider");
     expect(rental).toContain("Add your own rental terms");
     expect(rental).toContain("data-testid=\"company-rental-terms\"");

@@ -147,16 +147,23 @@ export async function confirmOrderFlow({ order, sessionUser, bufferHours, compan
     const timezone = reloaded.timezone || LEGACY_FALLBACK_TZ;
     const bookingMode = resolveBookingMode({ order: reloaded });
     if (isMarketplaceRequestMode(bookingMode)) {
+      const isPlatformSuperadmin =
+        policyRoleFromUser(sessionUser) === ROLE.SUPERADMIN;
       const confirmGate = await assertPartnerCanOperate(reloaded.ownerId, {
         purpose: PARTNER_OPERATION_PURPOSE.CONFIRM,
+        overrideReason: isPlatformSuperadmin
+          ? "Platform confirmation by superadmin"
+          : "",
+        overrideByRole: isPlatformSuperadmin ? "superadmin" : "",
+        overrideByEmail: sessionUser?.email || "",
+        audit: { orderId: reloaded._id },
       });
       if (!confirmGate.allowed) {
         await auditPartnerComplianceBlock({
           purpose: PARTNER_OPERATION_PURPOSE.CONFIRM,
           result: confirmGate,
           actorEmail: sessionUser?.email || "",
-          actorRole:
-            sessionUser?.role === ROLE.SUPERADMIN ? "superadmin" : "admin",
+          actorRole: isPlatformSuperadmin ? "superadmin" : "admin",
           orderId: reloaded._id,
         });
         const denial = partnerComplianceJson(confirmGate);

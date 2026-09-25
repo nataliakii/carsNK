@@ -196,19 +196,6 @@ const MediaRow = styled(Box)(({ theme }) => ({
     },
   },
 }));
-// const StyledCarDetails = styled(Box)(({ theme }) => ({
-//   display: "flex",
-//   flexDirection: "column",
-//   flexGrow: 1,
-// }));
-
-const ExpandButton = styled(IconButton)(({ theme, expanded }) => ({
-  transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-  transition: theme.transitions.create("transform", {
-    duration: theme.transitions.duration.shortest,
-  }),
-}));
-
 // Мемоизируем компонент для предотвращения ненужных ре-рендеров
 const CarItemComponent = React.memo(function CarItemComponent({ 
   car, 

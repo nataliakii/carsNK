@@ -34,7 +34,8 @@ async function loadOwnedOffice(user, officeId) {
 export async function PATCH(request, { params }) {
   const { session, errorResponse } = await requireAdmin(request);
   if (errorResponse) return errorResponse;
-  const officeId = officeIdString(params?.id);
+  const resolved = await Promise.resolve(params);
+  const officeId = officeIdString(resolved?.id);
   if (!officeId) return json({ success: false, message: "Office id required" }, 400);
 
   let body = {};
@@ -51,7 +52,12 @@ export async function PATCH(request, { params }) {
   }
 
   const next = persistOfficeShape({ ...office.toObject(), ...body, _id: office._id });
-  Object.assign(office, next);
+  if (!next) {
+    return json({ success: false, message: "Office name is required" }, 400);
+  }
+  // Do not overwrite the subdocument ObjectId with a string copy.
+  const { _id: _ignored, ...fields } = next;
+  Object.assign(office, fields);
   await company.save();
 
   await recordAuditEvent({
@@ -68,7 +74,8 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   const { session, errorResponse } = await requireAdmin(request);
   if (errorResponse) return errorResponse;
-  const officeId = officeIdString(params?.id);
+  const resolved = await Promise.resolve(params);
+  const officeId = officeIdString(resolved?.id);
   if (!officeId) return json({ success: false, message: "Office id required" }, 400);
 
   await connectToDB();

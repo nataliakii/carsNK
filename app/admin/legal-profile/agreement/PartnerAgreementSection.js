@@ -3,14 +3,14 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-import { COMPANY_TERMS_PATH } from "@/domain/legal/companyLegalPage";
+import { COMPANY_AGREEMENT_PATH } from "@/domain/legal/companyLegalPage";
 
-/** Legacy agreement screen. Company acceptance lives on the Terms tab. */
+/** Legacy agreement screen. Company acceptance lives on Company details. */
 export default function PartnerAgreementSection() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace(COMPANY_TERMS_PATH);
+    router.replace(COMPANY_AGREEMENT_PATH);
   }, [router]);
 
   return null;

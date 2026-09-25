@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Divider,
@@ -15,16 +16,18 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
+import { usePathname } from "next/navigation";
+import NextLink from "next/link";
+import { ROLE } from "@models/user";
 import { ALL_UI_LOCALES } from "@/domain/platform/uiLocales";
-import { resolveCompanyOffices } from "@/domain/company/companyOffices";
 import AdminSettingsSection, {
   adminFieldSx,
   adminFormGridSx,
   adminReadableTextSx,
   adminSurfaceSx,
 } from "@/app/admin/shared/components/AdminSettingsSection";
-import CompanyOfficesEditor from "@/app/admin/shared/components/CompanyOfficesEditor";
 
 const bookingNumberFieldSx = {
   ...adminFieldSx,
@@ -78,8 +81,16 @@ export default function CompanyStorefrontCard({
   embedded = false,
 }) {
   const { t } = useTranslation();
+  const { data: session } = useSession();
+  const isSuperAdmin = Number(session?.user?.role) === ROLE.SUPERADMIN;
+  const pathname = usePathname();
+  const locale = useMemo(() => {
+    const part = String(pathname || "").split("/").filter(Boolean)[0] || "en";
+    return /^[a-z]{2}$/i.test(part) ? part.toLowerCase() : "en";
+  }, [pathname]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [ok, setOk] = useState("");
   const [name, setName] = useState(company?.name || "");
   const [email, setEmail] = useState(company?.email || "");
   const [tel, setTel] = useState(company?.tel || "");
@@ -99,9 +110,10 @@ export default function CompanyStorefrontCard({
   const [defaultEnd, setDefaultEnd] = useState(company?.defaultEnd || "12:00");
   const [workStart, setWorkStart] = useState(company?.workingHours?.start || "08:00");
   const [workEnd, setWorkEnd] = useState(company?.workingHours?.end || "22:00");
-  const [offices, setOffices] = useState(() => resolveCompanyOffices(company));
   const [langAdmin, setLangAdmin] = useState(company?.langAdmin || "en");
 
+  const storefrontPath = slug ? `/${locale}/c/${encodeURIComponent(slug)}` : "";
+  const storefrontReady = Boolean(slug && storefrontEnabled);
   useEffect(() => {
     setName(company?.name || "");
     setEmail(company?.email || "");
@@ -117,13 +129,13 @@ export default function CompanyStorefrontCard({
     setWorkStart(company?.workingHours?.start || "08:00");
     setWorkEnd(company?.workingHours?.end || "22:00");
     setLangAdmin(company?.langAdmin || "en");
-    setOffices(resolveCompanyOffices(company));
   }, [company]);
 
   const save = useCallback(async () => {
     if (!company?._id) return;
     setBusy(true);
     setError("");
+    setOk("");
     try {
       const res = await fetch(`/api/company/${company._id}`, {
         method: "PATCH",
@@ -141,12 +153,18 @@ export default function CompanyStorefrontCard({
           defaultStart,
           defaultEnd,
           workingHours: { start: workStart, end: workEnd },
-          // Offices mutate via /api/admin/offices (CompanyOfficesEditor).
           langAdmin,
         }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error || body.message || "Failed");
+      if (!res.ok) {
+        throw new Error(body.message || body.error || "Failed");
+      }
+      setOk(
+        t("companyProfile.storefrontSaved", {
+          defaultValue: "Storefront settings saved.",
+        })
+      );
       onSaved?.(body);
     } catch (err) {
       setError(err.message || "Failed");
@@ -170,6 +188,7 @@ export default function CompanyStorefrontCard({
     workEnd,
     langAdmin,
     onSaved,
+    t,
   ]);
 
   if (!company) return null;
@@ -213,12 +232,56 @@ export default function CompanyStorefrontCard({
               onChange={(e) => setSlug(e.target.value)}
               helperText={
                 slug
-                  ? t("companyProfile.slugPreview", { slug })
+                  ? t("companyProfile.slugPreview", {
+                      slug,
+                      defaultValue: `Public page: /${locale}/c/${slug}`,
+                    })
                   : t("companyProfile.slugHelp")
               }
               disabled={disabled}
               sx={adminFieldSx}
             />
+            {storefrontPath ? (
+              <Box sx={{ gridColumn: { md: "1 / -1" } }}>
+                {storefrontReady ? (
+                  <Button
+                    component={NextLink}
+                    href={storefrontPath}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="outlined"
+                    size="small"
+                    sx={{ textTransform: "none", ...adminReadableTextSx }}
+                  >
+                    {t("companyProfile.openStorefront", {
+                      defaultValue: "Open storefront preview",
+                    })}
+                  </Button>
+                ) : (
+                  <Alert severity="info" sx={{ ...adminReadableTextSx }}>
+                    {!slug
+                      ? t("companyProfile.storefrontNeedsSlug", {
+                          defaultValue:
+                            "Set a slug above to get a public storefront URL.",
+                        })
+                      : t("companyProfile.storefrontNeedsEnabled", {
+                          defaultValue:
+                            "Turn on “Show company public page” to open the storefront.",
+                        })}
+                  </Alert>
+                )}
+              </Box>
+            ) : (
+              <Alert
+                severity="info"
+                sx={{ gridColumn: { md: "1 / -1" }, ...adminReadableTextSx }}
+              >
+                {t("companyProfile.storefrontNeedsSlug", {
+                  defaultValue:
+                    "Set a slug above to get a public storefront URL.",
+                })}
+              </Alert>
+            )}
             <TextField
               size="small"
               label={t("companyProfile.email")}
@@ -280,9 +343,20 @@ export default function CompanyStorefrontCard({
             <SettingToggle
               checked={listedOnMarketplace}
               onChange={(e) => setListedOnMarketplace(e.target.checked)}
-              disabled={disabled}
+              disabled={
+                disabled ||
+                // Only Rovaro can turn listing on; partners may turn it off.
+                (!isSuperAdmin && !listedOnMarketplace)
+              }
               title={t("companyProfile.listedOnMarketplace")}
-              help={t("companyProfile.listedOnMarketplaceHelp")}
+              help={
+                !isSuperAdmin && !listedOnMarketplace
+                  ? t("companyProfile.listedOnMarketplaceLockedHelp", {
+                      defaultValue:
+                        "Rovaro enables marketplace listing after company verification.",
+                    })
+                  : t("companyProfile.listedOnMarketplaceHelp")
+              }
             />
             <SettingToggle
               checked={useSeasons}
@@ -363,18 +437,6 @@ export default function CompanyStorefrontCard({
           </Box>
         </AdminSettingsSection>
 
-        <AdminSettingsSection
-          title={t("companyProfile.officesTitle")}
-          description={t("companyProfile.officesHelp")}
-        >
-          <CompanyOfficesEditor
-            offices={offices}
-            onChange={setOffices}
-            companyId={company?._id}
-            country={company?.country}
-            disabled={disabled}
-          />
-        </AdminSettingsSection>
       </Stack>
 
       {error ? (
@@ -386,22 +448,51 @@ export default function CompanyStorefrontCard({
           {error}
         </Typography>
       ) : null}
+      {ok ? (
+        <Typography
+          color="success.main"
+          variant="body2"
+          sx={{ mt: 2, whiteSpace: "normal", ...adminReadableTextSx }}
+        >
+          {ok}
+        </Typography>
+      ) : null}
 
-      <Button
-        variant="contained"
-        onClick={save}
-        disabled={disabled || busy}
-        sx={{
-          mt: 3,
-          textTransform: "none",
-          minWidth: { sm: 220 },
-          px: 2.5,
-          py: 1,
-          ...adminReadableTextSx,
-        }}
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        gap={1.5}
+        alignItems={{ sm: "center" }}
+        sx={{ mt: 3 }}
       >
-        {t("companyProfile.saveStorefront")}
-      </Button>
+        <Button
+          variant="contained"
+          onClick={save}
+          disabled={disabled || busy}
+          sx={{
+            textTransform: "none",
+            minWidth: { sm: 220 },
+            px: 2.5,
+            py: 1,
+            ...adminReadableTextSx,
+          }}
+        >
+          {t("companyProfile.saveStorefront")}
+        </Button>
+        {storefrontReady ? (
+          <Button
+            component={NextLink}
+            href={storefrontPath}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="text"
+            sx={{ textTransform: "none", ...adminReadableTextSx }}
+          >
+            {t("companyProfile.openStorefront", {
+              defaultValue: "Open storefront preview",
+            })}
+          </Button>
+        ) : null}
+      </Stack>
     </Box>
   );
 }

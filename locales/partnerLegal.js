@@ -238,7 +238,7 @@ export const partnerLegalEn = {
   documents: {
     title: "Supporting documents",
     subtitle:
-      "Optional. Attach what you have. Files stay private. Rovaro can ask for more during review.",
+      "Nothing here is required to keep trading. Attach a PDF or image only if you have it — Rovaro can ask for more during review.",
     uploadFailed: "Could not upload the file.",
     removeFailed: "Could not remove the file.",
     viewFailed: "Could not open the file.",
@@ -249,8 +249,15 @@ export const partnerLegalEn = {
     view: "View",
     replace: "Replace",
     upload: "Upload",
+    attach: "Attach file",
+    addTitle: "Add a document",
+    addHint:
+      "Choose a type, then attach a file. Empty types are hidden until you need them.",
+    chooseType: "Document type",
+    requiredTitle: "Required",
+    emptyLocked: "No documents attached yet.",
     remove: "Remove",
-    locked: "Documents cannot be changed while the profile is under review or verified.",
+    locked: "Documents cannot be changed while the profile is under review.",
     formats: "PDF or image, up to 10 MB.",
     kinds: {
       company_registration: "Company registration extract",
@@ -749,7 +756,7 @@ export const partnerLegalEs = {
   documents: {
     title: "Documentos de respaldo",
     subtitle:
-      "Opcional. Adjunta lo que tengas. Los archivos se quedan en privado. Rovaro puede pedir más durante la revisión.",
+      "Nada de esto es obligatorio para seguir operando. Adjunta un PDF o una imagen solo si lo tienes: Rovaro puede pedir más en la revisión.",
     uploadFailed: "No se ha podido subir el archivo.",
     removeFailed: "No se ha podido eliminar el archivo.",
     viewFailed: "No se ha podido abrir el archivo.",
@@ -760,9 +767,16 @@ export const partnerLegalEs = {
     view: "Ver",
     replace: "Sustituir",
     upload: "Subir",
+    attach: "Adjuntar archivo",
+    addTitle: "Añadir un documento",
+    addHint:
+      "Elige el tipo y adjunta el archivo. Los tipos vacíos no se listan hasta que los necesites.",
+    chooseType: "Tipo de documento",
+    requiredTitle: "Obligatorios",
+    emptyLocked: "Todavía no hay documentos adjuntos.",
     remove: "Eliminar",
     locked:
-      "Los documentos no se pueden cambiar mientras el perfil está en revisión o verificado.",
+      "Los documentos no se pueden cambiar mientras el perfil está en revisión.",
     formats: "PDF o imagen, hasta 10 MB.",
     kinds: {
       company_registration: "Extracto de registro mercantil",

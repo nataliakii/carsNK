@@ -109,6 +109,35 @@ export default function DocumentsChecklist({ row, onChanged, canReview }) {
     }
   }
 
+  async function markChecked(kind) {
+    if (!companyId || !canReview) return;
+    setBusyKind(kind);
+    setError("");
+    try {
+      const res = await fetch(
+        `/api/admin/legal/partners/${encodeURIComponent(companyId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "review_document",
+            kind,
+            reviewState: DOCUMENT_REVIEW_STATE.CHECKED,
+          }),
+        }
+      );
+      const json = await readJsonBody(res);
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || t("partnerLegal.review.failed"));
+      }
+      await onChanged?.(json);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyKind("");
+    }
+  }
+
   async function saveReview() {
     if (!dialog || !companyId) return;
     setBusyKind(dialog);
@@ -244,11 +273,42 @@ export default function DocumentsChecklist({ row, onChanged, canReview }) {
                   </Typography>
                 ) : null}
               </Box>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                 {busy ? <CircularProgress size={18} /> : null}
                 {doc.uploaded ? (
                   <Button size="small" onClick={() => viewDocument(doc.kind)} disabled={busy}>
                     {t("partnerLegal.review.doc.view", { defaultValue: "View document" })}
+                  </Button>
+                ) : null}
+                {canReview && doc.uploaded && state !== DOCUMENT_REVIEW_STATE.CHECKED ? (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="success"
+                    disabled={busy}
+                    onClick={() => markChecked(doc.kind)}
+                  >
+                    {t("partnerLegal.review.doc.markChecked", {
+                      defaultValue: "Mark as checked",
+                    })}
+                  </Button>
+                ) : null}
+                {canReview && doc.uploaded && state === DOCUMENT_REVIEW_STATE.CHECKED ? (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    disabled={busy}
+                    onClick={() => {
+                      setDialog(doc.kind);
+                      setReviewChoice(DOCUMENT_REVIEW_STATE.PROBLEM);
+                      setProblemReason(DOCUMENT_PROBLEM_REASON.UNREADABLE);
+                      setProblemNote("");
+                    }}
+                  >
+                    {t("partnerLegal.review.doc.reportProblem", {
+                      defaultValue: "Report a problem",
+                    })}
                   </Button>
                 ) : null}
               </Stack>

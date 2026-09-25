@@ -1,13 +1,18 @@
 import { companySetupHref } from "./companySetupReadiness";
 
-const TERMS_HREF = companySetupHref("terms");
+const TERMS_HREF = companySetupHref("details");
 const DETAILS_HREF = companySetupHref("details");
 const DOCUMENTS_HREF = companySetupHref("documents");
 
 /** Terms can only be accepted by a verified company. */
 const TERMS_ACCEPTABLE_STATUSES = new Set(["VERIFIED"]);
 /** Statuses in which the documents API accepts a replacement upload. */
-const DOCUMENT_UPLOAD_STATUSES = new Set(["DRAFT", "REJECTED", "SUSPENDED"]);
+const DOCUMENT_UPLOAD_STATUSES = new Set([
+  "DRAFT",
+  "REJECTED",
+  "SUSPENDED",
+  "VERIFIED",
+]);
 
 /**
  * One inbox task. `title` / `description` are English fallbacks so the API

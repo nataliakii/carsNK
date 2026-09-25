@@ -18,7 +18,7 @@ export const ADMIN_PATHS = {
   /** Superadmin platform Settings hub. */
   settings: PLATFORM_SETTINGS_PATH,
   /** Partner company legal page: details, documents, terms. */
-  legal: "/admin/company/setup?step=terms",
+  legal: "/admin/company/setup?step=details",
   /** Superadmin platform legal documents (Settings → Legal documents). */
   legalHub: `${PLATFORM_SETTINGS_PATH}?tab=legal`,
   partners: "/admin/partners",
@@ -127,6 +127,7 @@ export function getCompanyHubTabIds({
   if (hasCompanyContext) {
     return [
       "storefront",
+      "offices",
       "people",
       "delivery",
       "pricing",

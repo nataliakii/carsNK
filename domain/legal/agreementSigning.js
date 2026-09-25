@@ -85,7 +85,7 @@ export function evaluateAgreementSigningBlockers({
         blocker.step === PARTNER_GATE_STEP.PROFILE
           ? "/admin/company/setup?step=details"
           : blocker.step === PARTNER_GATE_STEP.AGREEMENT
-            ? "/admin/company/setup?step=terms"
+            ? "/admin/company/setup?step=details"
             : undefined,
     });
   }

@@ -65,18 +65,14 @@ export async function POST(request) {
 
   if (payload?.action === "preview") {
     await connectToDB();
-    const result = await previewTransferQuote(payload);
+    const result = await previewTransferQuote(payload, { includeInternal: true });
     if (!result.ok) {
       return json({ success: false, message: result.message }, 400);
     }
-    // Admin preview includes full quote with payout/margin
-    const full = await import("@/domain/transfers/pricingEngine").then((m) =>
-      m.calculateTransferQuote(payload)
-    );
     return json({
       success: true,
       publicQuote: result.quote,
-      fullQuote: full.ok ? full.quote : null,
+      fullQuote: result.internalQuote || null,
       route: result.route,
       vehicleCategory: result.vehicleCategory,
     });

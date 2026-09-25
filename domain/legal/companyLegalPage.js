@@ -20,6 +20,8 @@ import { companySetupHref, legacySetupRedirect } from "./companySetupReadiness";
 
 export const COMPANY_LEGAL_PATH = "/admin/company/legal";
 export const COMPANY_TERMS_PATH = "/admin/company/setup?step=terms";
+/** Where partners review and accept Rovaro Terms (Company details). */
+export const COMPANY_AGREEMENT_PATH = "/admin/company/setup?step=details";
 export const SUPERADMIN_LEGAL_PATH = "/admin/settings?tab=legal";
 
 export const COMPANY_LEGAL_TABS = Object.freeze([
@@ -54,7 +56,7 @@ export function legalNavHref({ role, companyContextActive = false } = {}) {
   const superadmin =
     Number(role) === ROLE.SUPERADMIN || isSuperAdminUser({ role });
   if (superadmin && !companyContextActive) return SUPERADMIN_LEGAL_PATH;
-  return COMPANY_TERMS_PATH;
+  return COMPANY_AGREEMENT_PATH;
 }
 
 /**
@@ -71,7 +73,7 @@ export function legalAreaDecision(userOrRole, companyContextActive = false) {
   }
   return {
     allow: false,
-    redirectTo: COMPANY_TERMS_PATH,
+    redirectTo: COMPANY_AGREEMENT_PATH,
     status: 403,
   };
 }

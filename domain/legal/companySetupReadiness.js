@@ -79,11 +79,11 @@ export const COMPANY_SETUP_ACTION = Object.freeze({
   }),
   [COMPANY_SETUP_STATE.TERMS_READY]: Object.freeze({
     labelKey: "reviewTerms",
-    step: "terms",
+    step: "details",
   }),
   [COMPANY_SETUP_STATE.TERMS_UPDATE]: Object.freeze({
     labelKey: "reviewUpdatedTerms",
-    step: "terms",
+    step: "details",
   }),
 });
 
@@ -101,7 +101,7 @@ export function legacySetupRedirect(pathname = "", search = {}) {
   const path = String(pathname || "").split("?")[0];
   const tab = String(search.tab || search.step || "");
   if (path === "/admin/legal-profile/agreement" || path.endsWith("/agreement")) {
-    return companySetupHref("terms");
+    return companySetupHref("details");
   }
   if (path === "/admin/legal-profile" || path.startsWith("/admin/legal-profile/")) {
     return companySetupHref("details");

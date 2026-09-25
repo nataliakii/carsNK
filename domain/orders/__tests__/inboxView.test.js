@@ -82,7 +82,7 @@ describe("admin inbox view", () => {
     expect(companySetup.count).toBe(1);
     expect(companySetup.items[0]).toMatchObject({
       id: "TERMS_READY_TO_ACCEPT",
-      href: "/admin/company/setup?step=terms",
+      href: "/admin/company/setup?step=details",
     });
     for (const item of groups.flatMap((group) => group.items)) {
       expect(item.href).not.toBe("/admin");

@@ -110,12 +110,79 @@ export function cleanHeadingMarkdown(text) {
 }
 
 /**
+ * True when text is almost certainly a paragraph, not a section title.
+ * Happens after select-all → Heading in contentEditable (every <p> becomes <h2>).
+ */
+export function looksLikeBodyMistakenForHeading(text) {
+  const t = String(text || "").trim();
+  if (!t) return false;
+  if (/\n/.test(t)) return true;
+  if (t.length >= 100) return true;
+  // Multi-sentence runs are body copy, not titles.
+  if (t.length > 80 && /[.!?][\s\u00a0]+[\p{L}\p{N}"«]/u.test(t)) return true;
+  return false;
+}
+
+/**
+ * Merge sections where body copy was stored as heading (empty body).
+ * Alternating short title + long "heading" → title + body.
+ */
+export function repairAccidentalHeadingSections(sections) {
+  const out = [];
+  for (const section of sections || []) {
+    const heading = String(section.heading || "").trim();
+    const body = String(section.body ?? section.text ?? "").trim();
+    const extras = {};
+    if (Array.isArray(section.requires) && section.requires.length) {
+      extras.requires = section.requires;
+    }
+
+    if (looksLikeBodyMistakenForHeading(heading) && !body) {
+      if (out.length) {
+        const prev = out[out.length - 1];
+        const prevBody = String(prev.body || "").trim();
+        prev.body = prevBody ? `${prevBody}\n\n${heading}` : heading;
+      } else {
+        out.push({ id: "1", heading: "", body: heading, ...extras });
+      }
+      continue;
+    }
+
+    if (looksLikeBodyMistakenForHeading(heading) && body) {
+      out.push({
+        id: String(out.length + 1),
+        heading: "",
+        body: `${heading}\n\n${body}`,
+        ...extras,
+      });
+      continue;
+    }
+
+    out.push({
+      id: String(out.length + 1),
+      heading,
+      body,
+      ...extras,
+    });
+  }
+  return out.map((section, index) => ({ ...section, id: String(index + 1) }));
+}
+
+/**
  * Undo accidental "select all → Bold" / per-paragraph <b> wraps.
  * - Whole block wrapped in **…** → plain
  * - Any full line wrapped in **…** → plain (keeps **partial** bold)
+ * - Document-wide **…** spanning paragraphs (no inner **) → plain
  */
 export function unwrapAccidentalFullBold(markdown) {
-  return String(markdown || "")
+  let source = String(markdown || "");
+  const trimmedAll = source.trim();
+  const docWrap = /^\*\*([\s\S]*)\*\*$/.exec(trimmedAll);
+  if (docWrap && !docWrap[1].includes("**")) {
+    source = docWrap[1];
+  }
+
+  return source
     .split(/\n{2,}/)
     .map((block) => {
       const trimmed = block.trim();
@@ -123,7 +190,10 @@ export function unwrapAccidentalFullBold(markdown) {
 
       const heading = /^(#{1,3}\s+)([\s\S]+)$/.exec(trimmed);
       if (heading) {
-        return `${heading[1]}${cleanHeadingMarkdown(heading[2])}`;
+        const title = cleanHeadingMarkdown(heading[2]);
+        // Select-all → Heading leaves "## long paragraph" — demote to body.
+        if (looksLikeBodyMistakenForHeading(title)) return title;
+        return `${heading[1]}${title}`;
       }
 
       const full = /^\*\*([^*]+)\*\*$/s.exec(trimmed);
@@ -154,11 +224,25 @@ export function htmlToSections(html, title = "Document") {
   const sections = [];
   chunks.forEach((chunk, index) => {
     const headingMatch = index === 0 ? null : chunk.match(/^([\s\S]*?)<\/h[1-3]>/i);
-    const heading = headingMatch
+    let heading = headingMatch
       ? cleanHeadingMarkdown(inlineToMarkdown(headingMatch[1]))
       : "";
     const rest = headingMatch ? chunk.slice(headingMatch[0].length) : chunk;
-    const body = unwrapAccidentalFullBold(htmlBlockToMarkdown(rest).trim());
+    let body = unwrapAccidentalFullBold(htmlBlockToMarkdown(rest).trim());
+
+    // Select-all → Heading: each paragraph becomes <h2>. Fold long "headings"
+    // into the previous section body instead of creating fake sections.
+    if (heading && looksLikeBodyMistakenForHeading(heading)) {
+      const demoted = body ? `${heading}\n\n${body}` : heading;
+      if (sections.length) {
+        const prev = sections[sections.length - 1];
+        prev.body = prev.body ? `${prev.body}\n\n${demoted}` : demoted;
+        return;
+      }
+      heading = "";
+      body = demoted;
+    }
+
     if (!heading && !body) return;
     sections.push({
       id: String(sections.length + 1),
@@ -173,7 +257,10 @@ export function htmlToSections(html, title = "Document") {
       body: unwrapAccidentalFullBold(inlineToMarkdown(source).trim()),
     });
   }
-  return { title, sections };
+  return {
+    title,
+    sections: repairAccidentalHeadingSections(sections),
+  };
 }
 
 function htmlBlockToMarkdown(html) {
@@ -250,10 +337,16 @@ export function markdownToSections(markdown, title = "Document") {
   for (const line of lines) {
     const heading = /^(#{1,3})\s+(.+)$/.exec(line);
     if (heading) {
+      const titleText = heading[2].trim();
+      // Long "## …" lines are body copy, not section titles.
+      if (looksLikeBodyMistakenForHeading(titleText)) {
+        current.lines.push(titleText);
+        continue;
+      }
       if (current.heading || current.lines.join("").trim()) {
         sections.push(current);
       }
-      current = { heading: heading[2].trim(), lines: [] };
+      current = { heading: titleText, lines: [] };
     } else {
       current.lines.push(line);
     }
@@ -261,13 +354,15 @@ export function markdownToSections(markdown, title = "Document") {
   sections.push(current);
   return {
     title,
-    sections: sections
-      .map((section, index) => ({
-        id: String(index + 1),
-        heading: section.heading || "",
-        body: section.lines.join("\n").trim(),
-      }))
-      .filter((section) => section.heading || section.body),
+    sections: repairAccidentalHeadingSections(
+      sections
+        .map((section, index) => ({
+          id: String(index + 1),
+          heading: section.heading || "",
+          body: section.lines.join("\n").trim(),
+        }))
+        .filter((section) => section.heading || section.body)
+    ),
   };
 }
 

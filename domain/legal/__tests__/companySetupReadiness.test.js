@@ -32,6 +32,7 @@ describe("company setup readiness", () => {
     expect(card).not.toContain("openProfile");
     expect(card).not.toContain("openAgreement");
     expect(card).not.toContain("PartnerComplianceGate");
+    expect(card).toContain('if (readiness.state === "READY_TO_TRADE") return null');
   });
 
   it("2. Terms unpublished renders no agreement action", () => {
@@ -71,7 +72,7 @@ describe("company setup readiness", () => {
       profile: profile(S.VERIFIED),
       termsPublication: "READY_TO_ACCEPT",
     });
-    expect(result.nextAction.href).toBe("/admin/company/setup?step=terms");
+    expect(result.nextAction.href).toBe("/admin/company/setup?step=details");
     expect(result.nextAction.labelKey).toBe("reviewTerms");
   });
 
@@ -115,7 +116,7 @@ describe("company setup readiness", () => {
       "/admin/company/setup?step=details"
     );
     expect(legacySetupRedirect("/admin/legal-profile/agreement")).toBe(
-      "/admin/company/setup?step=terms"
+      "/admin/company/setup?step=details"
     );
     expect(legacySetupRedirect("/admin/company/legal", { tab: "documents" })).toBe(
       "/admin/company/setup?step=documents"

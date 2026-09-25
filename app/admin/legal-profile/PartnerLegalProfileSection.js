@@ -450,8 +450,13 @@ export default function PartnerLegalProfileSection({
       {showDocuments ? (
         <PartnerDocumentsCard
           documents={profile?.documents}
-          editable={FREELY_EDITABLE.has(status)}
+          editable={
+            FREELY_EDITABLE.has(status) ||
+            status === S.VERIFIED ||
+            status === S.SUSPENDED
+          }
           onChanged={load}
+          companyId={companyId}
         />
       ) : null}
 
@@ -491,7 +496,7 @@ export default function PartnerLegalProfileSection({
         {companyView ? null : (
           <Button
             component={Link}
-            href="/admin/company/setup?step=terms"
+            href="/admin/company/setup?step=details"
             color="secondary"
           >
             {t("partnerLegal.form.goToAgreement")}

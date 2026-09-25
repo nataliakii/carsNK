@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Box, Button, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, TextField, Typography } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { parseLatLon } from "@/domain/geo/haversineKm";
 import { normalizeOperatingCities } from "@/domain/delivery/cityDeliveryPricing";
@@ -156,7 +156,16 @@ export default function CompanyServiceAreasPanel({
 
   return (
     <Box sx={adminSurfaceSx(embedded)}>
-      <AdminSettingsSection title={t("companyProfile.coverageTitle")}>
+      <AdminSettingsSection
+        title={t("companyProfile.coverageTitle")}
+        description={t("companyProfile.coverageHelp")}
+      >
+        <Alert severity="info" sx={{ mb: 2, ...adminReadableTextSx }}>
+          {t("companyProfile.coverageVsPricingNote", {
+            defaultValue:
+              "This screen only controls WHERE bookings are allowed. Delivery prices are set under Delivery / Pricing for the same company.",
+          })}
+        </Alert>
         <ServiceAreasPicker
           country={company?.country}
           value={serviceAreas}

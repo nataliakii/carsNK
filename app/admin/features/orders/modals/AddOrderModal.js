@@ -1038,7 +1038,7 @@ const AddOrder = ({ open, onClose, car, date, setUpdateStatus }) => {
             >
               <CircularProgress color="inherit" />
               <Typography variant="h6" sx={{ mt: 2 }}>
-                Отправка заказа...
+                {t("order.sendingOrder", { defaultValue: "Sending order…" })}
               </Typography>
             </Box>
           </Box>

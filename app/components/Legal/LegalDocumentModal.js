@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useRef } from "react";
 import { Box, Button, Dialog, DialogContent, IconButton, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -7,6 +8,9 @@ import CloseIcon from "@mui/icons-material/Close";
  * Published legal text, or the Booking Fee outcomes table.
  * The trigger stays a button so site-wide `a { font-size: 1.5rem }` cannot
  * turn an inline label into a heading.
+ *
+ * When `onReachedEnd` is set, scrolling (or a short document) reports that
+ * the reader reached the bottom — used for clickwrap "scroll to accept".
  */
 export default function LegalDocumentModal({
   open,
@@ -18,8 +22,12 @@ export default function LegalDocumentModal({
   publicHref,
   openInNewTabLabel = "Open in new tab",
   closeLabel = "Close",
+  onReachedEnd,
   children,
 }) {
+  const contentRef = useRef(null);
+  const reportedRef = useRef(false);
+
   const meta = [
     version ? `Version ${version}` : "",
     publishedAt ? `Published ${publishedAt}` : "",
@@ -27,6 +35,28 @@ export default function LegalDocumentModal({
   ]
     .filter(Boolean)
     .join(" · ");
+
+  const checkReachedEnd = useCallback(() => {
+    if (!onReachedEnd || reportedRef.current) return;
+    const el = contentRef.current;
+    if (!el) return;
+    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // Short docs that fit without scrolling also count as read.
+    if (remaining <= 24 || el.scrollHeight <= el.clientHeight + 8) {
+      reportedRef.current = true;
+      onReachedEnd();
+    }
+  }, [onReachedEnd]);
+
+  useEffect(() => {
+    if (!open) {
+      reportedRef.current = false;
+      return undefined;
+    }
+    reportedRef.current = false;
+    const id = requestAnimationFrame(() => checkReachedEnd());
+    return () => cancelAnimationFrame(id);
+  }, [open, title, checkReachedEnd]);
 
   return (
     <Dialog
@@ -85,6 +115,9 @@ export default function LegalDocumentModal({
         </IconButton>
       </Box>
       <DialogContent
+        ref={contentRef}
+        onScroll={checkReachedEnd}
+        dividers
         sx={{
           px: { xs: 2, sm: 3 },
           py: 2,

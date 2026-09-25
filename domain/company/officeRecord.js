@@ -59,6 +59,13 @@ export function normalizeOfficeRecord(raw, { assignId = false } = {}) {
   const carIds = Array.isArray(raw.carIds)
     ? raw.carIds.map(officeIdString).filter(isValidOfficeId)
     : [];
+  let status = normalizeOfficeStatus(raw.status);
+  // UI Switch sends `active` — map it when status was omitted or stale.
+  if (raw.active === false || raw.active === "false") {
+    status = OFFICE_STATUS.ARCHIVED;
+  } else if (raw.active === true || raw.active === "true") {
+    status = OFFICE_STATUS.ACTIVE;
+  }
   return {
     _id: isValidOfficeId(existingId)
       ? existingId
@@ -86,7 +93,7 @@ export function normalizeOfficeRecord(raw, { assignId = false } = {}) {
       end: trim(raw.openingHours?.end),
     },
     showPhone: Boolean(raw.showPhone),
-    status: normalizeOfficeStatus(raw.status),
+    status,
     freePickup: raw.freePickup !== false,
     freeReturn: raw.freeReturn !== false,
     carIds,

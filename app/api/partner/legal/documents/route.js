@@ -55,14 +55,16 @@ function noCompanyResponse() {
 }
 
 /**
- * Evidence may be replaced while the partner is still preparing the file or
- * fixing a rejection. Once it has been handed over for checking, or accepted,
- * the stored copy is what the operator reviewed and is left alone.
+ * Evidence may be replaced while preparing / fixing a rejection, and verified
+ * partners may still attach extra optional files. Under active review the
+ * stored copy stays frozen.
  */
 const UPLOADABLE_STATUSES = new Set([
   PARTNER_VERIFICATION_STATUS.DRAFT,
   PARTNER_VERIFICATION_STATUS.REJECTED,
   PARTNER_VERIFICATION_STATUS.SUSPENDED,
+  // Verified partners may still attach extra optional evidence later.
+  PARTNER_VERIFICATION_STATUS.VERIFIED,
 ]);
 
 function uploadBufferToCloudinary(buffer, folder, resourceType) {

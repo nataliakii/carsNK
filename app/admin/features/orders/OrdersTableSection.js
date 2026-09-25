@@ -153,7 +153,9 @@ export default function OrdersTableSection() {
   const [priceHistoryUi, setPriceHistoryUi] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
-  
+  /** Status + car + pickup + return + customer + price + supplier (+ company for platform) (+ platform status). */
+  const tableColCount = isPlatformAdmin ? 9 : 7;
+
   // ─────────────────────────────────────────────────────────────
   // CONFLICT STATE (persistent, per-order)
   // ─────────────────────────────────────────────────────────────
@@ -447,6 +449,40 @@ export default function OrdersTableSection() {
     };
   }, [cars, showSuperAdminFilters, adminCountry]);
 
+  const companyNameById = useMemo(() => {
+    const map = new Map();
+    for (const c of companies || []) {
+      const id = String(c?._id || "").trim();
+      if (!id) continue;
+      const name = String(c?.name || "").trim();
+      if (name) map.set(id, name);
+    }
+    for (const car of cars || []) {
+      const id = String(car?.ownerId || "").trim();
+      if (!id || map.has(id)) continue;
+      const name = String(
+        car?.ownerName || car?.companyName || car?.owner?.name || ""
+      ).trim();
+      if (name) map.set(id, name);
+    }
+    return map;
+  }, [companies, cars]);
+
+  const resolveOrderCompanyName = useCallback(
+    (order) => {
+      const ownerId = String(order?.ownerId || order?.car?.ownerId || "").trim();
+      const fromOrder = String(
+        order?.companyName || order?.ownerName || order?.company?.name || ""
+      ).trim();
+      if (fromOrder) return fromOrder;
+      if (ownerId && companyNameById.has(ownerId)) {
+        return companyNameById.get(ownerId);
+      }
+      return ownerId || "—";
+    },
+    [companyNameById]
+  );
+
   useEffect(() => {
     setSelectedOwnerId("");
   }, [adminCountry]);
@@ -548,6 +584,7 @@ export default function OrdersTableSection() {
           order.carNumber,
           order.car?.model,
           order.car?.regNumber,
+          isPlatformAdmin ? resolveOrderCompanyName(order) : null,
         ].filter(Boolean);
 
         const matchesSearch = searchFields.some((field) =>
@@ -592,6 +629,8 @@ export default function OrdersTableSection() {
     showSuperAdminFilters,
     adminCountry,
     companies,
+    isPlatformAdmin,
+    resolveOrderCompanyName,
   ]);
 
   const filteredSummary = useMemo(
@@ -1150,7 +1189,7 @@ export default function OrdersTableSection() {
     try {
       const headers = [
         t("table.status"),
-        t("table.orderNumber"),
+        ...(isPlatformAdmin ? [t("table.company")] : []),
         t("table.carModel"),
         t("table.pickup"),
         t("table.return"),
@@ -1165,7 +1204,7 @@ export default function OrdersTableSection() {
       ];
       const rows = filteredOrders.map((order) => [
         order.confirmed ? t("table.confirmed") : t("table.pending"),
-        order.orderNumber || "",
+        ...(isPlatformAdmin ? [resolveOrderCompanyName(order)] : []),
         order.car?.model || order.carModel || "",
         formatDateTime(order.rentalStartDate, order.timeIn),
         formatDateTime(order.rentalEndDate, order.timeOut),
@@ -1182,9 +1221,11 @@ export default function OrdersTableSection() {
         order.confirmed ? t("table.platformConfirmed") : t("table.platformPending"),
         order.my_order ? t("table.clientOrder") : t("table.adminOrder"),
       ]);
-      const totalRow = Array(13).fill("");
+      const colCount = headers.length;
+      const priceColIndex = isPlatformAdmin ? 8 : 7;
+      const totalRow = Array(colCount).fill("");
       totalRow[0] = t("table.sumTotal");
-      totalRow[8] = filteredSum;
+      totalRow[priceColIndex] = filteredSum;
       const aoa = [headers, ...rows, totalRow];
       const stamp = dayjs().tz(ATHENS_TZ).format("YYYY-MM-DD_HH-mm");
       await downloadOrdersTableXlsx(aoa, {
@@ -1200,6 +1241,8 @@ export default function OrdersTableSection() {
     filteredOrders,
     filteredSum,
     formatDateTime,
+    isPlatformAdmin,
+    resolveOrderCompanyName,
     t,
     enqueueSnackbar,
   ]);
@@ -1466,9 +1509,11 @@ export default function OrdersTableSection() {
                 <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>
                   {t("table.status")}
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 100 }}>
-                  {t("table.orderNumber")}
-                </TableCell>
+                {isPlatformAdmin ? (
+                  <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>
+                    {t("table.company")}
+                  </TableCell>
+                ) : null}
                 <TableCell sx={{ fontWeight: 700, minWidth: 150 }}>
                   {t("table.carModel")}
                 </TableCell>
@@ -1497,7 +1542,7 @@ export default function OrdersTableSection() {
             <TableBody>
               {showTableSkeleton ? (
                 <TableRow>
-                  <TableCell colSpan={isPlatformAdmin ? 10 : 9} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={tableColCount} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={32} />
                     <Typography variant="body2" sx={{ mt: 1 }}>
                       {t("table.loadingOrders")}
@@ -1506,7 +1551,7 @@ export default function OrdersTableSection() {
                 </TableRow>
               ) : paginatedOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isPlatformAdmin ? 10 : 9} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={tableColCount} align="center" sx={{ py: 4 }}>
                     <Typography variant="body2" color="text.secondary">
                       {t("table.noOrders")}
                     </Typography>
@@ -1663,12 +1708,23 @@ export default function OrdersTableSection() {
                         </Stack>
                       </TableCell>
 
-                      {/* Order Number - NOT EDITABLE: System-generated identifier */}
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={500}>
-                          {order.orderNumber || "-"}
-                        </Typography>
-                      </TableCell>
+                      {isPlatformAdmin ? (
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            fontWeight={500}
+                            sx={{
+                              maxWidth: 160,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                            title={resolveOrderCompanyName(order)}
+                          >
+                            {resolveOrderCompanyName(order)}
+                          </Typography>
+                        </TableCell>
+                      ) : null}
 
                       {/* Car - NOT EDITABLE: Car selection handled separately via modal */}
                       <TableCell>
@@ -2019,7 +2075,7 @@ export default function OrdersTableSection() {
                     {/* Persistent Conflict Panel - only for source order */}
                     {isConflictSource && orderConflict && (
                       <TableRow>
-                        <TableCell colSpan={isPlatformAdmin ? 10 : 9} sx={{ py: 1.5, px: 2, backgroundColor: alpha(palette.status.error, 0.08) }}>
+                        <TableCell colSpan={tableColCount} sx={{ py: 1.5, px: 2, backgroundColor: alpha(palette.status.error, 0.08) }}>
                           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" justifyContent="space-between">
                             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                               <BlockIcon sx={{ color: palette.status.error, fontSize: 18 }} />
@@ -2092,7 +2148,7 @@ export default function OrdersTableSection() {
                     {/* Conflict indicator for conflicting orders (not source) */}
                     {isConflictingOrder && !isConflictSource && (
                       <TableRow>
-                        <TableCell colSpan={isPlatformAdmin ? 10 : 9} sx={{ py: 0.5, px: 2, backgroundColor: alpha(palette.status.warning, 0.05) }}>
+                        <TableCell colSpan={tableColCount} sx={{ py: 0.5, px: 2, backgroundColor: alpha(palette.status.warning, 0.05) }}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             <BlockIcon sx={{ color: palette.status.warning, fontSize: 16 }} />
                             <Typography variant="caption" sx={{ color: palette.status.warning, fontStyle: "italic" }}>

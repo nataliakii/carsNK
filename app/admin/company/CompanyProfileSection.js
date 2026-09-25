@@ -13,6 +13,7 @@ import { useSession } from "next-auth/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import CompanyStorefrontCard from "@/app/admin/shared/components/CompanyStorefrontCard";
+import CompanyOfficesCard from "@/app/admin/shared/components/CompanyOfficesCard";
 import CompanyCoverageCard from "@/app/admin/shared/components/CompanyCoverageCard";
 import CompanyDeliveryPricingCard from "@/app/admin/shared/components/CompanyDeliveryPricingCard";
 import CompanyTransferServicesCard from "@/app/admin/shared/components/CompanyTransferServicesCard";
@@ -46,6 +47,7 @@ const TransferVouchersSection = dynamic(
 );
 
 const TAB_STOREFRONT = "storefront";
+const TAB_OFFICES = "offices";
 const TAB_PEOPLE = "people";
 const TAB_DELIVERY = "delivery";
 const TAB_PRICING = "pricing";
@@ -56,6 +58,9 @@ function companyTabDefs({ hasCompanyContext, t }) {
   const labels = {
     [TAB_STOREFRONT]: t("companyProfile.tabStorefront", {
       defaultValue: "Storefront & booking",
+    }),
+    [TAB_OFFICES]: t("companyProfile.tabOffices", {
+      defaultValue: "Offices",
     }),
     [TAB_PEOPLE]: t("companyProfile.tabPeople", {
       defaultValue: "People",
@@ -167,6 +172,7 @@ function CompanyHubInner({
 
   const needsCompany =
     tab === TAB_STOREFRONT ||
+    tab === TAB_OFFICES ||
     tab === TAB_PEOPLE ||
     tab === TAB_DELIVERY ||
     tab === TAB_PRICING;
@@ -181,6 +187,14 @@ function CompanyHubInner({
   } else if (tab === TAB_STOREFRONT && !loading) {
     activeTabContent = (
       <CompanyStorefrontCard
+        company={company}
+        onSaved={handleCompanySaved}
+        embedded
+      />
+    );
+  } else if (tab === TAB_OFFICES && !loading) {
+    activeTabContent = (
+      <CompanyOfficesCard
         company={company}
         onSaved={handleCompanySaved}
         embedded

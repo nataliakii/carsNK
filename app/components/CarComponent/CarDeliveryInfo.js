@@ -11,6 +11,7 @@ import {
 import { googleMapsSearchUrl } from "@/domain/orders/carOffices";
 import { useCompanyBookingLocations } from "@/app/hooks/useCompanyBookingLocations";
 import { CarSpecCaption } from "./CarSpecList";
+import CoverageMapPreview from "@/app/admin/shared/components/CoverageMapPreview";
 
 /**
  * Delivery conditions + operating zones — a subordinate block under the
@@ -205,6 +206,17 @@ export default function CarDeliveryInfo({
           {t("car.operatingZonesFallback")}
         </Typography>
       )}
+
+      <Box sx={{ mt: 1.75 }}>
+        <CoverageMapPreview
+          compact
+          offices={offices}
+          cities={zones}
+          communityCodes={company?.serviceAreas?.communityCodes || []}
+          provinceCodes={company?.serviceAreas?.provinceCodes || []}
+          radiusKm={company?.orderRadiusKm}
+        />
+      </Box>
     </Box>
   );
 }

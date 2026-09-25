@@ -95,6 +95,23 @@ describe("company offices", () => {
     expect(archived.name).toBe("Barcelona office");
   });
 
+  test("UI active flag maps to status when saving", () => {
+    const off = persistOfficeShape({
+      name: "QA Office",
+      address: "Carrer 1",
+      active: false,
+      status: "active",
+    });
+    expect(off.status).toBe("archived");
+    const on = persistOfficeShape({
+      name: "QA Office",
+      address: "Carrer 1",
+      active: true,
+      status: "archived",
+    });
+    expect(on.status).toBe("active");
+  });
+
   test("syncCarOfficeIds maps legacy names to company office ids", () => {
     const synced = syncCarOfficeIds({
       offices: [{ name: "Barcelona office" }],

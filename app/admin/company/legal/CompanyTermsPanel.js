@@ -1,18 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Alert,
   Box,
   Button,
   Checkbox,
+  Chip,
   FormControlLabel,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import { useSession } from "next-auth/react";
 import { useTranslation } from "react-i18next";
 
@@ -22,14 +22,55 @@ import {
 } from "@/domain/legal/companyLegalPage";
 import { COMPANY_SETTINGS_FORM_GRID } from "@/domain/admin/companySettingsLayout";
 import { adminFieldSx } from "@/app/admin/shared/components/AdminSettingsSection";
+import LegalDocumentModal from "@app/components/Legal/LegalDocumentModal";
+import {
+  markdownInlineToHtml,
+  markdownToHtml,
+} from "@/domain/legal/documentMarkup";
+
+function DocumentSections({ sections }) {
+  const list = Array.isArray(sections) ? sections : [];
+  return (
+    <Box>
+      {list.map((section, index) => {
+        const key = section.id || section.heading || `s-${index}`;
+        const body = section.text || section.body || section.content || "";
+        return (
+          <Box key={key} sx={{ mb: 2.5 }}>
+            {section.heading ? (
+              <Typography
+                component="h2"
+                sx={{ fontSize: "1.05rem", fontWeight: 700, mb: 0.75 }}
+                dangerouslySetInnerHTML={{
+                  __html: markdownInlineToHtml(section.heading),
+                }}
+              />
+            ) : null}
+            {body ? (
+              <Typography
+                component="div"
+                sx={{
+                  fontSize: "1rem",
+                  lineHeight: 1.6,
+                  "& p": { m: 0, mb: 1 },
+                  "& p:last-child": { mb: 0 },
+                  "& ul, & ol": { pl: 2.5, mb: 1 },
+                }}
+                dangerouslySetInnerHTML={{ __html: markdownToHtml(body) }}
+              />
+            ) : null}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
 
 /**
- * Company-facing Terms tab.
+ * Company-facing Rovaro Terms acceptance (shown on Company details).
  *
- * The publication state is resolved once on the server (see
- * `/api/partner/legal/status`) and handed down. This panel renders that
- * answer; it never re-derives the state from the agreement package, so the
- * Documents tab and this tab can never disagree.
+ * Documents open in a modal. While acceptance is required, each document must
+ * be scrolled to the end before the accept checkbox is enabled.
  */
 export default function CompanyTermsPanel({
   termsPublication = COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED,
@@ -45,6 +86,8 @@ export default function CompanyTermsPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [openDocType, setOpenDocType] = useState("");
+  const [readDocTypes, setReadDocTypes] = useState(() => new Set());
 
   const termsAvailable =
     termsPublication !== COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED;
@@ -66,10 +109,10 @@ export default function CompanyTermsPanel({
     setData(agreement);
     setSignerName(String(session?.user?.name || ""));
     setSignerRole(explicitSignerRole(profileBody.profile));
+    setReadDocTypes(new Set());
   }, [i18n.language, session?.user?.name, t]);
 
   useEffect(() => {
-    // Rovaro has nothing ready yet, so there is no package to open.
     if (!termsAvailable) return undefined;
     let cancelled = false;
     load().catch((err) => {
@@ -79,6 +122,14 @@ export default function CompanyTermsPanel({
       cancelled = true;
     };
   }, [load, termsAvailable]);
+
+  const packageDocs = useMemo(
+    () =>
+      (data?.documents || []).filter(
+        (doc) => doc.documentType !== "custom-agreement"
+      ),
+    [data]
+  );
 
   const view = useMemo(
     () => ({
@@ -91,8 +142,24 @@ export default function CompanyTermsPanel({
     [termsPublication, terms]
   );
 
+  const allDocsRead =
+    packageDocs.length > 0 &&
+    packageDocs.every((doc) => readDocTypes.has(doc.documentType));
+
+  const openDoc = packageDocs.find((doc) => doc.documentType === openDocType);
+
+  function markDocRead(documentType) {
+    if (!documentType) return;
+    setReadDocTypes((prev) => {
+      if (prev.has(documentType)) return prev;
+      const next = new Set(prev);
+      next.add(documentType);
+      return next;
+    });
+  }
+
   async function acceptTerms() {
-    if (!view.canAccept || !accepted || busy) return;
+    if (!view.canAccept || !accepted || !allDocsRead || busy) return;
     setBusy(true);
     setError("");
     try {
@@ -124,7 +191,7 @@ export default function CompanyTermsPanel({
 
   if (!termsAvailable || !data) {
     return (
-      <Box sx={{ pt: 0 }}>
+      <Box sx={{ pt: 0 }} data-testid="company-rovaro-terms">
         {error ? (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
             {error}
@@ -146,8 +213,14 @@ export default function CompanyTermsPanel({
     updated: "termsUpdated",
   }[view.message];
 
+  const openDocLabel = openDoc
+    ? t(`partnerLegal.companyPage.documentTypes.${openDoc.documentType}`, {
+        defaultValue: openDoc.title || openDoc.documentType,
+      })
+    : "";
+
   return (
-    <Box sx={{ pt: 0 }}>
+    <Box sx={{ pt: 0 }} data-testid="company-rovaro-terms">
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
@@ -171,98 +244,116 @@ export default function CompanyTermsPanel({
       ) : null}
 
       <Stack spacing={1} sx={{ mb: 3 }}>
-        {(data.documents || [])
-          .filter((doc) => doc.documentType !== "custom-agreement")
-          .map((doc) => {
-            const link = view.links.find(
-              (item) => item.documentType === doc.documentType
-            );
-            const label = t(
-              `partnerLegal.companyPage.documentTypes.${doc.documentType}`,
-              { defaultValue: doc.title || doc.documentType }
-            );
-            const viewLabel = t("partnerLegal.review.doc.view", {
-              defaultValue: "View document",
-            });
-            return (
-              <Button
-                key={doc.documentType}
-                component={link ? Link : "button"}
-                href={link?.href}
-                target={link ? "_blank" : undefined}
-                rel={link ? "noopener noreferrer" : undefined}
-                disabled={!link}
-                variant="outlined"
-                color="inherit"
-                data-testid={`company-terms-doc-${doc.documentType}`}
-                aria-label={`${label} — ${viewLabel}`}
-                sx={{
-                  justifyContent: "space-between",
-                  textAlign: "left",
-                  display: "flex",
-                  textTransform: "none",
-                  width: "100%",
-                  px: 2,
-                  py: 1.5,
-                  fontSize: "inherit",
-                  border: "1px solid",
-                  borderColor: "divider",
+        {packageDocs.map((doc) => {
+          const label = t(
+            `partnerLegal.companyPage.documentTypes.${doc.documentType}`,
+            { defaultValue: doc.title || doc.documentType }
+          );
+          const viewLabel = t("partnerLegal.review.doc.view", {
+            defaultValue: "View document",
+          });
+          const read = readDocTypes.has(doc.documentType);
+          return (
+            <Button
+              key={doc.documentType}
+              type="button"
+              onClick={() => setOpenDocType(doc.documentType)}
+              variant="outlined"
+              color="inherit"
+              data-testid={`company-terms-doc-${doc.documentType}`}
+              aria-label={`${label} — ${viewLabel}`}
+              sx={{
+                justifyContent: "space-between",
+                textAlign: "left",
+                display: "flex",
+                textTransform: "none",
+                width: "100%",
+                px: 2,
+                py: 1.5,
+                fontSize: "inherit",
+                border: "1px solid",
+                borderColor: "divider",
+                color: "text.primary",
+                bgcolor: "#fff",
+                "&:hover": {
+                  borderColor: "text.primary",
+                  bgcolor: "action.hover",
+                  margin: 0,
                   color: "text.primary",
-                  bgcolor: "#fff",
-                  "&:hover": {
-                    borderColor: "text.primary",
-                    bgcolor: "action.hover",
-                    margin: 0,
-                    color: "text.primary",
-                  },
-                  "&:focus-visible": {
-                    outline: "2px solid",
-                    outlineColor: "primary.main",
-                    outlineOffset: 2,
-                  },
-                  "&.Mui-disabled": { opacity: 0.55 },
-                }}
-                endIcon={<OpenInNewIcon fontSize="small" aria-hidden />}
-              >
-                <Box sx={{ textAlign: "left" }}>
+                },
+                "&:focus-visible": {
+                  outline: "2px solid",
+                  outlineColor: "primary.main",
+                  outlineOffset: 2,
+                },
+              }}
+              endIcon={<DescriptionOutlinedIcon fontSize="small" aria-hidden />}
+            >
+              <Box sx={{ textAlign: "left" }}>
+                <Stack direction="row" spacing={1} alignItems="center">
                   <Typography sx={{ fontWeight: 700 }}>{label}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {viewLabel}
-                  </Typography>
-                </Box>
-              </Button>
-            );
-          })}
+                  {view.canAccept && read ? (
+                    <Chip
+                      size="small"
+                      color="success"
+                      label={t("partnerLegal.agreement.readConfirmed", {
+                        defaultValue: "Read",
+                      })}
+                      sx={{ height: 20, fontSize: "0.65rem" }}
+                    />
+                  ) : null}
+                </Stack>
+                <Typography variant="caption" color="text.secondary">
+                  {viewLabel}
+                </Typography>
+              </Box>
+            </Button>
+          );
+        })}
       </Stack>
 
       {view.canAccept ? (
         <Stack spacing={1.5}>
+          {!allDocsRead ? (
+            <Alert severity="info">
+              {t("partnerLegal.agreement.scrollToEnd", {
+                defaultValue:
+                  "Open each document and scroll to the end before you can accept them.",
+              })}
+            </Alert>
+          ) : (
+            <Alert severity="success">
+              {t("partnerLegal.agreement.readConfirmed", {
+                defaultValue: "You have reached the end of the documents.",
+              })}
+            </Alert>
+          )}
           <Box sx={COMPANY_SETTINGS_FORM_GRID}>
-          <TextField
-            size="small"
-            fullWidth
-            sx={adminFieldSx}
-            label={t("partnerLegal.companyPage.signerName")}
-            value={signerName}
-            onChange={(event) => setSignerName(event.target.value)}
-          />
-          <TextField
-            size="small"
-            fullWidth
-            sx={adminFieldSx}
-            label={t("partnerLegal.companyPage.signerRole")}
-            value={signerRole}
-            placeholder={t("partnerLegal.companyPage.rolePlaceholder")}
-            onChange={(event) => setSignerRole(event.target.value)}
-          />
-          <TextField
-            size="small"
-            fullWidth
-            sx={{ ...adminFieldSx, gridColumn: { xs: "auto", md: "1 / -1" } }}
-            label={t("partnerLegal.companyPage.signerEmail")}
-            value={email}
-            disabled
-          />
+            <TextField
+              size="small"
+              fullWidth
+              sx={adminFieldSx}
+              label={t("partnerLegal.companyPage.signerName")}
+              value={signerName}
+              onChange={(event) => setSignerName(event.target.value)}
+            />
+            <TextField
+              size="small"
+              fullWidth
+              sx={adminFieldSx}
+              label={t("partnerLegal.companyPage.signerRole")}
+              value={signerRole}
+              placeholder={t("partnerLegal.companyPage.rolePlaceholder")}
+              onChange={(event) => setSignerRole(event.target.value)}
+            />
+            <TextField
+              size="small"
+              fullWidth
+              sx={{ ...adminFieldSx, gridColumn: { xs: "auto", md: "1 / -1" } }}
+              label={t("partnerLegal.companyPage.signerEmail")}
+              value={email}
+              disabled
+            />
           </Box>
           <FormControlLabel
             sx={{
@@ -273,6 +364,7 @@ export default function CompanyTermsPanel({
             control={
               <Checkbox
                 checked={accepted}
+                disabled={!allDocsRead}
                 onChange={(event) => setAccepted(event.target.checked)}
               />
             }
@@ -280,7 +372,13 @@ export default function CompanyTermsPanel({
           />
           <Button
             variant="contained"
-            disabled={!accepted || busy || !signerName.trim() || !signerRole.trim()}
+            disabled={
+              !allDocsRead ||
+              !accepted ||
+              busy ||
+              !signerName.trim() ||
+              !signerRole.trim()
+            }
             onClick={acceptTerms}
             sx={{ alignSelf: "flex-start", textTransform: "none" }}
           >
@@ -288,6 +386,22 @@ export default function CompanyTermsPanel({
           </Button>
         </Stack>
       ) : null}
+
+      <LegalDocumentModal
+        open={Boolean(openDoc)}
+        onClose={() => setOpenDocType("")}
+        title={openDocLabel}
+        version={openDoc?.version || ""}
+        language={openDoc?.language || String(i18n.language || "en").slice(0, 2)}
+        closeLabel={t("common.close", { defaultValue: "Close" })}
+        onReachedEnd={
+          view.canAccept && openDoc
+            ? () => markDocRead(openDoc.documentType)
+            : undefined
+        }
+      >
+        <DocumentSections sections={openDoc?.sections} />
+      </LegalDocumentModal>
     </Box>
   );
 }

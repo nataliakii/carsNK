@@ -18,6 +18,7 @@ import {
   getOperatorLine,
 } from "@config/legalEntity";
 import { PAYMENT_PROCESSOR_NAME } from "@config/stripe";
+import { repairAccidentalHeadingSections } from "@/domain/legal/documentMarkup";
 
 const TOKEN_RE = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g;
 
@@ -112,7 +113,9 @@ export function renderLegalDocument(doc, { settings = {}, language } = {}) {
     language: language || doc?.language || "en",
   });
   const requirable = getRequirableValues(settings);
-  const sections = (doc?.content?.sections || [])
+  // Repair select-all→Heading damage at read time so published pages recover
+  // without requiring every language to be re-saved.
+  const sections = repairAccidentalHeadingSections(doc?.content?.sections || [])
     .filter((section) => sectionRequirementsMet(section, requirable))
     .map((section, index) => ({
       id: section.id || `s${index + 1}`,

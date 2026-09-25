@@ -153,12 +153,14 @@ export function featuresForServiceAreas(areas, geo) {
 
 /**
  * Leaflet-friendly bounds: [[south, west], [north, east]] plus a center fallback.
+ * `offices` (array) wins over a single `office` when both are passed.
  */
 export function coverageMapBounds({
   communityCodes = [],
   provinceCodes = [],
   cityPoints = [],
   office = null,
+  offices = null,
   radiusKm = null,
   geo = null,
 } = {}) {
@@ -166,15 +168,31 @@ export function coverageMapBounds({
     { communityCodes, provinceCodes },
     geo
   );
+  const officeList =
+    Array.isArray(offices) && offices.length
+      ? offices
+      : office
+        ? [office]
+        : [];
+  const hasAreaLayers =
+    communityFeatures.length > 0 ||
+    provinceFeatures.length > 0 ||
+    cityPoints.length > 0;
   const boxes = [
     ...communityFeatures.map(featureBBox),
     ...provinceFeatures.map(featureBBox),
     ...cityPoints.map((point) => pointBBox(point)),
   ];
+  // Include office pins in the fit when there is coverage, or several offices.
+  // A lone office still uses center+zoom so the pin isn't padded-tiny.
+  if (hasAreaLayers || officeList.length > 1) {
+    boxes.push(...officeList.map((point) => pointBBox(point)));
+  }
   const radius =
     radiusKm === "" || radiusKm == null ? NaN : Number(radiusKm);
-  if (Number.isFinite(radius) && radius >= 0 && office) {
-    boxes.push(radiusBBox(office, radius));
+  const primaryOffice = officeList[0] || null;
+  if (Number.isFinite(radius) && radius >= 0 && primaryOffice) {
+    boxes.push(radiusBBox(primaryOffice, radius));
   }
 
   const merged = mergeBBoxes(boxes);
@@ -190,8 +208,8 @@ export function coverageMapBounds({
     };
   }
 
-  const lat = Number(office?.lat);
-  const lon = Number(office?.lon ?? office?.lng);
+  const lat = Number(primaryOffice?.lat);
+  const lon = Number(primaryOffice?.lon ?? primaryOffice?.lng);
   if (Number.isFinite(lat) && Number.isFinite(lon)) {
     return {
       bounds: null,

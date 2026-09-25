@@ -79,9 +79,13 @@ function useDateFormatter() {
       if (!value) return null;
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return null;
+      // Compact one-line form — medium+short wraps in narrow columns.
       return new Intl.DateTimeFormat(i18n.language || "en", {
-        dateStyle: "medium",
-        timeStyle: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       }).format(date);
     },
     [i18n.language]
@@ -410,21 +414,33 @@ export default function CompanyAdminsPanel({
         </Typography>
       ) : (
         <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-          <Table size="small">
+          <Table
+            size="small"
+            sx={{
+              "& .MuiTableCell-root": {
+                py: 0.75,
+                px: 1,
+                verticalAlign: "middle",
+                ...adminReadableTextSx,
+              },
+            }}
+          >
             <TableHead>
               <TableRow>
-                <TableCell>{t("admin.partnerAdmins.colName")}</TableCell>
-                <TableCell>{t("admin.partnerAdmins.colEmail")}</TableCell>
-                <TableCell>{t("admin.partnerAdmins.colUsername")}</TableCell>
-                <TableCell>{t("admin.partnerAdmins.colRole")}</TableCell>
-                <TableCell>{t("admin.partnerAdmins.colStatus")}</TableCell>
-                <TableCell>{t("admin.partnerAdmins.colLastLogin")}</TableCell>
-                <TableCell>{t("admin.partnerAdmins.colInviteReset")}</TableCell>
                 {canManage ? (
-                  <TableCell align="right">
+                  <TableCell sx={{ width: 108, whiteSpace: "nowrap" }}>
                     {t("admin.partnerAdmins.colActions")}
                   </TableCell>
                 ) : null}
+                <TableCell>{t("admin.partnerAdmins.colName")}</TableCell>
+                <TableCell>{t("admin.partnerAdmins.colRole")}</TableCell>
+                <TableCell>{t("admin.partnerAdmins.colStatus")}</TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>
+                  {t("admin.partnerAdmins.colLastLogin")}
+                </TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>
+                  {t("admin.partnerAdmins.colInviteReset")}
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -434,6 +450,11 @@ export default function CompanyAdminsPanel({
                   lastUsableAdmin: wouldLeaveZeroActiveAdmins(rows, row._id),
                 });
                 const chip = STATUS_CHIP[row.status] || STATUS_CHIP.active;
+                const inviteLabel = row.invitePending
+                  ? t("admin.partnerAdmins.inviteOutstanding")
+                  : row.resetPending
+                    ? t("admin.partnerAdmins.resetOutstanding")
+                    : t("admin.partnerAdmins.resetNone");
                 return (
                   <TableRow
                     key={row._id}
@@ -441,10 +462,64 @@ export default function CompanyAdminsPanel({
                     onClick={() => setDetailRow(row)}
                     sx={{ cursor: "pointer" }}
                   >
-                    <TableCell>{row.name || "—"}</TableCell>
-                    <TableCell>{row.email}</TableCell>
-                    <TableCell>{row.username || "—"}</TableCell>
+                    {canManage ? (
+                      <TableCell onClick={stopRowClick} sx={{ whiteSpace: "nowrap" }}>
+                        <Stack direction="row" gap={0.25} alignItems="center">
+                          <Tooltip title={t("admin.partnerAdmins.changeEmail")}>
+                            <IconButton
+                              size="small"
+                              disabled={busy}
+                              onClick={() => {
+                                setEmailTarget(row);
+                                setEmailForm({ email: "", confirmEmail: "" });
+                                setEmailErrors({});
+                              }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          {actions.sendPasswordReset ? (
+                            <Tooltip
+                              title={t("admin.partnerAdmins.sendPasswordReset")}
+                            >
+                              <IconButton
+                                size="small"
+                                disabled={busy}
+                                onClick={() => sendPasswordReset(row)}
+                              >
+                                <MailOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          ) : null}
+                          <Tooltip title={t("admin.partnerAdmins.moreActions")}>
+                            <IconButton
+                              size="small"
+                              aria-label={t("admin.partnerAdmins.moreActions")}
+                              disabled={busy}
+                              onClick={(event) =>
+                                setMenu({ anchor: event.currentTarget, row })
+                              }
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    ) : null}
                     <TableCell>
+                      <Typography variant="body2" fontWeight={600} noWrap>
+                        {row.name || "—"}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        noWrap
+                        display="block"
+                      >
+                        {row.email}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
                       <Chip
                         size="small"
                         variant="outlined"
@@ -456,68 +531,29 @@ export default function CompanyAdminsPanel({
                         )}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
                       <Chip
                         size="small"
                         color={chip.color}
                         label={t(`admin.partnerAdmins.${chip.key}`)}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
                       {formatDate(row.lastLoginAt) ||
                         t("admin.partnerAdmins.never")}
                     </TableCell>
-                    <TableCell>
-                      {row.invitePending
-                        ? t("admin.partnerAdmins.inviteOutstanding")
-                        : row.resetPending
-                          ? t("admin.partnerAdmins.resetOutstanding")
-                          : t("admin.partnerAdmins.resetNone")}
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        color={
+                          row.invitePending || row.resetPending
+                            ? "warning"
+                            : "default"
+                        }
+                        label={inviteLabel}
+                      />
                     </TableCell>
-                    {canManage ? (
-                    <TableCell align="right" onClick={stopRowClick}>
-                      <Stack direction="row" gap={0.5} justifyContent="flex-end">
-                        <Tooltip title={t("admin.partnerAdmins.changeEmail")}>
-                          <IconButton
-                            size="small"
-                            disabled={busy}
-                            onClick={() => {
-                              setEmailTarget(row);
-                              setEmailForm({ email: "", confirmEmail: "" });
-                              setEmailErrors({});
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        {actions.sendPasswordReset ? (
-                          <Tooltip
-                            title={t("admin.partnerAdmins.sendPasswordReset")}
-                          >
-                            <IconButton
-                              size="small"
-                              disabled={busy}
-                              onClick={() => sendPasswordReset(row)}
-                            >
-                              <MailOutlineIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        ) : null}
-                        <Tooltip title={t("admin.partnerAdmins.moreActions")}>
-                          <IconButton
-                            size="small"
-                            aria-label={t("admin.partnerAdmins.moreActions")}
-                            disabled={busy}
-                            onClick={(event) =>
-                              setMenu({ anchor: event.currentTarget, row })
-                            }
-                          >
-                            <MoreVertIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
-                    ) : null}
                   </TableRow>
                 );
               })}

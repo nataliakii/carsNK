@@ -122,7 +122,7 @@ describe("GET /api/admin/inbox/pending", () => {
     expect(body.companySetup.tasks[0]).toMatchObject({
       id: "TERMS_READY_TO_ACCEPT",
       title: "Review and accept Rovaro Terms",
-      href: "/admin/company/setup?step=terms",
+      href: "/admin/company/setup?step=details",
     });
     expect(body.total).toBe(body.bookings.count + body.companySetup.count);
     expect(body.total).toBe(4);

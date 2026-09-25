@@ -36,6 +36,7 @@ const canonicalMap = new Map([
   ["peugeot", "Peugeot"],
   ["renault", "Renault"],
   ["seat", "Seat"],
+  ["cupra", "Cupra"],
   ["skoda", "Škoda"],
   ["smart", "Smart"],
   ["suzuki", "Suzuki"],

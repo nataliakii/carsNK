@@ -297,13 +297,18 @@ export async function PATCH(request, { params }) {
       .select("_id country bookingMode listedOnMarketplace")
       .lean();
     listingWasEnabled = existingCompany?.listedOnMarketplace !== false;
-    if (updates.listedOnMarketplace === true && isMarketplaceOperatingCompany(existingCompany)) {
+    // Only gate the false → true transition. Re-saving an already-listed
+    // company (routine storefront edits) must not 403 partner admins.
+    const enablingListing =
+      updates.listedOnMarketplace === true && !listingWasEnabled;
+    if (enablingListing && isMarketplaceOperatingCompany(existingCompany)) {
       if (!isSuperAdminUser(user)) {
         return NextResponse.json(
           {
             error: "Forbidden",
             code: "MARKETPLACE_LISTING_SUPERADMIN_ONLY",
-            message: "Marketplace listing is enabled by Rovaro after verification.",
+            message:
+              "Marketplace listing is enabled by Rovaro after verification.",
           },
           { status: 403 }
         );

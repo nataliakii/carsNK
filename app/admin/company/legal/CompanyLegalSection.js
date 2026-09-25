@@ -13,7 +13,6 @@ import { COMPANY_LEGAL_TABS } from "@/domain/legal/companyLegalPage";
 
 import CompanyTermsPanel from "./CompanyTermsPanel";
 import CompanyRentalTermsPanel from "./CompanyRentalTermsPanel";
-import BookingFeeOutcomesTable from "@app/components/Legal/BookingFeeOutcomesTable";
 
 function tabFromSearch(searchParams) {
   const tab = searchParams?.get("step") || searchParams?.get("tab");
@@ -73,8 +72,21 @@ function CompanyLegalInner({ viewMode }) {
           termsPublication={publication}
         />
       ) : tab === "terms" ? (
-        <Stack
+        <Box
           data-testid="company-legal-terms"
+          sx={{
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
+            boxSizing: "border-box",
+            overflow: "visible",
+          }}
+        >
+          <CompanyRentalTermsPanel />
+        </Box>
+      ) : (
+        <Stack
+          data-testid="company-legal-details"
           spacing={0}
           divider={<Divider sx={{ my: 3 }} />}
           sx={{
@@ -85,6 +97,12 @@ function CompanyLegalInner({ viewMode }) {
             overflow: "visible",
           }}
         >
+          <PartnerLegalProfileSection
+            variant="company"
+            panel="details"
+            viewMode={viewMode}
+            termsPublication={publication}
+          />
           <Box
             data-testid="company-legal-terms-form"
             sx={{
@@ -99,18 +117,7 @@ function CompanyLegalInner({ viewMode }) {
               onAccepted={reload}
             />
           </Box>
-          <Box sx={{ width: "100%", maxWidth: "100%", minWidth: 0, overflow: "visible" }}>
-            <BookingFeeOutcomesTable language="en" compact />
-          </Box>
-          <CompanyRentalTermsPanel />
         </Stack>
-      ) : (
-        <PartnerLegalProfileSection
-          variant="company"
-          panel="details"
-          viewMode={viewMode}
-          termsPublication={publication}
-        />
       )}
     </CompanySettingsLayout>
   );

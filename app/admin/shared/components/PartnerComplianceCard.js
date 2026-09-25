@@ -67,6 +67,8 @@ export default function PartnerComplianceCard() {
     );
   }
   if (!readiness) return null;
+  // Healthy companies don't need a status banner — it only crowds the hub.
+  if (readiness.state === "READY_TO_TRADE") return null;
 
   const copy = COPY[readiness.state] || COPY.COMPANY_DETAILS_INCOMPLETE;
   const action = readiness.nextAction;

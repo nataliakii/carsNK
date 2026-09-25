@@ -43,6 +43,24 @@ function primaryOffice(offices = []) {
   );
 }
 
+function officePointsFromList(offices = []) {
+  const points = [];
+  for (const office of offices || []) {
+    const point = parseLatLon({
+      lat: office?.lat,
+      lon: office?.lon ?? office?.lng,
+    });
+    if (!point) continue;
+    points.push({
+      ...point,
+      name:
+        String(office?.name || office?.publicName || "").trim() ||
+        "Office",
+    });
+  }
+  return points;
+}
+
 function legendItem(color, label, shape = "box") {
   return (
     <Stack direction="row" alignItems="center" gap={0.6} key={label}>
@@ -94,6 +112,10 @@ export default function CoverageMapPreview({
         lon: office?.lon ?? office?.lng,
       }),
     [office?.lat, office?.lon, office?.lng]
+  );
+  const officePoints = useMemo(
+    () => officePointsFromList(offices),
+    [offices]
   );
   const query = officeQuery(office);
   const mapsUrl = query ? googleMapsSearchUrl(query) : "";
@@ -227,24 +249,25 @@ export default function CoverageMapPreview({
         .addTo(layers);
     });
 
-    if (officePoint) {
+    officePoints.forEach((point) => {
       const icon = L.divIcon({
         className: "rovaro-office-marker",
         html: `<div style="width:16px;height:16px;border-radius:3px;background:${OFFICE_COLOR};border:2px solid #fff;box-shadow:0 0 0 1px ${OFFICE_COLOR}"></div>`,
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       });
-      L.marker([officePoint.lat, officePoint.lon], { icon })
-        .bindTooltip(t("companyProfile.coverageMapLegendOffice"), {
+      L.marker([point.lat, point.lon], { icon })
+        .bindTooltip(point.name || t("companyProfile.coverageMapLegendOffice"), {
           direction: "top",
         })
         .addTo(layers);
-    }
+    });
 
     const view = coverageMapBounds({
       communityCodes,
       provinceCodes,
       cityPoints,
+      offices: officePoints,
       office: officePoint,
       radiusKm: hasRadius ? radius : null,
       geo,
@@ -261,13 +284,14 @@ export default function CoverageMapPreview({
     provinceCodes,
     cityPoints,
     officePoint,
+    officePoints,
     hasRadius,
     radius,
     t,
   ]);
 
   const empty =
-    !officePoint &&
+    !officePoints.length &&
     !cityPoints.length &&
     !communityCodes.length &&
     !provinceCodes.length;

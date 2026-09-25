@@ -8,6 +8,7 @@ import { evaluatePartnerOperatingGate } from "@/domain/legal/partnerGate";
 import { PARTNER_VERIFICATION_STATUS as S } from "@/domain/legal/partnerVerification";
 import {
   COMPANY_LEGAL_PATH,
+  COMPANY_AGREEMENT_PATH,
   COMPANY_TERMS_PATH,
   SUPERADMIN_LEGAL_PATH,
   acceptanceOutdated,
@@ -81,7 +82,7 @@ describe("company legal access", () => {
 
   it("1. ADMIN Legal nav href is the company terms step", () => {
     expect(legalNavHref({ role: ROLE.ADMIN, companyContextActive: false })).toBe(
-      "/admin/company/setup?step=terms"
+      "/admin/company/setup?step=details"
     );
   });
 
@@ -93,7 +94,7 @@ describe("company legal access", () => {
 
   it("3. SUPERADMIN with active company context Legal nav href is /admin/company/legal", () => {
     expect(legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: true })).toBe(
-      COMPANY_TERMS_PATH
+      COMPANY_AGREEMENT_PATH
     );
     const navbar = fs.readFileSync(
       path.join(process.cwd(), "app/components/Navbar.js"),
@@ -106,13 +107,13 @@ describe("company legal access", () => {
   it("4. ADMIN requesting /admin/legal is redirected", () => {
     const decision = legalAreaDecision(admin);
     expect(decision.allow).toBe(false);
-    expect(decision.redirectTo).toBe(COMPANY_TERMS_PATH);
+    expect(decision.redirectTo).toBe(COMPANY_AGREEMENT_PATH);
   });
 
   it("5. SUPERADMIN in company context requesting /admin/legal is redirected", () => {
     const decision = legalAreaDecision(impersonating);
     expect(decision.allow).toBe(false);
-    expect(decision.redirectTo).toBe(COMPANY_TERMS_PATH);
+    expect(decision.redirectTo).toBe(COMPANY_AGREEMENT_PATH);
   });
 
   it("6. SUPERADMIN outside company context may access /admin/legal", () => {
@@ -125,7 +126,7 @@ describe("company legal access", () => {
 
   it("7. Exiting company restores the superadmin Legal destination", () => {
     expect(legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: true })).toBe(
-      COMPANY_TERMS_PATH
+      COMPANY_AGREEMENT_PATH
     );
     expect(legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: false })).toBe(
       "/admin/settings?tab=legal"
@@ -156,11 +157,11 @@ describe("company legal access", () => {
   });
 
   it("10. No redirect loop occurs", () => {
-    expect(legalAreaDecision(impersonating).redirectTo).toBe(COMPANY_TERMS_PATH);
+    expect(legalAreaDecision(impersonating).redirectTo).toBe(COMPANY_AGREEMENT_PATH);
     expect(companyLegalPageAccess(impersonating).redirectTo).toBeNull();
     expect(companyLegalPageAccess(superadmin).redirectTo).toBe(SUPERADMIN_LEGAL_PATH);
     expect(legalAreaDecision(superadmin).redirectTo).toBeNull();
-    expect(legalAreaDecision(admin).redirectTo).toBe(COMPANY_TERMS_PATH);
+    expect(legalAreaDecision(admin).redirectTo).toBe(COMPANY_AGREEMENT_PATH);
     expect(companyLegalPageAccess(admin).redirectTo).toBeNull();
   });
 
@@ -168,7 +169,7 @@ describe("company legal access", () => {
     const decision = legalAreaDecision(ROLE.ADMIN);
     expect(decision.allow).toBe(false);
     expect(decision.status).toBe(403);
-    expect(decision.redirectTo).toBe(COMPANY_TERMS_PATH);
+    expect(decision.redirectTo).toBe(COMPANY_AGREEMENT_PATH);
     expect(decision.redirectTo).not.toBe(SUPERADMIN_LEGAL_PATH);
 
     const page = fs.readFileSync(
@@ -377,7 +378,7 @@ describe("company legal copy", () => {
     ).toBe("underReview");
     expect(companyLegalStatusKey({ submittedAt: "2026-09-23" })).toBe("submitted");
     expect(legacyLegalProfileRedirect("/admin/legal-profile/agreement")).toBe(
-      "/admin/company/setup?step=terms"
+      "/admin/company/setup?step=details"
     );
     expect(legacyLegalProfileRedirect("/admin/legal-profile")).toBe(
       "/admin/company/setup?step=details"
@@ -496,19 +497,19 @@ describe("company terms screen", () => {
       "legacyLegalProfileRedirect("
     );
     expect(read("app/admin/legal-profile/agreement/page.js")).toContain(
-      'companySetupHref("terms")'
+      'companySetupHref("details")'
     );
     expect(read("app/admin/legal-profile/agreement/PartnerAgreementSection.js")).toContain(
-      "COMPANY_TERMS_PATH"
+      "COMPANY_AGREEMENT_PATH"
     );
   });
 
   it("10. SUPERADMIN in company context receives the same company Terms page", () => {
     const impersonating = { role: ROLE.SUPERADMIN, viewAsCompanyId: OWN };
     expect(legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: true })).toBe(
-      COMPANY_TERMS_PATH
+      COMPANY_AGREEMENT_PATH
     );
-    expect(legalAreaDecision(impersonating).redirectTo).toBe(COMPANY_TERMS_PATH);
+    expect(legalAreaDecision(impersonating).redirectTo).toBe(COMPANY_AGREEMENT_PATH);
     expect(companyLegalPageAccess(impersonating).allow).toBe(true);
   });
 

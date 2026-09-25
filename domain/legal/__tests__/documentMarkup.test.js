@@ -2,6 +2,7 @@ import {
   htmlToSections,
   inlineToMarkdown,
   markdownToHtml,
+  repairAccidentalHeadingSections,
   sectionsToPlain,
 } from "../documentMarkup";
 
@@ -106,5 +107,48 @@ describe("legal document markup formatting", () => {
     const back = markdownToHtml(sectionsToPlain(sections));
     expect(back).not.toMatch(/<p><strong>First paragraph/);
     expect(back).toContain("<strong>kept</strong>");
+  });
+
+  test("select-all Heading demotes long h2 paragraphs back to body", () => {
+    const html =
+      "<h2>Sobre esta Política</h2>" +
+      "<h2>Rovaro es una plataforma de reservas online operada por Nataliia Kirejeva, empresaria individual establecida en Irlanda.</h2>" +
+      "<h2>Domicilio del responsable</h2>" +
+      "<h2>El domicilio del responsable del tratamiento es Dublin. Puede enviar solicitudes por correo.</h2>";
+    const { sections } = htmlToSections(html, "Doc");
+    expect(sections).toHaveLength(2);
+    expect(sections[0].heading).toBe("Sobre esta Política");
+    expect(sections[0].body).toContain("Rovaro es una plataforma");
+    expect(sections[1].heading).toBe("Domicilio del responsable");
+    expect(sections[1].body).toContain("El domicilio del responsable");
+    const back = markdownToHtml(sectionsToPlain(sections));
+    expect(back).toContain("<h2>Sobre esta Política</h2>");
+    expect(back).toContain("<p>Rovaro es una plataforma");
+    expect(back).not.toMatch(/<h2>Rovaro es una plataforma/);
+  });
+
+  test("repairAccidentalHeadingSections fixes already-stored heading-as-body docs", () => {
+    const damaged = [
+      { id: "1", heading: "Sobre esta Política de Privacidad", body: "" },
+      {
+        id: "2",
+        heading:
+          "Rovaro es una plataforma de reservas online operada por Nataliia Kirejeva, empresaria individual (autónoma) establecida en Irlanda, que opera bajo el nombre comercial NK Platform Studio.",
+        body: "",
+      },
+      { id: "3", heading: "Ámbito de esta Política", body: "" },
+      {
+        id: "4",
+        heading:
+          "Esta Política cubre los datos personales que tratamos como plataforma de reservas en línea: los datos de los clientes que buscan, solicitan y realizan reservas.",
+        body: "",
+      },
+    ];
+    const fixed = repairAccidentalHeadingSections(damaged);
+    expect(fixed).toHaveLength(2);
+    expect(fixed[0].heading).toBe("Sobre esta Política de Privacidad");
+    expect(fixed[0].body).toContain("Rovaro es una plataforma");
+    expect(fixed[1].heading).toBe("Ámbito de esta Política");
+    expect(fixed[1].body).toContain("Esta Política cubre");
   });
 });
