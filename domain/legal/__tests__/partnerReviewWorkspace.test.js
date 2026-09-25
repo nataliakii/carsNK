@@ -12,6 +12,7 @@ const {
 import {
   PARTNER_REVIEW_FILTER,
   buildPartnerReviewCompliance,
+  isNeedsReviewRow,
   resolvePartnerReviewUrl,
   reviewControlsForStatus,
   shouldShowPendingEmpty,
@@ -45,6 +46,28 @@ describe("partner review filters", () => {
   it("shows a pending company in Needs review", () => {
     const visible = visiblePartnerRows(rows, PARTNER_REVIEW_FILTER.PENDING);
     expect(visible.map((item) => item.companyId)).toEqual(["pending-es"]);
+  });
+
+  it("shows a verified company with proposed edits in Needs review", () => {
+    const withEdits = [
+      ...rows,
+      row("verified-edits", "VERIFIED", {
+        pendingChanges: [
+          {
+            field: "vehicleAuthorityConfirmed",
+            verified: false,
+            proposed: true,
+          },
+        ],
+      }),
+    ];
+    const visible = visiblePartnerRows(withEdits, PARTNER_REVIEW_FILTER.PENDING);
+    expect(visible.map((item) => item.companyId)).toEqual([
+      "pending-es",
+      "verified-edits",
+    ]);
+    expect(isNeedsReviewRow(withEdits.at(-1))).toBe(true);
+    expect(isNeedsReviewRow(row("verified-es", "VERIFIED"))).toBe(false);
   });
 
   it("hides a DRAFT company from Needs review", () => {

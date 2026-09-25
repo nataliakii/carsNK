@@ -21,12 +21,11 @@ import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { partnersTabHref } from "@/domain/admin/partnersPage";
 import {
   PARTNER_REVIEW_FILTER,
+  isNeedsReviewRow,
   resolvePartnerReviewUrl,
   shouldShowPendingEmpty,
   visiblePartnerRows,
 } from "@/domain/legal/partnerReviewWorkspace";
-
-const S_PENDING = "PENDING_VERIFICATION";
 
 /**
  * Superadmin queue: review partner KYB without opening company admin.
@@ -69,9 +68,7 @@ export default function PartnerReviewQueue({ viewMode }) {
     load();
   }, [load]);
 
-  const pendingCount = (rows || []).filter(
-    (row) => row.verification?.status === S_PENDING
-  ).length;
+  const pendingCount = (rows || []).filter((row) => isNeedsReviewRow(row)).length;
 
   const resolved = useMemo(
     () =>
@@ -122,7 +119,7 @@ export default function PartnerReviewQueue({ viewMode }) {
 
   function activateFilter(next) {
     const row = (rows || []).find((item) => item.companyId === selectedId);
-    const pending = row?.verification?.status === S_PENDING;
+    const pending = isNeedsReviewRow(row);
     writeUrl(
       {
         filter: next,
@@ -342,8 +339,7 @@ export default function PartnerReviewQueue({ viewMode }) {
                   setRows(partners);
                   const remaining = partners.filter(
                     (item) =>
-                      item.companyId !== leftId &&
-                      item.verification?.status === S_PENDING
+                      item.companyId !== leftId && isNeedsReviewRow(item)
                   );
                   if (remaining[0]) {
                     writeUrl(

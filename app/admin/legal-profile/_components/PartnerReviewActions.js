@@ -21,6 +21,7 @@ import { ADMIN_VIEW_MODE } from "@/domain/admin/adminViewMode";
 import { PARTNER_VERIFICATION_STATUS } from "@/domain/legal/partnerVerification";
 import { reviewControlsForStatus } from "@/domain/legal/partnerReviewWorkspace";
 import { pendingProfileChangeSummary } from "@/domain/legal/verifiedProfileChanges";
+import { pendingChangeLine } from "./pendingChangeCopy";
 
 const S = PARTNER_VERIFICATION_STATUS;
 
@@ -170,11 +171,7 @@ export default function PartnerReviewActions({
           <Stack spacing={0.25} sx={{ mb: 1.5 }}>
             {proposed.map((change) => (
               <Typography key={change.field} variant="body2">
-                {t(`partnerLegal.form.fields.${change.field}.label`, {
-                  defaultValue: change.field,
-                })}
-                {": "}
-                {String(change.verified || "—")} → {String(change.proposed || "—")}
+                {pendingChangeLine(t, change)}
               </Typography>
             ))}
           </Stack>

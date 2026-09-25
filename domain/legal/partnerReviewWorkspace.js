@@ -1,11 +1,13 @@
 /**
  * Partner-review queue rules shared by the Legal hub and its tests.
  *
- * Needs review is only PENDING_VERIFICATION. Any other status belongs in
- * All partners. A deep link follows the company's real status so a draft
- * is never shown under the empty pending message.
+ * Needs review: first-time KYB (`PENDING_VERIFICATION`) and verified companies
+ * that proposed field changes. Everything else belongs in All partners.
+ * A deep link follows the company's real status so a draft is never shown
+ * under the empty pending message.
  */
 
+import { coercePendingChangeList } from "./verifiedProfileChanges";
 import { evaluatePartnerOperatingGate } from "./partnerGate";
 import { REJECTION_DECISION } from "./partnerVerification";
 
@@ -22,8 +24,27 @@ export function isPendingReviewStatus(status) {
   return status === PENDING;
 }
 
+/** True when the partner proposed legal-field edits that still need an OK. */
+export function rowHasPendingProfileChanges(row) {
+  return coercePendingChangeList(row?.verification?.pendingChanges).length > 0;
+}
+
+/**
+ * Companies a superadmin must act on: new KYB, or an OK on proposed edits.
+ */
+export function isNeedsReviewRow(row) {
+  if (isPendingReviewStatus(row?.verification?.status)) return true;
+  return rowHasPendingProfileChanges(row);
+}
+
 export function filterForVerificationStatus(status) {
   return isPendingReviewStatus(status)
+    ? PARTNER_REVIEW_FILTER.PENDING
+    : PARTNER_REVIEW_FILTER.ALL;
+}
+
+export function filterForPartnerRow(row) {
+  return isNeedsReviewRow(row)
     ? PARTNER_REVIEW_FILTER.PENDING
     : PARTNER_REVIEW_FILTER.ALL;
 }
@@ -128,7 +149,7 @@ export function resolvePartnerReviewUrl({ filter, companyId, rows }) {
     };
   }
 
-  const natural = filterForVerificationStatus(selected.verification?.status);
+  const natural = filterForPartnerRow(selected);
   let nextFilter = requested || natural;
   if (nextFilter === PARTNER_REVIEW_FILTER.PENDING && natural !== PARTNER_REVIEW_FILTER.PENDING) {
     nextFilter = PARTNER_REVIEW_FILTER.ALL;
@@ -140,7 +161,7 @@ export function resolvePartnerReviewUrl({ filter, companyId, rows }) {
 export function visiblePartnerRows(rows, filter) {
   const list = Array.isArray(rows) ? rows : [];
   if (filter === PARTNER_REVIEW_FILTER.ALL) return list;
-  return list.filter((row) => isPendingReviewStatus(row.verification?.status));
+  return list.filter((row) => isNeedsReviewRow(row));
 }
 
 /** Empty pending copy is only for an empty Needs review list with nobody selected. */

@@ -89,8 +89,8 @@ export async function GET(request) {
 /**
  * PUT — create or update the partner's own legal data.
  *
- * Editing a VERIFIED profile moves it back to PENDING_VERIFICATION: changed
- * legal identifiers must be re-checked before the partner keeps trading.
+ * Editing a VERIFIED profile keeps the verified values live. Material
+ * identity fields are stored as pending for a superadmin OK.
  */
 export async function PUT(request) {
   const { session, errorResponse } = await requireAdmin(request);
@@ -226,6 +226,26 @@ export async function PUT(request) {
     } catch (err) {
       console.error(
         "[partner-profile] superadmin notify failed:",
+        err?.message || err
+      );
+    }
+  } else if (plan.pending) {
+    try {
+      const fields = Object.keys(plan.pending);
+      await notifySuperadmin({
+        title: `Proposed company details — ${profile.legalName || company?.name || companyId}`,
+        bodyLines: [
+          `Company stays VERIFIED. Open Needs review and tap Approve changes.`,
+          `Company ID: ${companyId}`,
+          `Legal name: ${profile.legalName || "—"}`,
+          `Proposed by: ${email}`,
+          `Fields: ${fields.join(", ")}`,
+          `Review: ${absoluteUrl(`/admin/partners?tab=review&companyId=${encodeURIComponent(companyId)}`)}`,
+        ],
+      });
+    } catch (err) {
+      console.error(
+        "[partner-profile] pending-changes notify failed:",
         err?.message || err
       );
     }

@@ -107,6 +107,22 @@ export function discardPendingProfileChanges(profile) {
   return { discarded };
 }
 
+export function coercePendingChangeList(pending) {
+  if (Array.isArray(pending)) {
+    return pending.filter((item) => item && item.field);
+  }
+  if (pending && typeof pending === "object" && pending.fields) {
+    return pendingProfileChangeSummary({ pendingChanges: pending });
+  }
+  return [];
+}
+
+export function formatPendingChangeValue(value) {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  const text = String(value ?? "").trim();
+  return text || "—";
+}
+
 /**
  * The changed fields only — what a reviewer has to look at. The verified
  * value stays alongside the proposal so nothing is reviewed out of context.

@@ -30,7 +30,8 @@ import {
   requestChangesChecklistFromReadiness,
 } from "@/domain/legal/partnerReviewReadiness";
 import { reviewControlsForStatus } from "@/domain/legal/partnerReviewWorkspace";
-import { pendingProfileChangeSummary } from "@/domain/legal/verifiedProfileChanges";
+import { coercePendingChangeList } from "@/domain/legal/verifiedProfileChanges";
+import { pendingChangeLine } from "../pendingChangeCopy";
 
 const S = PARTNER_VERIFICATION_STATUS;
 
@@ -79,12 +80,7 @@ export default function StickyReviewActions({
   const readiness = row?.readiness;
   const canApprove = readiness?.canApprove !== false;
   const blockedReason = (readiness?.approveBlockedReasons || [])[0] || "";
-  const proposed =
-    row?.verification?.pendingChanges ||
-    pendingProfileChangeSummary({
-      verificationStatus: status,
-      pendingChanges: row?.verification?.pendingChanges,
-    });
+  const proposed = coercePendingChangeList(row?.verification?.pendingChanges);
 
   const approveChecklist = useMemo(
     () => [
@@ -340,6 +336,16 @@ export default function StickyReviewActions({
               <Typography sx={{ fontWeight: 700, fontSize: "0.9rem" }}>
                 {t("partnerLegal.review.pendingChangesTitle")}
               </Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                {t("partnerLegal.review.pendingChangesBody")}
+              </Typography>
+              <Stack spacing={0.25} sx={{ mb: 1.5 }}>
+                {proposed.map((change) => (
+                  <Typography key={change.field} variant="body2">
+                    {pendingChangeLine(t, change)}
+                  </Typography>
+                ))}
+              </Stack>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 1 }}>
                 <Button
                   size="small"

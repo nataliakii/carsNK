@@ -10,6 +10,7 @@ import { evaluateProfileCompleteness } from "@/domain/legal/partnerVerification"
 import { getCurrentPackageChecksum } from "@/domain/legal/agreementService";
 import {
   buildPartnerReviewCompliance,
+  isNeedsReviewRow,
   reviewDisplayStatus,
   reviewDisplayStatusLabel,
 } from "@/domain/legal/partnerReviewWorkspace";
@@ -52,7 +53,10 @@ export async function GET(request) {
         ? 0
         : await PartnerLegalProfile.countDocuments({
             companyId: { $in: companyIds },
-            verificationStatus: "PENDING_VERIFICATION",
+            $or: [
+              { verificationStatus: "PENDING_VERIFICATION" },
+              { "pendingChanges.submittedAt": { $ne: null } },
+            ],
           });
     return NextResponse.json({
       success: true,
@@ -209,8 +213,8 @@ export async function GET(request) {
   });
 
   const rank = (row) => {
+    if (isNeedsReviewRow(row)) return 0;
     const status = row.verification?.status || "";
-    if (status === "PENDING_VERIFICATION") return 0;
     if (status === "DRAFT" || status === "REJECTED") return 1;
     if (status === "SUSPENDED") return 2;
     if (status === "VERIFIED") return 3;
@@ -218,9 +222,7 @@ export async function GET(request) {
   };
   rows.sort((a, b) => rank(a) - rank(b) || a.companyName.localeCompare(b.companyName));
 
-  const pendingReview = rows.filter(
-    (row) => row.verification?.status === "PENDING_VERIFICATION"
-  ).length;
+  const pendingReview = rows.filter((row) => isNeedsReviewRow(row)).length;
 
   return NextResponse.json({
     success: true,
