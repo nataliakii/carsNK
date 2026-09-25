@@ -5,7 +5,7 @@
 
 import { absoluteUrl } from "@config/domain";
 import { ROVARO_MAILBOX } from "@config/email";
-import { isValidPublicBookingReference } from "@/domain/booking/publicBookingReference";
+import { isValidPublicBookingReference } from "@/domain/booking/publicBookingReferenceValidate";
 import {
   bookingAccessAttemptLimited,
   consumeInvalidBookingAccessAttempt,

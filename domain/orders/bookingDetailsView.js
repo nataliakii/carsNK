@@ -28,7 +28,7 @@ import {
   resolveMarketplaceBookingFeeBps,
   snapshotMarketplaceBookingFeeBps,
 } from "@/domain/orders/marketplaceBookingFee";
-import { isValidPublicBookingReference } from "@/domain/booking/publicBookingReference";
+import { isValidPublicBookingReference } from "@/domain/booking/publicBookingReferenceValidate";
 import {
   BOOKING_CAPABILITY,
   hasBookingCapability,

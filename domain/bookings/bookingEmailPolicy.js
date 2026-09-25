@@ -37,7 +37,7 @@ import {
   formatSnapshotMoney,
   resolveBookingFinancialSnapshot,
 } from "@/domain/orders/bookingFinancialSnapshot";
-import { isValidPublicBookingReference } from "@/domain/booking/publicBookingReference";
+import { isValidPublicBookingReference } from "@/domain/booking/publicBookingReferenceValidate";
 
 /* ────────────────────────────────────────────────────────────────
  * 1. The six communication events of the standard successful flow

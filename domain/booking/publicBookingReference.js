@@ -1,23 +1,27 @@
 /**
- * Customer-safe booking reference.
+ * Customer-safe booking reference (server).
  *
  * RVR- plus 5 unambiguous uppercase characters. O, 0, I and 1 are excluded.
  * Generated with a cryptographic RNG. Not derived from Mongo _id, the
  * numeric order number, a timestamp, or a counter.
+ *
+ * For validation only (no DB), import `@/domain/booking/publicBookingReferenceValidate`.
  */
 
 import crypto from "crypto";
 
-export const PUBLIC_REFERENCE_PREFIX = "RVR-";
-export const PUBLIC_REFERENCE_LENGTH = 5;
-/** Crockford-style alphabet without O/0 and I/1. */
-export const PUBLIC_REFERENCE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-const REFERENCE_RE = /^RVR-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5}$/;
-
-export function isValidPublicBookingReference(value) {
-  return REFERENCE_RE.test(String(value || "").trim());
-}
+export {
+  PUBLIC_REFERENCE_ALPHABET,
+  PUBLIC_REFERENCE_LENGTH,
+  PUBLIC_REFERENCE_PREFIX,
+  isValidPublicBookingReference,
+} from "@/domain/booking/publicBookingReferenceValidate";
+import {
+  PUBLIC_REFERENCE_ALPHABET,
+  PUBLIC_REFERENCE_LENGTH,
+  PUBLIC_REFERENCE_PREFIX,
+  isValidPublicBookingReference,
+} from "@/domain/booking/publicBookingReferenceValidate";
 
 export function generatePublicBookingReference() {
   let body = "";
