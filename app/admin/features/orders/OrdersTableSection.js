@@ -59,7 +59,9 @@ import {
   ROLE,
   isClientOrder,
 } from "@/domain/orders";
-import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
+import { getOrderAccess, getDisabledFields } from "@/domain/orders/orderAccessPolicy";
+import { isOrderPaidAndClosed } from "@/domain/orders/orderStatus";
+import { PLATFORM_LOCKED_FIELDS } from "@/domain/orders/bookingCapabilities";
 import { getOrderNumberOfDaysOrZero } from "@/domain/orders/numberOfDays";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { updateOrderInline, updateOrderConfirmation, calculateTotalPrice, updateOrderSupplierResponse } from "@/utils/action";
@@ -81,9 +83,12 @@ import {
   isPlatformBooking,
   matchesBookingSourceFilter,
   buildContractorOrdersExport,
+  INTERNAL_RECORD_STATUS,
   PLATFORM_WORKFLOW_STAGE,
+  resolveInternalRecordStatus,
   resolvePlatformWorkflowStage,
 } from "@/domain/admin/rovaroContractorAdmin";
+import { companyAdminMayAdjustPlatformTimes } from "@/domain/booking/resolveBookingCapabilities";
 import { extractArraysOfStartEndConfPending } from "@/domain/calendar";
 import EditOrderModal from "@/app/admin/features/orders/modals/EditOrderModal";
 import BookingDetailsModal from "@/app/admin/features/orders/modals/BookingDetailsModal";
@@ -422,17 +427,17 @@ export default function OrdersTableSection() {
   }, [session]);
 
   
-  // 🔧 FIXED: Use orderAccessPolicy directly (no legacy shims)
-  // Permission check helpers using SSOT: getOrderAccess + getTimeBucket
+  // Permission check helpers — same context shape as useOrderAccess / EditOrderModal
   const getAccessForOrder = useCallback((order) => {
     if (!currentUser || !order) return null;
     const timeBucket = getTimeBucket(order);
     const isPast = timeBucket === "PAST";
     return getOrderAccess({
       role: policyRoleFromUser(currentUser) === ROLE.SUPERADMIN ? "SUPERADMIN" : "ADMIN",
-      isClientOrder: order.my_order === true,
+      isClientOrder: isPlatformBooking(order),
       confirmed: order.confirmed === true,
       isPast,
+      isClosed: isOrderPaidAndClosed(order.status),
       timeBucket,
       bookingMode: order.bookingMode || "",
       partnerConfirmed: Boolean(
@@ -445,7 +450,14 @@ export default function OrdersTableSection() {
   const canEdit = useCallback((order) => {
     const access = getAccessForOrder(order);
     if (!access) return false;
-    return !access.isViewOnly;
+    // Platform: only clock times on confirmed/paid — not free calendar edits
+    if (isPlatformBooking(order)) {
+      return (
+        companyAdminMayAdjustPlatformTimes(order, "timeIn") ||
+        companyAdminMayAdjustPlatformTimes(order, "timeOut")
+      );
+    }
+    return !access.isViewOnly && access.canEdit;
   }, [getAccessForOrder]);
   
   const canDelete = useCallback((order) => {
@@ -455,22 +467,50 @@ export default function OrdersTableSection() {
   }, [getAccessForOrder]);
   
   /**
-   * Get field-level permission for an order
-   * Uses orderAccessPolicy.disabledFields (SSOT)
-   * 
-   * @param {Object} order
-   * @param {string} fieldName
-   * @returns {{ allowed: boolean, reason: string|null }}
+   * Field-level permission for inline cells.
+   * Platform: locked except timeIn/timeOut on confirmed/paid (price unchanged).
    */
   const getFieldPermission = useCallback((order, fieldName) => {
     const access = getAccessForOrder(order);
     if (!access) {
       return { allowed: false, reason: "Not authenticated" };
     }
-    // Check if field is in disabledFields
-    const isDisabled = access.disabledFields?.includes(fieldName);
-    return { allowed: !isDisabled, reason: isDisabled ? "Field is disabled by policy" : null };
-  }, [getAccessForOrder]);
+    if (isPlatformBooking(order)) {
+      if (companyAdminMayAdjustPlatformTimes(order, fieldName)) {
+        return { allowed: true, reason: null };
+      }
+      if (PLATFORM_LOCKED_FIELDS.includes(fieldName)) {
+        return {
+          allowed: false,
+          reason: t("table.platformInlineLocked", {
+            defaultValue:
+              "Only pickup/return times can be changed on a paid platform booking (price stays fixed). Dates and other terms need amend with customer consent.",
+          }),
+        };
+      }
+      return {
+        allowed: false,
+        reason: t("table.viewOnlyOrder", {
+          defaultValue: "This booking is view-only",
+        }),
+      };
+    }
+    if (!access.canEdit || access.isViewOnly) {
+      return {
+        allowed: false,
+        reason: t("table.viewOnlyOrder", {
+          defaultValue: "This booking is view-only",
+        }),
+      };
+    }
+    const disabled = getDisabledFields(access);
+    if (disabled.includes(fieldName)) {
+      return { allowed: false, reason: t("table.fieldDisabledByPolicy", {
+        defaultValue: "This field cannot be edited for this booking",
+      }) };
+    }
+    return { allowed: true, reason: null };
+  }, [getAccessForOrder, t]);
   
   const canEditField = useCallback((order, fieldName) => {
     if (!currentUser) {
@@ -830,7 +870,7 @@ export default function OrdersTableSection() {
       },
       {
         value: "table.toneConfirmedPaid",
-        label: t("table.toneConfirmedPaid", { defaultValue: "Confirmed" }),
+        label: t("table.toneConfirmedPaid", { defaultValue: "Confirmed (paid)" }),
       },
       {
         value: "table.toneAlternative",
@@ -881,10 +921,19 @@ export default function OrdersTableSection() {
    */
   const handleFieldUpdate = useCallback(async (orderId, field, value, options = {}) => {
     const savingKey = `${orderId}_${field}`;
+    const order = orders.find((o) => o._id === orderId);
+    const permission = order
+      ? getFieldPermission(order, field)
+      : { allowed: false, reason: "Order not found" };
+    if (!permission.allowed) {
+      enqueueSnackbar(permission.reason || t("table.updateFailed"), {
+        variant: "warning",
+      });
+      return;
+    }
     setIsSaving((prev) => ({ ...prev, [savingKey]: true }));
     try {
       const fieldsToSend = {};
-      const order = orders.find((o) => o._id === orderId);
       
       // Format value based on field type
       if (field === "rentalStartDate" || field === "rentalEndDate") {
@@ -1057,6 +1106,7 @@ export default function OrdersTableSection() {
     setConflictHighlightsFromResult,
     clearConflictHighlights,
     setAllOrders,
+    getFieldPermission,
     t,
   ]);
   
@@ -1395,48 +1445,345 @@ export default function OrdersTableSection() {
   const handleExportExcel = useCallback(async () => {
     try {
       const exported = buildContractorOrdersExport(filteredOrders);
-      const headers = [
-        t("table.status", { defaultValue: "Status" }),
-        t("table.filterByOrigin", { defaultValue: "Source" }),
-        ...(isPlatformAdmin ? [t("table.company")] : []),
-        t("table.orderNumber", { defaultValue: "Order #" }),
-        t("table.price", { defaultValue: "Rental total" }),
+      const fmtDate = (iso) => {
+        if (!iso) return "";
+        const d = dayjs(iso).tz(ATHENS_TZ);
+        return d.isValid() ? d.format("DD.MM.YYYY") : "";
+      };
+      const fmtTime = (iso) => {
+        if (!iso) return "";
+        const d = dayjs(iso).tz(ATHENS_TZ);
+        return d.isValid() ? d.format("HH:mm") : "";
+      };
+      const fmtDateTime = (iso) => {
+        if (!iso) return "";
+        const d = dayjs(iso).tz(ATHENS_TZ);
+        return d.isValid() ? d.format("DD.MM.YYYY HH:mm") : "";
+      };
+      const sourceLabel = (source) =>
+        source === "PLATFORM"
+          ? t("table.sourceRovaroShort", { defaultValue: "Rovaro" })
+          : source === "INTERNAL"
+            ? t("table.sourceInternalShort", { defaultValue: "Internal" })
+            : t("table.toneUnresolved", { defaultValue: "Needs review" });
+
+      const columns = [
+        {
+          key: "orderNumber",
+          header: t("table.orderNumber", { defaultValue: "Order #" }),
+          cell: (r) => r.orderNumber,
+        },
+        {
+          key: "publicReference",
+          header: t("table.exportPublicRef", { defaultValue: "Public reference" }),
+          cell: (r) => r.publicReference,
+        },
+        {
+          key: "source",
+          header: t("table.filterByOrigin", { defaultValue: "Origin" }),
+          cell: (r) => sourceLabel(r.source),
+        },
         ...(isPlatformAdmin
-          ? [t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })]
+          ? [
+              {
+                key: "company",
+                header: t("table.company"),
+                cell: (_r, order) => resolveOrderCompanyName(order),
+              },
+            ]
           : []),
-        t("table.dueToCompany", { defaultValue: "Due to company" }),
+        {
+          key: "status",
+          header: t("table.status", { defaultValue: "Status" }),
+          cell: (r) => t(r.statusKey, { defaultValue: r.statusKey }),
+        },
+        {
+          key: "bookingStatus",
+          header: t("table.exportBookingStatus", { defaultValue: "Booking status" }),
+          cell: (r) => r.bookingStatus,
+        },
+        {
+          key: "yourResponse",
+          header: t("table.yourResponse", { defaultValue: "Your response" }),
+          cell: (r) =>
+            t(r.yourResponseKey, { defaultValue: r.yourResponseFallback }),
+        },
+        {
+          key: "paymentStatus",
+          header: t("table.exportPaymentStatus", { defaultValue: "Payment status" }),
+          cell: (r) => r.paymentStatus,
+        },
+        {
+          key: "customerConfirmation",
+          header: t("table.customerConfirmation", {
+            defaultValue: "Customer confirmation",
+          }),
+          cell: (r) => r.customerConfirmation,
+        },
+                        {
+                          key: "carModel",
+                          header: t("table.carModel", { defaultValue: "Car" }),
+                          cell: (r) => r.carModel,
+                        },
+        {
+          key: "carNumber",
+          header: t("table.exportCarNumber", { defaultValue: "Fleet #" }),
+          cell: (r) => r.carNumber,
+        },
+        {
+          key: "regNumber",
+          header: t("table.exportRegNumber", { defaultValue: "Registration" }),
+          cell: (r) => r.regNumber,
+        },
+        {
+          key: "vehicleClass",
+          header: t("table.exportVehicleClass", { defaultValue: "Class" }),
+          cell: (r) => r.vehicleClass,
+        },
+        {
+          key: "transmission",
+          header: t("table.exportTransmission", { defaultValue: "Transmission" }),
+          cell: (r) => r.transmission,
+        },
+        {
+          key: "seats",
+          header: t("table.exportSeats", { defaultValue: "Seats" }),
+          cell: (r) => r.seats,
+        },
+        {
+          key: "pickupDate",
+          header: t("table.exportPickupDate", { defaultValue: "Pickup date" }),
+          cell: (r) => fmtDate(r.timeIn || r.pickupAt || r.rentalStartDate),
+        },
+        {
+          key: "pickupTime",
+          header: t("table.exportPickupTime", { defaultValue: "Pickup time" }),
+          cell: (r) => fmtTime(r.timeIn || r.pickupAt),
+        },
+        {
+          key: "returnDate",
+          header: t("table.exportReturnDate", { defaultValue: "Return date" }),
+          cell: (r) => fmtDate(r.timeOut || r.returnAt || r.rentalEndDate),
+        },
+        {
+          key: "returnTime",
+          header: t("table.exportReturnTime", { defaultValue: "Return time" }),
+          cell: (r) => fmtTime(r.timeOut || r.returnAt),
+        },
+        {
+          key: "rentalDays",
+          header: t("table.days", { defaultValue: "Days" }),
+          cell: (r) => r.rentalDays,
+        },
+        {
+          key: "placeIn",
+          header: t("table.exportPlaceIn", { defaultValue: "Pickup place" }),
+          cell: (r) => r.placeIn,
+        },
+        {
+          key: "placeInDetail",
+          header: t("table.exportPlaceInDetail", {
+            defaultValue: "Pickup detail",
+          }),
+          cell: (r) => r.placeInDetail,
+        },
+        {
+          key: "placeOut",
+          header: t("table.exportPlaceOut", { defaultValue: "Return place" }),
+          cell: (r) => r.placeOut,
+        },
+        {
+          key: "placeOutDetail",
+          header: t("table.exportPlaceOutDetail", {
+            defaultValue: "Return detail",
+          }),
+          cell: (r) => r.placeOutDetail,
+        },
+        {
+          key: "flightNumber",
+          header: t("table.exportFlight", { defaultValue: "Flight" }),
+          cell: (r) => r.flightNumber,
+        },
+        {
+          key: "insurance",
+          header: t("table.exportInsurance", { defaultValue: "Insurance" }),
+          cell: (r) => r.insurance,
+        },
+        {
+          key: "franchise",
+          header: t("table.exportFranchise", { defaultValue: "Excess" }),
+          cell: (r) => r.franchise,
+        },
+        {
+          key: "childSeats",
+          header: t("table.exportChildSeats", { defaultValue: "Child seats" }),
+          cell: (r) => r.childSeats,
+        },
+        {
+          key: "secondDriver",
+          header: t("table.exportSecondDriver", { defaultValue: "Second driver" }),
+          cell: (r) => r.secondDriver,
+        },
+        {
+          key: "customerName",
+          header: t("table.customerName", { defaultValue: "Customer" }),
+          cell: (r) => r.customerName,
+        },
+        {
+          key: "phone",
+          header: t("table.phone", { defaultValue: "Phone" }),
+          cell: (r) => r.phone,
+        },
+        {
+          key: "email",
+          header: t("table.email", { defaultValue: "Email" }),
+          cell: (r) => r.email,
+        },
+        {
+          key: "viber",
+          header: "Viber",
+          cell: (r) => r.viber,
+        },
+        {
+          key: "whatsapp",
+          header: "WhatsApp",
+          cell: (r) => r.whatsapp,
+        },
+        {
+          key: "telegram",
+          header: "Telegram",
+          cell: (r) => r.telegram,
+        },
+        {
+          key: "customerNotes",
+          header: t("table.exportCustomerNotes", { defaultValue: "Customer notes" }),
+          cell: (r) => r.customerNotes,
+        },
+        {
+          key: "supplierRespondedAt",
+          header: t("table.exportConfirmedAt", {
+            defaultValue: "Supplier responded at",
+          }),
+          cell: (r) => fmtDateTime(r.supplierRespondedAt),
+        },
+        {
+          key: "supplierRespondedByName",
+          header: t("table.exportConfirmedBy", {
+            defaultValue: "Confirmed by",
+          }),
+          cell: (r) => r.supplierRespondedByName,
+        },
+        {
+          key: "supplierRespondedByEmail",
+          header: t("table.exportConfirmedByEmail", {
+            defaultValue: "Confirmed by email",
+          }),
+          cell: (r) => r.supplierRespondedByEmail,
+        },
+        {
+          key: "partnerConfirmedAt",
+          header: t("table.exportPartnerConfirmedAt", {
+            defaultValue: "Partner confirmed at",
+          }),
+          cell: (r) => fmtDateTime(r.partnerConfirmedAt),
+        },
+        {
+          key: "companyEmailDecision",
+          header: t("table.exportEmailDecision", {
+            defaultValue: "Email decision",
+          }),
+          cell: (r) => r.companyEmailDecision,
+        },
+        {
+          key: "declineReason",
+          header: t("table.supplierReason", { defaultValue: "Decline reason" }),
+          cell: (r) => r.declineReason,
+        },
+        {
+          key: "rentalTotal",
+          header: t("table.price", { defaultValue: "Rental total" }),
+          cell: (r) => r.rentalTotal,
+        },
+        ...(isPlatformAdmin
+          ? [
+              {
+                key: "bookingFee",
+                header: t("table.bookingFee", {
+                  defaultValue: "Rovaro Booking Fee",
+                }),
+                cell: (r) => r.bookingFee,
+              },
+            ]
+          : []),
+        {
+          key: "dueToCompany",
+          header: t("table.dueToCompany", { defaultValue: "Due to company" }),
+          cell: (r) => r.dueToCompany,
+        },
+        {
+          key: "bookingMode",
+          header: t("table.exportBookingMode", { defaultValue: "Booking mode" }),
+          cell: (r) => r.bookingMode,
+        },
+        {
+          key: "offline",
+          header: t("table.exportOffline", { defaultValue: "Offline" }),
+          cell: (r) => r.offline,
+        },
+        {
+          key: "hasProblem",
+          header: t("table.exportProblem", { defaultValue: "Problem" }),
+          cell: (r) => r.hasProblem,
+        },
+        {
+          key: "companyNotes",
+          header: t("table.exportCompanyNotes", { defaultValue: "Company notes" }),
+          cell: (r) => r.companyNotes,
+        },
+        {
+          key: "companyTags",
+          header: t("table.exportCompanyTags", { defaultValue: "Tags" }),
+          cell: (r) => r.companyTags,
+        },
+        {
+          key: "createdAt",
+          header: t("table.exportCreatedAt", { defaultValue: "Created at" }),
+          cell: (r) => fmtDateTime(r.createdAt),
+        },
+        {
+          key: "updatedAt",
+          header: t("table.exportUpdatedAt", { defaultValue: "Updated at" }),
+          cell: (r) => fmtDateTime(r.updatedAt),
+        },
       ];
+
+      const headers = columns.map((c) => c.header);
       const rows = filteredOrders.map((order, index) => {
         const row = exported.rows[index];
-        return [
-        t(row.statusKey, { defaultValue: row.statusKey }),
-        row.source === "PLATFORM"
-          ? t("table.sourceRovaroShort", { defaultValue: "Rovaro" })
-          : row.source === "INTERNAL"
-            ? t("table.sourceInternalShort", { defaultValue: "Internal" })
-            : t("table.toneUnresolved", { defaultValue: "Needs review" }),
-        ...(isPlatformAdmin ? [resolveOrderCompanyName(order)] : []),
-        row.orderNumber,
-        row.rentalTotal,
-        ...(isPlatformAdmin ? [row.bookingFee] : []),
-        row.dueToCompany,
-      ];
+        return columns.map((c) => c.cell(row, order));
       });
+
       const blank = Array(headers.length).fill("");
+      const idx = (key) => columns.findIndex((c) => c.key === key);
       const platformRow = [...blank];
-      platformRow[0] = t("table.rovaroBookingsTitle", { defaultValue: "Rovaro bookings" });
-      if (isPlatformAdmin) {
-        platformRow[headers.length - 3] = exported.totals.platformBookingValue;
-        platformRow[headers.length - 2] = exported.totals.rovaroBookingFees;
-        platformRow[headers.length - 1] = exported.totals.supplierPlatformAmount;
-      } else {
-        platformRow[headers.length - 2] = exported.totals.platformBookingValue;
-        platformRow[headers.length - 1] = exported.totals.supplierPlatformAmount;
-      }
+      platformRow[0] = t("table.rovaroBookingsTitle", {
+        defaultValue: "Rovaro bookings",
+      });
+      const rentalIdx = idx("rentalTotal");
+      const feeIdx = idx("bookingFee");
+      const dueIdx = idx("dueToCompany");
+      if (rentalIdx >= 0) platformRow[rentalIdx] = exported.totals.platformBookingValue;
+      if (feeIdx >= 0) platformRow[feeIdx] = exported.totals.rovaroBookingFees;
+      if (dueIdx >= 0) platformRow[dueIdx] = exported.totals.supplierPlatformAmount;
+
       const internalRow = [...blank];
-      internalRow[0] = t("table.internalBookingsTitle", { defaultValue: "Internal bookings" });
-      internalRow[headers.length - (isPlatformAdmin ? 3 : 2)] =
-        exported.totals.internalBookingValue;
+      internalRow[0] = t("table.internalBookingsTitle", {
+        defaultValue: "Internal bookings",
+      });
+      if (rentalIdx >= 0) {
+        internalRow[rentalIdx] = exported.totals.internalBookingValue;
+      }
+
       const aoa = [headers, ...rows, platformRow, internalRow];
       const stamp = dayjs().tz(ATHENS_TZ).format("YYYY-MM-DD_HH-mm");
       await downloadOrdersTableXlsx(aoa, {
@@ -1778,7 +2125,7 @@ export default function OrdersTableSection() {
                       {
                         "table.toneNewRequest": "New request",
                         "table.toneAwaitingPayment": "Awaiting payment",
-                        "table.toneConfirmedPaid": "Confirmed",
+                        "table.toneConfirmedPaid": "Confirmed (paid)",
                         "table.toneAlternative": "Alternative offered",
                         "table.toneCompletionPending": "Completion pending",
                         "table.toneCompleted": "Completed",
@@ -1882,8 +2229,11 @@ export default function OrdersTableSection() {
                             }),
                           ...(!needsCompanyAction && {
                             "&:hover": {
-                              backgroundColor:
-                                orderColor.bg || alpha(orderColor.main, 0.04),
+                              // Neutral hover — violet wash on Internal made rows look “raspberry”
+                              backgroundColor: alpha(
+                                palette.neutral?.gray900 || "#111",
+                                0.04
+                              ),
                             },
                           }),
                           ...(hasConflict && {
@@ -1919,47 +2269,111 @@ export default function OrdersTableSection() {
                       </TableCell>
 
                       {/* Status */}
-                      <TableCell>
+                      <TableCell
+                        onClick={(e) => e.stopPropagation()}
+                        onDoubleClick={(e) => e.stopPropagation()}
+                      >
                         <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
-                            {needsCompanyAction ? (
-                              <Chip
-                                label={t("table.supplierAwaitingYours", {
-                                  defaultValue: "Awaiting your response",
-                                })}
-                                size="small"
-                                onClick={(e) => handleStatusChipClick(e, statusKey)}
-                                sx={{
-                                  backgroundColor: "#FFE566",
-                                  color: palette.neutral?.black || "#111",
-                                  fontWeight: 700,
-                                  fontSize: "0.7rem",
-                                  height: 22,
-                                  cursor: "pointer",
-                                  outline:
-                                    statusFilter === statusKey
-                                      ? `2px solid ${palette.analogous.amberDark || "#D4A03A"}`
-                                      : "none",
-                                }}
-                              />
-                            ) : (
-                              <Chip
-                                label={statusLabel}
-                                size="small"
-                                onClick={(e) => handleStatusChipClick(e, statusKey)}
-                                sx={{
-                                  backgroundColor: orderColor.bg,
-                                  color: orderColor.text,
-                                  fontWeight: 500,
-                                  fontSize: "0.7rem",
-                                  height: 22,
-                                  cursor: "pointer",
-                                  outline:
-                                    statusFilter === statusKey
-                                      ? `2px solid ${orderColor.main || orderColor.text}`
-                                      : "none",
-                                }}
-                              />
-                            )}
+                            {(() => {
+                              const internalStatus = isInternalBooking(order)
+                                ? resolveInternalRecordStatus(order)
+                                : null;
+                              const internalSelectable =
+                                internalStatus === INTERNAL_RECORD_STATUS.TENTATIVE ||
+                                internalStatus === INTERNAL_RECORD_STATUS.CONFIRMED;
+
+                              if (internalSelectable) {
+                                return (
+                                  <Select
+                                    size="small"
+                                    value={
+                                      order.confirmed
+                                        ? INTERNAL_RECORD_STATUS.CONFIRMED
+                                        : INTERNAL_RECORD_STATUS.TENTATIVE
+                                    }
+                                    disabled={
+                                      !orderCanEdit ||
+                                      Boolean(isTogglingConfirm[order._id])
+                                    }
+                                    onChange={(e) => {
+                                      const wantConfirmed =
+                                        e.target.value ===
+                                        INTERNAL_RECORD_STATUS.CONFIRMED;
+                                      if (wantConfirmed !== Boolean(order.confirmed)) {
+                                        void handleToggleConfirm(order._id);
+                                      }
+                                    }}
+                                    sx={{
+                                      fontSize: "0.75rem",
+                                      fontWeight: 600,
+                                      height: 28,
+                                      minWidth: 118,
+                                      bgcolor: "background.paper",
+                                      "& .MuiSelect-select": {
+                                        py: 0.5,
+                                        pr: 3,
+                                      },
+                                    }}
+                                    displayEmpty
+                                  >
+                                    <MenuItem value={INTERNAL_RECORD_STATUS.TENTATIVE}>
+                                      {t("table.internalTentative", {
+                                        defaultValue: "Tentative",
+                                      })}
+                                    </MenuItem>
+                                    <MenuItem value={INTERNAL_RECORD_STATUS.CONFIRMED}>
+                                      {t("table.internalConfirmed", {
+                                        defaultValue: "Confirmed",
+                                      })}
+                                    </MenuItem>
+                                  </Select>
+                                );
+                              }
+
+                              if (needsCompanyAction) {
+                                return (
+                                  <Chip
+                                    label={t("table.supplierAwaitingYours", {
+                                      defaultValue: "Awaiting your response",
+                                    })}
+                                    size="small"
+                                    onClick={(e) => handleStatusChipClick(e, statusKey)}
+                                    sx={{
+                                      backgroundColor: "#FFE566",
+                                      color: palette.neutral?.black || "#111",
+                                      fontWeight: 700,
+                                      fontSize: "0.7rem",
+                                      height: 22,
+                                      cursor: "pointer",
+                                      outline:
+                                        statusFilter === statusKey
+                                          ? `2px solid ${palette.analogous.amberDark || "#D4A03A"}`
+                                          : "none",
+                                    }}
+                                  />
+                                );
+                              }
+
+                              return (
+                                <Chip
+                                  label={statusLabel}
+                                  size="small"
+                                  onClick={(e) => handleStatusChipClick(e, statusKey)}
+                                  sx={{
+                                    backgroundColor: orderColor.main,
+                                    color: orderColor.text,
+                                    fontWeight: 600,
+                                    fontSize: "0.7rem",
+                                    height: 22,
+                                    cursor: "pointer",
+                                    outline:
+                                      statusFilter === statusKey
+                                        ? `2px solid ${orderColor.dark || orderColor.text}`
+                                        : "none",
+                                  }}
+                                />
+                              );
+                            })()}
                             {orderColor.problem ? (
                               <Chip
                                 label={t("calendar.legend.PROBLEM", { defaultValue: "Problem" })}
@@ -2020,9 +2434,9 @@ export default function OrdersTableSection() {
                           sx={{
                             fontSize: "0.7rem",
                             height: 22,
-                            borderColor: isInternalBooking(order)
-                              ? "secondary.main"
-                              : "divider",
+                            borderColor: "divider",
+                            color: "text.secondary",
+                            fontWeight: isInternalBooking(order) ? 600 : 500,
                           }}
                         />
                       </TableCell>

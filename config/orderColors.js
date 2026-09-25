@@ -47,7 +47,7 @@ export const CONTRACTOR_TONE_COLORS = {
     booking.awaitingPayment,
     "Ожидается оплата",
     "Awaiting customer payment",
-    { text: palette.neutral.gray900 }
+    { text: palette.neutral.white }
   ),
   [CALENDAR_TONE.CONFIRMED_PAID]: swatch(
     CALENDAR_TONE.CONFIRMED_PAID,

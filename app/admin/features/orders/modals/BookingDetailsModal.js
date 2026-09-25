@@ -11,9 +11,12 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  FormControl,
   FormControlLabel,
   IconButton,
+  InputLabel,
   MenuItem,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -52,6 +55,7 @@ import {
   contactRovaroAboutBooking,
   declineBookingRequest,
   loadAdminOrder,
+  loadReplacementFleetCars,
   loadSignedDrivingLicence,
   proposeEquivalentReplacement,
   reportBookingProblem,
@@ -65,12 +69,20 @@ const StickyHeader = styled(Box)(({ theme }) => ({
   top: 0,
   zIndex: theme.zIndex.appBar,
   display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: theme.spacing(1.5),
+  flexDirection: "column",
+  alignItems: "stretch",
+  gap: theme.spacing(0.75),
   padding: theme.spacing(1.5, 2),
   backgroundColor: theme.palette.background.paper,
   borderBottom: `1px solid ${theme.palette.divider}`,
+}));
+
+const HeaderTopRow = styled(Box)(({ theme }) => ({
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: theme.spacing(1),
+  minWidth: 0,
 }));
 
 const StickyFooter = styled(DialogActions)(({ theme }) => ({
@@ -133,34 +145,41 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
 const ReferenceText = styled(Typography)(({ theme }) => ({
   fontWeight: theme.typography.fontWeightBold,
   lineHeight: theme.typography.h6.lineHeight,
+  minWidth: 0,
+  overflowWrap: "break-word",
+  wordBreak: "normal",
 }));
 
-/** Title, company and metadata stacked tight; nothing else competes for room. */
+/** Title and metadata use full header width; badges sit on their own row. */
 const HeaderIdentity = styled(Box)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
   gap: theme.spacing(0.25),
   minWidth: 0,
+  flex: "1 1 auto",
 }));
 
 const HeaderMeta = styled(Typography)(({ theme }) => ({
   color: theme.palette.text.secondary,
-  overflowWrap: "anywhere",
+  overflowWrap: "break-word",
+  wordBreak: "normal",
+  lineHeight: 1.4,
 }));
 
 const HeaderAside = styled(Box)(({ theme }) => ({
   display: "flex",
   alignItems: "flex-start",
-  gap: theme.spacing(1),
+  gap: theme.spacing(0.5),
   flexShrink: 0,
 }));
 
 const BadgeRow = styled(Box)(({ theme }) => ({
   display: "flex",
   flexWrap: "wrap",
-  justifyContent: "flex-end",
+  justifyContent: "flex-start",
   gap: theme.spacing(0.5),
   minWidth: 0,
+  width: "100%",
 }));
 
 const TONE_PALETTE = {
@@ -225,6 +244,8 @@ const DocumentPreview = styled("img")(({ theme }) => ({
 
 const EMPTY_REPLACEMENT = Object.freeze({
   replacementSource: REPLACEMENT_KIND.GUARANTEED_CLASS,
+  proposedCarId: "",
+  proposedCarNumber: "",
   supplierMessage: "",
   guaranteeAck: false,
 });
@@ -288,6 +309,9 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   const [priceOpen, setPriceOpen] = useState(false);
   const [vehicleDetailsOpen, setVehicleDetailsOpen] = useState(false);
   const [replacement, setReplacement] = useState(EMPTY_REPLACEMENT);
+  const [fleetCars, setFleetCars] = useState([]);
+  const [fleetLoading, setFleetLoading] = useState(false);
+  const [fleetError, setFleetError] = useState("");
   const [amendment, setAmendment] = useState(EMPTY_AMENDMENT);
 
   const orderId = order?._id ? String(order._id) : "";
@@ -329,8 +353,23 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   useEffect(() => {
     if (dialog !== "replace") return undefined;
     setReplacement(EMPTY_REPLACEMENT);
-    return undefined;
-  }, [dialog]);
+    setFleetCars([]);
+    setFleetError("");
+    let alive = true;
+    setFleetLoading(true);
+    loadReplacementFleetCars(orderId).then((result) => {
+      if (!alive) return;
+      setFleetLoading(false);
+      if (!result?.ok) {
+        setFleetError(result?.message || "Could not load fleet cars");
+        return;
+      }
+      setFleetCars(Array.isArray(result.cars) ? result.cars : []);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [dialog, orderId]);
 
   const formatMoment = useBookingClock(current);
 
@@ -376,7 +415,13 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   if (!open || !current || !view || !isPlatformBooking(current)) return null;
 
   const { price } = view;
-  const replacementReady = replacement.guaranteeAck === true;
+  const fleetSelected =
+    replacement.replacementSource === REPLACEMENT_KIND.COMPANY_VEHICLE &&
+    Boolean(replacement.proposedCarId);
+  const classGuaranteed =
+    replacement.replacementSource === REPLACEMENT_KIND.GUARANTEED_CLASS &&
+    replacement.guaranteeAck === true;
+  const replacementReady = fleetSelected || classGuaranteed;
   const priceBreakdown = (
     <Box sx={{ mt: 0.75 }} id="booking-details-price">
       {price.lines.map((line) => (
@@ -476,24 +521,35 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
       }}
     >
       <StickyHeader>
-        <HeaderIdentity>
-          <ReferenceText variant="h6" component="h2" id="booking-details-title">
-            {[view.header.vehicleName, view.header.reference]
-              .filter(Boolean)
-              .join(" · ")}
-          </ReferenceText>
-          {view.header.companyName ? (
-            <HeaderMeta variant="body2" component="div">
-              {view.header.companyName}
-            </HeaderMeta>
-          ) : null}
-          {headerMetaLine ? (
-            <HeaderMeta variant="body2" component="div">
-              {headerMetaLine}
-            </HeaderMeta>
-          ) : null}
-        </HeaderIdentity>
-        <HeaderAside>
+        <HeaderTopRow>
+          <HeaderIdentity>
+            <ReferenceText variant="h6" component="h2" id="booking-details-title">
+              {[view.header.vehicleName, view.header.reference]
+                .filter(Boolean)
+                .join(" · ")}
+            </ReferenceText>
+            {view.header.companyName ? (
+              <HeaderMeta variant="body2" component="div">
+                {view.header.companyName}
+              </HeaderMeta>
+            ) : null}
+            {headerMetaLine ? (
+              <HeaderMeta variant="body2" component="div">
+                {headerMetaLine}
+              </HeaderMeta>
+            ) : null}
+          </HeaderIdentity>
+          <HeaderAside>
+            <IconButton
+              onClick={onClose}
+              size="small"
+              aria-label={t("bookingDetails.close")}
+            >
+              <CloseIcon />
+            </IconButton>
+          </HeaderAside>
+        </HeaderTopRow>
+        {view.header.badges?.length ? (
           <BadgeRow>
             {view.header.badges.map((badge) => (
               <HeaderBadge
@@ -504,14 +560,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               />
             ))}
           </BadgeRow>
-          <IconButton
-            onClick={onClose}
-            size="small"
-            aria-label={t("bookingDetails.close")}
-          >
-            <CloseIcon />
-          </IconButton>
-        </HeaderAside>
+        ) : null}
       </StickyHeader>
 
       <ContentColumn dividers={false}>
@@ -583,24 +632,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             </SectionPanel>
           ) : null}
 
-          <SectionPanel>
-            <SectionTitle variant="subtitle2">
-              {t("bookingDetails.sections.dates")}
-            </SectionTitle>
-            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.35 }}>
-              {[
-                formatMoment(current.pickupAtUtc || current.timeIn),
-                formatMoment(current.returnAtUtc || current.timeOut),
-              ]
-                .filter(Boolean)
-                .join(" → ")}
-              {current.numberOfDays != null
-                ? ` · ${t("bookingDetails.header.days", {
-                    count: current.numberOfDays,
-                  })}`
-                : ""}
-            </Typography>
-            {(() => {
+          {(() => {
               const pickup = [current.placeIn, current.placeInDetail]
                 .filter(Boolean)
                 .join(" — ");
@@ -608,47 +640,53 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                 .filter(Boolean)
                 .join(" — ");
               if (!pickup && !dropoff) return null;
-              if (pickup && dropoff && pickup === dropoff) {
-                return (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mt: 0.35, lineHeight: 1.35 }}
-                  >
-                    {pickup}
-                  </Typography>
-                );
-              }
+              const samePlace = pickup && dropoff && pickup === dropoff;
               return (
-                <Box sx={{ mt: 0.35 }}>
-                  {pickup ? (
+                <SectionPanel data-testid="booking-locations">
+                  <SectionTitle variant="subtitle2">
+                    {t("bookingDetails.sections.locations", {
+                      defaultValue: "Locations",
+                    })}
+                  </SectionTitle>
+                  {samePlace ? (
                     <Typography
                       variant="body2"
                       color="text.secondary"
                       sx={{ lineHeight: 1.35 }}
                     >
-                      {t("bookingDetails.dates.pickupShort", {
-                        defaultValue: "Pickup",
-                      })}
-                      : {pickup}
+                      {pickup}
                     </Typography>
-                  ) : null}
-                  {dropoff ? (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ lineHeight: 1.35 }}
-                    >
-                      {t("bookingDetails.dates.returnShort", {
-                        defaultValue: "Return",
-                      })}
-                      : {dropoff}
-                    </Typography>
-                  ) : null}
-                </Box>
+                  ) : (
+                    <Box>
+                      {pickup ? (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ lineHeight: 1.35 }}
+                        >
+                          {t("bookingDetails.dates.pickupShort", {
+                            defaultValue: "Pickup",
+                          })}
+                          : {pickup}
+                        </Typography>
+                      ) : null}
+                      {dropoff ? (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ lineHeight: 1.35 }}
+                        >
+                          {t("bookingDetails.dates.returnShort", {
+                            defaultValue: "Return",
+                          })}
+                          : {dropoff}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                  )}
+                </SectionPanel>
               );
             })()}
-          </SectionPanel>
 
           {view.replacement ? (
             <GridFullWidth>
@@ -685,6 +723,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             </GridFullWidth>
           ) : null}
 
+          <GridFullWidth>
           <SectionPanel>
             <SectionTitle variant="subtitle2">
               {t("bookingDetails.sections.options")}
@@ -728,17 +767,14 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               ) : null}
             </Stack>
           </SectionPanel>
+          </GridFullWidth>
 
           {view.customer ? (
+            <GridFullWidth>
             <SectionPanel>
               <SectionTitle variant="subtitle2">
                 {t("bookingDetails.sections.customer")}
               </SectionTitle>
-              {view.platformSupportView ? (
-                <Alert severity="info">
-                  {t("bookingDetails.platformSupportNotice")}
-                </Alert>
-              ) : null}
               <SummaryList component="dl">
                 <SummaryField
                   label={t("bookingDetails.customer.name")}
@@ -776,6 +812,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                 />
               </SummaryList>
             </SectionPanel>
+            </GridFullWidth>
           ) : null}
 
           {view.showLicence ? (
@@ -831,7 +868,9 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             <GridFullWidth>
               <SectionPanel data-testid="booking-activity">
                 <SectionTitle variant="subtitle2">
-                  {t("bookingDetails.sections.activity")}
+                  {t("bookingDetails.sections.activity", {
+                    defaultValue: "Change log",
+                  })}
                 </SectionTitle>
                 <BookingDetailsActivity orderId={orderId} />
               </SectionPanel>
@@ -842,22 +881,28 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
 
       <StickyFooter>
         {busy ? <CircularProgress size={theme.typography.h6.fontSize} /> : null}
-        {view.actions.map((action) => (
-          <Button
-            key={action.id}
-            variant={action.primary ? "contained" : "text"}
-            color={action.id === "decline" ? "error" : "primary"}
-            data-testid={`booking-action-${action.id}`}
-            disabled={busy}
-            onClick={() => {
-              setError("");
-              setNotice("");
-              setDialog(action.id);
-            }}
-          >
-            {t(action.labelKey, { defaultValue: action.label })}
-          </Button>
-        ))}
+        {view.actions.map((action) => {
+          const isDecline = action.id === "decline";
+          const isConfirm = action.id === "confirm";
+          const isReplace = action.id === "replace";
+          const isMainAction = isConfirm || isReplace || isDecline;
+          return (
+            <Button
+              key={action.id}
+              variant={isMainAction ? "outlined" : "text"}
+              color={isDecline ? "error" : isConfirm ? "success" : "inherit"}
+              data-testid={`booking-action-${action.id}`}
+              disabled={busy}
+              onClick={() => {
+                setError("");
+                setNotice("");
+                setDialog(action.id);
+              }}
+            >
+              {t(action.labelKey, { defaultValue: action.label })}
+            </Button>
+          );
+        })}
         <Button onClick={onClose} disabled={busy}>
           {t("bookingDetails.close")}
         </Button>
@@ -902,7 +947,8 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             {t("bookingDetails.back")}
           </Button>
           <Button
-            variant="contained"
+            variant="outlined"
+            color="success"
             disabled={busy}
             data-testid="confirm-requested-vehicle"
             onClick={() =>
@@ -1004,7 +1050,10 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         </StickyHeader>
         <ContentColumn>
           <Typography variant="body2">
-            {t("bookingDetails.replacementDialog.intro")}
+            {t("bookingDetails.replacementDialog.introFleet", {
+              defaultValue:
+                "Pick a car from your available fleet to move this booking onto it (same as calendar), or guarantee class only if the exact car is not listed yet.",
+            })}
           </Typography>
           <Alert severity="info" sx={{ "& .MuiAlert-message": { width: "100%" } }}>
             <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -1031,15 +1080,82 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               })}
             </Typography>
           </Alert>
+          {fleetLoading ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <CircularProgress size={18} />
+              <Typography variant="body2" color="text.secondary">
+                {t("bookingDetails.replacementDialog.loadingFleet", {
+                  defaultValue: "Loading available cars…",
+                })}
+              </Typography>
+            </Stack>
+          ) : null}
+          {fleetError ? <Alert severity="warning">{fleetError}</Alert> : null}
+          {!fleetLoading && !fleetError ? (
+            <FormControl fullWidth size="small">
+              <InputLabel id="replacement-fleet-label">
+                {t("bookingDetails.replacementDialog.kinds.COMPANY_VEHICLE", {
+                  defaultValue: "A vehicle from your fleet",
+                })}
+              </InputLabel>
+              <Select
+                labelId="replacement-fleet-label"
+                label={t("bookingDetails.replacementDialog.kinds.COMPANY_VEHICLE", {
+                  defaultValue: "A vehicle from your fleet",
+                })}
+                value={replacement.proposedCarId || ""}
+                displayEmpty
+                onChange={(event) => {
+                  const carId = String(event.target.value || "");
+                  const row = fleetCars.find((c) => c.carId === carId);
+                  setReplacement((was) => ({
+                    ...was,
+                    proposedCarId: carId,
+                    proposedCarNumber: row?.carNumber || "",
+                    replacementSource: carId
+                      ? REPLACEMENT_KIND.COMPANY_VEHICLE
+                      : REPLACEMENT_KIND.GUARANTEED_CLASS,
+                    guaranteeAck: carId ? false : was.guaranteeAck,
+                  }));
+                }}
+              >
+                <MenuItem value="">
+                  <em>
+                    {t("bookingDetails.replacementDialog.fleetPlaceholder", {
+                      defaultValue: "Choose a vehicle",
+                    })}
+                  </em>
+                </MenuItem>
+                {fleetCars.map((row) => (
+                  <MenuItem key={row.carId} value={row.carId}>
+                    {[row.name, row.carNumber, row.category, row.transmission]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : null}
+          {!fleetCars.length && !fleetLoading ? (
+            <Typography variant="caption" color="text.secondary">
+              {t("bookingDetails.replacementDialog.noFleetCars", {
+                defaultValue:
+                  "No eligible fleet cars for these dates. You can still guarantee class below.",
+              })}
+            </Typography>
+          ) : null}
           <FormControlLabel
             control={
               <Checkbox
                 checked={Boolean(replacement.guaranteeAck)}
+                disabled={Boolean(replacement.proposedCarId)}
                 onChange={(event) =>
                   setReplacement((was) => ({
                     ...was,
                     guaranteeAck: event.target.checked,
                     replacementSource: REPLACEMENT_KIND.GUARANTEED_CLASS,
+                    proposedCarId: "",
+                    proposedCarNumber: "",
                   }))
                 }
               />
@@ -1072,14 +1188,19 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             {t("bookingDetails.back")}
           </Button>
           <Button
-            variant="contained"
+            variant="outlined"
+            color="success"
             disabled={busy || !replacementReady}
             onClick={() =>
               run(
                 () =>
                   proposeEquivalentReplacement(orderId, {
-                    replacementSource: REPLACEMENT_KIND.GUARANTEED_CLASS,
-                    guaranteeAck: true,
+                    replacementSource: fleetSelected
+                      ? REPLACEMENT_KIND.COMPANY_VEHICLE
+                      : REPLACEMENT_KIND.GUARANTEED_CLASS,
+                    proposedCarId: replacement.proposedCarId,
+                    proposedCarNumber: replacement.proposedCarNumber,
+                    guaranteeAck: replacement.guaranteeAck,
                     supplierMessage: replacement.supplierMessage,
                   }),
                 "bookingDetails.notices.replacementOffered"
@@ -1146,7 +1267,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             {t("bookingDetails.back")}
           </Button>
           <Button
-            variant="contained"
+            variant="outlined"
             disabled={busy || amendment.reason.trim().length < AMENDMENT_REASON_MIN}
             onClick={() =>
               run(
@@ -1198,7 +1319,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             {t("bookingDetails.back")}
           </Button>
           <Button
-            variant="contained"
+            variant="outlined"
             color="error"
             disabled={busy || !declineReason.trim()}
             onClick={() =>
@@ -1264,7 +1385,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             {t("bookingDetails.back")}
           </Button>
           <Button
-            variant="contained"
+            variant="outlined"
             disabled={busy || !supportMessage.trim()}
             onClick={async () => {
               const message = supportMessage.trim();

@@ -159,6 +159,12 @@ describe("rovaroContractorAdmin", () => {
     const exported = buildContractorOrdersExport(orders);
     expect(exported.totals).toEqual(s);
     expect(exported.rows[1].bookingFee).toBe(0);
+    expect(exported.rows[0]).toMatchObject({
+      placeIn: expect.any(String),
+      placeOut: expect.any(String),
+      supplierRespondedByName: expect.any(String),
+      carModel: expect.any(String),
+    });
   });
 
   test("separates the example totals and ignores a stale supplier snapshot", () => {

@@ -77,12 +77,13 @@ export async function recordAuditEvent(entry) {
 }
 
 /**
- * Chronological legal trail for one order — feeds the superadmin
- * Booking legal audit view.
+ * Chronological trail for one order.
  *
  * @param {string} orderId
+ * @param {{ changesOnly?: boolean }} [opts]
+ *   changesOnly — drop access/view noise (licence opens, document views, …)
  */
-export async function getOrderAuditTrail(orderId) {
+export async function getOrderAuditTrail(orderId, opts = {}) {
   try {
     await connectToDB();
     const id = String(orderId || "").trim();
@@ -91,7 +92,11 @@ export async function getOrderAuditTrail(orderId) {
     if (mongoose.Types.ObjectId.isValid(id)) {
       idVariants.push(new mongoose.Types.ObjectId(id));
     }
-    return await AuditLog.find({ "orderData.orderId": { $in: idVariants } })
+    const query = { "orderData.orderId": { $in: idVariants } };
+    if (opts.changesOnly) {
+      query.action = { $nin: [...ORDER_ACTIVITY_ACCESS_NOISE] };
+    }
+    return await AuditLog.find(query)
       .sort({ createdAt: 1 })
       .lean();
   } catch (err) {
@@ -99,6 +104,16 @@ export async function getOrderAuditTrail(orderId) {
     return [];
   }
 }
+
+/** Read/access events — not useful as “what changed on this booking”. */
+export const ORDER_ACTIVITY_ACCESS_NOISE = Object.freeze([
+  "DRIVING_LICENCE_ACCESSED",
+  "DRIVING_LICENCE_ACCESS_DENIED",
+  "PARTNER_DOCUMENT_ACCESSED",
+  "PARTNER_AGREEMENT_VIEWED",
+  "ADMIN_LOGIN",
+]);
+
 
 /**
  * Every access to a customer driving licence image is logged, including who

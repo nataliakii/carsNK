@@ -895,6 +895,9 @@
     "loading": "Загрузка...",
     "updateFailed": "Не удалось обновить заказ",
     "cannotEditPrice": "Нельзя редактировать сумму",
+    "platformInlineLocked": "На оплаченном платформенном заказе можно менять только время выдачи/возврата (цена не меняется). Даты и остальное — через amend с согласием клиента.",
+    "viewOnlyOrder": "Это бронирование только для просмотра",
+    "fieldDisabledByPolicy": "Это поле нельзя изменить для данного бронирования",
     "invalidPriceNumber": "Введите корректное число",
     "priceNotNegative": "Сумма не может быть отрицательной",
     "priceManual": "Вручную",
@@ -912,7 +915,7 @@
     "priceHistoryCurrent": "Текущая",
     "supplierResponse": "Ответ поставщика",
     "yourResponse": "Ваш ответ",
-    "responseConfirmedShort": "Подтверждено",
+    "responseConfirmedShort": "Принято",
     "responseActorUnknown": "Кто подтвердил — не указано",
     "platformStatus": "Статус платформы",
     "vehicleAvailable": "Автомобиль доступен",
@@ -930,7 +933,7 @@
     "platformCancelled": "Отменено",
     "customerConfirmation": "Customer confirmation",
     "supplierAwaitingYours": "Awaiting your response",
-    "supplierVehicleConfirmed": "Vehicle confirmed",
+    "supplierVehicleConfirmed": "Принято",
     "customerNotRequested": "Not requested yet",
     "customerAwaitingPayment": "Awaiting Booking Fee",
     "customerFeePaid": "Booking Fee paid",
@@ -940,9 +943,9 @@
     "askRovaro": "Ask Rovaro a question",
     "viewDetails": "View details",
     "confirmInternally": "Confirm internally",
-    "markTentative": "Mark tentative",
-    "internalTentative": "Tentative",
-    "internalConfirmed": "Confirmed",
+    "markTentative": "Черновик",
+    "internalTentative": "Черновик",
+    "internalConfirmed": "Подтверждено",
     "internalCompleted": "Completed",
     "internalCancelled": "Cancelled",
     "toneCompletionPending": "Completion pending",
@@ -1768,16 +1771,22 @@
     "sections": {
       "vehicle": "Автомобиль",
       "dates": "Даты и места",
+      "locations": "Места",
       "options": "Опции аренды",
       "price": "Стоимость",
       "customer": "Информация о клиенте",
       "documents": "Водительские документы",
-      "activity": "История"
+      "activity": "Журнал изменений"
     },
     "activity": {
       "empty": "Пока нет записей.",
+      "emptyChanges": "Изменений по бронированию пока нет.",
       "loadFailed": "Не удалось загрузить историю.",
-      "relocated": "Перенос на календаре{{car}}"
+      "relocated": "Перенос на календаре{{car}}",
+      "forceUpdate": "Заказ обновлён",
+      "statusChanged": "Статус изменён",
+      "alternativeOffered": "Предложена замена",
+      "changed": "Изменение бронирования"
     },
     "status": {
       "newRequest": {
@@ -1928,6 +1937,9 @@
     },
     "replacementDialog": {
       "intro": "Запрошенный автомобиль остаётся без изменений. Ваше предложение отправляется клиенту, который принимает его оплатой.",
+      "introFleet": "Выберите машину из наличия — заказ перейдёт на неё (как в календаре). Или гарантируйте класс, если точной машины в списке ещё нет.",
+      "loadingFleet": "Загрузка доступных машин…",
+      "noFleetCars": "Нет подходящих машин на эти даты. Можно гарантировать класс ниже.",
       "reminderTitle": "Условия запрошенного автомобиля",
       "reminderClass": "Класс: {{class}}",
       "reminderTransmission": "Коробка: {{transmission}}",

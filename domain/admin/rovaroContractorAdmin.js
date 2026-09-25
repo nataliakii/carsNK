@@ -18,6 +18,8 @@ import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 import { CANONICAL_STAGE } from "@/domain/booking/rovaroMarketplaceWorkflow";
 import { resolveBookingFinancialSnapshot } from "@/domain/orders/bookingFinancialSnapshot";
+import { buildSupplierResponsePublicFields } from "@/domain/orders/supplierResponseStatus";
+import { readVehicleSnapshot } from "@/domain/orders/vehicleSnapshot";
 
 export const BOOKING_SOURCE = Object.freeze({
   PLATFORM: "PLATFORM",
@@ -345,15 +347,14 @@ export function contractorSupplierResponseCopy(order) {
   if (stage === PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_ALTERNATIVE_ACCEPTANCE) {
     return { key: "table.supplierReplacementOffered", fallback: "Equivalent replacement offered" };
   }
-  if (stage === PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_PAYMENT) {
-    return { key: "table.supplierRequestedConfirmed", fallback: "Requested vehicle confirmed" };
-  }
+  // Same short label once the supplier has accepted — Status column carries payment stage
   if (
+    stage === PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_PAYMENT ||
     stage === PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED ||
     stage === PLATFORM_WORKFLOW_STAGE.COMPLETION_PENDING ||
     stage === PLATFORM_WORKFLOW_STAGE.COMPLETED
   ) {
-    return { key: "table.supplierVehicleConfirmed", fallback: "Vehicle confirmed" };
+    return { key: "table.responseConfirmedShort", fallback: "Accepted" };
   }
   if (stage === PLATFORM_WORKFLOW_STAGE.SUPPLIER_DECLINED) {
     return { key: "table.toneDeclined", fallback: "Declined" };
@@ -594,20 +595,161 @@ export function summarizeContractorAdminTotals(orders) {
   };
 }
 
+function exportText(value) {
+  const trimmed = String(value ?? "").trim();
+  return trimmed || "";
+}
+
+function exportIso(value) {
+  if (!value) return "";
+  try {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toISOString();
+  } catch {
+    return "";
+  }
+}
+
+function exportYesNo(value) {
+  return value === true ? "Yes" : value === false ? "No" : "";
+}
+
+/** Same gate as companyMustHideCustomerIdentity — kept local to avoid import cycles. */
+function exportHideCustomerPii(order) {
+  if (isInternalBooking(order)) return false;
+  if (!isPlatformBooking(order)) return true;
+  const stage = resolvePlatformWorkflowStage(order);
+  if (
+    stage === PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED ||
+    stage === PLATFORM_WORKFLOW_STAGE.COMPLETION_PENDING ||
+    stage === PLATFORM_WORKFLOW_STAGE.COMPLETED
+  ) {
+    return false;
+  }
+  const pay = String(order?.payment?.status || order?.paymentStatus || "")
+    .trim()
+    .toLowerCase();
+  if (pay === "paid" || pay === "succeeded") return false;
+  if (
+    String(order?.bookingFeePaymentStatus || "").toUpperCase() === "PAID"
+  ) {
+    return false;
+  }
+  if (isMarketplaceRequestMode(order?.bookingMode)) return true;
+  return order?.confirmed !== true;
+}
+
+/**
+ * Full flat row for Excel / CSV. Dates are ISO (UTC); UI formats to Athens.
+ * Customer PII is blank when the company must not see contacts yet.
+ */
+export function buildContractorOrderExportRow(order) {
+  const money = contractorOrderMoneyRow(order);
+  const supplier = buildSupplierResponsePublicFields(order);
+  const responseCopy = contractorSupplierResponseCopy(order);
+  const { vehicle } = readVehicleSnapshot(order);
+  const car =
+    order?.car && typeof order.car === "object" && !order.car._bsontype
+      ? order.car
+      : null;
+  const hideCustomer = exportHideCustomerPii(order);
+  const paymentStatus =
+    exportText(order?.payment?.status) ||
+    exportText(order?.bookingFeePaymentStatus) ||
+    exportText(order?.paymentStatus);
+
+  return {
+    orderNumber: exportText(order?.orderNumber),
+    publicReference: exportText(order?.publicReference || order?.orderNumber),
+    source: money.source,
+    bookingStatus: exportText(order?.bookingStatus),
+    statusKey: contractorTableStatusLabelKey(order),
+    yourResponseKey: responseCopy.key,
+    yourResponseFallback: responseCopy.fallback,
+    paymentStatus,
+    customerConfirmation: exportText(order?.customerConfirmation),
+    bookingMode: exportText(order?.bookingMode),
+    offline: exportYesNo(order?.offline === true),
+
+    pickupAt: exportIso(
+      order?.pickupAtUtc || order?.timeIn || order?.rentalStartDate
+    ),
+    returnAt: exportIso(
+      order?.returnAtUtc || order?.timeOut || order?.rentalEndDate
+    ),
+    rentalStartDate: exportIso(order?.rentalStartDate),
+    rentalEndDate: exportIso(order?.rentalEndDate),
+    timeIn: exportIso(order?.timeIn || order?.pickupAtUtc),
+    timeOut: exportIso(order?.timeOut || order?.returnAtUtc),
+    rentalDays: Number(order?.numberOfDays) || "",
+
+    placeIn: exportText(order?.placeIn),
+    placeInDetail: exportText(order?.placeInDetail),
+    placeOut: exportText(order?.placeOut),
+    placeOutDetail: exportText(order?.placeOutDetail),
+    flightNumber: exportText(order?.flightNumber),
+
+    carModel:
+      exportText(order?.carModel) ||
+      exportText(vehicle?.displayName) ||
+      exportText(car?.model),
+    carNumber: exportText(order?.carNumber) || exportText(car?.carNumber),
+    regNumber:
+      exportText(order?.regNumber) ||
+      exportText(vehicle?.registrationNumber) ||
+      exportText(car?.regNumber),
+    vehicleClass:
+      exportText(vehicle?.class) ||
+      exportText(car?.class) ||
+      exportText(order?.carCategory),
+    transmission:
+      exportText(vehicle?.transmission) || exportText(car?.transmission),
+    seats: vehicle?.seats ?? car?.seats ?? "",
+    fuel: exportText(vehicle?.fuelType) || exportText(car?.fueltype),
+
+    insurance: exportText(order?.insurance),
+    franchise: order?.franchiseOrder != null ? Number(order.franchiseOrder) : "",
+    childSeats: Number(order?.ChildSeats) || 0,
+    secondDriver: exportYesNo(order?.secondDriver === true),
+
+    customerName: hideCustomer ? "" : exportText(order?.customerName),
+    phone: hideCustomer ? "" : exportText(order?.phone),
+    email: hideCustomer ? "" : exportText(order?.email),
+    viber: hideCustomer ? "" : exportYesNo(order?.Viber === true),
+    whatsapp: hideCustomer ? "" : exportYesNo(order?.Whatsapp === true),
+    telegram: hideCustomer ? "" : exportYesNo(order?.Telegram === true),
+    customerNotes: hideCustomer
+      ? ""
+      : exportText(order?.customerNotes || order?.comment),
+
+    supplierResponse: exportText(supplier.supplierResponse),
+    supplierRespondedAt: exportIso(supplier.supplierRespondedAt),
+    supplierRespondedByName: exportText(supplier.supplierRespondedByName),
+    supplierRespondedByEmail: exportText(supplier.supplierRespondedByEmail),
+    partnerConfirmedAt: exportIso(supplier.partnerConfirmedAt),
+    companyEmailDecision: exportText(supplier.companyEmailDecision),
+    companyEmailDecisionAt: exportIso(order?.companyEmailDecisionAt),
+    declineReason: exportText(supplier.supplierDeclineReason),
+
+    rentalTotal: money.rentalTotal,
+    bookingFee: money.bookingFee,
+    dueToCompany: money.dueToCompany,
+
+    companyNotes: exportText(order?.companyNotes),
+    companyTags: Array.isArray(order?.companyTags)
+      ? order.companyTags.filter(Boolean).join(", ")
+      : exportText(order?.companyTags),
+    hasProblem: exportYesNo(hasCalendarProblem(order)),
+    createdAt: exportIso(order?.createdAt),
+    updatedAt: exportIso(order?.updatedAt),
+  };
+}
+
 export function buildContractorOrdersExport(orders) {
   const list = Array.isArray(orders) ? orders : [];
   const totals = summarizeContractorAdminTotals(list);
-  const rows = list.map((order) => {
-    const money = contractorOrderMoneyRow(order);
-    return {
-      source: money.source,
-      statusKey: contractorTableStatusLabelKey(order),
-      orderNumber: order?.orderNumber || "",
-      rentalTotal: money.rentalTotal,
-      bookingFee: money.bookingFee,
-      dueToCompany: money.dueToCompany,
-    };
-  });
+  const rows = list.map((order) => buildContractorOrderExportRow(order));
   return { rows, totals };
 }
 

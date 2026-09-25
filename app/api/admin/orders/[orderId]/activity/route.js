@@ -33,7 +33,7 @@ export async function GET(request, { params }) {
     );
   }
 
-  const trail = await getOrderAuditTrail(id);
+  const trail = await getOrderAuditTrail(id, { changesOnly: true });
   const events = (Array.isArray(trail) ? trail : []).map((row) => ({
     id: String(row._id),
     action: row.action || "",

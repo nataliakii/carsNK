@@ -9,7 +9,8 @@
  *   - price is server-calculated and never higher than the original
  *   - key characteristics may not be downgraded
  *   - one active OFFERED row per order (DB partial unique index + CAS)
- *   - creating an offer does not hold the car or create Stripe
+ *   - creating a fleet offer moves operational `order.car` onto that vehicle
+ *     (calendar move parity); it still does not create a hold or Stripe
  *   - the customer must accept before hold + Checkout
  *   - original request is snapshotted immutably before the operational car changes
  *
@@ -588,6 +589,7 @@ export async function listEligibleAlternativeCars({ orderId, actor }) {
       }
       eligible.push({
         carId: String(car._id),
+        carNumber: car.carNumber || "",
         name: [car.make, car.model].filter(Boolean).join(" ") || car.model,
         category: car.class,
         transmission: car.transmission,
@@ -621,7 +623,8 @@ export async function listEligibleAlternativeCars({ orderId, actor }) {
 }
 
 /**
- * Create an offer. Does not modify operational `order.car`, hold, or Stripe.
+ * Create an offer. For a fleet car, also moves `order.car` onto that vehicle
+ * immediately (same operational effect as calendar move-to-car).
  */
 export async function offerAlternativeVehicle({
   orderId,
@@ -868,6 +871,17 @@ export async function offerAlternativeVehicle({
     } else {
       order.originalRequestSnapshot = originalRequest;
     }
+  }
+  // Calendar-parity: booking sits on the replacement car while the customer decides.
+  const proposedCarDoc = await Car.findById(carId);
+  if (proposedCarDoc) {
+    order.car = proposedCarDoc._id;
+    order.carNumber = proposedCarDoc.carNumber;
+    const label = [proposedCarDoc.make, proposedCarDoc.model]
+      .filter(Boolean)
+      .join(" ");
+    if (label) order.carModel = label;
+    if (proposedCarDoc.regNumber) order.regNumber = proposedCarDoc.regNumber;
   }
   await order.save();
 

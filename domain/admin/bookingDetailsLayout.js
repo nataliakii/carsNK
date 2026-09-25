@@ -6,8 +6,8 @@
  * the value is reviewable in one place.
  */
 
-/** Desktop modal width — single dense column. */
-export const BOOKING_DETAILS_MODAL_MAX_WIDTH = 560;
+/** Desktop modal width — two-column friendly, shorter scroll. */
+export const BOOKING_DETAILS_MODAL_MAX_WIDTH = 720;
 
 /** Label column width for a two-column summary row. */
 export const BOOKING_DETAILS_LABEL_COLUMN = 110;
@@ -16,10 +16,10 @@ export const BOOKING_DETAILS_LABEL_COLUMN = 110;
 export const BOOKING_DETAILS_SHEET_BREAKPOINT = "sm";
 
 /** From this breakpoint upward, detail sections use a multi-column grid. */
-export const BOOKING_DETAILS_SECTION_GRID_BREAKPOINT = "md";
+export const BOOKING_DETAILS_SECTION_GRID_BREAKPOINT = "sm";
 
-/** Single column: avoids a mid-gap between cards. */
-export const BOOKING_DETAILS_SECTION_GRID_COLUMNS = 1;
+/** Two columns on wider modal so the sheet is less tall. */
+export const BOOKING_DETAILS_SECTION_GRID_COLUMNS = 2;
 
 /**
  * Height reserved below the last section so the sticky action footer never

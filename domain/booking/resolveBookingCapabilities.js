@@ -46,6 +46,33 @@ const AWAITING_PAYMENT_STAGES = new Set([
   PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_ALTERNATIVE_ACCEPTANCE,
 ]);
 
+/** Paid / in-progress platform stages where company may nudge pickup/return clock times. */
+const COMPANY_TIME_ADJUST_STAGES = new Set([
+  PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED,
+  PLATFORM_WORKFLOW_STAGE.COMPLETION_PENDING,
+]);
+
+const COMPANY_TIME_ONLY_FIELDS = new Set(["timeIn", "timeOut"]);
+
+/**
+ * Company admin may change pickup/return *times* on a confirmed (paid) platform
+ * booking. Dates, price, and other terms stay locked — price must not move.
+ */
+export function companyAdminMayAdjustPlatformTimes(order, fieldOrPayload) {
+  if (!isPlatformBooking(order)) return false;
+  const stage = resolvePlatformWorkflowStage(order);
+  if (!COMPANY_TIME_ADJUST_STAGES.has(stage) && !bookingIsPaid(order)) {
+    return false;
+  }
+  if (typeof fieldOrPayload === "string") {
+    return COMPANY_TIME_ONLY_FIELDS.has(fieldOrPayload);
+  }
+  const payload = fieldOrPayload && typeof fieldOrPayload === "object" ? fieldOrPayload : {};
+  const keys = Object.keys(payload).filter((key) => payload[key] !== undefined);
+  if (!keys.length) return false;
+  return keys.every((key) => COMPANY_TIME_ONLY_FIELDS.has(key));
+}
+
 export function bookingActorRole(user) {
   if (!user) return null;
   return resolveActorRole(user) === BOOKING_ROLE.SUPERADMIN
@@ -201,6 +228,10 @@ export function decideOrderUpdate({ order, user, payload = {} } = {}) {
   const material = touched(payload, MATERIAL_FIELDS);
 
   if (role === BOOKING_ACTOR.COMPANY_ADMIN) {
+    // Narrow exception: clock times only on confirmed/paid bookings; price frozen.
+    if (companyAdminMayAdjustPlatformTimes(order, payload)) {
+      return { ok: true, preservePrice: true };
+    }
     if (forbidden.length || payload.reportProblem === false) {
       const reversing =
         AWAITING_PAYMENT_STAGES.has(stage) &&

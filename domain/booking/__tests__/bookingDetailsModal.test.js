@@ -110,6 +110,40 @@ describe("one booking details modal", () => {
     }
   });
 
+  test("company admin may adjust pickup/return times on a paid booking without changing price", () => {
+    const paid = platform({
+      bookingStatus: BOOKING_STATUS.BOOKING_CONFIRMED,
+      payment: { status: "paid" },
+      confirmed: true,
+    });
+    const decision = decideOrderUpdate({
+      order: paid,
+      user: companyUser,
+      payload: { timeIn: "2026-10-01T14:00:00.000Z" },
+    });
+    expect(decision.ok).toBe(true);
+    expect(decision.preservePrice).toBe(true);
+
+    const withPrice = decideOrderUpdate({
+      order: paid,
+      user: companyUser,
+      payload: { timeIn: "2026-10-01T14:00:00.000Z", totalPrice: 99 },
+    });
+    expect(withPrice.ok).toBe(false);
+
+    const unpaid = platform({
+      bookingStatus: BOOKING_STATUS.CONFIRMED_AWAITING_PAYMENT,
+      confirmed: true,
+    });
+    expect(
+      decideOrderUpdate({
+        order: unpaid,
+        user: companyUser,
+        payload: { timeOut: "2026-10-02T12:00:00.000Z" },
+      }).ok
+    ).toBe(false);
+  });
+
   test("supplier confirmation cannot be reversed by the supplier", () => {
     const waiting = platform({
       bookingStatus: BOOKING_STATUS.PAYMENT_PROCESSING,

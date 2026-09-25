@@ -13,6 +13,23 @@ function formatWhen(value) {
   }
 }
 
+const ACTION_LABEL_KEYS = Object.freeze({
+  FORCE_CREATE_ORDER: "bookingDetails.activity.forceCreate",
+  FORCE_UPDATE_ORDER: "bookingDetails.activity.forceUpdate",
+  DELETE_CONFIRMED_ORDER: "bookingDetails.activity.deleteConfirmed",
+  OVERRIDE_CONFLICT: "bookingDetails.activity.overrideConflict",
+  CHANGE_ORDER_STATUS: "bookingDetails.activity.statusChanged",
+  ORDER_CALENDAR_RELOCATED: "bookingDetails.activity.relocated",
+  ALTERNATIVE_OFFER_CREATED: "bookingDetails.activity.alternativeOffered",
+  ALTERNATIVE_OFFER_ACCEPTED: "bookingDetails.activity.alternativeAccepted",
+  ALTERNATIVE_OFFER_DECLINED: "bookingDetails.activity.alternativeDeclined",
+  ALTERNATIVE_OFFER_WITHDRAWN: "bookingDetails.activity.alternativeWithdrawn",
+  ALTERNATIVE_OFFER_EXPIRED: "bookingDetails.activity.alternativeExpired",
+  MARKETPLACE_PRICE_CORRECTED_AFTER_PAYMENT:
+    "bookingDetails.activity.priceCorrected",
+  DRIVING_LICENCE_DELETED: "bookingDetails.activity.licenceDeleted",
+});
+
 function describeEvent(event, t) {
   if (event.action === "ORDER_CALENDAR_RELOCATED") {
     const before = event.orderData?.before || {};
@@ -28,11 +45,39 @@ function describeEvent(event, t) {
       }) + (event.metadata?.kind ? ` · ${event.metadata.kind}` : "")
     );
   }
-  return event.action || "—";
+  if (event.action === "CHANGE_ORDER_STATUS" || event.action === "FORCE_UPDATE_ORDER") {
+    const reason = String(event.reason || "").trim();
+    const label = t(
+      ACTION_LABEL_KEYS[event.action] || "bookingDetails.activity.changed",
+      {
+        defaultValue:
+          event.action === "FORCE_UPDATE_ORDER"
+            ? "Order updated"
+            : "Status changed",
+      }
+    );
+    return reason ? `${label} — ${reason}` : label;
+  }
+  const key = ACTION_LABEL_KEYS[event.action];
+  if (key) {
+    return t(key, { defaultValue: humanizeAction(event.action) });
+  }
+  return humanizeAction(event.action);
+}
+
+function humanizeAction(action) {
+  const raw = String(action || "").trim();
+  if (!raw) return "—";
+  return raw
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 /**
- * Compact superadmin activity timeline for Booking Details.
+ * Compact superadmin change log for Booking Details (mutations only).
  */
 export default function BookingDetailsActivity({ orderId }) {
   const { t } = useTranslation();
@@ -85,7 +130,9 @@ export default function BookingDetailsActivity({ orderId }) {
       ) : null}
       {!loading && !error && events.length === 0 ? (
         <Typography variant="caption" color="text.secondary">
-          {t("bookingDetails.activity.empty")}
+          {t("bookingDetails.activity.emptyChanges", {
+            defaultValue: "No booking changes logged yet.",
+          })}
         </Typography>
       ) : null}
       <Box

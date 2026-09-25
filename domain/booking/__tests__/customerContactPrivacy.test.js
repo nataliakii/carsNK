@@ -133,15 +133,13 @@ describe("the modal read model repeats the same answer", () => {
     expect(view.customer).toBeNull();
   });
 
-  test("the superadmin's pre-payment access is labelled as platform support", () => {
-    // This is the answer to "was it a leak?": the contacts on a pre-payment
-    // screen are reachable by the superadmin alone, and the screen says so.
+  test("superadmin pre-payment contacts stay available without a support banner", () => {
     const view = buildBookingDetailsView(request(), superadmin);
     expect(view.showContacts).toBe(true);
-    expect(view.platformSupportView).toBe(true);
+    expect(view.platformSupportView).toBe(false);
   });
 
-  test("no such label appears once the supplier may see the contacts anyway", () => {
+  test("platform support banner stays off after payment too", () => {
     expect(buildBookingDetailsView(paid(), superadmin).platformSupportView).toBe(
       false
     );

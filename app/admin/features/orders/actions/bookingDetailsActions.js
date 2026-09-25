@@ -76,9 +76,8 @@ export async function declineBookingRequest(orderId, reason) {
 }
 
 /**
- * A structured replacement proposal. The original vehicle field is never
- * mutated; the server stores this as an immutable snapshot the customer then
- * accepts by paying.
+ * A structured replacement proposal. Fleet pick moves the order onto that car
+ * (calendar parity). Guaranteed-class leaves `order.car` unchanged.
  */
 /** Fleet cars the supplier may offer for this booking (scoped to the order's company). */
 export async function loadReplacementFleetCars(orderId) {
@@ -88,18 +87,15 @@ export async function loadReplacementFleetCars(orderId) {
 export async function proposeEquivalentReplacement(orderId, proposal) {
   const source = proposal.replacementSource || REPLACEMENT_KIND.GUARANTEED_CLASS;
 
-  // Fleet pick remains available to API callers; Booking Details UI uses the
-  // guaranteed-class acknowledgement only.
   if (source === REPLACEMENT_KIND.COMPANY_VEHICLE) {
     const carId = String(proposal.proposedCarId || "").trim();
     if (!carId) {
       return { ok: false, message: "Choose a vehicle from your fleet." };
     }
-    const result = await suggestAlternativeVehicle(
-      orderId,
-      carId,
-      proposal.supplierMessage
-    );
+    const reason =
+      String(proposal.supplierMessage || "").trim() ||
+      "Fleet replacement from available stock";
+    const result = await suggestAlternativeVehicle(orderId, carId, reason);
     return { ok: result?.ok === true, message: result?.message || "" };
   }
 

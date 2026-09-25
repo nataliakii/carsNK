@@ -49,10 +49,11 @@ describe("booking details modal wiring", () => {
   it("the modal makes no API call of its own", () => {
     expect(MODAL).not.toContain("fetch(");
     expect(MODAL).toContain("actions/bookingDetailsActions");
-    // Replacement is a guaranteed-class acknowledgement; fleet picker was removed.
+    // Replacement: fleet pick (moves order.car) or guaranteed-class ack
     expect(MODAL).toContain("proposeEquivalentReplacement");
     expect(MODAL).toContain("guaranteeAck");
-    expect(MODAL).not.toContain("loadReplacementFleetCars");
+    expect(MODAL).toContain("loadReplacementFleetCars");
+    expect(MODAL).toContain("REPLACEMENT_KIND.COMPANY_VEHICLE");
     // The support task reuses the endpoint that already exists.
     expect(read("app/admin/features/orders/actions/supplierBookingActions.js")).toContain(
       "ask-rovaro"
@@ -61,8 +62,8 @@ describe("booking details modal wiring", () => {
 
   it("the width comes from a named constant, not an inline number", () => {
     expect(MODAL).toContain("maxWidth: BOOKING_DETAILS_MODAL_MAX_WIDTH");
-    expect(BOOKING_DETAILS_MODAL_MAX_WIDTH).toBeGreaterThanOrEqual(520);
-    expect(BOOKING_DETAILS_MODAL_MAX_WIDTH).toBeLessThanOrEqual(720);
+    expect(BOOKING_DETAILS_MODAL_MAX_WIDTH).toBeGreaterThanOrEqual(640);
+    expect(BOOKING_DETAILS_MODAL_MAX_WIDTH).toBeLessThanOrEqual(800);
     expect(Object.keys(BOOKING_DETAILS_SECTION).length).toBeGreaterThan(0);
   });
 

@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
   Checkbox,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   FormControlLabel,
   IconButton,
+  InputLabel,
   Menu,
   MenuItem,
+  Select,
   Stack,
   TextField,
   Tooltip,
@@ -28,16 +32,17 @@ import {
   getSupplierResponseStatus,
   isSupplierResponseLocked,
 } from "@/domain/orders/supplierResponseStatus";
+import { askRovaroAboutBooking } from "@/app/admin/features/orders/actions/supplierBookingActions";
 import {
-  askRovaroAboutBooking,
-  offerEquivalentReplacement,
-} from "@/app/admin/features/orders/actions/supplierBookingActions";
+  REPLACEMENT_KIND,
+  loadReplacementFleetCars,
+  proposeEquivalentReplacement,
+} from "@/app/admin/features/orders/actions/bookingDetailsActions";
 import {
   contractorSupplierResponseCopy,
   PLATFORM_WORKFLOW_STAGE,
   resolvePlatformWorkflowStage,
 } from "@/domain/admin/rovaroContractorAdmin";
-import { REPLACEMENT_SOURCE } from "@/domain/booking/equivalentReplacementCopy";
 
 const COMPACT_BTN_SX = {
   textTransform: "none",
@@ -129,8 +134,31 @@ export default function SupplierResponseCell({
   const [alternativeOpen, setAlternativeOpen] = useState(false);
   const [alternativeReason, setAlternativeReason] = useState("");
   const [guaranteeAck, setGuaranteeAck] = useState(false);
+  const [proposedCarId, setProposedCarId] = useState("");
+  const [fleetCars, setFleetCars] = useState([]);
+  const [fleetLoading, setFleetLoading] = useState(false);
   const [localError, setLocalError] = useState("");
   const [moreAnchor, setMoreAnchor] = useState(null);
+
+  useEffect(() => {
+    if (!alternativeOpen || !order?._id) return undefined;
+    let alive = true;
+    setFleetLoading(true);
+    setFleetCars([]);
+    setProposedCarId("");
+    loadReplacementFleetCars(order._id).then((result) => {
+      if (!alive) return;
+      setFleetLoading(false);
+      if (!result?.ok) {
+        setLocalError(result?.message || "Could not load fleet cars");
+        return;
+      }
+      setFleetCars(Array.isArray(result.cars) ? result.cars : []);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [alternativeOpen, order?._id]);
 
   if (!isClient) {
     return (
@@ -188,6 +216,7 @@ export default function SupplierResponseCell({
       setLocalError("");
       setGuaranteeAck(false);
       setAlternativeReason("");
+      setProposedCarId("");
       setAlternativeOpen(true);
     };
 
@@ -203,6 +232,8 @@ export default function SupplierResponseCell({
       "—";
     const requestedPrice =
       order?.totalPrice != null ? `€${Number(order.totalPrice).toFixed(2)}` : "—";
+    const fleetSelected = Boolean(proposedCarId);
+    const replacementReady = fleetSelected || guaranteeAck;
 
     const awaitingDialogs = (
       <>
@@ -277,9 +308,9 @@ export default function SupplierResponseCell({
           <DialogContent>
             <Stack spacing={1.25} sx={{ pt: 0.5 }}>
               <Typography variant="body2" color="text.secondary">
-                {t("bookingDetails.replacementDialog.intro", {
+                {t("bookingDetails.replacementDialog.introFleet", {
                   defaultValue:
-                    "The requested vehicle stays as it is. Your proposal is sent to the customer, who accepts it by paying.",
+                    "Pick a car from your available fleet to move this booking onto it (same as calendar), or guarantee class only if the exact car is not listed yet.",
                 })}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 700 }}>
@@ -305,11 +336,60 @@ export default function SupplierResponseCell({
                   price: requestedPrice,
                 })}
               </Typography>
+              {fleetLoading ? (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CircularProgress size={18} />
+                  <Typography variant="body2" color="text.secondary">
+                    {t("bookingDetails.replacementDialog.loadingFleet", {
+                      defaultValue: "Loading available cars…",
+                    })}
+                  </Typography>
+                </Stack>
+              ) : (
+                <FormControl fullWidth size="small" margin="dense">
+                  <InputLabel id="supplier-replacement-fleet-label">
+                    {t("bookingDetails.replacementDialog.kinds.COMPANY_VEHICLE", {
+                      defaultValue: "A vehicle from your fleet",
+                    })}
+                  </InputLabel>
+                  <Select
+                    labelId="supplier-replacement-fleet-label"
+                    label={t("bookingDetails.replacementDialog.kinds.COMPANY_VEHICLE", {
+                      defaultValue: "A vehicle from your fleet",
+                    })}
+                    value={proposedCarId}
+                    onChange={(e) => {
+                      const next = String(e.target.value || "");
+                      setProposedCarId(next);
+                      if (next) setGuaranteeAck(false);
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>
+                        {t("bookingDetails.replacementDialog.fleetPlaceholder", {
+                          defaultValue: "Choose a vehicle",
+                        })}
+                      </em>
+                    </MenuItem>
+                    {fleetCars.map((row) => (
+                      <MenuItem key={row.carId} value={row.carId}>
+                        {[row.name, row.carNumber, row.category, row.transmission]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
               <FormControlLabel
                 control={
                   <Checkbox
                     checked={guaranteeAck}
-                    onChange={(e) => setGuaranteeAck(e.target.checked)}
+                    disabled={fleetSelected}
+                    onChange={(e) => {
+                      setGuaranteeAck(e.target.checked);
+                      if (e.target.checked) setProposedCarId("");
+                    }}
                   />
                 }
                 label={t("bookingDetails.replacementDialog.guaranteeAck", {
@@ -347,11 +427,14 @@ export default function SupplierResponseCell({
             <Button onClick={() => setAlternativeOpen(false)}>{t("table.reset")}</Button>
             <Button
               variant="contained"
-              disabled={busy || !guaranteeAck}
+              disabled={busy || !replacementReady}
               onClick={async () => {
-                const offered = await offerEquivalentReplacement(order._id, {
-                  replacementSource: REPLACEMENT_SOURCE.GUARANTEED_CLASS,
-                  guaranteeAck: true,
+                const offered = await proposeEquivalentReplacement(order._id, {
+                  replacementSource: fleetSelected
+                    ? REPLACEMENT_KIND.COMPANY_VEHICLE
+                    : REPLACEMENT_KIND.GUARANTEED_CLASS,
+                  proposedCarId,
+                  guaranteeAck: !fleetSelected && guaranteeAck,
                   supplierMessage: alternativeReason,
                 });
                 if (!offered.ok) {
@@ -524,7 +607,7 @@ export default function SupplierResponseCell({
     return (
       <CompactResponseStatus
         label={t("table.responseConfirmedShort", {
-          defaultValue: "Confirmed",
+          defaultValue: "Accepted",
         })}
         when={when}
         infoTitle={infoTitle}

@@ -17,11 +17,6 @@ import {
   BOOKING_CAPABILITY,
   capabilitiesForOrder,
 } from "@/domain/booking/resolveBookingCapabilities";
-import {
-  BOOKING_ROLE,
-  resolveActorRole,
-} from "@/domain/orders/bookingCapabilities";
-import { companyMustHideCustomerIdentity } from "@/domain/orders/orderVisibility";
 import { readVehicleSnapshot } from "@/domain/orders/vehicleSnapshot";
 import { isValidPublicBookingReference } from "@/domain/booking/publicBookingReferenceValidate";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
@@ -140,14 +135,9 @@ export function buildBookingDetailsView(order, user, opts = {}) {
   const { vehicle, legacy } = readVehicleSnapshot(order);
   const showContacts = caps.has(BOOKING_CAPABILITY.VIEW_CUSTOMER_CONTACTS);
   const showLicence = caps.has(BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS);
-  // A superadmin reading a booking the supplier cannot yet see is looking at
-  // the same screen the supplier gets, so the screen has to say whose eyes
-  // these contacts are open to. Otherwise platform-support access is
-  // indistinguishable from a leak.
-  const platformSupportView =
-    resolveActorRole(user) === BOOKING_ROLE.SUPERADMIN &&
-    showContacts &&
-    companyMustHideCustomerIdentity(order);
+  // Superadmin can open contacts before payment; no banner needed — the role
+  // already explains it. Kept false so the modal stays uncluttered.
+  const platformSupportView = false;
   const actions = [];
 
   if (caps.has(BOOKING_CAPABILITY.CONFIRM_REQUESTED_VEHICLE)) {
@@ -155,7 +145,6 @@ export function buildBookingDetailsView(order, user, opts = {}) {
       id: "confirm",
       label: "Confirm requested vehicle",
       labelKey: "bookingDetails.actions.confirm",
-      primary: true,
     });
   }
   if (caps.has(BOOKING_CAPABILITY.OFFER_EQUIVALENT_REPLACEMENT)) {
@@ -163,7 +152,6 @@ export function buildBookingDetailsView(order, user, opts = {}) {
       id: "replace",
       label: "Offer equivalent replacement",
       labelKey: "bookingDetails.actions.replace",
-      primary: true,
     });
   }
   if (caps.has(BOOKING_CAPABILITY.DECLINE_REQUEST)) {
@@ -171,7 +159,6 @@ export function buildBookingDetailsView(order, user, opts = {}) {
       id: "decline",
       label: "Decline request",
       labelKey: "bookingDetails.actions.decline",
-      primary: true,
     });
   }
   // CONTACT_CUSTOMER is not an action. It is the permission to see and copy
