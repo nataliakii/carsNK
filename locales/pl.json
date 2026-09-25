@@ -264,7 +264,13 @@
     "licenceExpiresBeforeReturn": "Prawo jazdy traci ważność przed końcem wynajmu. Użyj prawa jazdy ważnego przez cały okres wynajmu.",
     "licenceIssueDateRequired": "Podaj datę wydania prawa jazdy.",
     "licenceIssueDateInvalid": "Data wydania musi być w przeszłości i wcześniejsza niż data ważności.",
-    "licenceNotProvided": "Nie podano"
+    "licenceNotProvided": "Nie podano",
+    "platformRequest": {
+      "title": "Zapytanie platformy Rovaro",
+      "notice": "To zamówienie tworzy Rovaro dla innej firmy. Wychodzi jako rezerwacja platformy i trafia do kolejki tej firmy jako nowe zapytanie oczekujące na jej potwierdzenie.",
+      "offlineUnavailable": "Wpisu offline nie można utworzyć w imieniu innej firmy, dlatego opcja offline nie jest tu dostępna.",
+      "priceLocked": "Rovaro wylicza tę cenę, a opłata rezerwacyjna jest jej procentem, dlatego sumy nie można tu edytować."
+    }
   },
   "car": {
     "viewDetails": "Zobacz więcej szczegółów",
@@ -326,7 +332,14 @@
       "beige": "Beżowy",
       "gold": "Złoty",
       "orange": "Pomarańczowy",
-      "yellow": "Żółty"
+      "yellow": "Żółty",
+      "mini": "Mini",
+      "intermediate": "Średnia",
+      "standard": "Standard",
+      "fullsize": "Duża",
+      "suv": "SUV",
+      "van": "Van",
+      "luxury": "Luksusowa"
     }
   },
   "bookMesssages": {
@@ -368,6 +381,39 @@
     "sureDelCar": "Czy na pewno chcesz usunąć"
   },
   "table": {
+    "actionRequired": "Wymagane działanie",
+    "confirmVehicle": "Potwierdź pojazd",
+    "otherResponses": "Inne odpowiedzi",
+    "rowActions": "Akcje wiersza",
+    "recordRemainingPayment": "Zapisz pozostałą płatność",
+    "remainingAmountPaid": "Pozostała kwota zapłacona",
+    "clientOrderLock": "Rezerwacji Rovaro nie można tu edytować",
+    "conflictCount": "konflikty: {{count}}",
+    "conflictMore": "+{{count}} więcej",
+    "conflictRelatedRow": "Ta rezerwacja koliduje z próbą zmiany powyżej",
+    "clearConflict": "Ukryj komunikat o konflikcie",
+    "bookingFee": "Opłata Rovaro",
+    "dueToCompany": "Dla firmy",
+    "company": "Firma",
+    "sourceRovaroShort": "Rovaro",
+    "sourceInternalShort": "Wewnętrzna",
+    "toneUnresolved": "Do weryfikacji",
+    "priceSystem": "System",
+    "priceSavedAuto": "Zapisana auto",
+    "priceRecalcTooltip": "Przelicz cenę systemową i zapisz (usuwa ręczną korektę)",
+    "priceHistory": "Historia cen",
+    "priceManual": "Ręczna",
+    "confirmRequestedVehicle": "Potwierdź wskazany pojazd",
+    "supplierReplacementOffered": "Zaproponowano równorzędny pojazd",
+    "supplierRequestedConfirmed": "Wskazany pojazd potwierdzony",
+    "toneDeclined": "Odrzucona",
+    "toneNewRequest": "Nowe zapytanie",
+    "toneAwaitingPayment": "Oczekuje płatności",
+    "toneConfirmedPaid": "Potwierdzona",
+    "toneCompleted": "Zakończona",
+    "toneExpired": "Płatność wygasła",
+    "toneCancelled": "Anulowana",
+    "customerAwaitingAcceptance": "Oczekuje akceptacji klienta",
     "allOrders": "Pokaż wszystkie zamówienia",
     "activOrders": "Aktywny (bez przeszłości)",
     "startToday": "Zaczynając dzisiaj",
@@ -877,9 +923,8 @@
       "intro": "Zamówiony pojazd pozostaje bez zmian. Twoja propozycja trafia do klienta, który akceptuje ją, płacąc.",
       "kind": "Rodzaj zamiennika",
       "kinds": {
-        "COMPANY_VEHICLE": "Pojazd z Twojej floty",
-        "EXTERNAL_VEHICLE": "Pojazd spoza Twojej floty",
-        "GUARANTEED_CLASS": "Gwarantowana klasa, model do potwierdzenia"
+        "COMPANY_VEHICLE": "Konkretny pojazd z Twojej floty",
+        "GUARANTEED_EQUIVALENT": "Gwarantowany pojazd równorzędny, model potwierdzony później"
       },
       "model": "Pojazd zastępczy",
       "category": "Klasa",
@@ -887,14 +932,24 @@
       "transmission": "Skrzynia biegów",
       "transmissionHelp": "Musi odpowiadać zamówionej skrzyni biegów.",
       "seats": "Miejsca",
+      "seatsHelp": "Nigdy mniej niż w zamówionym pojeździe.",
       "luggage": "Bagaż",
-      "totalPrice": "Łączna cena wynajmu",
-      "totalPriceHelp": "Taka sama lub niższa niż zamówiona cena.",
+      "luggageHelp": "Nigdy mniej niż w zamówionym pojeździe.",
       "comment": "Komentarz dla klienta",
       "submit": "Wyślij propozycję",
       "fleetPlaceholder": "Wybierz pojazd",
       "internalFleet": "(wewnętrzny) {{name}}",
-      "notOfferable": "Niedostępne dla tej rezerwacji:"
+      "notOfferable": "Niedostępne dla tej rezerwacji:",
+      "guaranteeTitle": "Gwarantujesz",
+      "guaranteeClass": "{{class}} lub wyższa",
+      "guaranteeTransmission": "{{transmission}}, bez zmian",
+      "guaranteeSeats": "Co najmniej {{seats}}",
+      "guaranteePrice": "{{price}}, bez zmian",
+      "guaranteeUnavailable": "Rovaro nie ma pełnej specyfikacji zamówionego pojazdu, dlatego nie można tu zagwarantować pojazdu równorzędnego. Zaproponuj pojazd ze swojej floty lub skontaktuj się z Rovaro.",
+      "guaranteeSummary": "Gwarantujesz tę samą lub wyższą klasę, tę samą skrzynię biegów, nie mniej miejsc i tę samą cenę całkowitą. Dokładny model można potwierdzić później.",
+      "optionalIntro": "Poniższe dane są opcjonalne. Wszystko, co pozostawisz puste, jest gwarantowane na podstawie pierwotnej rezerwacji.",
+      "asRequested": "Jak w zamówieniu",
+      "modelHelp": "Opcjonalnie. Pozostaw puste, jeśli dokładny model potwierdzisz później."
     },
     "amendDialog": {
       "notice": "Każda zmiana jest zapisywana wraz z powodem oraz stanem przed i po. Istotny warunek opłaconej rezerwacji nie może się zmienić bez zgody klienta.",

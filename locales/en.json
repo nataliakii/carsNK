@@ -603,6 +603,12 @@
     },
     "CompleteBook": "Complete booking",
     "offline": "Offline (not via website)",
+    "platformRequest": {
+      "title": "Rovaro platform request",
+      "notice": "This order is created by Rovaro for another company. It is sent as a platform booking and arrives in that company's queue as a new request awaiting their confirmation.",
+      "offlineUnavailable": "An offline record cannot be created on another company's behalf, so the offline option is not available here.",
+      "priceLocked": "Rovaro calculates this price and the booking fee is a percentage of it, so the total cannot be edited here."
+    },
     "waitForPriceCalc": "Wait until the price is calculated",
     "startDateNotBeforeToday": "Pick-up date cannot be earlier than today",
     "addedSuccess": "Order added successfully",
@@ -827,7 +833,14 @@
       "beige": "Beige",
       "gold": "Gold",
       "orange": "Orange",
-      "yellow": "Yellow"
+      "yellow": "Yellow",
+      "mini": "Mini",
+      "intermediate": "Intermediate",
+      "standard": "Standard",
+      "fullsize": "Full-size",
+      "suv": "SUV",
+      "van": "Van",
+      "luxury": "Luxury"
     }
   },
   "bookMesssages": {
@@ -878,6 +891,17 @@
     "sureDelCar": "Are you sure you want to delete "
   },
   "table": {
+    "actionRequired": "Action required",
+    "confirmVehicle": "Confirm vehicle",
+    "otherResponses": "Other responses",
+    "rowActions": "Row actions",
+    "recordRemainingPayment": "Record remaining payment",
+    "remainingAmountPaid": "Remaining amount paid",
+    "clientOrderLock": "A Rovaro booking cannot be edited here",
+    "conflictCount": "{{count}} conflicts",
+    "conflictMore": "+{{count}} more",
+    "conflictRelatedRow": "This booking conflicts with the update attempted above",
+    "clearConflict": "Dismiss conflict notice",
     "allOrders": "Show All Orders",
     "activOrders": "Active (without past)",
     "startToday": "Starting Today",
@@ -2012,9 +2036,8 @@
       "intro": "The requested vehicle stays as it is. Your proposal is sent to the customer, who accepts it by paying.",
       "kind": "Replacement type",
       "kinds": {
-        "COMPANY_VEHICLE": "A vehicle from your fleet",
-        "EXTERNAL_VEHICLE": "A vehicle not listed in your fleet",
-        "GUARANTEED_CLASS": "Guaranteed class, model to be confirmed"
+        "COMPANY_VEHICLE": "A specific vehicle from your fleet",
+        "GUARANTEED_EQUIVALENT": "A guaranteed equivalent, model confirmed later"
       },
       "model": "Replacement vehicle",
       "category": "Class",
@@ -2022,14 +2045,24 @@
       "transmission": "Transmission",
       "transmissionHelp": "Must match the requested transmission.",
       "seats": "Seats",
+      "seatsHelp": "Never fewer than the requested vehicle.",
       "luggage": "Luggage",
-      "totalPrice": "Total rental price",
-      "totalPriceHelp": "Same or lower than the requested price.",
+      "luggageHelp": "Never less than the requested vehicle.",
       "comment": "Comment for the customer",
       "submit": "Send proposal",
       "fleetPlaceholder": "Choose a vehicle",
       "internalFleet": "(internal) {{name}}",
-      "notOfferable": "Not offerable for this booking:"
+      "notOfferable": "Not offerable for this booking:",
+      "guaranteeTitle": "You guarantee",
+      "guaranteeClass": "{{class}} or higher",
+      "guaranteeTransmission": "{{transmission}}, unchanged",
+      "guaranteeSeats": "At least {{seats}}",
+      "guaranteePrice": "{{price}}, unchanged",
+      "guaranteeUnavailable": "Rovaro does not hold the full specification of the requested vehicle, so an equivalent cannot be guaranteed here. Offer a vehicle from your fleet or contact Rovaro.",
+      "guaranteeSummary": "You guarantee the same or a higher class, the same transmission, no fewer seats and the same total price. The exact model can be confirmed later.",
+      "optionalIntro": "The details below are optional. Anything you leave empty is guaranteed from the original booking.",
+      "asRequested": "Same as requested",
+      "modelHelp": "Optional. Leave it empty if you will confirm the exact model later."
     },
     "amendDialog": {
       "notice": "Every amendment is recorded with its reason and a before-and-after snapshot. A material term of a paid booking cannot change without the customer's consent.",
