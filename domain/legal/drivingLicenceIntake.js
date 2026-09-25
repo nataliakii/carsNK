@@ -2,23 +2,20 @@
  * Public driving-licence intake rules.
  *
  * A public request uploads before the order exists, so the intake endpoint is
- * reachable without a session. Everything that keeps that safe lives here:
- * accepted file types, size ceiling, a neutral storage folder that carries no
- * customer data, and a per-IP rate limit.
+ * reachable without a session. Everything that keeps that safe lives here: a
+ * per-IP rate limit and a neutral storage folder that carries no customer data.
+ * The file rules themselves are shared with the booking form — see
+ * drivingLicenceFileRules.
  */
 
 import { getCloudinaryOrdersFolder } from "@config/cloudinary";
 
-export const MAX_LICENCE_UPLOAD_BYTES = 10 * 1024 * 1024;
-
-export const ALLOWED_LICENCE_MIME_TYPES = Object.freeze([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-  "application/pdf",
-]);
+export {
+  MAX_LICENCE_UPLOAD_BYTES,
+  ALLOWED_LICENCE_MIME_TYPES,
+  validateLicenceUpload,
+  storageResourceType,
+} from "./drivingLicenceFileRules";
 
 const UPLOAD_LIMIT = 12;
 const UPLOAD_WINDOW_MS = 15 * 60 * 1000;
@@ -50,20 +47,6 @@ export function consumeLicenceUploadAttempt(key, { now = Date.now() } = {}) {
 }
 
 /**
- * @returns {{ ok: true, contentType: string } | { ok: false, code: string }}
- */
-export function validateLicenceUpload({ contentType, byteSize }) {
-  const mime = String(contentType || "").toLowerCase().split(";")[0].trim();
-  if (!ALLOWED_LICENCE_MIME_TYPES.includes(mime)) {
-    return { ok: false, code: "UNSUPPORTED_TYPE" };
-  }
-  const size = Number(byteSize) || 0;
-  if (size <= 0) return { ok: false, code: "EMPTY_FILE" };
-  if (size > MAX_LICENCE_UPLOAD_BYTES) return { ok: false, code: "TOO_LARGE" };
-  return { ok: true, contentType: mime };
-}
-
-/**
  * Folder for a licence uploaded before its order exists.
  *
  * Deliberately carries no name, email or reference: at intake time there is no
@@ -76,11 +59,4 @@ export function licenceIntakeFolder(now = new Date()) {
     ? "unknown"
     : `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   return `${getCloudinaryOrdersFolder()}/licence-intake/${month}`;
-}
-
-/** PDFs are stored as raw resources; images as images. */
-export function storageResourceType(contentType) {
-  return String(contentType || "").toLowerCase() === "application/pdf"
-    ? "raw"
-    : "image";
 }

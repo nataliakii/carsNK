@@ -6,7 +6,7 @@
  * it, and holding it grants no access to the document.
  */
 
-import { ALLOWED_LICENCE_MIME_TYPES } from "@/domain/legal/drivingLicenceIntake";
+import { ALLOWED_LICENCE_MIME_TYPES } from "@/domain/legal/drivingLicenceFileRules";
 
 const INTAKE_PATH = "/api/order/driving-licence/intake";
 

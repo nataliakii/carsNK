@@ -262,6 +262,8 @@ describe("one booking details modal", () => {
       "utf8"
     );
     expect(route).toContain("decideOrderUpdate");
-    expect(create).toContain("validateDrivingLicenceCapture");
+    // The create route enforces the licence through the gate, which verifies the
+    // signed upload receipt before delegating to validateDrivingLicenceCapture.
+    expect(create).toContain("resolveDrivingLicenceForCreate");
   });
 });

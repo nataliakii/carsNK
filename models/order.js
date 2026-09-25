@@ -582,6 +582,7 @@ const OrderSchema = new mongoose.Schema({
       {
         storageReference: { type: String, default: "" },
         storageType: { type: String, default: "authenticated" },
+        resourceType: { type: String, default: "image" },
         checksum: { type: String, default: "" },
         uploadedAt: { type: Date, default: null },
         holderName: { type: String, default: "" },
@@ -1022,6 +1023,7 @@ if (Order?.schema && !Order.schema.path("drivingLicenceSnapshot.checksum")) {
         {
           storageReference: { type: String, default: "" },
           storageType: { type: String, default: "authenticated" },
+          resourceType: { type: String, default: "image" },
           checksum: { type: String, default: "" },
           uploadedAt: { type: Date, default: null },
           holderName: { type: String, default: "" },

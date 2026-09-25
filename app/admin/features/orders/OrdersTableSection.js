@@ -97,6 +97,7 @@ import { isPast } from "@utils/businessTime";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { isPlatformAdminUser, policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import SupplierResponseCell from "@/app/admin/features/orders/components/SupplierResponseCell";
+import OrdersFinancialSummary from "@/app/admin/features/orders/components/OrdersFinancialSummary";
 import CustomerConfirmationCell from "@/app/admin/features/orders/components/CustomerConfirmationCell";
 
 function browserSearchString() {

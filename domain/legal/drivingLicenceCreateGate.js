@@ -18,6 +18,7 @@ import {
   licenceCaptureMessageKey,
   validateDrivingLicenceCapture,
 } from "@/domain/legal/drivingLicenceSnapshot";
+import { storageResourceType } from "@/domain/legal/drivingLicenceFileRules";
 import { verifyUploadReceipt } from "@/domain/legal/drivingLicenceUploadReceipt";
 
 /**
@@ -94,7 +95,9 @@ export function resolveDrivingLicenceForCreate({
 
   const result = validateDrivingLicenceCapture({
     payload,
-    upload,
+    // The content type is authenticated by the receipt signature, so the
+    // resource type derived from it is trustworthy enough to persist.
+    upload: { ...upload, resourceType: storageResourceType(upload.contentType) },
     pickupAtUtc,
     returnAtUtc,
     now,

@@ -154,7 +154,7 @@ export async function GET(request, { params }) {
       orderId: String(orderId),
       storageReference,
       storageType: snapshot?.storageType || "authenticated",
-      resourceType: "image",
+      resourceType: snapshot?.resourceType || "image",
     });
     if (grant.ok) {
       capturedDocument = {

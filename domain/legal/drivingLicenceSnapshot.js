@@ -149,7 +149,8 @@ function refuse(code, field = "") {
  *
  * @param {{
  *   payload: object|null|undefined,
- *   upload: {storageReference: string, checksum: string, uploadedAt: Date|string, storageType?: string}|null,
+ *   upload: {storageReference: string, checksum: string, uploadedAt: Date|string,
+ *            storageType?: string, resourceType?: string}|null,
  *   returnAtUtc?: Date|string|null,
  *   pickupAtUtc?: Date|string|null,
  *   requireIssueDate?: boolean,
@@ -194,6 +195,10 @@ export function validateDrivingLicenceCapture({
     snapshot: {
       storageReference,
       storageType: String(upload.storageType || "authenticated"),
+      // Storage needs this to build a delivery URL: a PDF scan is a "raw"
+      // resource, an image is not. Captured now because the request that knew
+      // the content type is long gone by the time an admin asks for the file.
+      resourceType: String(upload.resourceType || "image"),
       checksum,
       uploadedAt,
       ...fields.values,
@@ -302,6 +307,7 @@ export function redactDrivingLicenceSnapshot(snapshot) {
   const {
     storageReference: _storageReference,
     storageType: _storageType,
+    resourceType: _resourceType,
     ...rest
   } = plain;
   return { ...rest, hasDocument: Boolean(String(plain.storageReference || "").trim()) };

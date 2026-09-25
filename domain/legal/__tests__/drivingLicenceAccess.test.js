@@ -178,3 +178,93 @@ describe("automatic deletion", () => {
     ).toBe(true);
   });
 });
+
+/**
+ * The helper the contractor admin's VIEW_DRIVING_DOCUMENTS capability calls.
+ * It must agree with evaluateDrivingLicenceAccess in every case, because the
+ * whole point is that a UI capability and the download endpoint cannot drift.
+ */
+describe("canViewDrivingLicenceDocuments", () => {
+  const companyAdmin = { isAdmin: true, role: 1, ownerId: OWNER };
+  const otherCompanyAdmin = { isAdmin: true, role: 1, ownerId: OTHER_OWNER };
+  const superadmin = { isAdmin: true, role: 2, ownerId: null };
+
+  it("refuses the owning company before the verified payment", () => {
+    expect(
+      canViewDrivingLicenceDocuments({
+        order: order({ payment: { status: "pending" } }),
+        user: companyAdmin,
+        now: NOW,
+      })
+    ).toBe(false);
+  });
+
+  it("allows the owning company after the verified payment", () => {
+    expect(
+      canViewDrivingLicenceDocuments({
+        order: order({ payment: { status: "paid" } }),
+        user: companyAdmin,
+        now: NOW,
+      })
+    ).toBe(true);
+  });
+
+  it("refuses another company even on a paid booking", () => {
+    expect(
+      canViewDrivingLicenceDocuments({
+        order: order({ payment: { status: "paid" } }),
+        user: otherCompanyAdmin,
+        now: NOW,
+      })
+    ).toBe(false);
+  });
+
+  it("allows superadmin before payment", () => {
+    expect(
+      canViewDrivingLicenceDocuments({
+        order: order({ payment: { status: "pending" }, confirmed: false }),
+        user: superadmin,
+        now: NOW,
+      })
+    ).toBe(true);
+  });
+
+  it("refuses a missing order and a caller who is not an admin at all", () => {
+    expect(
+      canViewDrivingLicenceDocuments({ order: null, user: superadmin, now: NOW })
+    ).toBe(false);
+    expect(
+      canViewDrivingLicenceDocuments({ order: order(), user: null, now: NOW })
+    ).toBe(false);
+    expect(
+      canViewDrivingLicenceDocuments({
+        order: order({ payment: { status: "paid" } }),
+        user: { isAdmin: false, ownerId: OWNER },
+        now: NOW,
+      })
+    ).toBe(false);
+  });
+
+  it("agrees with the endpoint's own decision in every case", () => {
+    const cases = [
+      [companyAdmin, { payment: { status: "pending" } }],
+      [companyAdmin, { payment: { status: "paid" } }],
+      [otherCompanyAdmin, { payment: { status: "paid" } }],
+      [superadmin, { payment: { status: "pending" } }],
+    ];
+    for (const [user, overrides] of cases) {
+      const helper = canViewDrivingLicenceDocuments({
+        order: order(overrides),
+        user,
+        now: NOW,
+      });
+      const endpoint = evaluateDrivingLicenceAccess({
+        order: order(overrides),
+        isSuperadmin: user.role === 2,
+        sessionOwnerId: user.ownerId,
+        now: NOW,
+      });
+      expect(helper).toBe(endpoint.allowed === true);
+    }
+  });
+});
