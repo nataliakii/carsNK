@@ -62,7 +62,7 @@ export function buildCompanySetupTasks({
     tasks.push(
       task({
         id: "TERMS_UPDATE_REQUIRED",
-        title: "Accept updated Rovaro Terms",
+        title: "Partner terms update",
         description: "Updated terms require your acceptance.",
         href: TERMS_HREF,
       })
@@ -71,8 +71,8 @@ export function buildCompanySetupTasks({
     tasks.push(
       task({
         id: "TERMS_READY_TO_ACCEPT",
-        title: "Review and accept Rovaro Terms",
-        description: "Rovaro Terms are ready for your company.",
+        title: "Partner terms update",
+        description: "Partner terms are ready for your company.",
         href: TERMS_HREF,
       })
     );

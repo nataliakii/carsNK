@@ -110,6 +110,10 @@ async function handler(request) {
       authoritativePrice: order.authoritativePrice || null,
       hasProblem: order.hasProblem === true,
       problemReportedAt: order.problemReportedAt || null,
+      supplierRemainingPaidAt: order.supplierRemainingPaidAt || null,
+      hasDrivingLicence:
+        Array.isArray(order.drivingLicenceUrls) &&
+        order.drivingLicenceUrls.length > 0,
       createdByRole: order.createdByRole ?? 0,
       createdByAdminId: order.createdByAdminId || null,
       totalPrice: order.totalPrice,

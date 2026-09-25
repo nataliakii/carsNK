@@ -82,11 +82,11 @@
     "bookingsNeedAttention": "{{count}} bookings need attention",
     "tasks": {
       "TERMS_READY_TO_ACCEPT": {
-        "title": "Review and accept Rovaro Terms",
-        "description": "Rovaro Terms are ready for your company."
+        "title": "Partner terms update",
+        "description": "Partner terms are ready for your company."
       },
       "TERMS_UPDATE_REQUIRED": {
-        "title": "Accept updated Rovaro Terms",
+        "title": "Partner terms update",
         "description": "Updated terms require your acceptance."
       },
       "CUSTOM_AGREEMENT_READY": {

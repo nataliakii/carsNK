@@ -157,17 +157,19 @@ Never: `rovaroFee = 10% × all visible orders`.
 ```
 platformBookingValue     = sum(filtered platform rental totals)
 rovaroBookingFees        = sum(filtered platform booking fees)
-supplierPlatformAmount   = sum(filtered platform rental − fee)
+dueToCompanies           = platformBookingValue − rovaroBookingFees
 internalBookingValue     = sum(filtered internal amounts)
 rovaroFeeFromInternalBookings = 0
-combinedCalendarValue    = platformBookingValue + internalBookingValue
+allBookingValue          = platformBookingValue + internalBookingValue
 ```
+
+The invariant `platformBookingValue = rovaroBookingFees + dueToCompanies` uses platform rows only. Internal amounts never enter it. Fee is never `10% × all booking value`.
 
 Labels:
 
-- Platform: Platform booking value, Rovaro Booking Fees, Due to company.
-- Internal: **Internal booking value** / Amount handled directly by your company
-  — not “profit”.
+- All booking value.
+- Rovaro bookings: Rental value, Rovaro Booking Fee, Due to companies.
+- Internal: Internal booking value, Rovaro fee €0.00. Not profit and not a payout.
 
 ---
 

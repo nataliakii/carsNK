@@ -1,6 +1,8 @@
 import {
   evaluateDrivingLicenceAccess,
   isPastRetention,
+  issuedUrlIsPermanent,
+  signedDocumentDelivery,
   ACCESS_WINDOW_BEFORE_PICKUP_HOURS,
   ACCESS_WINDOW_AFTER_RETURN_HOURS,
   SIGNED_URL_TTL_SECONDS,
@@ -76,21 +78,25 @@ describe("lawful stage", () => {
     expect(result.code).toBe("not_yet_lawful");
   });
 
-  it("allows a confirmed booking even before payment clears", () => {
-    expect(evaluate({ payment: { status: "pending" } }).allowed).toBe(true);
+  it("refuses a confirmed booking until the Booking Fee webhook marks it paid", () => {
+    const result = evaluate({ confirmed: true, payment: { status: "pending" } });
+    expect(result.allowed).toBe(false);
+    expect(result.code).toBe("not_yet_lawful");
+  });
+
+  it("allows the licence after the Booking Fee is paid, even well before pickup", () => {
+    expect(
+      evaluate({
+        payment: { status: "paid" },
+        pickupAtUtc: new Date(
+          NOW.getTime() + (ACCESS_WINDOW_BEFORE_PICKUP_HOURS + 24) * HOUR
+        ),
+      }).allowed
+    ).toBe(true);
   });
 });
 
 describe("access window", () => {
-  it("refuses too far before pickup", () => {
-    const result = evaluate({
-      pickupAtUtc: new Date(
-        NOW.getTime() + (ACCESS_WINDOW_BEFORE_PICKUP_HOURS + 24) * HOUR
-      ),
-    });
-    expect(result.code).toBe("too_early");
-  });
-
   it("refuses long after the return", () => {
     const result = evaluate({
       pickupAtUtc: new Date(NOW.getTime() - 500 * HOUR),
@@ -114,6 +120,19 @@ describe("signed URL lifetime", () => {
   it("is measured in minutes, not hours", () => {
     expect(SIGNED_URL_TTL_SECONDS).toBeLessThanOrEqual(300);
     expect(SIGNED_URL_TTL_SECONDS).toBeGreaterThan(0);
+  });
+
+  it("asks for a signed expiring URL and rejects the stored URL", () => {
+    const delivery = signedDocumentDelivery(NOW);
+    expect(delivery.options.sign_url).toBe(true);
+    expect(delivery.options.expires_at).toBe(
+      Math.floor(NOW.getTime() / 1000) + SIGNED_URL_TTL_SECONDS
+    );
+    const stored = "https://res.cloudinary.com/demo/image/upload/licence.jpg";
+    expect(issuedUrlIsPermanent(stored, stored)).toBe(true);
+    expect(
+      issuedUrlIsPermanent(stored, `${stored}?signature=abc&expires_at=1`)
+    ).toBe(false);
   });
 });
 

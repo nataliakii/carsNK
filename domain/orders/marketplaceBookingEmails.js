@@ -21,7 +21,9 @@ import {
   marketplaceFinancialSplit,
 } from "@/domain/orders/marketplaceFinancialSplit";
 import { connectToDB } from "@lib/database";
+import { absoluteUrl } from "@config/domain";
 import { formatLocationLegLine } from "@/domain/orders/locationSnapshot";
+import { signCustomerProblemToken } from "@/domain/orders/customerProblemToken";
 
 const COPY = {
   en: {
@@ -633,9 +635,22 @@ export async function sendCustomerPaidEmail({ order, supplierName = "" }) {
 
   const t = copyFor(order.clientLang || order.locale, order);
   const amounts = resolveRentalCheckoutAmount(order);
+  let reportHref = "";
+  try {
+    const token = signCustomerProblemToken({ orderId: String(order._id) });
+    reportHref = absoluteUrl(
+      `/booking/report-problem?token=${encodeURIComponent(token)}`
+    );
+  } catch (err) {
+    console.error("[marketplace email] problem link skipped", err?.message || err);
+  }
   const html = renderRovaroBrandedEmail({
     title: t.paidCustomerSubject,
-    introHtml: p(t.paidCustomerIntro) + p(t.nextSteps) + p(t.support),
+    introHtml:
+      p(t.paidCustomerIntro) +
+      p(t.nextSteps) +
+      (reportHref ? p(`Report a problem: ${reportHref}`) : "") +
+      p(t.support),
     rows: bookingRows(order, t, [
       [t.supplier, supplierName],
       [t.fullPrice, money(amounts.grossMinor, amounts.currency)],
@@ -652,8 +667,9 @@ export async function sendCustomerPaidEmail({ order, supplierName = "" }) {
     `${t.paidTen}: ${money(amounts.amountMinor, amounts.currency)}`,
     `${t.paidNinety}: ${money(amounts.balanceMinor, amounts.currency)}`,
     t.nextSteps,
+    reportHref ? `Report a problem: ${reportHref}` : null,
     t.support,
-  ].join("\n");
+  ].filter((line) => line != null).join("\n");
 
   try {
     await sendEmailDirect({

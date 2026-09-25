@@ -1,7 +1,7 @@
 /**
  * Company setup UI copy.
  *
- * Company-facing text speaks about "company setup" and "Rovaro Terms" — never
+ * Company-facing text speaks about "company setup" and "Partner terms" — never
  * about a separate legal profile or a Master Partner Agreement, because a
  * company has exactly one setup flow with one action at a time.
  *
@@ -44,11 +44,11 @@ export const partnerLegalEn = {
       uploadBody: "Complete your company setup to start receiving bookings.",
       reviewTitle: "Your documents are under review.",
       reviewBody: "Rovaro is preparing the terms. No action is required from you.",
-      termsPreparingTitle: "Your documents are verified. Rovaro Terms are being prepared.",
+      termsPreparingTitle: "Your documents are verified. Partner terms are being prepared.",
       termsPreparingBody: "We will notify you when they are ready. No action is required from you.",
-      termsReadyTitle: "Rovaro Terms are ready to review.",
+      termsReadyTitle: "Partner terms are ready to review.",
       termsReadyBody: "Complete your company setup to start receiving bookings.",
-      termsUpdateTitle: "Updated Rovaro Terms require your acceptance.",
+      termsUpdateTitle: "Partner terms update",
       termsUpdateBody: "Complete your company setup to start receiving bookings.",
       listingTitle: "Your company is approved.",
       listingBody: "Rovaro will activate your marketplace listing.",
@@ -80,8 +80,8 @@ export const partnerLegalEn = {
       awaiting_verification: "The profile is waiting for Rovaro to verify it.",
       rejected: "The profile was rejected. Correct the details and submit again.",
       suspended: "Trading is suspended. Rovaro has to restore the account.",
-      agreement_not_signed: "Rovaro Terms have not been accepted.",
-      agreement_outdated: "Updated Rovaro Terms have to be accepted.",
+      agreement_not_signed: "Partner terms have not been accepted.",
+      agreement_outdated: "Partner terms update",
     },
   },
   status: {
@@ -104,7 +104,7 @@ export const partnerLegalEn = {
     VERIFIED: {
       label: "Verified",
       title: "Company identity verified",
-      body: "Rovaro has checked this company. That is not a signature of Rovaro Terms.",
+      body: "Rovaro has checked this company. That is not a signature of the Partner Agreement.",
     },
     SUSPENDED: {
       label: "Suspended",
@@ -132,7 +132,7 @@ export const partnerLegalEn = {
     submitForVerification: "Submit for verification",
     resubmitForVerification: "Submit again for verification",
     cancelEdit: "Cancel editing",
-    goToAgreement: "Rovaro Terms",
+    goToAgreement: "Partner Agreement",
     rejectedReopen:
       "The previous application was rejected. Update the fields or documents that were refused and submit again.",
     unlockToEdit: "Edit company details (optional)",
@@ -271,9 +271,9 @@ export const partnerLegalEn = {
     },
   },
   agreement: {
-    title: "Rovaro Terms",
+    title: "Partner Agreement",
     subtitle:
-      "Read the current Rovaro Terms and Operating Rules, then accept them if you are authorised to bind the company.",
+      "Read the Partner Agreement, Partner Operating Rules and Data Protection Schedule, then accept them if you are authorised to bind the company.",
     loadFailed: "Could not load the agreement.",
     submitFailed: "Could not record the acceptance.",
     submitted: "Acceptance recorded as {{id}}.",
@@ -506,36 +506,36 @@ export const partnerLegalEn = {
     documents: "Documents",
     terms: "Terms",
     rentalTermsTab: "Rental terms",
-    rovaroTerms: "Rovaro Terms",
+    rovaroTerms: "Partner Agreement",
     draft: "Draft",
     submitted: "Submitted",
     underReview: "Under review",
     verified: "Company identity verified — not a signature",
     verifiedHint:
-      "These fields are company identity. You do not sign anything here. If Rovaro Terms are ready, they appear above this form on this same tab (not on Rental terms).",
+      "These fields are company identity. You do not sign anything here. If partner terms are ready, they appear above this form on this same tab (not on Rental terms).",
     rejected: "Rejected",
     suspended: "Suspended",
     nextStep: {
       preparingTitle: "Nothing to sign yet",
       preparingBody:
-        "Rovaro is still preparing Rovaro Terms, Partner Operating Rules and the Data Protection Schedule. You will accept them here when they are ready.",
+        "Rovaro is still preparing the Partner Agreement, Partner Operating Rules and the Data Protection Schedule. You will accept them here when they are ready.",
       signTitle: "Still to sign on this page",
       signBody:
-        "Open and accept these three documents: Rovaro Terms, Partner Operating Rules, and Data Protection Schedule. The Rental terms tab is only your customer rental conditions, not this agreement.",
+        "Open and accept these three documents: Partner Agreement, Partner Operating Rules, and Data Protection Schedule. The Rental terms tab is only your customer rental conditions, not this agreement.",
       doneBody:
         "Nothing further to sign unless Rovaro publishes a new version.",
     },
-    standardApply: "Standard Rovaro Terms apply",
+    standardApply: "Standard partner terms apply",
     standardTerms: "Standard terms",
     customAgreement: "Custom agreement",
     termsReady: "Review and accept terms",
     acceptTerms: "Accept and continue",
-    termsAccepted: "Rovaro Terms accepted",
-    termsUpdated: "Updated Rovaro Terms require acceptance",
+    termsAccepted: "Partner terms accepted",
+    termsUpdated: "Partner terms update",
     preparing:
-      "Rovaro Terms are being prepared. You can continue setting up your company and submitting documents.",
+      "Partner terms are being prepared. You can continue setting up your company and submitting documents.",
     documentTypes: {
-      "partner-agreement": "Rovaro Terms",
+      "partner-agreement": "Partner Agreement",
       "partner-operating-rules": "Partner Operating Rules",
       "data-protection-schedule": "Data Protection Schedule",
     },
@@ -1042,7 +1042,7 @@ export const partnerLegalEs = {
     documents: "Documentos",
     terms: "Condiciones",
     rentalTermsTab: "Condiciones de alquiler",
-    rovaroTerms: "Condiciones Rovaro",
+    rovaroTerms: "Partner Agreement",
     draft: "Borrador",
     submitted: "Enviado",
     underReview: "En revisión",
@@ -1056,22 +1056,22 @@ export const partnerLegalEs = {
     customAgreement: "Acuerdo personalizado",
     termsReady: "Revisar y aceptar las condiciones",
     acceptTerms: "Aceptar condiciones",
-    termsAccepted: "Condiciones de Rovaro aceptadas",
-    termsUpdated: "Las Condiciones de Rovaro actualizadas requieren aceptación",
+    termsAccepted: "Partner terms accepted",
+    termsUpdated: "Partner terms update",
     nextStep: {
       preparingTitle: "Aún no hay nada que firmar",
       preparingBody:
         "Rovaro sigue preparando el Acuerdo de Partner, las Normas de funcionamiento y el Anexo de protección de datos. Los aceptarás aquí cuando estén listos.",
       signTitle: "Pendiente de firmar en esta página",
       signBody:
-        "Abre y acepta estos tres documentos: Condiciones Rovaro, Normas de funcionamiento del partner y Anexo de protección de datos. La pestaña Condiciones de alquiler es solo para tus condiciones al cliente, no este acuerdo.",
+        "Abre y acepta estos tres documentos: Partner Agreement, Partner Operating Rules y Data Protection Schedule. La pestaña Condiciones de alquiler es solo para tus condiciones al cliente, no este acuerdo.",
       doneBody:
         "No hay nada más que firmar salvo que Rovaro publique una versión nueva.",
     },
     preparing:
       "Las Condiciones de Rovaro se están preparando. Puedes seguir configurando tu empresa y enviando documentos.",
     documentTypes: {
-      "partner-agreement": "Condiciones de Rovaro",
+      "partner-agreement": "Partner Agreement",
       "partner-operating-rules": "Normas de funcionamiento del partner",
       "data-protection-schedule": "Anexo de protección de datos",
     },

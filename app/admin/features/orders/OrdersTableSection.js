@@ -88,6 +88,10 @@ import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { isPlatformAdminUser, policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import SupplierResponseCell from "@/app/admin/features/orders/components/SupplierResponseCell";
 import PlatformStatusCell from "@/app/admin/features/orders/components/PlatformStatusCell";
+import {
+  recordRemainingAmountPaid,
+  reportPlatformBookingProblem,
+} from "@/app/admin/features/orders/actions/bookingCompletionActions";
 
 // Dayjs plugins
 dayjs.extend(utc);
@@ -1481,6 +1485,10 @@ export default function OrdersTableSection() {
           <Typography variant="body2" color="text.secondary">
             {t("table.allOrders")}: {filteredOrders.length} / {orders.length}
           </Typography>
+          <Typography variant="body2" fontWeight={700}>
+            {t("table.allBookingValue", { defaultValue: "All booking value" })} €
+            {filteredSummary.combinedCalendarValue.toFixed(2)}
+          </Typography>
           <Stack spacing={0.25}>
             <Typography variant="body2" fontWeight={700}>
               {t("table.rovaroBookingsTitle", { defaultValue: "Rovaro bookings" })}
@@ -1499,7 +1507,7 @@ export default function OrdersTableSection() {
               {filteredSummary.rovaroBookingFees.toFixed(2)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {t("table.dueToCompany", { defaultValue: "Due to company" })} €
+              {t("table.dueToCompanies", { defaultValue: "Due to companies" })} €
               {filteredSummary.supplierPlatformAmount.toFixed(2)}
             </Typography>
           </Stack>
@@ -1517,13 +1525,10 @@ export default function OrdersTableSection() {
               {filteredSummary.internalBookingValue.toFixed(2)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {t("table.noRovaroFee", { defaultValue: "No Rovaro fee" })}
+              {t("table.internalRovaroFee", { defaultValue: "Rovaro fee" })} €
+              {filteredSummary.rovaroFeeFromInternalBookings.toFixed(2)}
             </Typography>
           </Stack>
-          <Typography variant="caption" color="text.secondary">
-            {t("table.combinedCalendarValue", { defaultValue: "Combined calendar value" })} €
-            {filteredSummary.combinedCalendarValue.toFixed(2)}
-          </Typography>
         </Box>
       </Paper>
 
@@ -1707,6 +1712,53 @@ export default function OrdersTableSection() {
                                 height: 22,
                               }}
                             />
+                            {order.supplierRemainingPaidAt ? (
+                              <Typography variant="caption" color="text.secondary">
+                                {t("table.remainingAmountPaid", {
+                                  defaultValue: "Remaining amount paid",
+                                })}
+                              </Typography>
+                            ) : null}
+                            {isPlatformBooking(order) &&
+                            String(order.payment?.status || "").toLowerCase() === "paid" &&
+                            !order.hasProblem ? (
+                              <Button
+                                size="small"
+                                variant="text"
+                                sx={{ textTransform: "none", px: 0, minWidth: 0 }}
+                                onClick={async () => {
+                                  const result = await reportPlatformBookingProblem(order._id);
+                                  if (!result.ok) {
+                                    enqueueSnackbar(result.message, { variant: "error" });
+                                    return;
+                                  }
+                                  await fetchAndUpdateOrders();
+                                }}
+                              >
+                                {t("table.reportProblem", { defaultValue: "Report a problem" })}
+                              </Button>
+                            ) : null}
+                            {isPlatformBooking(order) &&
+                            String(order.payment?.status || "").toLowerCase() === "paid" &&
+                            !order.supplierRemainingPaidAt ? (
+                              <Button
+                                size="small"
+                                variant="text"
+                                sx={{ textTransform: "none", px: 0, minWidth: 0 }}
+                                onClick={async () => {
+                                  const result = await recordRemainingAmountPaid(order._id);
+                                  if (!result.ok) {
+                                    enqueueSnackbar(result.message, { variant: "error" });
+                                    return;
+                                  }
+                                  await fetchAndUpdateOrders();
+                                }}
+                              >
+                                {t("table.recordRemainingPayment", {
+                                  defaultValue: "Record remaining payment",
+                                })}
+                              </Button>
+                            ) : null}
                             {/* Lock icon for orders the current role cannot edit */}
                             {!orderCanEdit && isClient && (
                               <Tooltip title="Admin cannot edit client orders">

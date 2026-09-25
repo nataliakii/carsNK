@@ -73,6 +73,8 @@ function euro500Order(extra = {}) {
     orderNumber: "20260922180000",
     ownerId: "64b7f2c3a1b2c3d4e5f60788",
     email: "ana@example.com",
+    my_order: true,
+    source: "PLATFORM",
     customerName: "Ana",
     phone: "+34600000000",
     carModel: "Seat Leon",

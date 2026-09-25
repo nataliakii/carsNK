@@ -109,6 +109,26 @@ export async function buildAgreementPackage({ language = "en" } = {}) {
   };
 }
 
+/**
+ * Immutable copy of the three published documents at the moment of acceptance.
+ * Later edits to the live package must not change this array.
+ */
+export function snapshotAcceptedDocuments(documents) {
+  return (Array.isArray(documents) ? documents : []).map((d) => ({
+    documentType: d.documentType,
+    language: d.language,
+    jurisdiction: d.jurisdiction,
+    version: d.version,
+    checksum: d.checksum,
+    pk: d.pk,
+    sk: d.sk,
+    renderedTitle: d.renderedTitle,
+    renderedSections: Array.isArray(d.renderedSections)
+      ? d.renderedSections.map((section) => ({ ...section }))
+      : [],
+  }));
+}
+
 /** Wording the partner must explicitly tick. */
 export const CLICKWRAP_ACCEPTANCE_STATEMENT =
   "I am authorised to accept the Partner Agreement, Partner Operating Rules and Data Protection Schedule on behalf of the company.";
@@ -196,17 +216,7 @@ export async function acceptMasterAgreement(input) {
     signerEmail: String(input.signerEmail || "").toLowerCase(),
     confirmationOfAuthority: Boolean(input.confirmationOfAuthority),
     authorityStatement: CLICKWRAP_ACCEPTANCE_STATEMENT,
-    documents: pkg.documents.map((d) => ({
-      documentType: d.documentType,
-      language: d.language,
-      jurisdiction: d.jurisdiction,
-      version: d.version,
-      checksum: d.checksum,
-      pk: d.pk,
-      sk: d.sk,
-      renderedTitle: d.renderedTitle,
-      renderedSections: d.renderedSections,
-    })),
+    documents: snapshotAcceptedDocuments(pkg.documents),
     packageChecksum: pkg.packageChecksum,
     acceptanceMethod: signature.acceptanceMethod,
     esignProvider: signature.esignProvider,

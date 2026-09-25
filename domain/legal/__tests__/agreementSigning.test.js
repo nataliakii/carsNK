@@ -80,12 +80,14 @@ describe("evaluateAgreementSigningBlockers", () => {
 describe("evaluateAgreementFormBlockers", () => {
   it("lists every incomplete clickwrap field", () => {
     expect(evaluateAgreementFormBlockers({})).toEqual([
-      AGREEMENT_FORM_BLOCKER.NEED_READ,
       AGREEMENT_FORM_BLOCKER.NEED_NAME,
       AGREEMENT_FORM_BLOCKER.NEED_ROLE,
       AGREEMENT_FORM_BLOCKER.NEED_AUTHORITY,
       AGREEMENT_FORM_BLOCKER.NEED_ACCEPTANCE,
     ]);
+    expect(evaluateAgreementFormBlockers({ hasRead: false })).not.toContain(
+      AGREEMENT_FORM_BLOCKER.NEED_READ
+    );
   });
 
   it("is empty when the form is complete", () => {

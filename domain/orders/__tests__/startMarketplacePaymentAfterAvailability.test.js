@@ -92,4 +92,50 @@ describe("startMarketplacePaymentAfterAvailability", () => {
     expect(createRentalCheckoutSession).toHaveBeenCalled();
     expect(sendCustomerPaymentRequestEmail).toHaveBeenCalled();
   });
+
+  test("a failed payment email does not roll back the awaiting-payment status", async () => {
+    createRentalCheckoutSession.mockResolvedValue({
+      ok: true,
+      url: "https://pay.example/cs",
+      sessionId: "cs_2",
+      expiresAt: new Date(),
+    });
+    sendCustomerPaymentRequestEmail.mockResolvedValueOnce({
+      ok: false,
+      code: "send_failed",
+    });
+    const saved = {
+      _id: "o2",
+      my_order: true,
+      source: "PLATFORM",
+      bookingMode: "MARKETPLACE_REQUEST",
+      bookingStatus: BOOKING_STATUS.PENDING_SUPPLIER_CONFIRMATION,
+      payment: { status: "pending" },
+      save: jest.fn().mockResolvedValue(true),
+      toObject() {
+        return { ...this, save: undefined, toObject: undefined, set: undefined };
+      },
+      set(path, value) {
+        this[path] = value;
+      },
+    };
+    Order.findById.mockResolvedValue(saved);
+
+    const result = await startMarketplacePaymentAfterAvailability({
+      order: {
+        _id: "o2",
+        car: "car1",
+        my_order: true,
+        source: "PLATFORM",
+        bookingMode: "MARKETPLACE_REQUEST",
+        bookingStatus: BOOKING_STATUS.PENDING_SUPPLIER_CONFIRMATION,
+        payment: { status: "pending" },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(saved.bookingStatus).toBe(BOOKING_STATUS.PAYMENT_PROCESSING);
+    expect(saved.payment.status).toBe("pending");
+    expect(result.mailed).toBe(false);
+  });
 });

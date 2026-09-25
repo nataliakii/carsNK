@@ -222,7 +222,7 @@ describe("partner terms package", () => {
     expect(view.links).toEqual([]);
     expect(JSON.stringify(view)).not.toContain("/admin/legal");
     expect(partnerLegalEn.companyPage.preparing).toBe(
-      "Rovaro Terms are being prepared. You can continue setting up your company and submitting documents."
+      "Partner terms are being prepared. You can continue setting up your company and submitting documents."
     );
 
     const panel = fs.readFileSync(
@@ -359,13 +359,20 @@ describe("partner terms package", () => {
 describe("company legal copy", () => {
   it("renders the short EN and ES states", () => {
     expect(partnerLegalEn.companyPage.standardApply).toBe(
-      "Standard Rovaro Terms apply"
+      "Standard partner terms apply"
     );
     expect(partnerLegalEn.companyPage.termsReady).toBe("Review and accept terms");
     expect(partnerLegalEn.companyPage.acceptTerms).toBe("Accept and continue");
-    expect(partnerLegalEn.companyPage.termsAccepted).toBe("Rovaro Terms accepted");
-    expect(partnerLegalEn.companyPage.termsUpdated).toBe(
-      "Updated Rovaro Terms require acceptance"
+    expect(partnerLegalEn.companyPage.termsAccepted).toBe("Partner terms accepted");
+    expect(partnerLegalEn.companyPage.termsUpdated).toBe("Partner terms update");
+    expect(partnerLegalEn.companyPage.documentTypes["partner-agreement"]).toBe(
+      "Partner Agreement"
+    );
+    expect(partnerLegalEn.companyPage.documentTypes["partner-operating-rules"]).toBe(
+      "Partner Operating Rules"
+    );
+    expect(partnerLegalEn.companyPage.documentTypes["data-protection-schedule"]).toBe(
+      "Data Protection Schedule"
     );
     expect(partnerLegalEs.companyPage.acceptTerms).toBe("Aceptar condiciones");
     expect(partnerLegalEs.companyPage.preparing).not.toBe(
@@ -432,7 +439,7 @@ describe("company terms screen", () => {
 
   it("5. Draft package shows only the neutral waiting message", () => {
     expect(partnerLegalEn.companyPage.preparing).toBe(
-      "Rovaro Terms are being prepared. You can continue setting up your company and submitting documents."
+      "Partner terms are being prepared. You can continue setting up your company and submitting documents."
     );
     const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
     expect(panel).toContain("partnerLegal.companyPage.rovaroTerms");

@@ -98,7 +98,6 @@ export function evaluateAgreementSigningBlockers({
  * empty name or an unticked box is never a silent disable.
  *
  * @param {{
- *   hasRead?: boolean,
  *   signerName?: string,
  *   signerRole?: string,
  *   authorityConfirmed?: boolean,
@@ -107,14 +106,12 @@ export function evaluateAgreementSigningBlockers({
  * @returns {string[]}
  */
 export function evaluateAgreementFormBlockers({
-  hasRead = false,
   signerName = "",
   signerRole = "",
   authorityConfirmed = false,
   accepted = false,
 } = {}) {
   const blockers = [];
-  if (!hasRead) blockers.push(AGREEMENT_FORM_BLOCKER.NEED_READ);
   if (!String(signerName || "").trim()) {
     blockers.push(AGREEMENT_FORM_BLOCKER.NEED_NAME);
   }

@@ -50,7 +50,8 @@ describe("company legal shared layout", () => {
     expect(terms).toContain("View document");
     expect(terms).toContain("LegalDocumentModal");
     expect(terms).toContain("company-terms-doc-");
-    expect(terms).toContain("onReachedEnd");
+    expect(terms).not.toContain("onReachedEnd");
+    expect(terms).not.toContain("allDocsRead");
     expect(terms).toContain("variant=\"outlined\"");
     expect(terms).not.toContain("OpenInNewIcon");
   });

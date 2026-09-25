@@ -153,9 +153,49 @@ describe("rovaroContractorAdmin", () => {
     expect(s.internalBookingValue).toBe(500);
     expect(s.rovaroFeeFromInternalBookings).toBe(0);
     expect(s.combinedCalendarValue).toBe(1000);
+    expect(s.platformBookingValue).toBe(
+      s.rovaroBookingFees + s.supplierPlatformAmount
+    );
     const exported = buildContractorOrdersExport(orders);
     expect(exported.totals).toEqual(s);
     expect(exported.rows[1].bookingFee).toBe(0);
+  });
+
+  test("separates the example totals and ignores a stale supplier snapshot", () => {
+    const s = summarizeContractorAdminTotals([
+      {
+        my_order: true,
+        source: "PLATFORM",
+        totalPrice: 437,
+        bookingMode: "MARKETPLACE_REQUEST",
+        authoritativePrice: {
+          grossMinor: 43700,
+          platformAmountMinor: 4370,
+          supplierBalanceMinor: 100,
+        },
+      },
+      {
+        my_order: false,
+        source: "INTERNAL",
+        totalPrice: 150,
+        bookingMode: "MARKETPLACE_REQUEST",
+        authoritativePrice: {
+          grossMinor: 15000,
+          platformAmountMinor: 1500,
+          supplierBalanceMinor: 13500,
+        },
+      },
+    ]);
+    expect(s.combinedCalendarValue).toBe(587);
+    expect(s.platformBookingValue).toBe(437);
+    expect(s.rovaroBookingFees).toBe(43.7);
+    expect(s.supplierPlatformAmount).toBe(393.3);
+    expect(s.platformBookingValue).toBe(
+      s.rovaroBookingFees + s.supplierPlatformAmount
+    );
+    expect(s.internalBookingValue).toBe(150);
+    expect(s.rovaroFeeFromInternalBookings).toBe(0);
+    expect(s.internalBookingValue).not.toBe(s.supplierPlatformAmount);
   });
 
   test("source filter and internal availability flag", () => {

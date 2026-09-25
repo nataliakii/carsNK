@@ -549,6 +549,17 @@ const OrderSchema = new mongoose.Schema({
   },
   /** Future FSM snapshot — optional; see domain/booking/bookingStatus.js */
   bookingStatus: { type: String, default: undefined },
+  /** Set when the booking enters COMPLETION_PENDING. The 24h grace starts here. */
+  completionPendingAt: { type: Date, default: null },
+  /** Company or authorised customer reported a problem. Stops auto-completion. */
+  hasProblem: { type: Boolean, default: false },
+  problemReportedAt: { type: Date, default: null },
+  problemReportedBy: { type: String, default: "" },
+  /**
+   * Supplier recorded that the customer paid the remaining rental amount
+   * to the company. Never set by the Stripe Booking Fee webhook.
+   */
+  supplierRemainingPaidAt: { type: Date, default: null },
   pricingVersion: { type: Number, default: null },
   priceCalculatedAt: { type: Date, default: null },
   /**
@@ -894,6 +905,16 @@ if (Order?.schema && !Order.schema.path("drivingLicenceUrls")) {
       type: [String],
       default: [],
     },
+  });
+}
+
+if (Order?.schema && !Order.schema.path("completionPendingAt")) {
+  Order.schema.add({
+    completionPendingAt: { type: Date, default: null },
+    hasProblem: { type: Boolean, default: false },
+    problemReportedAt: { type: Date, default: null },
+    problemReportedBy: { type: String, default: "" },
+    supplierRemainingPaidAt: { type: Date, default: null },
   });
 }
 

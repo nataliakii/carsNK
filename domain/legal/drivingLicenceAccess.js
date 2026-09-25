@@ -17,6 +17,8 @@
  * data, which is why access is gated rather than mirrored.
  */
 
+import { isInternalBooking } from "@/domain/admin/rovaroContractorAdmin";
+
 /** How long a generated signed URL stays valid. */
 export const SIGNED_URL_TTL_SECONDS = 120;
 
@@ -64,33 +66,20 @@ export function evaluateDrivingLicenceAccess({
     };
   }
 
+  if (isInternalBooking(order)) return { allowed: true };
+
   const paid = order?.payment?.status === "paid";
-  const confirmed = Boolean(order?.confirmed);
-  if (!paid && !confirmed) {
+  if (!paid) {
     return {
       allowed: false,
       status: 403,
       code: "not_yet_lawful",
       message:
-        "Driver documents become available once the booking is confirmed and the prepayment has been received",
+        "Driver documents become available after the Booking Fee payment is confirmed",
     };
   }
 
-  const pickup = order.pickupAtUtc || order.timeIn || order.rentalStartDate;
   const dropoff = order.returnAtUtc || order.timeOut || order.rentalEndDate;
-
-  if (pickup) {
-    const opensAt =
-      new Date(pickup).getTime() - ACCESS_WINDOW_BEFORE_PICKUP_HOURS * HOUR_MS;
-    if (now.getTime() < opensAt) {
-      return {
-        allowed: false,
-        status: 403,
-        code: "too_early",
-        message: `Driver documents become available ${ACCESS_WINDOW_BEFORE_PICKUP_HOURS} hours before pickup`,
-      };
-    }
-  }
 
   if (dropoff) {
     const closesAt =
@@ -106,6 +95,33 @@ export function evaluateDrivingLicenceAccess({
   }
 
   return { allowed: true };
+}
+
+/**
+ * Options for a short-lived signed document URL. Callers must not return the
+ * stored Cloudinary URL in its place.
+ */
+export function signedDocumentDelivery(now = new Date()) {
+  const expiresAt =
+    Math.floor(new Date(now).getTime() / 1000) + SIGNED_URL_TTL_SECONDS;
+  return {
+    options: {
+      secure: true,
+      sign_url: true,
+      type: "upload",
+      resource_type: "image",
+      expires_at: expiresAt,
+    },
+    expiresAt: new Date(expiresAt * 1000).toISOString(),
+    ttlSeconds: SIGNED_URL_TTL_SECONDS,
+  };
+}
+
+export function issuedUrlIsPermanent(storedUrl, issuedUrl) {
+  const stored = String(storedUrl || "");
+  const issued = String(issuedUrl || "");
+  if (!issued) return true;
+  return Boolean(stored) && issued === stored;
 }
 
 /**

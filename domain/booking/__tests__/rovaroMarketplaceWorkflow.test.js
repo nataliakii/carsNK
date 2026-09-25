@@ -25,6 +25,10 @@ describe("rovaroMarketplaceWorkflow", () => {
     expect(
       CANONICAL_STAGE_TO_BOOKING_STATUS[CANONICAL_STAGE.BOOKING_CONFIRMED]
     ).toBe(BOOKING_STATUS.BOOKING_CONFIRMED);
+    expect(
+      CANONICAL_STAGE_TO_BOOKING_STATUS[CANONICAL_STAGE.COMPLETION_PENDING]
+    ).toBe(BOOKING_STATUS.COMPLETION_PENDING);
+    expect(CANONICAL_STAGE.RETURN_EXPECTED).toBeUndefined();
   });
 
   test("invariants mention webhook-only payment and hidden PII", () => {

@@ -32,6 +32,8 @@ import { notifyBookingFeePaid } from "@/domain/mail/notificationPolicy";
 
 const order = {
   _id: "64b7f2c3a1b2c3d4e5f60789",
+  my_order: true,
+  source: "PLATFORM",
   orderNumber: "20260921120000",
   ownerId: "64b7f2c3a1b2c3d4e5f60788",
   email: "ana@example.com",
@@ -160,6 +162,25 @@ describe("marketplace booking emails", () => {
     expect(result.customer.deduped).toBe(true);
     expect(result.partner.via).toBe("notification_policy");
     expect(sendEmailDirect).not.toHaveBeenCalled();
+  });
+
+  test("payment notification failure does not change booking status", async () => {
+    notifyBookingFeePaid.mockRejectedValueOnce(new Error("smtp down"));
+    Company.findById.mockReturnValue({
+      select: () => ({
+        lean: () => Promise.resolve({ email: "owner@a.test", name: "Owner A" }),
+      }),
+    });
+    const paid = {
+      ...order,
+      bookingStatus: "BOOKING_CONFIRMED",
+      payment: { status: "paid" },
+    };
+    const result = await sendPaidConfirmationEmails({ order: paid });
+    expect(paid.bookingStatus).toBe("BOOKING_CONFIRMED");
+    expect(paid.payment.status).toBe("paid");
+    expect(paid.supplierRemainingPaidAt).toBeUndefined();
+    expect(result.partner.ok).toBe(false);
   });
 
   test("partner paid email includes customer PII only after pay", async () => {

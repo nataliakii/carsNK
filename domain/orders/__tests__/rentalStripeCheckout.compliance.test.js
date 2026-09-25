@@ -77,6 +77,8 @@ function marketplaceOrder(overrides = {}) {
     car: "car-1",
     carModel: "Seat Leon",
     email: "ana@example.com",
+    my_order: true,
+    source: "PLATFORM",
     bookingMode: BOOKING_MODES.MARKETPLACE_REQUEST,
     bookingStatus: BOOKING_STATUS.PAYMENT_PENDING,
     authoritativePrice: {

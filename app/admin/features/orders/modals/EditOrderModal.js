@@ -83,7 +83,7 @@ import {
   grandTotalFromPriceBreakdown,
   sumRentalSubtotalFromPriceBreakdown,
 } from "@/domain/orders/orderPriceHelpers";
-import DrivingLicenceImageGallery from "@/app/components/ui/inputs/DrivingLicenceImageGallery";
+import SignedDrivingLicenceGallery from "@/app/admin/features/orders/components/SignedDrivingLicenceGallery";
 import DrivingLicenceUploadField from "@/app/components/ui/inputs/DrivingLicenceUploadField";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 
@@ -2908,19 +2908,13 @@ const EditOrderModal = ({
                       />
                     </Box>
                   ) : (
-                    Array.isArray(editedOrder.drivingLicenceUrls) &&
-                    editedOrder.drivingLicenceUrls.length > 0 && (
+                    (editedOrder.hasDrivingLicence ||
+                      (Array.isArray(editedOrder.drivingLicenceUrls) &&
+                        editedOrder.drivingLicenceUrls.length > 0)) && (
                       <Box sx={{ mt: 1, mb: 0.5 }}>
-                        <Typography
-                          variant="subtitle2"
-                          color="text.secondary"
-                          sx={{ mb: 0.5 }}
-                        >
-                          {t("order.drivingLicence")}
-                        </Typography>
-                        <DrivingLicenceImageGallery
-                          showPreviewHint={false}
-                          urls={editedOrder.drivingLicenceUrls}
+                        <SignedDrivingLicenceGallery
+                          orderId={editedOrder._id}
+                          label={t("order.drivingLicence")}
                         />
                       </Box>
                     )

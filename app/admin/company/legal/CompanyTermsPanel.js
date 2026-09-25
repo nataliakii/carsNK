@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Chip,
   FormControlLabel,
   Stack,
   TextField,
@@ -67,10 +66,10 @@ function DocumentSections({ sections }) {
 }
 
 /**
- * Company-facing Rovaro Terms acceptance (shown on Company details).
+ * Company-facing partner terms acceptance (shown on Company details).
  *
- * Documents open in a modal. While acceptance is required, each document must
- * be scrolled to the end before the accept checkbox is enabled.
+ * Each document opens in a readable modal. Acceptance does not depend on
+ * scroll position.
  */
 export default function CompanyTermsPanel({
   termsPublication = COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED,
@@ -87,7 +86,6 @@ export default function CompanyTermsPanel({
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [openDocType, setOpenDocType] = useState("");
-  const [readDocTypes, setReadDocTypes] = useState(() => new Set());
 
   const termsAvailable =
     termsPublication !== COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED;
@@ -109,7 +107,6 @@ export default function CompanyTermsPanel({
     setData(agreement);
     setSignerName(String(session?.user?.name || ""));
     setSignerRole(explicitSignerRole(profileBody.profile));
-    setReadDocTypes(new Set());
   }, [i18n.language, session?.user?.name, t]);
 
   useEffect(() => {
@@ -142,24 +139,10 @@ export default function CompanyTermsPanel({
     [termsPublication, terms]
   );
 
-  const allDocsRead =
-    packageDocs.length > 0 &&
-    packageDocs.every((doc) => readDocTypes.has(doc.documentType));
-
   const openDoc = packageDocs.find((doc) => doc.documentType === openDocType);
 
-  function markDocRead(documentType) {
-    if (!documentType) return;
-    setReadDocTypes((prev) => {
-      if (prev.has(documentType)) return prev;
-      const next = new Set(prev);
-      next.add(documentType);
-      return next;
-    });
-  }
-
   async function acceptTerms() {
-    if (!view.canAccept || !accepted || !allDocsRead || busy) return;
+    if (!view.canAccept || !accepted || busy) return;
     setBusy(true);
     setError("");
     try {
@@ -252,7 +235,6 @@ export default function CompanyTermsPanel({
           const viewLabel = t("partnerLegal.review.doc.view", {
             defaultValue: "View document",
           });
-          const read = readDocTypes.has(doc.documentType);
           return (
             <Button
               key={doc.documentType}
@@ -274,7 +256,7 @@ export default function CompanyTermsPanel({
                 border: "1px solid",
                 borderColor: "divider",
                 color: "text.primary",
-                bgcolor: "#fff",
+                bgcolor: "background.paper",
                 "&:hover": {
                   borderColor: "text.primary",
                   bgcolor: "action.hover",
@@ -290,19 +272,7 @@ export default function CompanyTermsPanel({
               endIcon={<DescriptionOutlinedIcon fontSize="small" aria-hidden />}
             >
               <Box sx={{ textAlign: "left" }}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Typography sx={{ fontWeight: 700 }}>{label}</Typography>
-                  {view.canAccept && read ? (
-                    <Chip
-                      size="small"
-                      color="success"
-                      label={t("partnerLegal.agreement.readConfirmed", {
-                        defaultValue: "Read",
-                      })}
-                      sx={{ height: 20, fontSize: "0.65rem" }}
-                    />
-                  ) : null}
-                </Stack>
+                <Typography sx={{ fontWeight: 700 }}>{label}</Typography>
                 <Typography variant="caption" color="text.secondary">
                   {viewLabel}
                 </Typography>
@@ -314,20 +284,6 @@ export default function CompanyTermsPanel({
 
       {view.canAccept ? (
         <Stack spacing={1.5}>
-          {!allDocsRead ? (
-            <Alert severity="info">
-              {t("partnerLegal.agreement.scrollToEnd", {
-                defaultValue:
-                  "Open each document and scroll to the end before you can accept them.",
-              })}
-            </Alert>
-          ) : (
-            <Alert severity="success">
-              {t("partnerLegal.agreement.readConfirmed", {
-                defaultValue: "You have reached the end of the documents.",
-              })}
-            </Alert>
-          )}
           <Box sx={COMPANY_SETTINGS_FORM_GRID}>
             <TextField
               size="small"
@@ -364,7 +320,6 @@ export default function CompanyTermsPanel({
             control={
               <Checkbox
                 checked={accepted}
-                disabled={!allDocsRead}
                 onChange={(event) => setAccepted(event.target.checked)}
               />
             }
@@ -373,7 +328,6 @@ export default function CompanyTermsPanel({
           <Button
             variant="contained"
             disabled={
-              !allDocsRead ||
               !accepted ||
               busy ||
               !signerName.trim() ||
@@ -394,11 +348,6 @@ export default function CompanyTermsPanel({
         version={openDoc?.version || ""}
         language={openDoc?.language || String(i18n.language || "en").slice(0, 2)}
         closeLabel={t("common.close", { defaultValue: "Close" })}
-        onReachedEnd={
-          view.canAccept && openDoc
-            ? () => markDocRead(openDoc.documentType)
-            : undefined
-        }
       >
         <DocumentSections sections={openDoc?.sections} />
       </LegalDocumentModal>

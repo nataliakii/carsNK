@@ -106,6 +106,8 @@ function marketplaceOrder(overrides = {}) {
     car: "car-1",
     carModel: "Seat Leon",
     email: "ana@example.com",
+    my_order: true,
+    source: "PLATFORM",
     bookingMode: BOOKING_MODES.MARKETPLACE_REQUEST,
     bookingStatus: BOOKING_STATUS.PENDING_SUPPLIER_CONFIRMATION,
     pickupAtUtc: new Date("2026-10-01T10:00:00.000Z"),

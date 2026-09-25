@@ -337,12 +337,19 @@ export function contractorOrderMoneyRow(order) {
       dueToCompany: amount,
     };
   }
+  const bookingFee = roundMoney(stored.fee);
   return {
     source: BOOKING_SOURCE.PLATFORM,
     rentalTotal: amount,
-    bookingFee: stored.fee,
-    dueToCompany: stored.due,
+    bookingFee,
+    dueToCompany: roundMoney(amount - bookingFee),
   };
+}
+
+function roundMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
 }
 
 /**
@@ -378,8 +385,7 @@ export function summarizeContractorAdminTotals(orders) {
     supplierPlatformAmount += row.dueToCompany;
     if (order.offline !== true && isMarketplaceRequestMode(order.bookingMode)) {
       platformFeeCount += 1;
-      const stored = storedPlatformFee(order);
-      if (stored) marketplaceSupplierAmount += stored.due;
+      marketplaceSupplierAmount += row.dueToCompany;
     }
   }
 

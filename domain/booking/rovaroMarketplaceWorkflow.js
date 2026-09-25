@@ -14,13 +14,17 @@
 
 import { BOOKING_STATUS } from "./bookingStatus";
 
-/** Product-facing stages. Do not persist these strings on bookingStatus. */
+/**
+ * Product-facing stages. Awaiting-payment and alternative names stay off
+ * `bookingStatus`. RENTAL_IN_PROGRESS, COMPLETION_PENDING, BOOKING_CONFIRMED
+ * and COMPLETED are stored under those same strings.
+ */
 export const CANONICAL_STAGE = Object.freeze({
   AWAITING_SUPPLIER_RESPONSE: "AWAITING_SUPPLIER_RESPONSE",
   AWAITING_CUSTOMER_PAYMENT: "AWAITING_CUSTOMER_PAYMENT",
   BOOKING_CONFIRMED: "BOOKING_CONFIRMED",
   RENTAL_IN_PROGRESS: "RENTAL_IN_PROGRESS",
-  RETURN_EXPECTED: "RETURN_EXPECTED",
+  COMPLETION_PENDING: "COMPLETION_PENDING",
   COMPLETED: "COMPLETED",
   SUPPLIER_DECLINED: "SUPPLIER_DECLINED",
   ALTERNATIVE_PROPOSED: "ALTERNATIVE_PROPOSED",
@@ -39,6 +43,8 @@ export const CANONICAL_STAGE_TO_BOOKING_STATUS = Object.freeze({
   [CANONICAL_STAGE.AWAITING_CUSTOMER_PAYMENT]:
     BOOKING_STATUS.PAYMENT_PROCESSING,
   [CANONICAL_STAGE.BOOKING_CONFIRMED]: BOOKING_STATUS.BOOKING_CONFIRMED,
+  [CANONICAL_STAGE.RENTAL_IN_PROGRESS]: BOOKING_STATUS.RENTAL_IN_PROGRESS,
+  [CANONICAL_STAGE.COMPLETION_PENDING]: BOOKING_STATUS.COMPLETION_PENDING,
   [CANONICAL_STAGE.COMPLETED]: BOOKING_STATUS.COMPLETED,
   [CANONICAL_STAGE.SUPPLIER_DECLINED]: BOOKING_STATUS.SUPPLIER_DECLINED,
   [CANONICAL_STAGE.ALTERNATIVE_PROPOSED]: BOOKING_STATUS.ALTERNATIVE_PROPOSED,
@@ -46,8 +52,6 @@ export const CANONICAL_STAGE_TO_BOOKING_STATUS = Object.freeze({
 
 /** Planned stored values not yet on BOOKING_STATUS. Do not invent them in UI. */
 export const CANONICAL_STAGES_NOT_YET_STORED = Object.freeze([
-  CANONICAL_STAGE.RENTAL_IN_PROGRESS,
-  CANONICAL_STAGE.RETURN_EXPECTED,
   CANONICAL_STAGE.REPLACED_BY_ALTERNATIVE,
 ]);
 
@@ -58,6 +62,9 @@ export const WORKFLOW_INVARIANTS = Object.freeze([
   "Until payment.paid: contractor cannot see client contacts or driving licence.",
   "Superadmin may see client data for review. Contractor may not, until paid.",
   "Email failure must not roll back a saved order or a recorded payment.",
+  "Booking Fee paid does not mean the remaining rental amount was paid to the supplier.",
+  "Automatic completion never sets order.status to PAID_AND_CLOSED.",
+  "A reported problem stops automatic completion.",
   "Repeat webhooks must not resend paid emails or rewrite a paid order.",
   "Every supplier action, payment event and auto-close is audit-logged.",
   "Expired payment links may be reissued by superadmin only.",

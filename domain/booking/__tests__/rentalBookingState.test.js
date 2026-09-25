@@ -19,11 +19,13 @@ describe("lifecycle vocabulary", () => {
         "ALTERNATIVE_OFFERED",
         "CANCELLED",
         "COMPLETED",
+        "COMPLETION_PENDING",
         "CONFIRMED",
         "DECLINED",
         "PARTNER_CONFIRMED",
         "PAYMENT_EXPIRED",
         "PAYMENT_PENDING",
+        "RENTAL_IN_PROGRESS",
         "REQUESTED",
       ].sort()
     );
@@ -77,6 +79,21 @@ describe("transitions", () => {
     expect(
       canTransitionRentalState(RENTAL_STATE.REQUESTED, RENTAL_STATE.CONFIRMED)
     ).toBe(false);
+  });
+
+  it("does not jump from paid confirmation straight to completed", () => {
+    expect(
+      canTransitionRentalState(RENTAL_STATE.CONFIRMED, RENTAL_STATE.COMPLETED)
+    ).toBe(false);
+    expect(
+      canTransitionRentalState(RENTAL_STATE.CONFIRMED, RENTAL_STATE.RENTAL_IN_PROGRESS)
+    ).toBe(true);
+    expect(
+      canTransitionRentalState(
+        RENTAL_STATE.COMPLETION_PENDING,
+        RENTAL_STATE.COMPLETED
+      )
+    ).toBe(true);
   });
 
   it("allows an alternative to be offered while the unpaid marketplace request is live", () => {

@@ -8,6 +8,8 @@ import cloudinary, { ensureCloudinaryConfigured } from "@utils/cloudinary";
 import { cloudinaryPublicIdFromSecureUrl } from "@/domain/orders/cloudinaryPublicIdFromSecureUrl";
 import {
   evaluateDrivingLicenceAccess,
+  issuedUrlIsPermanent,
+  signedDocumentDelivery,
   SIGNED_URL_TTL_SECONDS,
 } from "@/domain/legal/drivingLicenceAccess";
 import {
@@ -69,23 +71,18 @@ export async function GET(request, { params }) {
     );
   }
 
-  const expiresAt = Math.floor(Date.now() / 1000) + SIGNED_URL_TTL_SECONDS;
+  const delivery = signedDocumentDelivery();
   const documents = [];
 
   for (const url of urls) {
     const publicId = cloudinaryPublicIdFromSecureUrl(url);
     if (!publicId) continue;
+    const signedUrl = cloudinary.url(publicId, delivery.options);
+    if (issuedUrlIsPermanent(url, signedUrl)) continue;
     documents.push({
       publicId,
-      // Signed and time-limited: the link stops working within minutes.
-      url: cloudinary.url(publicId, {
-        secure: true,
-        sign_url: true,
-        type: "upload",
-        resource_type: "image",
-        expires_at: expiresAt,
-      }),
-      expiresAt: new Date(expiresAt * 1000).toISOString(),
+      url: signedUrl,
+      expiresAt: delivery.expiresAt,
     });
   }
 

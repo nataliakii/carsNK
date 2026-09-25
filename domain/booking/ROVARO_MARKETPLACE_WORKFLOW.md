@@ -52,9 +52,9 @@ success page must not confirm the booking.
 | `AWAITING_SUPPLIER_RESPONSE` | `PENDING_SUPPLIER_CONFIRMATION` | Request sent. No charge. |
 | `AWAITING_CUSTOMER_PAYMENT` | `PAYMENT_PROCESSING` (after Checkout); brief hold may be `CONFIRMED_AWAITING_PAYMENT` | Stripe link exists. Still not `order.confirmed`. |
 | `BOOKING_CONFIRMED` | `BOOKING_CONFIRMED` | Webhook paid only. Also `payment.status = paid`, `order.confirmed = true`. |
-| `RENTAL_IN_PROGRESS` | *not stored yet* | After pickup time. |
-| `RETURN_EXPECTED` | *not stored yet* | After planned return, before auto-close. |
-| `COMPLETED` | `COMPLETED` + `order.status = PAID_AND_CLOSED` | Auto-close after return + grace, unless “Report a problem”. |
+| `RENTAL_IN_PROGRESS` | `RENTAL_IN_PROGRESS` | After pickup time. |
+| `COMPLETION_PENDING` | `COMPLETION_PENDING` | After planned return. Waits 24 hours. |
+| `COMPLETED` | `COMPLETED` | After the grace period, unless “Report a problem”. Does not set `order.status` to `PAID_AND_CLOSED`. |
 | `SUPPLIER_DECLINED` | `SUPPLIER_DECLINED` | No Stripe link. Customer is **not** told the technical reason until Rovaro reviews. |
 | `ALTERNATIVE_PROPOSED` | `ALTERNATIVE_PROPOSED` | Customer must Accept alternative. Admin must not accept for them. |
 | `REPLACED_BY_ALTERNATIVE` | *not stored yet* | Original request after a new linked order is created. |
@@ -141,7 +141,7 @@ Order, customer, company, car, amount, Stripe IDs, paidAt, admin link.
 
 After payment, practical details are between company and customer (documents, meeting time, deposit, remaining balance, company rental contract, pickup, return).
 
-Stages: `BOOKING_CONFIRMED` → `RENTAL_IN_PROGRESS` → `RETURN_EXPECTED` → `COMPLETED`.
+Stages: `BOOKING_CONFIRMED` → `RENTAL_IN_PROGRESS` → `COMPLETION_PENDING` → `COMPLETED`.
 
 If return time has passed and nobody reported a problem, auto-close after a grace period (e.g. 24 hours) → `COMPLETED`.
 

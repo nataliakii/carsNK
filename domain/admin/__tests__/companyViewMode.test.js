@@ -82,7 +82,7 @@ describe("company view mode", () => {
   it("7. Unpublished terms are not described as an unsigned agreement", () => {
     const copy = read("locales/partnerLegal.js");
     expect(copy).not.toContain("Master Partner Agreement has not been signed");
-    expect(copy).toContain("Rovaro Terms are being prepared");
+    expect(copy).toContain("Partner terms are being prepared");
   });
 
   it("8. Documents tab contains no agreement controls", () => {
