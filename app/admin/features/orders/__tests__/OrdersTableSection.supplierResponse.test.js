@@ -31,12 +31,27 @@ describe("orders table confirmation UX", () => {
 
   test("supplier cell confirms availability and does not say Rovaro confirmed the booking", () => {
     expect(cellSrc).toMatch(/table\.confirmRequestedVehicle/);
-    expect(cellSrc).toMatch(/table\.declineRequest/);
-    expect(cellSrc).toMatch(/table\.offerEquivalentReplacement/);
-    expect(cellSrc).toMatch(/View request details/);
+    expect(cellSrc).toMatch(/table\.confirmVehicle/);
+    expect(cellSrc).toMatch(/table\.otherResponses/);
     expect(cellSrc).not.toMatch(/<Switch/);
     expect(cellSrc).not.toMatch(/bookingConfirmedByRovaro/);
     expect(cellSrc.toLowerCase()).not.toContain("confirmed by rovaro");
+  });
+
+  test("the row carries the primary decision only; the rest is one click deeper", () => {
+    // Declining, offering a replacement and asking Rovaro a question are the
+    // same capabilities reached from the Booking Details modal, which already
+    // hosts all three.
+    expect(cellSrc).not.toMatch(/table\.declineRequest/);
+    expect(cellSrc).not.toMatch(/table\.offerEquivalentReplacement/);
+    expect(cellSrc).not.toMatch(/table\.askRovaro/);
+    expect(cellSrc).not.toMatch(/askRovaroAboutBooking|offerEquivalentReplacement\(/);
+    // The supplier-response endpoint refuses a second decision once the
+    // booking has moved on, so the row offers no "change response" control.
+    expect(cellSrc).not.toMatch(/table\.changeResponse/);
+    // Row-scoped entry points that have no other home collapse into one menu.
+    expect(tableSrc).toMatch(/OrderRowActionsMenu/);
+    expect(tableSrc).not.toMatch(/table\.reportProblem/);
   });
 
   test("customer confirmation is a badge, not a toggle", () => {

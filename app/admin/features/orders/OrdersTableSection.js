@@ -47,6 +47,8 @@ import {
   Autorenew as AutorenewIcon,
   FileDownload as FileDownloadIcon,
   History as HistoryIcon,
+  MarkEmailRead as MarkEmailReadIcon,
+  PriceCheck as PriceCheckIcon,
 } from "@mui/icons-material";
 import { useTranslation } from "react-i18next";
 import dayjs from "dayjs";
@@ -99,16 +101,28 @@ import { isPlatformAdminUser, policyRoleFromUser } from "@/domain/admin/adminVie
 import SupplierResponseCell from "@/app/admin/features/orders/components/SupplierResponseCell";
 import OrdersFinancialSummary from "@/app/admin/features/orders/components/OrdersFinancialSummary";
 import CustomerConfirmationCell from "@/app/admin/features/orders/components/CustomerConfirmationCell";
+import OrderRowActionsMenu from "@/app/admin/features/orders/components/OrderRowActionsMenu";
+import { orderRequiresCompanyAction } from "@/domain/orders/companyRentalActions";
+import {
+  ORDERS_TABLE_COLUMN_WIDTH,
+  ORDERS_TABLE_CONFLICT_CHIP_LIMIT,
+  ORDERS_TABLE_HIDE_BELOW,
+  ORDERS_TABLE_MAX_HEIGHT,
+  ORDERS_TABLE_MIN_HEIGHT,
+  ORDERS_TABLE_PINNED_BODY_Z,
+  ORDERS_TABLE_PINNED_HEAD_Z,
+  ORDERS_TABLE_ROW_MIN_HEIGHT,
+  ORDERS_TABLE_TEXT_LINE_CLAMP,
+} from "@/domain/admin/ordersTableLayout";
 
 function browserSearchString() {
   if (typeof window === "undefined") return "";
   const search = window.location.search || "";
   return search.startsWith("?") ? search.slice(1) : search;
 }
-import {
-  recordRemainingAmountPaid,
-  reportPlatformBookingProblem,
-} from "@/app/admin/features/orders/actions/bookingCompletionActions";
+// Reporting a problem now lives in the Booking Details modal, which already
+// gates it on BOOKING_CAPABILITY.REPORT_PROBLEM.
+import { recordRemainingAmountPaid } from "@/app/admin/features/orders/actions/bookingCompletionActions";
 
 // Dayjs plugins
 dayjs.extend(utc);
@@ -125,6 +139,143 @@ function isOrderEndedInPast(order) {
     : dayjs(order.rentalEndDate).tz(ATHENS_TZ).endOf("day");
   return end.isBefore(now);
 }
+
+/**
+ * One rhythm for every column: content starts at the top of the row, and a
+ * column that is hidden on a narrow viewport hides its header with it.
+ */
+const BodyCell = styled(TableCell, {
+  shouldForwardProp: (prop) => prop !== "hideBelow",
+})(({ theme, hideBelow }) => ({
+  verticalAlign: "top",
+  ...(hideBelow
+    ? { [theme.breakpoints.down(hideBelow)]: { display: "none" } }
+    : null),
+}));
+
+/** `nowrap` is the whole reason headers no longer break character by character. */
+const HeadCell = styled(BodyCell)(({ theme }) => ({
+  fontWeight: theme.typography.fontWeightBold,
+  whiteSpace: "nowrap",
+  verticalAlign: "bottom",
+}));
+
+/** Amounts are read by comparing them, so they share one edge and one glyph width. */
+const MoneyCell = styled(BodyCell)({
+  textAlign: "right",
+  whiteSpace: "nowrap",
+  fontVariantNumeric: "tabular-nums",
+});
+
+const MoneyHeadCell = styled(HeadCell)({
+  textAlign: "right",
+});
+
+/**
+ * Status stays reachable at both ends of the horizontal scroll, because it is
+ * what tells the supplier whether the row needs them at all.
+ */
+const PinnedHeadCell = styled(HeadCell)(({ theme }) => ({
+  position: "sticky",
+  left: 0,
+  zIndex: ORDERS_TABLE_PINNED_HEAD_Z,
+  backgroundColor: theme.palette.background.paper,
+  borderRight: `1px solid ${theme.palette.divider}`,
+}));
+
+const PinnedBodyCell = styled(BodyCell)(({ theme }) => ({
+  position: "sticky",
+  left: 0,
+  zIndex: ORDERS_TABLE_PINNED_BODY_Z,
+  // Inherited so the row tone, hover and conflict wash reach the pinned cell;
+  // a transparent pinned cell would let the scrolled columns show through.
+  backgroundColor: "inherit",
+  borderRight: `1px solid ${theme.palette.divider}`,
+}));
+
+const CONFLICT_ROLE = Object.freeze({ SOURCE: "SOURCE", RELATED: "RELATED" });
+
+const OrderRow = styled(TableRow, {
+  shouldForwardProp: (prop) =>
+    prop !== "accent" && prop !== "tint" && prop !== "conflict",
+})(({ theme, accent, tint, conflict }) => ({
+  height: ORDERS_TABLE_ROW_MIN_HEIGHT,
+  cursor: "pointer",
+  backgroundColor: theme.palette.background.paper,
+  borderLeft: `${theme.spacing(0.5)} solid ${accent}`,
+  // Doubled so the row tone beats the default MuiTableRow-hover override.
+  "&&:hover": { backgroundColor: tint },
+  ...(conflict
+    ? {
+        borderLeftColor:
+          conflict === CONFLICT_ROLE.SOURCE
+            ? theme.palette.error.main
+            : theme.palette.warning.main,
+        backgroundColor: alpha(
+          conflict === CONFLICT_ROLE.SOURCE
+            ? theme.palette.error.main
+            : theme.palette.warning.main,
+          theme.palette.action.focusOpacity
+        ),
+      }
+    : null),
+}));
+
+const CellStack = styled(Box)(({ theme }) => ({
+  display: "flex",
+  flexDirection: "column",
+  gap: theme.spacing(0.5),
+  minWidth: 0,
+}));
+
+const CellLine = styled(Box)(({ theme }) => ({
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: theme.spacing(0.5),
+  minWidth: 0,
+}));
+
+const StatusChip = styled(Chip, {
+  shouldForwardProp: (prop) => prop !== "tone" && prop !== "toneText",
+})(({ theme, tone, toneText }) => ({
+  fontWeight: theme.typography.fontWeightMedium,
+  backgroundColor: tone,
+  color: toneText,
+}));
+
+const ClampedText = styled(Typography)({
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: ORDERS_TABLE_TEXT_LINE_CLAMP,
+  overflow: "hidden",
+  overflowWrap: "anywhere",
+});
+
+/** The figure the supplier actually gets paid. */
+const DueAmount = styled(Typography)(({ theme }) => ({
+  fontWeight: theme.typography.fontWeightBold,
+}));
+
+const PriceNote = styled(Typography)(({ theme }) => ({
+  color: theme.palette.text.secondary,
+  lineHeight: theme.typography.caption.lineHeight,
+}));
+
+const ConflictPanelCell = styled(TableCell)(({ theme }) => ({
+  paddingTop: theme.spacing(1),
+  paddingBottom: theme.spacing(1),
+  backgroundColor: alpha(theme.palette.error.main, theme.palette.action.hoverOpacity),
+}));
+
+const RelatedConflictCell = styled(TableCell)(({ theme }) => ({
+  paddingTop: theme.spacing(0.5),
+  paddingBottom: theme.spacing(0.5),
+  backgroundColor: alpha(
+    theme.palette.warning.main,
+    theme.palette.action.hoverOpacity
+  ),
+}));
 
 /**
  * OrdersTableSection - Admin orders table with inline editing
@@ -194,8 +345,11 @@ export default function OrdersTableSection() {
   const [priceHistoryUi, setPriceHistoryUi] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
-  /** Status + source + car + pickup + return + customer + price + fee + due + supplier + customer confirmation (+ company). */
-  const tableColCount = isPlatformAdmin ? 12 : 11;
+  /**
+   * Status (source folded into it) + car + pickup + return + customer + price +
+   * fee + due + supplier response + customer confirmation (+ company).
+   */
+  const tableColCount = isPlatformAdmin ? 11 : 10;
 
   // ─────────────────────────────────────────────────────────────
   // CONFLICT STATE (persistent, per-order)
@@ -1615,48 +1769,63 @@ export default function OrdersTableSection() {
           overflow: "hidden",
         }}
       >
-        <TableContainer sx={{ maxHeight: "60vh", minHeight: 300 }}>
+        <TableContainer
+          sx={{
+            maxHeight: ORDERS_TABLE_MAX_HEIGHT,
+            minHeight: ORDERS_TABLE_MIN_HEIGHT,
+          }}
+        >
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700, minWidth: 80 }}>
+                {/* Status and source both answer "what kind of row is this", so
+                    they share one pinned column instead of two. */}
+                <PinnedHeadCell sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.STATUS }}>
                   {t("table.status")}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 100 }}>
-                  {t("table.filterByOrigin", { defaultValue: "Source" })}
-                </TableCell>
+                </PinnedHeadCell>
                 {isPlatformAdmin ? (
-                  <TableCell sx={{ fontWeight: 700, minWidth: 140 }}>
+                  <HeadCell
+                    hideBelow={ORDERS_TABLE_HIDE_BELOW.COMPANY}
+                    sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.COMPANY }}
+                  >
                     {t("table.company")}
-                  </TableCell>
+                  </HeadCell>
                 ) : null}
-                <TableCell sx={{ fontWeight: 700, minWidth: 150 }}>
+                <HeadCell sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.CAR }}>
                   {t("table.carModel")}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 130 }}>
+                </HeadCell>
+                <HeadCell sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.DATE }}>
                   {t("table.pickup")}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 130 }}>
+                </HeadCell>
+                <HeadCell sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.DATE }}>
                   {t("table.return")}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 150 }}>
+                </HeadCell>
+                <HeadCell sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.CUSTOMER }}>
                   {t("table.customer")}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 80, textAlign: "right" }}>
+                </HeadCell>
+                <MoneyHeadCell sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.PRICE }}>
                   {t("table.price")}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 90, textAlign: "right" }}>
+                </MoneyHeadCell>
+                <MoneyHeadCell
+                  hideBelow={ORDERS_TABLE_HIDE_BELOW.BOOKING_FEE}
+                  sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.MONEY }}
+                >
                   {t("table.bookingFee", { defaultValue: "Rovaro Booking Fee" })}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 90, textAlign: "right" }}>
+                </MoneyHeadCell>
+                <MoneyHeadCell sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.MONEY }}>
                   {t("table.dueToCompany", { defaultValue: "Due to company" })}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 160, textAlign: "center" }}>
+                </MoneyHeadCell>
+                <HeadCell
+                  sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.SUPPLIER_RESPONSE }}
+                >
                   {t("table.supplierResponse")}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 140, textAlign: "center" }}>
+                </HeadCell>
+                <HeadCell
+                  hideBelow={ORDERS_TABLE_HIDE_BELOW.CUSTOMER_CONFIRMATION}
+                  sx={{ minWidth: ORDERS_TABLE_COLUMN_WIDTH.CUSTOMER_CONFIRMATION }}
+                >
                   {t("table.customerConfirmation", { defaultValue: "Customer confirmation" })}
-                </TableCell>
+                </HeadCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1760,220 +1929,177 @@ export default function OrdersTableSection() {
                   const hasConflict = isConflictSource || isConflictingOrder || hasContextHighlight;
                   const conflictInfo = conflictHighlightById[order._id];
                   const conflictMessage = orderConflict?.message || conflictInfo?.message;
+                  const conflictRole = !hasConflict
+                    ? null
+                    : isConflictSource
+                      ? CONFLICT_ROLE.SOURCE
+                      : CONFLICT_ROLE.RELATED;
+
+                  // The same selector the navbar action badge counts, so the row
+                  // and the badge can never disagree about what is outstanding.
+                  const requiresAction = orderRequiresCompanyAction(order);
+                  const bookingFeePaid =
+                    String(order.payment?.status || "").toLowerCase() === "paid";
+
+                  /**
+                   * Secondary row entry points. Reporting a problem, declining,
+                   * offering a replacement and asking Rovaro a question are not
+                   * here because the Booking Details modal already hosts them
+                   * behind the same capabilities. What stays is what the row is
+                   * the only home for.
+                   */
+                  const rowActions = [
+                    {
+                      id: "details",
+                      label: t("table.viewDetails", { defaultValue: "View details" }),
+                      onSelect: () => openOrderModal(order),
+                    },
+                    !isClient
+                      ? {
+                          id: "internalConfirmation",
+                          label: order.confirmed
+                            ? t("table.markTentative", {
+                                defaultValue: "Mark tentative",
+                              })
+                            : t("table.confirmInternally", {
+                                defaultValue: "Confirm internally",
+                              }),
+                          disabled: Boolean(isTogglingConfirm[order._id]),
+                          onSelect: () => handleToggleConfirm(order._id),
+                        }
+                      : null,
+                    isPlatformBooking(order) &&
+                    bookingFeePaid &&
+                    !order.supplierRemainingPaidAt
+                      ? {
+                          id: "remainingPayment",
+                          label: t("table.recordRemainingPayment", {
+                            defaultValue: "Record remaining payment",
+                          }),
+                          onSelect: async () => {
+                            const result = await recordRemainingAmountPaid(order._id);
+                            if (!result.ok) {
+                              enqueueSnackbar(result.message, { variant: "error" });
+                              return;
+                            }
+                            await fetchAndUpdateOrders();
+                          },
+                        }
+                      : null,
+                  ];
 
                   return (
                     <React.Fragment key={order._id}>
-                      <TableRow
-                        hover
+                      <OrderRow
+                        accent={orderColor.main}
+                        tint={orderColor.bg || alpha(orderColor.main, 0.04)}
+                        conflict={conflictRole}
                         onDoubleClick={(e) => openOrderModal(order, e)}
-                        sx={{
-                          cursor: "pointer",
-                          borderLeft: `4px solid ${orderColor.main}`,
-                          "&:hover": {
-                            backgroundColor: orderColor.bg || alpha(orderColor.main, 0.04),
-                          },
-                          ...(hasConflict && {
-                            backgroundColor: isConflictSource 
-                              ? alpha(palette.status.error, 0.25)
-                              : alpha(palette.status.error, 0.21),
-                            border: `4px solid ${isConflictSource ? palette.status.error : palette.status.warning}`,
-                            borderTop: `2px solid ${isConflictSource ? palette.status.error : palette.status.warning}`,
-                            borderBottom: `2px solid ${isConflictSource ? palette.status.error : palette.status.warning}`,
-                            color: "white"
-                          }),
-                        }}
                       >
-                      {/* Status + Origin Chips + Protected indicator */}
-                      <TableCell>
-                        <Stack direction="column" spacing={0.5} alignItems="flex-start">
-                          <Stack direction="row" spacing={0.5} alignItems="center">
-                            <Chip
+                      {/* Status, source, what is outstanding, and the one row menu */}
+                      <PinnedBodyCell>
+                        <CellStack>
+                          <CellLine>
+                            <StatusChip
                               label={statusLabel}
                               size="small"
-                              sx={{
-                                backgroundColor: orderColor.bg,
-                                color: orderColor.text,
-                                fontWeight: 500,
-                                fontSize: "0.7rem",
-                                height: 22,
-                              }}
+                              tone={orderColor.bg}
+                              toneText={orderColor.text}
                             />
-                            {!isClient ? (
-                              <Stack direction="row" spacing={0.5}>
-                                <Button
-                                  size="small"
-                                  variant="text"
-                                  disabled={Boolean(isTogglingConfirm[order._id])}
-                                  onClick={() => handleToggleConfirm(order._id)}
-                                >
-                                  {order.confirmed
-                                    ? t("table.markTentative", { defaultValue: "Mark tentative" })
-                                    : t("table.confirmInternally", {
-                                        defaultValue: "Confirm internally",
-                                      })}
-                                </Button>
-                              </Stack>
-                            ) : null}
-                            {order.supplierRemainingPaidAt ? (
-                              <Typography variant="caption" color="text.secondary">
-                                {t("table.remainingAmountPaid", {
-                                  defaultValue: "Remaining amount paid",
-                                })}
-                              </Typography>
-                            ) : null}
-                            {isPlatformBooking(order) &&
-                            String(order.payment?.status || "").toLowerCase() === "paid" &&
-                            !order.hasProblem ? (
-                              <Button
-                                size="small"
-                                variant="text"
-                                sx={{ textTransform: "none", px: 0, minWidth: 0 }}
-                                onClick={async () => {
-                                  const result = await reportPlatformBookingProblem(order._id);
-                                  if (!result.ok) {
-                                    enqueueSnackbar(result.message, { variant: "error" });
-                                    return;
-                                  }
-                                  await fetchAndUpdateOrders();
-                                }}
-                              >
-                                {t("table.reportProblem", { defaultValue: "Report a problem" })}
-                              </Button>
-                            ) : null}
-                            {isPlatformBooking(order) &&
-                            String(order.payment?.status || "").toLowerCase() === "paid" &&
-                            !order.supplierRemainingPaidAt ? (
-                              <Button
-                                size="small"
-                                variant="text"
-                                sx={{ textTransform: "none", px: 0, minWidth: 0 }}
-                                onClick={async () => {
-                                  const result = await recordRemainingAmountPaid(order._id);
-                                  if (!result.ok) {
-                                    enqueueSnackbar(result.message, { variant: "error" });
-                                    return;
-                                  }
-                                  await fetchAndUpdateOrders();
-                                }}
-                              >
-                                {t("table.recordRemainingPayment", {
-                                  defaultValue: "Record remaining payment",
-                                })}
-                              </Button>
-                            ) : null}
-                            {/* Lock icon for orders the current role cannot edit */}
-                            {!orderCanEdit && isClient && (
-                              <Tooltip title="Admin cannot edit client orders">
-                                <LockIcon 
-                                  fontSize="small" 
-                                  sx={{ 
-                                    color: palette.neutral.gray500, 
-                                    fontSize: 14,
-                                    ml: 0.5,
-                                  }}
-                                />
-                              </Tooltip>
-                            )}
-                            {!orderCanEdit && !isClient && isPlatformAdmin && (
-                              <Tooltip title={t("table.internalOrderLock")}>
-                                <LockIcon
-                                  fontSize="small"
-                                  sx={{
-                                    color: palette.neutral.gray500,
-                                    fontSize: 14,
-                                    ml: 0.5,
-                                  }}
-                                />
-                              </Tooltip>
-                            )}
-                          </Stack>
-                          {orderColor.problem ? (
+                            <OrderRowActionsMenu items={rowActions} />
+                          </CellLine>
+                          <CellLine>
                             <Chip
-                              label={t("calendar.legend.PROBLEM", { defaultValue: "Problem" })}
+                              label={
+                                isPlatformBooking(order)
+                                  ? t("table.sourceRovaroShort", { defaultValue: "Rovaro" })
+                                  : isInternalBooking(order)
+                                    ? t("table.sourceInternalShort", {
+                                        defaultValue: "Internal",
+                                      })
+                                    : t("table.toneUnresolved", {
+                                        defaultValue: "Needs review",
+                                      })
+                              }
                               size="small"
                               variant="outlined"
-                              sx={{
-                                fontSize: "0.65rem",
-                                height: 20,
-                                borderColor: "error.main",
-                                color: "error.main",
-                              }}
+                              color={isInternalBooking(order) ? "secondary" : "default"}
                             />
-                          ) : null}
-                          {order.IsConfirmedEmailSent ? (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                fontSize: "0.65rem",
-                                lineHeight: 1.1,
-                                color: "success.main",
-                              }}
-                            >
-                              {t("order.confirmationEmailSent")}
-                            </Typography>
-                          ) : null}
-                          {isBlocked && (
-                            <Tooltip title={isBlocked}>
-                              <BlockIcon 
-                                fontSize="small" 
-                                sx={{ color: palette.status.warning, mt: 0.5 }}
+                            {/* Losing the button stack must not lose the urgency. */}
+                            {requiresAction ? (
+                              <Chip
+                                size="small"
+                                color="warning"
+                                label={t("table.actionRequired", {
+                                  defaultValue: "Action required",
+                                })}
                               />
-                            </Tooltip>
-                          )}
-                        </Stack>
-                      </TableCell>
-
-                      <TableCell>
-                        <Chip
-                          label={
-                            isPlatformBooking(order)
-                              ? t("table.sourceRovaroShort", { defaultValue: "Rovaro" })
-                              : isInternalBooking(order)
-                                ? t("table.sourceInternalShort", { defaultValue: "Internal" })
-                                : t("table.toneUnresolved", { defaultValue: "Needs review" })
-                          }
-                          size="small"
-                          variant="outlined"
-                          sx={{
-                            fontSize: "0.7rem",
-                            height: 22,
-                            borderColor: isInternalBooking(order)
-                              ? "secondary.main"
-                              : "divider",
-                          }}
-                        />
-                      </TableCell>
+                            ) : null}
+                            {orderColor.problem ? (
+                              <Chip
+                                label={t("calendar.legend.PROBLEM", {
+                                  defaultValue: "Problem",
+                                })}
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                              />
+                            ) : null}
+                            {order.supplierRemainingPaidAt ? (
+                              <Tooltip
+                                title={t("table.remainingAmountPaid", {
+                                  defaultValue: "Remaining amount paid",
+                                })}
+                              >
+                                <PriceCheckIcon fontSize="small" color="success" />
+                              </Tooltip>
+                            ) : null}
+                            {order.IsConfirmedEmailSent ? (
+                              <Tooltip title={t("order.confirmationEmailSent")}>
+                                <MarkEmailReadIcon fontSize="small" color="success" />
+                              </Tooltip>
+                            ) : null}
+                            {/* Lock icon for orders the current role cannot edit */}
+                            {!orderCanEdit && isClient ? (
+                              <Tooltip title={t("table.clientOrderLock")}>
+                                <LockIcon fontSize="small" color="disabled" />
+                              </Tooltip>
+                            ) : null}
+                            {!orderCanEdit && !isClient && isPlatformAdmin ? (
+                              <Tooltip title={t("table.internalOrderLock")}>
+                                <LockIcon fontSize="small" color="disabled" />
+                              </Tooltip>
+                            ) : null}
+                            {isBlocked ? (
+                              <Tooltip title={isBlocked}>
+                                <BlockIcon fontSize="small" color="warning" />
+                              </Tooltip>
+                            ) : null}
+                          </CellLine>
+                        </CellStack>
+                      </PinnedBodyCell>
 
                       {isPlatformAdmin ? (
-                        <TableCell>
-                          <Typography
+                        <BodyCell hideBelow={ORDERS_TABLE_HIDE_BELOW.COMPANY}>
+                          <ClampedText
                             variant="body2"
-                            fontWeight={500}
-                            sx={{
-                              maxWidth: 160,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
                             title={resolveOrderCompanyName(order)}
                           >
                             {resolveOrderCompanyName(order)}
-                          </Typography>
-                        </TableCell>
+                          </ClampedText>
+                        </BodyCell>
                       ) : null}
 
                       {/* Car - NOT EDITABLE: Car selection handled separately via modal */}
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={500}>
-                          {carDisplay}
-                        </Typography>
+                      <BodyCell>
+                        <ClampedText variant="body2">{carDisplay}</ClampedText>
                         <Typography variant="caption" color="text.secondary">
                           {carRegNumber}
                         </Typography>
-                      </TableCell>
+                      </BodyCell>
 
                       {/* Pickup Date/Time */}
-                      <TableCell>
+                      <BodyCell>
                         <Stack spacing={0.5}>
                           <InlineEditCell
                             type="date"
@@ -2002,10 +2128,10 @@ export default function OrdersTableSection() {
                             formatDisplay={(val) => (val ? val : "-")}
                           />
                         </Stack>
-                      </TableCell>
+                      </BodyCell>
 
                       {/* Return Date/Time */}
-                      <TableCell>
+                      <BodyCell>
                         <Stack spacing={0.5}>
                           <InlineEditCell
                             type="date"
@@ -2034,11 +2160,11 @@ export default function OrdersTableSection() {
                             formatDisplay={(val) => (val ? val : "-")}
                           />
                         </Stack>
-                      </TableCell>
+                      </BodyCell>
 
                       {/* Customer - Inline Editing */}
                       {/* Скрываем контактные данные если _visibility.hideClientContacts === true */}
-                      <TableCell>
+                      <BodyCell>
                         {order._visibility?.hideClientContacts ? (
                           <Typography variant="body2" color="text.secondary">—</Typography>
                         ) : (
@@ -2073,10 +2199,10 @@ export default function OrdersTableSection() {
                           />
                         </Stack>
                         )}
-                      </TableCell>
+                      </BodyCell>
 
                       {/* Price: charged (editable) + system calc + saved auto + history */}
-                      <TableCell align="right" sx={{ minWidth: 200 }}>
+                      <MoneyCell>
                         {(() => {
                           const effectivePrice = getEffectivePrice(order);
                           const hasManualOverride =
@@ -2163,16 +2289,9 @@ export default function OrdersTableSection() {
                                 {hasManualOverride && (
                                   <Chip
                                     size="small"
+                                    variant="outlined"
+                                    color="warning"
                                     label={t("table.priceManual")}
-                                    sx={{
-                                      height: 20,
-                                      fontSize: "0.65rem",
-                                      bgcolor: alpha(
-                                        palette.status.warning,
-                                        0.15
-                                      ),
-                                      color: palette.status.warning,
-                                    }}
                                   />
                                 )}
                                 <Tooltip title={t("table.priceRecalcTooltip")}>
@@ -2209,11 +2328,7 @@ export default function OrdersTableSection() {
                                   </IconButton>
                                 </Tooltip>
                               </Stack>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ lineHeight: 1.25, textAlign: "right" }}
-                              >
+                              <PriceNote variant="caption">
                                 {t("table.priceSystem")}: €
                                 {Number(systemPrice || 0).toFixed(2)}
                                 {preview?.live != null &&
@@ -2228,28 +2343,30 @@ export default function OrdersTableSection() {
                                     : ""}
                                 {" · "}
                                 {days} {t("table.days")}
-                              </Typography>
+                              </PriceNote>
                             </Stack>
                           );
                         })()}
-                      </TableCell>
+                      </MoneyCell>
 
-                      <TableCell align="right">
+                      <MoneyCell hideBelow={ORDERS_TABLE_HIDE_BELOW.BOOKING_FEE}>
                         €{money.bookingFee.toFixed(2)}
-                      </TableCell>
-                      <TableCell align="right">
-                        €{money.dueToCompany.toFixed(2)}
-                      </TableCell>
+                      </MoneyCell>
+                      <MoneyCell>
+                        <DueAmount variant="body2">
+                          €{money.dueToCompany.toFixed(2)}
+                        </DueAmount>
+                      </MoneyCell>
 
                       {/* Supplier response (never the platform Confirmed switch for client orders) */}
-                      <TableCell align="center">
+                      <BodyCell>
                         {!isClient ? (
                           <Typography variant="caption" color="text.secondary">
                             —
                           </Typography>
                         ) : isPlatformAdmin ? (
-                          <Stack spacing={0.25} alignItems="center">
-                            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                          <CellStack>
+                            <Typography variant="caption" fontWeight="fontWeightBold">
                               {t(contractorSupplierResponseCopy(order).key, {
                                 defaultValue: contractorSupplierResponseCopy(order).fallback,
                               })}
@@ -2269,11 +2386,11 @@ export default function OrdersTableSection() {
                               </Typography>
                             ) : null}
                             {order.declineReason ? (
-                              <Typography variant="caption" color="text.secondary">
+                              <ClampedText variant="caption" color="text.secondary">
                                 {t("table.supplierReason")}: {order.declineReason}
-                              </Typography>
+                              </ClampedText>
                             ) : null}
-                          </Stack>
+                          </CellStack>
                         ) : (
                           <SupplierResponseCell
                             order={order}
@@ -2285,63 +2402,71 @@ export default function OrdersTableSection() {
                             }
                           />
                         )}
-                      </TableCell>
-                      <TableCell align="center">
+                      </BodyCell>
+                      <BodyCell hideBelow={ORDERS_TABLE_HIDE_BELOW.CUSTOMER_CONFIRMATION}>
                         <CustomerConfirmationCell order={order} />
-                      </TableCell>
-                    </TableRow>
+                      </BodyCell>
+                    </OrderRow>
                     
                     {/* Persistent Conflict Panel - only for source order */}
                     {isConflictSource && orderConflict && (
                       <TableRow>
-                        <TableCell colSpan={tableColCount} sx={{ py: 1.5, px: 2, backgroundColor: alpha(palette.status.error, 0.08) }}>
-                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" justifyContent="space-between">
-                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                              <BlockIcon sx={{ color: palette.status.error, fontSize: 18 }} />
-                              <Typography variant="body2" sx={{ color: palette.status.error, fontWeight: 500 }}>
+                        <ConflictPanelCell colSpan={tableColCount}>
+                          <CellLine sx={{ justifyContent: "space-between" }}>
+                            <CellLine>
+                              <BlockIcon fontSize="small" color="error" />
+                              <Typography variant="body2" color="error.main">
                                 {orderConflict.message}
                               </Typography>
-                              {orderConflict.conflicts && orderConflict.conflicts.length > 0 && (
+                              {orderConflict.conflicts?.length ? (
                                 <>
-                                  <Typography variant="caption" sx={{ color: palette.status.error, ml: 1 }}>
-                                    ({orderConflict.conflicts.length} {orderConflict.conflicts.length === 1 ? "conflict" : "conflicts"})
+                                  <Typography variant="caption" color="error.main">
+                                    {t("table.conflictCount", {
+                                      defaultValue: "{{count}} conflicts",
+                                      count: orderConflict.conflicts.length,
+                                    })}
                                   </Typography>
-                                  {orderConflict.conflicts.length > 0 && (
-                                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ ml: 1 }}>
-                                      <Typography variant="caption" sx={{ color: palette.status.error }}>
-                                        Conflicting orders:
-                                      </Typography>
-                                      {orderConflict.conflicts.slice(0, 5).map((conflict, idx) => {
-                                        const conflictId = conflict.orderId || conflict._id || conflict;
-                                        const conflictOrder = orders.find((o) => String(o._id) === String(conflictId));
-                                        const conflictOrderNumber = conflictOrder?.orderNumber || conflictId;
-                                        return (
-                                          <Chip
-                                            key={idx}
-                                            label={conflictOrderNumber}
-                                            size="small"
-                                            sx={{
-                                              height: 20,
-                                              fontSize: "0.65rem",
-                                              backgroundColor: alpha(palette.status.error, 0.2),
-                                              color: palette.status.error,
-                                            }}
-                                          />
-                                        );
+                                  {orderConflict.conflicts
+                                    .slice(0, ORDERS_TABLE_CONFLICT_CHIP_LIMIT)
+                                    .map((conflict) => {
+                                      const conflictId =
+                                        conflict.orderId || conflict._id || conflict;
+                                      const conflictOrder = orders.find(
+                                        (o) => String(o._id) === String(conflictId)
+                                      );
+                                      return (
+                                        <Chip
+                                          key={String(conflictId)}
+                                          label={
+                                            conflictOrder?.orderNumber || conflictId
+                                          }
+                                          size="small"
+                                          variant="outlined"
+                                          color="error"
+                                        />
+                                      );
+                                    })}
+                                  {orderConflict.conflicts.length >
+                                  ORDERS_TABLE_CONFLICT_CHIP_LIMIT ? (
+                                    <Typography variant="caption" color="error.main">
+                                      {t("table.conflictMore", {
+                                        defaultValue: "+{{count}} more",
+                                        count:
+                                          orderConflict.conflicts.length -
+                                          ORDERS_TABLE_CONFLICT_CHIP_LIMIT,
                                       })}
-                                      {orderConflict.conflicts.length > 5 && (
-                                        <Typography variant="caption" sx={{ color: palette.status.error }}>
-                                          +{orderConflict.conflicts.length - 5} more
-                                        </Typography>
-                                      )}
-                                    </Stack>
-                                  )}
+                                    </Typography>
+                                  ) : null}
                                 </>
-                              )}
-                            </Stack>
+                              ) : null}
+                            </CellLine>
                             {/* Clear button */}
                             <IconButton
                               size="small"
+                              color="error"
+                              aria-label={t("table.clearConflict", {
+                                defaultValue: "Dismiss conflict notice",
+                              })}
                               onClick={() => {
                                 setConflictsByOrderId((prev) => {
                                   const next = { ...prev };
@@ -2350,31 +2475,28 @@ export default function OrdersTableSection() {
                                 });
                                 clearConflictHighlights();
                               }}
-                              sx={{
-                                color: palette.status.error,
-                                "&:hover": {
-                                  backgroundColor: alpha(palette.status.error, 0.1),
-                                },
-                              }}
                             >
                               <ClearIcon fontSize="small" />
                             </IconButton>
-                          </Stack>
-                        </TableCell>
+                          </CellLine>
+                        </ConflictPanelCell>
                       </TableRow>
                     )}
                     
                     {/* Conflict indicator for conflicting orders (not source) */}
                     {isConflictingOrder && !isConflictSource && (
                       <TableRow>
-                        <TableCell colSpan={tableColCount} sx={{ py: 0.5, px: 2, backgroundColor: alpha(palette.status.warning, 0.05) }}>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <BlockIcon sx={{ color: palette.status.warning, fontSize: 16 }} />
-                            <Typography variant="caption" sx={{ color: palette.status.warning, fontStyle: "italic" }}>
-                              This order conflicts with the update attempt above
+                        <RelatedConflictCell colSpan={tableColCount}>
+                          <CellLine>
+                            <BlockIcon fontSize="small" color="warning" />
+                            <Typography variant="caption" color="warning.main">
+                              {t("table.conflictRelatedRow", {
+                                defaultValue:
+                                  "This booking conflicts with the update attempted above",
+                              })}
                             </Typography>
-                          </Stack>
-                        </TableCell>
+                          </CellLine>
+                        </RelatedConflictCell>
                       </TableRow>
                     )}
                   </React.Fragment>
