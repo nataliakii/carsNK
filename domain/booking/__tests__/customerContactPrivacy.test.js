@@ -148,11 +148,16 @@ describe("the modal read model repeats the same answer", () => {
     ).toBe(false);
   });
 
-  test("the contractor is never offered an amend action", () => {
-    const ids = buildBookingDetailsView(paid(), companyAdmin).actions.map(
+  test("the contractor is offered amendment only after payment", () => {
+    const unpaidIds = buildBookingDetailsView(request(), companyAdmin).actions.map(
       (action) => action.id
     );
-    expect(ids).not.toContain("amend");
+    expect(unpaidIds).not.toContain("amend");
+
+    const paidIds = buildBookingDetailsView(paid(), companyAdmin).actions.map(
+      (action) => action.id
+    );
+    expect(paidIds).toContain("amend");
   });
 });
 

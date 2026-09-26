@@ -81,7 +81,10 @@ describe("the second-driver control follows the booking source", () => {
   });
 
   test("it is absent on another company's INTERNAL booking", () => {
-    const permissions = permissionsFor(internalOrder(COMPANY), otherCompanyAdmin);
+    const permissions = permissionsFor(
+      internalOrder(COMPANY),
+      otherCompanyAdmin
+    );
     expect(permissions.fieldPermissions.secondDriver).toBe(false);
   });
 
@@ -115,7 +118,7 @@ describe("the second-driver control follows the booking source", () => {
     expect(hook).toContain("BOOKING_CAPABILITY.ADD_SECOND_DRIVER");
   });
 
-  test("the platform modal shows the second driver as a fact, not a control", () => {
+  test("the platform modal edits second driver only through the paid consent-gated amendment", () => {
     const modal = fs.readFileSync(
       path.join(
         process.cwd(),
@@ -123,12 +126,10 @@ describe("the second-driver control follows the booking source", () => {
       ),
       "utf8"
     );
-    expect(modal).toContain("bookingDetails.options.secondDriver");
-    expect(modal).not.toMatch(/secondDriver.*onChange/);
-    // Replacement guarantee uses Checkbox; second driver must stay read-only text.
-    expect(modal).not.toMatch(/options\.secondDriver[\s\S]{0,200}Checkbox/);
-    expect(modal).not.toMatch(/<Checkbox[\s\S]{0,200}secondDriver/);
-    expect(modal).not.toContain("Switch");
+    expect(modal).toContain("secondDriver: Boolean(current.secondDriver)");
+    expect(modal).toContain("amendPaidPlatformBooking");
+    expect(modal).toContain("customerAgreementChecked");
+    expect(modal).toContain("secondDriver: event.target.checked");
   });
 
   test("the INTERNAL modal keeps its checkbox behind the same permission", () => {

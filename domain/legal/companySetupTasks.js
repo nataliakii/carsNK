@@ -39,17 +39,42 @@ function task({ id, title, description, href, params }) {
 export function buildCompanySetupTasks({
   verificationStatus = "",
   termsPublication = "NOT_PUBLISHED",
+  legalState = "",
+  legalActionCount = null,
   hasCustomAgreement = false,
   documents = [],
 } = {}) {
   const status = String(verificationStatus || "");
   const tasks = [];
-  const published =
-    TERMS_ACCEPTABLE_STATUSES.has(status) &&
-    (termsPublication === "READY_TO_ACCEPT" ||
-      termsPublication === "UPDATE_REQUIRED");
+  const legalStateRequiresAction =
+    legalState === "ACCEPTANCE_REQUIRED" ||
+    legalState === "REACCEPTANCE_REQUIRED";
+  const published = legalState
+    ? legalStateRequiresAction && Number(legalActionCount ?? 1) === 1
+    : TERMS_ACCEPTABLE_STATUSES.has(status) &&
+      (termsPublication === "READY_TO_ACCEPT" ||
+        termsPublication === "UPDATE_REQUIRED");
 
-  if (published && hasCustomAgreement) {
+  if (published && legalState === "REACCEPTANCE_REQUIRED") {
+    tasks.push(
+      task({
+        id: "TERMS_UPDATE_REQUIRED",
+        title: "Updated Rovaro partner terms require your acceptance",
+        description:
+          "Review and accept the updated Partner Agreement, Partner Operating Rules and Data Protection Schedule.",
+        href: TERMS_HREF,
+      })
+    );
+  } else if (published && legalState === "ACCEPTANCE_REQUIRED") {
+    tasks.push(
+      task({
+        id: "TERMS_READY_TO_ACCEPT",
+        title: "Partner terms ready to accept",
+        description: "Review and accept the current partner terms package.",
+        href: TERMS_HREF,
+      })
+    );
+  } else if (published && hasCustomAgreement) {
     tasks.push(
       task({
         id: "CUSTOM_AGREEMENT_READY",
@@ -90,10 +115,13 @@ export function buildCompanySetupTasks({
   }
 
   const replacements = (documents || []).filter(
-    (doc) => doc && doc.accepted === false && doc.reviewedAt && safeDocumentName(doc)
+    (doc) =>
+      doc && doc.accepted === false && doc.reviewedAt && safeDocumentName(doc)
   );
   if (replacements.length && DOCUMENT_UPLOAD_STATUSES.has(status)) {
-    const names = replacements.map((doc) => safeDocumentName(doc)).filter(Boolean);
+    const names = replacements
+      .map((doc) => safeDocumentName(doc))
+      .filter(Boolean);
     tasks.push(
       task({
         id: "DOCUMENT_CHANGES_REQUESTED",

@@ -232,6 +232,12 @@ describe("legal publish safeguards", () => {
   it("public resolution uses current pointer before newest published", () => {
     const service = read("domain/legal/documentService.js");
     expect(service).toContain("resolveCurrentPublishedRow");
+    expect(service).toMatch(
+      /const latestPublished = await LegalDocument\.findOne\(/
+    );
+    expect(service).not.toMatch(
+      /const latestPublished = await LegalDocument\.find\(/
+    );
     expect(service.indexOf("LegalDocumentCurrent")).toBeLessThan(
       service.indexOf("export async function getPublishedDocument")
     );

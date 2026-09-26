@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   FormControlLabel,
   Stack,
   TextField,
@@ -32,7 +33,7 @@ function DocumentSections({ sections }) {
   return (
     <Box>
       {list.map((section, index) => {
-        const key = section.id || section.heading || `s-${index}`;
+        const key = section.id || section.heading || `section-${index}`;
         const body = section.text || section.body || section.content || "";
         return (
           <Box key={key} sx={{ mb: 2.5 }}>
@@ -65,15 +66,13 @@ function DocumentSections({ sections }) {
   );
 }
 
-/**
- * Company-facing partner terms acceptance (shown on Company details).
- *
- * Each document opens in a readable modal. Acceptance does not depend on
- * scroll position.
- */
 export default function CompanyTermsPanel({
   termsPublication = COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED,
   terms = null,
+  legalState = "",
+  packageData = null,
+  changedDocumentTypes = [],
+  missingDocumentTypes = [],
   onAccepted,
 }) {
   const { t, i18n } = useTranslation();
@@ -86,28 +85,29 @@ export default function CompanyTermsPanel({
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [openDocType, setOpenDocType] = useState("");
+  const [reviewRequested, setReviewRequested] = useState(false);
 
   const termsAvailable =
     termsPublication !== COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED;
   const email = String(session?.user?.email || "");
 
   const load = useCallback(async () => {
-    const lang = String(i18n.language || "en").slice(0, 2);
-    const [agreementRes, profileRes] = await Promise.all([
-      fetch(`/api/partner/legal/agreement?lang=${encodeURIComponent(lang)}`, {
-        cache: "no-store",
-      }),
-      fetch("/api/partner/legal/profile", { cache: "no-store" }),
-    ]);
-    const agreement = await agreementRes.json().catch(() => ({}));
-    const profileBody = await profileRes.json().catch(() => ({}));
-    if (!agreementRes.ok || !agreement.success) {
-      throw new Error(agreement.message || t("partnerLegal.companyPage.acceptFailed"));
+    const profileResponse = await fetch("/api/partner/legal/profile", {
+      cache: "no-store",
+    });
+    const profileBody = await profileResponse.json().catch(() => ({}));
+    if (!profileResponse.ok || profileBody.success === false) {
+      throw new Error(
+        profileBody.message || t("partnerLegal.companyPage.acceptFailed")
+      );
     }
-    setData(agreement);
     setSignerName(String(session?.user?.name || ""));
     setSignerRole(explicitSignerRole(profileBody.profile));
-  }, [i18n.language, session?.user?.name, t]);
+  }, [session?.user?.name, t]);
+
+  useEffect(() => {
+    setData(packageData);
+  }, [packageData]);
 
   useEffect(() => {
     if (!termsAvailable) return undefined;
@@ -127,38 +127,49 @@ export default function CompanyTermsPanel({
       ),
     [data]
   );
-
   const view = useMemo(
     () => ({
-      publication: termsPublication,
       canAccept: Boolean(terms?.canAccept),
-      links: terms?.links || [],
-      label: terms?.label || "standard",
       message: terms?.message || "",
+      label: terms?.label || "standard",
     }),
-    [termsPublication, terms]
+    [terms]
   );
-
   const openDoc = packageDocs.find((doc) => doc.documentType === openDocType);
+  const openDocLabel = openDoc
+    ? t(`partnerLegal.companyPage.documentTypes.${openDoc.documentType}`, {
+        defaultValue: openDoc.title || openDoc.documentType,
+      })
+    : "";
+
+  useEffect(() => {
+    if (!reviewRequested) return;
+    document.getElementById("partner-terms-acceptance")?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [reviewRequested]);
 
   async function acceptTerms() {
     if (!view.canAccept || !accepted || busy) return;
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/partner/legal/agreement", {
+      const response = await fetch("/api/partner/legal/agreement", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           signerName,
           signerRole,
           acceptedCheckbox: true,
-          language: String(i18n.language || "en").slice(0, 2),
+          language: String(i18n.language || "en").split("-")[0],
         }),
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || !body.success) {
-        throw new Error(body.message || t("partnerLegal.companyPage.acceptFailed"));
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || t("partnerLegal.companyPage.acceptFailed")
+        );
       }
       setDone(true);
       setAccepted(false);
@@ -172,20 +183,55 @@ export default function CompanyTermsPanel({
     }
   }
 
-  if (!termsAvailable || !data) {
+  if (!termsAvailable) {
     return (
       <Box sx={{ pt: 0 }} data-testid="company-rovaro-terms">
-        {error ? (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
-            {error}
-          </Alert>
-        ) : null}
         <Typography component="h2" variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
           {t("partnerLegal.companyPage.rovaroTerms")}
         </Typography>
         <Typography variant="body1">
           {t("partnerLegal.companyPage.preparing")}
         </Typography>
+        {missingDocumentTypes.length ? (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mt: 1 }}
+          >
+            {t("partnerLegal.companyPage.missingTypes", {
+              defaultValue: "Not yet published: {{types}}",
+              types: missingDocumentTypes.join(", "),
+            })}
+          </Typography>
+        ) : null}
+      </Box>
+    );
+  }
+
+  if (!data) {
+    return (
+      <Box sx={{ pt: 0 }} data-testid="company-rovaro-terms">
+        {error ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        ) : null}
+        <Typography variant="body1">
+          {error
+            ? t("partnerLegal.companyPage.loadFailed", {
+                defaultValue:
+                  "Could not load the current published partner package. Please retry.",
+              })
+            : t("partnerLegal.companyPage.loadingPackage", {
+                defaultValue: "Loading the current published partner package…",
+              })}
+        </Typography>
+        <Button
+          size="small"
+          onClick={() => load().catch((err) => setError(err.message))}
+        >
+          {t("common.retry", { defaultValue: "Retry" })}
+        </Button>
       </Box>
     );
   }
@@ -195,46 +241,94 @@ export default function CompanyTermsPanel({
     accepted: "termsAccepted",
     updated: "termsUpdated",
   }[view.message];
-
-  const openDocLabel = openDoc
-    ? t(`partnerLegal.companyPage.documentTypes.${openDoc.documentType}`, {
-        defaultValue: openDoc.title || openDoc.documentType,
-      })
-    : "";
+  const acceptedAt = data.activeAgreement?.acceptedAt;
 
   return (
     <Box sx={{ pt: 0 }} data-testid="company-rovaro-terms">
       {error ? (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       ) : null}
       {done ? (
         <Alert severity="success" sx={{ mb: 2 }}>
           {t("partnerLegal.companyPage.termsAccepted")}
+          {acceptedAt ? ` · ${new Date(acceptedAt).toLocaleString()}` : ""}
         </Alert>
       ) : null}
 
       <Typography component="h2" variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-        {view.label === "custom"
+        {legalState === "REACCEPTANCE_REQUIRED"
+          ? t("partnerLegal.companyPage.termsReacceptTitle", {
+              defaultValue:
+                "Updated Rovaro partner terms require your acceptance",
+            })
+          : legalState === "ACCEPTED_CURRENT"
+          ? t("partnerLegal.companyPage.termsAccepted")
+          : view.label === "custom"
           ? t("partnerLegal.companyPage.customAgreement")
           : t("partnerLegal.companyPage.standardApply")}
       </Typography>
-      {messageKey ? (
+      {legalState === "REACCEPTANCE_REQUIRED" ? (
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          {t("partnerLegal.companyPage.termsReacceptBody", {
+            defaultValue:
+              "Rovaro has published an updated version of the partner terms. Please review the current Partner Agreement, Partner Operating Rules and Data Protection Schedule and accept the updated package on behalf of your company.",
+          })}
+        </Typography>
+      ) : messageKey ? (
         <Typography variant="body2" sx={{ mb: 2 }}>
           {t(`partnerLegal.companyPage.${messageKey}`)}
         </Typography>
+      ) : null}
+
+      {legalState === "ACCEPTED_CURRENT" && acceptedAt ? (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "block", mb: 2 }}
+        >
+          {`${t("partnerLegal.companyPage.acceptedOn", {
+            defaultValue: "Accepted",
+          })}: ${new Date(acceptedAt).toLocaleString()}`}
+        </Typography>
+      ) : null}
+
+      {view.canAccept && !reviewRequested ? (
+        <Button
+          variant="contained"
+          onClick={() => setReviewRequested(true)}
+          sx={{ mb: 2, textTransform: "none" }}
+        >
+          {legalState === "REACCEPTANCE_REQUIRED"
+            ? t("partnerLegal.companyPage.reviewUpdatedTerms", {
+                defaultValue: "Review and accept updated terms",
+              })
+            : t("partnerLegal.companyPage.termsReady", {
+                defaultValue: "Review and accept terms",
+              })}
+        </Button>
       ) : null}
 
       <Stack spacing={1} sx={{ mb: 3 }}>
         {packageDocs.map((doc) => {
           const label = t(
             `partnerLegal.companyPage.documentTypes.${doc.documentType}`,
-            { defaultValue: doc.title || doc.documentType }
+            {
+              defaultValue: doc.title || doc.documentType,
+            }
           );
-          const viewLabel = t("partnerLegal.review.doc.view", {
-            defaultValue: "View document",
-          });
+          const changed = [
+            ...changedDocumentTypes,
+            ...(data.changedDocumentTypes || []),
+          ].some(
+            (type) =>
+              String(type).replaceAll("-", "_").toUpperCase() ===
+              String(doc.documentType).replaceAll("-", "_").toUpperCase()
+          );
+          const old = data.activeAgreement?.documents?.find(
+            (item) => item.documentType === doc.documentType
+          );
           return (
             <Button
               key={doc.documentType}
@@ -243,7 +337,6 @@ export default function CompanyTermsPanel({
               variant="outlined"
               color="inherit"
               data-testid={`company-terms-doc-${doc.documentType}`}
-              aria-label={`${label} — ${viewLabel}`}
               sx={{
                 justifyContent: "space-between",
                 textAlign: "left",
@@ -252,29 +345,47 @@ export default function CompanyTermsPanel({
                 width: "100%",
                 px: 2,
                 py: 1.5,
-                fontSize: "inherit",
-                border: "1px solid",
                 borderColor: "divider",
                 color: "text.primary",
-                bgcolor: "background.paper",
-                "&:hover": {
-                  borderColor: "text.primary",
-                  bgcolor: "action.hover",
-                  margin: 0,
-                  color: "text.primary",
-                },
-                "&:focus-visible": {
-                  outline: "2px solid",
-                  outlineColor: "primary.main",
-                  outlineOffset: 2,
-                },
               }}
               endIcon={<DescriptionOutlinedIcon fontSize="small" aria-hidden />}
             >
               <Box sx={{ textAlign: "left" }}>
-                <Typography sx={{ fontWeight: 700 }}>{label}</Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography sx={{ fontWeight: 700 }}>{label}</Typography>
+                  {changed ? (
+                    <Chip
+                      size="small"
+                      color="warning"
+                      label={t("partnerLegal.companyPage.updatedBadge", {
+                        defaultValue: "Updated",
+                      })}
+                    />
+                  ) : null}
+                </Stack>
                 <Typography variant="caption" color="text.secondary">
-                  {viewLabel}
+                  {`v${doc.bindingVersion || doc.version}`}
+                  {old
+                    ? ` · ${t("partnerLegal.companyPage.previousVersion", {
+                        defaultValue: "previously v{{version}}",
+                        version: old.version,
+                      })}`
+                    : ""}
+                  {` · ${
+                    doc.fellBackToSourceLanguage
+                      ? t("partnerLegal.companyPage.displayedLanguage", {
+                          defaultValue:
+                            "Displayed in {{language}} (source language)",
+                          language: doc.language,
+                        })
+                      : doc.language
+                  }`}
+                  {doc.publishedAt
+                    ? ` · ${new Date(doc.publishedAt).toLocaleDateString()}`
+                    : ""}
+                  {` · ${t("partnerLegal.review.doc.view", {
+                    defaultValue: "View document",
+                  })}`}
                 </Typography>
               </Box>
             </Button>
@@ -282,8 +393,8 @@ export default function CompanyTermsPanel({
         })}
       </Stack>
 
-      {view.canAccept ? (
-        <Stack spacing={1.5}>
+      {view.canAccept && reviewRequested ? (
+        <Stack id="partner-terms-acceptance" spacing={1.5}>
           <Box sx={COMPANY_SETTINGS_FORM_GRID}>
             <TextField
               size="small"
@@ -328,15 +439,16 @@ export default function CompanyTermsPanel({
           <Button
             variant="contained"
             disabled={
-              !accepted ||
-              busy ||
-              !signerName.trim() ||
-              !signerRole.trim()
+              !accepted || busy || !signerName.trim() || !signerRole.trim()
             }
             onClick={acceptTerms}
             sx={{ alignSelf: "flex-start", textTransform: "none" }}
           >
-            {t("partnerLegal.companyPage.acceptTerms")}
+            {legalState === "REACCEPTANCE_REQUIRED"
+              ? t("partnerLegal.companyPage.acceptUpdatedTerms", {
+                  defaultValue: "Accept updated terms",
+                })
+              : t("partnerLegal.companyPage.acceptTerms")}
           </Button>
         </Stack>
       ) : null}
@@ -344,9 +456,18 @@ export default function CompanyTermsPanel({
       <LegalDocumentModal
         open={Boolean(openDoc)}
         onClose={() => setOpenDocType("")}
-        title={openDocLabel}
-        version={openDoc?.version || ""}
-        language={openDoc?.language || String(i18n.language || "en").slice(0, 2)}
+        title={
+          openDoc
+            ? t(
+                `partnerLegal.companyPage.documentTypes.${openDoc.documentType}`,
+                { defaultValue: openDoc.title || openDoc.documentType }
+              )
+            : ""
+        }
+        version={openDoc?.bindingVersion || openDoc?.version || ""}
+        language={
+          openDoc?.language || String(i18n.language || "en").split("-")[0]
+        }
         closeLabel={t("common.close", { defaultValue: "Close" })}
       >
         <DocumentSections sections={openDoc?.sections} />

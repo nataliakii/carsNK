@@ -84,13 +84,19 @@ describe("who may see a driving licence", () => {
 
 describe("lawful stage", () => {
   it("refuses an unpaid, unconfirmed request", () => {
-    const result = evaluate({ confirmed: false, payment: { status: "pending" } });
+    const result = evaluate({
+      confirmed: false,
+      payment: { status: "pending" },
+    });
     expect(result.allowed).toBe(false);
     expect(result.code).toBe("not_yet_lawful");
   });
 
   it("refuses a confirmed booking until the Booking Fee webhook marks it paid", () => {
-    const result = evaluate({ confirmed: true, payment: { status: "pending" } });
+    const result = evaluate({
+      confirmed: true,
+      payment: { status: "pending" },
+    });
     expect(result.allowed).toBe(false);
     expect(result.code).toBe("not_yet_lawful");
   });
@@ -137,6 +143,18 @@ describe("access window", () => {
     });
     expect(result.allowed).toBe(true);
   });
+
+  it("keeps owner access on COMPLETED bookings subject to document retention", () => {
+    const result = evaluate({
+      bookingStatus: "COMPLETED",
+      payment: { status: "paid" },
+      pickupAtUtc: new Date(NOW.getTime() - 500 * HOUR),
+      returnAtUtc: new Date(
+        NOW.getTime() - (ACCESS_WINDOW_AFTER_RETURN_HOURS + 24) * HOUR
+      ),
+    });
+    expect(result.allowed).toBe(true);
+  });
 });
 
 describe("signed URL lifetime", () => {
@@ -173,7 +191,9 @@ describe("automatic deletion", () => {
   it("marks documents past the retention period for deletion", () => {
     expect(
       isPastRetention({
-        order: order({ returnAtUtc: new Date(NOW.getTime() - 100 * 24 * HOUR) }),
+        order: order({
+          returnAtUtc: new Date(NOW.getTime() - 100 * 24 * HOUR),
+        }),
         retentionDays: 90,
         now: NOW,
       })
@@ -243,7 +263,11 @@ describe("canViewDrivingLicenceDocuments", () => {
 
   it("refuses a missing order and a caller who is not an admin at all", () => {
     expect(
-      canViewDrivingLicenceDocuments({ order: null, user: superadmin, now: NOW })
+      canViewDrivingLicenceDocuments({
+        order: null,
+        user: superadmin,
+        now: NOW,
+      })
     ).toBe(false);
     expect(
       canViewDrivingLicenceDocuments({ order: order(), user: null, now: NOW })

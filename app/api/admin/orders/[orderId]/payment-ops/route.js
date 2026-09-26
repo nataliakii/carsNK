@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAdmin, requireSuperAdmin } from "@lib/adminAuth";
+import { requireAdmin } from "@lib/adminAuth";
 import { ROLE } from "@models/user";
 import { connectToDB } from "@lib/database";
 import { Order } from "@models/order";
@@ -41,7 +41,51 @@ async function loadOrder(orderId) {
   return Order.findById(orderId);
 }
 
-/** Superadmin visibility snapshot. ADMIN may not issue links. */
+function isSuperadminSession(session) {
+  return Number(session?.user?.role) === ROLE.SUPERADMIN;
+}
+
+function sessionOwnsOrder(session, order) {
+  const actorOwner = String(
+    session?.user?.viewAsCompanyId || session?.user?.ownerId || ""
+  ).trim();
+  const orderOwner = String(order?.ownerId || "").trim();
+  return Boolean(actorOwner && orderOwner && actorOwner === orderOwner);
+}
+
+function redactCompanyAdminView(view) {
+  if (!view) return view;
+  return {
+    ...view,
+    payment: view.payment
+      ? {
+          ...view.payment,
+          checkoutUrl: "",
+          currentSessionId: "",
+          paymentIntentId: "",
+          chargeId: "",
+          sessionHistory: [],
+        }
+      : view.payment,
+    emails: (view.emails || []).map((row) => ({
+      ...row,
+      stripeSessionId: "",
+    })),
+  };
+}
+
+function superadminOnly() {
+  return json(
+    {
+      success: false,
+      code: "superadmin_only",
+      message: "Forbidden — superadmin only",
+    },
+    403
+  );
+}
+
+/** Payment operation visibility snapshot for superadmin or the owning company. */
 export async function GET(request, { params }) {
   const { session, errorResponse } = await requireAdmin(request);
   if (errorResponse) return errorResponse;
@@ -49,12 +93,20 @@ export async function GET(request, { params }) {
   const { orderId } = await params;
   const order = await loadOrder(orderId);
   if (!order) return json({ success: false, message: "Order not found" }, 404);
+  const isSuper = isSuperadminSession(session);
+  const ownsOrder = sessionOwnsOrder(session, order);
+  if (!isSuper && !ownsOrder) {
+    return json(
+      { success: false, code: "ORDER_NOT_FOUND", message: "Order not found" },
+      404
+    );
+  }
 
   if (!isPlatformBooking(order)) {
     return json({
       success: true,
       internalCompanyBooking: true,
-      superadmin: Number(session.user?.role) === ROLE.SUPERADMIN,
+      superadmin: isSuper,
       canIssueNewLink: false,
       canResendExisting: false,
       message: "Internal company booking — not a Rovaro payment.",
@@ -63,19 +115,20 @@ export async function GET(request, { params }) {
   }
 
   const view = await buildMarketplacePaymentOpsView(order);
-  const isSuper = Number(session.user?.role) === ROLE.SUPERADMIN;
+  const canManagePayment = isSuper || ownsOrder;
   return json({
     success: true,
     superadmin: isSuper,
-    canIssueNewLink: isSuper && view.canIssueNewLink,
+    canIssueNewLink: canManagePayment && view.canIssueNewLink,
     canResendExisting: isSuper && view.canResendExisting,
-    view,
+    view: isSuper ? view : redactCompanyAdminView(view),
   });
 }
 
 export async function POST(request, { params }) {
-  const { session, errorResponse } = await requireSuperAdmin(request);
+  const { session, errorResponse } = await requireAdmin(request);
   if (errorResponse) return errorResponse;
+  const isSuper = isSuperadminSession(session);
 
   const { orderId } = await params;
   const body = await request.json().catch(() => ({}));
@@ -84,6 +137,13 @@ export async function POST(request, { params }) {
 
   const order = await loadOrder(orderId);
   if (!order) return json({ success: false, message: "Order not found" }, 404);
+  const ownsOrder = sessionOwnsOrder(session, order);
+  if (!isSuper && !ownsOrder) {
+    return json(
+      { success: false, code: "ORDER_NOT_FOUND", message: "Order not found" },
+      404
+    );
+  }
 
   if (!isPlatformBooking(order)) {
     return json(
@@ -97,6 +157,7 @@ export async function POST(request, { params }) {
   }
 
   if (action === "resend") {
+    if (!isSuper) return superadminOnly();
     if (isMarketplaceRequestMode(order.bookingMode)) {
       const resendGate = await assertPartnerCanOperate(order.ownerId, {
         purpose: PARTNER_OPERATION_PURPOSE.CHECKOUT,
@@ -178,17 +239,27 @@ export async function POST(request, { params }) {
   }
 
   if (action === "reissue") {
+    if (!isSuper && !ownsOrder) {
+      return json(
+        { success: false, code: "ORDER_NOT_FOUND", message: "Order not found" },
+        404
+      );
+    }
     const result = await reissueMarketplacePaymentLink({
       orderId,
-      reason: body?.reason,
+      reason: isSuper ? body?.reason : "payment_link_expired",
       reasonNote: body?.reasonNote,
       actorEmail: session.user?.email || "",
-      actorRole: "superadmin",
+      actorRole: isSuper ? "superadmin" : "admin",
+      actorUserId: session.user?.id || session.user?._id || "",
+      actorCompanyId: isSuper ? "" : session.user?.ownerId || "",
       ipAddress,
       userAgent,
       idempotencyKey: String(body?.idempotencyKey || ""),
-      complianceOverride: body?.complianceOverride === true,
-      complianceOverrideReason: String(body?.complianceOverrideReason || ""),
+      complianceOverride: isSuper && body?.complianceOverride === true,
+      complianceOverrideReason: isSuper
+        ? String(body?.complianceOverrideReason || "")
+        : "",
     });
     if (!result.ok) {
       return json(
@@ -205,15 +276,18 @@ export async function POST(request, { params }) {
     );
     return json({
       success: true,
-      url: result.url,
-      sessionId: result.sessionId,
+      url: isSuper ? result.url : "",
+      sessionId: isSuper ? result.sessionId : "",
       expiresAt: result.expiresAt,
       idempotent: Boolean(result.idempotent),
-      view,
+      reused: Boolean(result.reused),
+      order: result.order || null,
+      view: isSuper ? view : redactCompanyAdminView(view),
     });
   }
 
   if (action === "retry_invalidation") {
+    if (!isSuper) return superadminOnly();
     const summary = await retryCheckoutInvalidationForOrder(order, {
       reason: String(body?.reason || order.payment?.invalidatedReason || "PROFILE_NOT_VERIFIED"),
       actorEmail: session.user?.email || "",
@@ -239,6 +313,7 @@ export async function POST(request, { params }) {
   }
 
   if (action === "correct_price") {
+    if (!isSuper) return superadminOnly();
     const revisedGrossMinor =
       body?.revisedGrossMinor != null
         ? Math.round(Number(body.revisedGrossMinor))
@@ -276,6 +351,7 @@ export async function POST(request, { params }) {
   }
 
   if (action === "refund") {
+    if (!isSuper) return superadminOnly();
     const result = await issueMarketplaceBookingFeeRefund({
       orderId,
       reason: body?.reason || body?.reasonNote,

@@ -34,8 +34,13 @@ import timezone from "dayjs/plugin/timezone";
 import { SummaryField, SummaryList } from "@/app/components/ui";
 import CopyableContact from "@/app/admin/features/orders/components/CopyableContact";
 import BookingDetailsActivity from "@/app/admin/features/orders/components/BookingDetailsActivity";
+import MarketplacePaymentOpsPanel from "@/app/admin/features/orders/MarketplacePaymentOpsPanel";
 import { buildBookingDetailsView } from "@/domain/booking/bookingDetailsView";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  BOOKING_CAPABILITY,
+  resolveOrderCapabilities,
+} from "@/domain/orders/bookingCapabilities";
 import { ROLE } from "@models/user";
 import { LEGACY_FALLBACK_TZ } from "@/domain/time/resolveBusinessTimezone";
 import {
@@ -51,10 +56,12 @@ import {
   SUPPORT_CATEGORIES,
   SUPPORT_CATEGORY,
   amendPlatformBooking,
+  amendPaidPlatformBooking,
   confirmRequestedVehicle,
   contactRovaroAboutBooking,
   declineBookingRequest,
   loadAdminOrder,
+  loadOperationalAmendmentVehicles,
   loadReplacementFleetCars,
   loadSignedDrivingLicence,
   proposeEquivalentReplacement,
@@ -187,6 +194,7 @@ const TONE_PALETTE = {
   platform: "primary",
   internal: "secondary",
   pending: "warning",
+  paymentExpired: "warning",
   settled: "success",
 };
 
@@ -263,7 +271,8 @@ const EMPTY_AMENDMENT = Object.freeze({
 function useBookingClock(order) {
   const zone = order?.timezone || LEGACY_FALLBACK_TZ;
   return useCallback(
-    (value) => (value ? dayjs.utc(value).tz(zone).format("DD.MM.YYYY HH:mm") : ""),
+    (value) =>
+      value ? dayjs.utc(value).tz(zone).format("DD.MM.YYYY HH:mm") : "",
     [zone]
   );
 }
@@ -287,7 +296,12 @@ function summaryHasValue(value) {
  * looks and behaves the same wherever it was opened from. INTERNAL bookings
  * keep their own company-owned editing flow in EditOrderModal.
  */
-export default function BookingDetailsModal({ order, open, onClose, onChanged }) {
+export default function BookingDetailsModal({
+  order,
+  open,
+  onClose,
+  onChanged,
+}) {
   const { t } = useTranslation();
   const theme = useTheme();
   const isSheet = useMediaQuery(
@@ -303,6 +317,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   const [supportCategory, setSupportCategory] = useState(
     SUPPORT_CATEGORY.BOOKING_DETAILS
   );
+  const [reportedIssueType, setReportedIssueType] = useState("OTHER");
   const [supportMessage, setSupportMessage] = useState("");
   const [declineReason, setDeclineReason] = useState("");
   const [licenceUrls, setLicenceUrls] = useState([]);
@@ -313,6 +328,12 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
   const [fleetLoading, setFleetLoading] = useState(false);
   const [fleetError, setFleetError] = useState("");
   const [amendment, setAmendment] = useState(EMPTY_AMENDMENT);
+  const [operationalDraft, setOperationalDraft] = useState({});
+  const [operationalVehicles, setOperationalVehicles] = useState([]);
+  const [operationalFleetLoading, setOperationalFleetLoading] = useState(false);
+  const [customerAgreementChecked, setCustomerAgreementChecked] =
+    useState(false);
+  const [operationalAmendmentNote, setOperationalAmendmentNote] = useState("");
 
   const orderId = order?._id ? String(order._id) : "";
 
@@ -335,6 +356,29 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
     [current, session?.user]
   );
   const isSuperAdmin = Number(session?.user?.role) === ROLE.SUPERADMIN;
+  const canViewActivity = Boolean(
+    current &&
+      session?.user &&
+      resolveOrderCapabilities(current, session.user)[
+        BOOKING_CAPABILITY.VIEW_AUDIT_HISTORY
+      ]
+  );
+
+  useEffect(() => {
+    if (!open || dialog !== "amend" || isSuperAdmin) return undefined;
+    let alive = true;
+    setOperationalFleetLoading(true);
+    loadOperationalAmendmentVehicles(orderId).then((result) => {
+      if (!alive) return;
+      setOperationalFleetLoading(false);
+      setOperationalVehicles(result?.ok ? result.vehicles : []);
+      if (!result?.ok)
+        setError(result?.message || "Could not load fleet vehicles");
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, dialog, isSuperAdmin, orderId]);
 
   useEffect(() => {
     if (!open || !orderId || !view?.showLicence) {
@@ -429,19 +473,27 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
           key={line.key}
           variant="caption"
           color="text.secondary"
-          sx={{ display: "flex", justifyContent: "space-between", gap: 1, lineHeight: 1.45 }}
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 1,
+            lineHeight: 1.45,
+          }}
         >
           <span>{t(line.labelKey, { defaultValue: line.label })}</span>
-          <span>
-            {line.free ? t("bookingDetails.price.free") : line.text}
-          </span>
+          <span>{line.free ? t("bookingDetails.price.free") : line.text}</span>
         </Typography>
       ))}
       {price.paidToRovaroText ? (
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ display: "flex", justifyContent: "space-between", gap: 1, lineHeight: 1.45 }}
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 1,
+            lineHeight: 1.45,
+          }}
         >
           <span>
             {t("bookingDetails.price.paidToRovaro", {
@@ -471,7 +523,11 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
       <SectionPanel data-testid="booking-money">
         {price.payableToSupplierText ? (
           <SupplierPayout data-testid="payable-to-supplier">
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontWeight: 600 }}
+            >
               {t("bookingDetails.price.payableToSupplier")}
             </Typography>
             <SupplierPayoutAmount variant="h4" component="p">
@@ -523,7 +579,11 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
       <StickyHeader>
         <HeaderTopRow>
           <HeaderIdentity>
-            <ReferenceText variant="h6" component="h2" id="booking-details-title">
+            <ReferenceText
+              variant="h6"
+              component="h2"
+              id="booking-details-title"
+            >
               {[view.header.vehicleName, view.header.reference]
                 .filter(Boolean)
                 .join(" · ")}
@@ -585,6 +645,22 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         <SectionsGrid>
           {moneyPanel}
 
+          {isPlatformBooking(current) ? (
+            <GridFullWidth>
+              <MarketplacePaymentOpsPanel
+                order={current}
+                currentUser={session?.user}
+                isSuperAdmin={isSuperAdmin}
+                onOrderUpdated={(updated) => {
+                  if (updated) {
+                    setCurrent(updated);
+                    onChanged?.(updated);
+                  }
+                }}
+              />
+            </GridFullWidth>
+          ) : null}
+
           {showVehiclePanel ? (
             <SectionPanel data-testid="vehicle-snapshot">
               <SectionTitle variant="subtitle2">
@@ -607,7 +683,9 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                   "&:hover": { backgroundColor: "transparent", opacity: 0.85 },
                 }}
                 endIcon={
-                  <InfoOutlinedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+                  <InfoOutlinedIcon
+                    sx={{ fontSize: 18, color: "text.secondary" }}
+                  />
                 }
                 data-testid="vehicle-specs-info"
               >
@@ -629,64 +707,84 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                   </Typography>
                 </Box>
               </Button>
+              {current.actualVehicle ? (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  data-testid="actual-supplied-vehicle"
+                  sx={{ display: "block", mt: 0.75 }}
+                >
+                  {t("bookingDetails.vehicle.actualSupplied", {
+                    defaultValue: "Vehicle actually supplied",
+                  })}
+                  :{" "}
+                  {[
+                    current.actualVehicle.make,
+                    current.actualVehicle.model,
+                    current.actualVehicle.carNumber,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
+                </Typography>
+              ) : null}
             </SectionPanel>
           ) : null}
 
           {(() => {
-              const pickup = [current.placeIn, current.placeInDetail]
-                .filter(Boolean)
-                .join(" — ");
-              const dropoff = [current.placeOut, current.placeOutDetail]
-                .filter(Boolean)
-                .join(" — ");
-              if (!pickup && !dropoff) return null;
-              const samePlace = pickup && dropoff && pickup === dropoff;
-              return (
-                <SectionPanel data-testid="booking-locations">
-                  <SectionTitle variant="subtitle2">
-                    {t("bookingDetails.sections.locations", {
-                      defaultValue: "Locations",
-                    })}
-                  </SectionTitle>
-                  {samePlace ? (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ lineHeight: 1.35 }}
-                    >
-                      {pickup}
-                    </Typography>
-                  ) : (
-                    <Box>
-                      {pickup ? (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ lineHeight: 1.35 }}
-                        >
-                          {t("bookingDetails.dates.pickupShort", {
-                            defaultValue: "Pickup",
-                          })}
-                          : {pickup}
-                        </Typography>
-                      ) : null}
-                      {dropoff ? (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ lineHeight: 1.35 }}
-                        >
-                          {t("bookingDetails.dates.returnShort", {
-                            defaultValue: "Return",
-                          })}
-                          : {dropoff}
-                        </Typography>
-                      ) : null}
-                    </Box>
-                  )}
-                </SectionPanel>
-              );
-            })()}
+            const pickup = [current.placeIn, current.placeInDetail]
+              .filter(Boolean)
+              .join(" — ");
+            const dropoff = [current.placeOut, current.placeOutDetail]
+              .filter(Boolean)
+              .join(" — ");
+            if (!pickup && !dropoff) return null;
+            const samePlace = pickup && dropoff && pickup === dropoff;
+            return (
+              <SectionPanel data-testid="booking-locations">
+                <SectionTitle variant="subtitle2">
+                  {t("bookingDetails.sections.locations", {
+                    defaultValue: "Locations",
+                  })}
+                </SectionTitle>
+                {samePlace ? (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ lineHeight: 1.35 }}
+                  >
+                    {pickup}
+                  </Typography>
+                ) : (
+                  <Box>
+                    {pickup ? (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ lineHeight: 1.35 }}
+                      >
+                        {t("bookingDetails.dates.pickupShort", {
+                          defaultValue: "Pickup",
+                        })}
+                        : {pickup}
+                      </Typography>
+                    ) : null}
+                    {dropoff ? (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ lineHeight: 1.35 }}
+                      >
+                        {t("bookingDetails.dates.returnShort", {
+                          defaultValue: "Return",
+                        })}
+                        : {dropoff}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                )}
+              </SectionPanel>
+            );
+          })()}
 
           {view.replacement ? (
             <GridFullWidth>
@@ -724,94 +822,105 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
           ) : null}
 
           <GridFullWidth>
-          <SectionPanel>
-            <SectionTitle variant="subtitle2">
-              {t("bookingDetails.sections.options")}
-            </SectionTitle>
-            <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5}>
-              {current.insurance ? (
-                <Chip
-                  size="small"
-                  label={`${t("bookingDetails.options.insurance")}: ${current.insurance}`}
-                  sx={{ height: 22, fontSize: "0.7rem" }}
-                />
-              ) : null}
-              {current.franchiseOrder != null && current.franchiseOrder !== "" ? (
-                <Chip
-                  size="small"
-                  label={`${t("bookingDetails.options.excess")}: ${current.franchiseOrder}`}
-                  sx={{ height: 22, fontSize: "0.7rem" }}
-                />
-              ) : null}
-              {current.ChildSeats != null && Number(current.ChildSeats) > 0 ? (
-                <Chip
-                  size="small"
-                  label={`${t("bookingDetails.options.childSeats")}: ${current.ChildSeats}`}
-                  sx={{ height: 22, fontSize: "0.7rem" }}
-                />
-              ) : null}
-              {current.secondDriver ? (
-                <Chip
-                  size="small"
-                  label={t("bookingDetails.options.secondDriver")}
-                  sx={{ height: 22, fontSize: "0.7rem" }}
-                />
-              ) : null}
-              {!current.insurance &&
-              (current.franchiseOrder == null || current.franchiseOrder === "") &&
-              !(current.ChildSeats != null && Number(current.ChildSeats) > 0) &&
-              !current.secondDriver ? (
-                <Typography variant="caption" color="text.secondary">
-                  —
-                </Typography>
-              ) : null}
-            </Stack>
-          </SectionPanel>
+            <SectionPanel>
+              <SectionTitle variant="subtitle2">
+                {t("bookingDetails.sections.options")}
+              </SectionTitle>
+              <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5}>
+                {current.insurance ? (
+                  <Chip
+                    size="small"
+                    label={`${t("bookingDetails.options.insurance")}: ${
+                      current.insurance
+                    }`}
+                    sx={{ height: 22, fontSize: "0.7rem" }}
+                  />
+                ) : null}
+                {current.franchiseOrder != null &&
+                current.franchiseOrder !== "" ? (
+                  <Chip
+                    size="small"
+                    label={`${t("bookingDetails.options.excess")}: ${
+                      current.franchiseOrder
+                    }`}
+                    sx={{ height: 22, fontSize: "0.7rem" }}
+                  />
+                ) : null}
+                {current.ChildSeats != null &&
+                Number(current.ChildSeats) > 0 ? (
+                  <Chip
+                    size="small"
+                    label={`${t("bookingDetails.options.childSeats")}: ${
+                      current.ChildSeats
+                    }`}
+                    sx={{ height: 22, fontSize: "0.7rem" }}
+                  />
+                ) : null}
+                {current.secondDriver ? (
+                  <Chip
+                    size="small"
+                    label={t("bookingDetails.options.secondDriver")}
+                    sx={{ height: 22, fontSize: "0.7rem" }}
+                  />
+                ) : null}
+                {!current.insurance &&
+                (current.franchiseOrder == null ||
+                  current.franchiseOrder === "") &&
+                !(
+                  current.ChildSeats != null && Number(current.ChildSeats) > 0
+                ) &&
+                !current.secondDriver ? (
+                  <Typography variant="caption" color="text.secondary">
+                    —
+                  </Typography>
+                ) : null}
+              </Stack>
+            </SectionPanel>
           </GridFullWidth>
 
           {view.customer ? (
             <GridFullWidth>
-            <SectionPanel>
-              <SectionTitle variant="subtitle2">
-                {t("bookingDetails.sections.customer")}
-              </SectionTitle>
-              <SummaryList component="dl">
-                <SummaryField
-                  label={t("bookingDetails.customer.name")}
-                  value={view.customer.name}
-                />
-                {/* CONTACT_CUSTOMER is what makes a contact reachable and
+              <SectionPanel>
+                <SectionTitle variant="subtitle2">
+                  {t("bookingDetails.sections.customer")}
+                </SectionTitle>
+                <SummaryList component="dl">
+                  <SummaryField
+                    label={t("bookingDetails.customer.name")}
+                    value={view.customer.name}
+                  />
+                  {/* CONTACT_CUSTOMER is what makes a contact reachable and
                     copyable, so it stays the gate even without a button. */}
-                {view.canContactCustomer ? (
-                  <>
-                    <SummaryField label={t("bookingDetails.customer.phone")}>
-                      <CopyableContact
-                        value={view.customer.phone}
-                        href={`tel:${view.customer.phone}`}
-                        copyLabel={t("bookingDetails.customer.copyPhone")}
-                        copiedLabel={t("bookingDetails.customer.copied")}
-                      />
-                    </SummaryField>
-                    <SummaryField label={t("bookingDetails.customer.email")}>
-                      <CopyableContact
-                        value={view.customer.email}
-                        href={`mailto:${view.customer.email}`}
-                        copyLabel={t("bookingDetails.customer.copyEmail")}
-                        copiedLabel={t("bookingDetails.customer.copied")}
-                      />
-                    </SummaryField>
-                  </>
-                ) : null}
-                <SummaryField
-                  label={t("bookingDetails.customer.messengers")}
-                  value={messengerList(view.customer, t)}
-                />
-                <SummaryField
-                  label={t("bookingDetails.customer.notes")}
-                  value={view.customer.notes}
-                />
-              </SummaryList>
-            </SectionPanel>
+                  {view.canContactCustomer ? (
+                    <>
+                      <SummaryField label={t("bookingDetails.customer.phone")}>
+                        <CopyableContact
+                          value={view.customer.phone}
+                          href={`tel:${view.customer.phone}`}
+                          copyLabel={t("bookingDetails.customer.copyPhone")}
+                          copiedLabel={t("bookingDetails.customer.copied")}
+                        />
+                      </SummaryField>
+                      <SummaryField label={t("bookingDetails.customer.email")}>
+                        <CopyableContact
+                          value={view.customer.email}
+                          href={`mailto:${view.customer.email}`}
+                          copyLabel={t("bookingDetails.customer.copyEmail")}
+                          copiedLabel={t("bookingDetails.customer.copied")}
+                        />
+                      </SummaryField>
+                    </>
+                  ) : null}
+                  <SummaryField
+                    label={t("bookingDetails.customer.messengers")}
+                    value={messengerList(view.customer, t)}
+                  />
+                  <SummaryField
+                    label={t("bookingDetails.customer.notes")}
+                    value={view.customer.notes}
+                  />
+                </SummaryList>
+              </SectionPanel>
             </GridFullWidth>
           ) : null}
 
@@ -856,7 +965,8 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                             "Driving licence is on file. Open the preview once images load.",
                         })
                       : t("bookingDetails.documents.noneUploaded", {
-                          defaultValue: "No driving licence was uploaded for this booking.",
+                          defaultValue:
+                            "No driving licence was uploaded for this booking.",
                         })}
                   </Typography>
                 ) : null}
@@ -864,7 +974,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             </GridFullWidth>
           ) : null}
 
-          {isSuperAdmin && orderId ? (
+          {canViewActivity && orderId ? (
             <GridFullWidth>
               <SectionPanel data-testid="booking-activity">
                 <SectionTitle variant="subtitle2">
@@ -873,6 +983,42 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                   })}
                 </SectionTitle>
                 <BookingDetailsActivity orderId={orderId} />
+              </SectionPanel>
+            </GridFullWidth>
+          ) : null}
+
+          {Array.isArray(current?.operationalAmendments) &&
+          current.operationalAmendments.length > 0 ? (
+            <GridFullWidth>
+              <SectionPanel data-testid="operational-amendment-history">
+                <SectionTitle variant="subtitle2">
+                  Operational amendment history
+                </SectionTitle>
+                {[...current.operationalAmendments]
+                  .reverse()
+                  .map((revision, index) => (
+                    <Box
+                      key={`${revision.checksum || revision.at}-${index}`}
+                      sx={{
+                        py: 0.75,
+                        borderBottom: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{ display: "block", fontWeight: 700 }}
+                      >
+                        {formatMoment(revision.at)} ·{" "}
+                        {revision.actor?.email || "—"} ·{" "}
+                        {(revision.fieldsChanged || []).join(", ")}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Customer agreement recorded
+                        {revision.note ? ` · ${revision.note}` : ""}
+                      </Typography>
+                    </Box>
+                  ))}
               </SectionPanel>
             </GridFullWidth>
           ) : null}
@@ -896,6 +1042,32 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               onClick={() => {
                 setError("");
                 setNotice("");
+                if (action.id === "amend") {
+                  setOperationalDraft({
+                    customerName: current.customerName || "",
+                    phone: current.phone || "",
+                    email: current.email || "",
+                    actualCarId: current.actualVehicle?.carId || "",
+                    placeInDetail: current.placeInDetail || "",
+                    placeOutDetail: current.placeOutDetail || "",
+                    flightNumber: current.flightNumber || "",
+                    hotelInformation: current.hotelInformation || "",
+                    pickupNotes: current.pickupNotes || "",
+                    returnNotes: current.returnNotes || "",
+                    operationalNotes: current.operationalNotes || "",
+                    insurance: current.insurance || "",
+                    ChildSeats: Number(
+                      current.ChildSeats ?? current.childSeats ?? 0
+                    ),
+                    secondDriver: Boolean(current.secondDriver),
+                    drivingLicenceVerificationStatus:
+                      current.drivingLicenceVerificationStatus || "PENDING",
+                  });
+                  setOperationalVehicles([]);
+                  setCustomerAgreementChecked(false);
+                  setOperationalAmendmentNote("");
+                  setAmendment(EMPTY_AMENDMENT);
+                }
                 setDialog(action.id);
               }}
             >
@@ -908,7 +1080,12 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         </Button>
       </StickyFooter>
 
-      <Dialog open={dialog === "confirm"} onClose={() => setDialog(null)} fullWidth maxWidth="xs">
+      <Dialog
+        open={dialog === "confirm"}
+        onClose={() => setDialog(null)}
+        fullWidth
+        maxWidth="xs"
+      >
         <StickyHeader>
           <Typography variant="h6" component="h3">
             {t("bookingDetails.confirmDialog.title")}
@@ -1042,7 +1219,11 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         </StickyFooter>
       </Dialog>
 
-      <Dialog open={dialog === "replace"} onClose={() => setDialog(null)} fullWidth>
+      <Dialog
+        open={dialog === "replace"}
+        onClose={() => setDialog(null)}
+        fullWidth
+      >
         <StickyHeader>
           <Typography variant="h6" component="h3">
             {t("bookingDetails.actions.replace")}
@@ -1052,10 +1233,13 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
           <Typography variant="body2">
             {t("bookingDetails.replacementDialog.introFleet", {
               defaultValue:
-                "Pick a car from your available fleet to move this booking onto it (same as calendar), or guarantee class only if the exact car is not listed yet.",
+                "All cars in your fleet are shown. Cars that do not meet the requested terms cannot be offered; availability is checked again when the customer accepts.",
             })}
           </Typography>
-          <Alert severity="info" sx={{ "& .MuiAlert-message": { width: "100%" } }}>
+          <Alert
+            severity="info"
+            sx={{ "& .MuiAlert-message": { width: "100%" } }}
+          >
             <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
               {t("bookingDetails.replacementDialog.reminderTitle", {
                 defaultValue: "Requested vehicle terms",
@@ -1100,9 +1284,12 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               </InputLabel>
               <Select
                 labelId="replacement-fleet-label"
-                label={t("bookingDetails.replacementDialog.kinds.COMPANY_VEHICLE", {
-                  defaultValue: "A vehicle from your fleet",
-                })}
+                label={t(
+                  "bookingDetails.replacementDialog.kinds.COMPANY_VEHICLE",
+                  {
+                    defaultValue: "A vehicle from your fleet",
+                  }
+                )}
                 value={replacement.proposedCarId || ""}
                 displayEmpty
                 onChange={(event) => {
@@ -1127,10 +1314,19 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
                   </em>
                 </MenuItem>
                 {fleetCars.map((row) => (
-                  <MenuItem key={row.carId} value={row.carId}>
-                    {[row.name, row.carNumber, row.category, row.transmission]
+                  <MenuItem
+                    key={row.carId}
+                    value={row.carId}
+                    disabled={!row.offerable}
+                  >
+                    {[
+                      [row.name, row.carNumber, row.category, row.transmission]
+                        .filter(Boolean)
+                        .join(" · "),
+                      row.exclusionMessage,
+                    ]
                       .filter(Boolean)
-                      .join(" · ")}
+                      .join(" — ")}
                   </MenuItem>
                 ))}
               </Select>
@@ -1140,7 +1336,7 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             <Typography variant="caption" color="text.secondary">
               {t("bookingDetails.replacementDialog.noFleetCars", {
                 defaultValue:
-                  "No eligible fleet cars for these dates. You can still guarantee class below.",
+                  "No cars were found in your fleet. You can still guarantee class below.",
               })}
             </Typography>
           ) : null}
@@ -1164,7 +1360,11 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               defaultValue:
                 "I confirm the replacement will be the same or higher class, the same transmission, and the same or a lower total price.",
             })}
-            sx={{ alignItems: "flex-start", m: 0, "& .MuiFormControlLabel-label": { fontSize: "0.875rem" } }}
+            sx={{
+              alignItems: "flex-start",
+              m: 0,
+              "& .MuiFormControlLabel-label": { fontSize: "0.875rem" },
+            }}
           />
           <TextField
             label={t("bookingDetails.replacementDialog.comment")}
@@ -1212,7 +1412,11 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         </StickyFooter>
       </Dialog>
 
-      <Dialog open={dialog === "amend"} onClose={() => setDialog(null)} fullWidth>
+      <Dialog
+        open={dialog === "amend"}
+        onClose={() => setDialog(null)}
+        fullWidth
+      >
         <StickyHeader>
           <Typography variant="h6" component="h3">
             {t("bookingDetails.actions.amend")}
@@ -1220,47 +1424,301 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         </StickyHeader>
         <ContentColumn>
           <Alert severity="warning">
-            {t("bookingDetails.amendDialog.notice")}
+            {isSuperAdmin
+              ? t("bookingDetails.amendDialog.notice")
+              : "Paid booking amendments are recorded with a before-and-after audit. Dates, rental duration and all financial values must be changed through Contact Rovaro."}
           </Alert>
-          <TextField
-            select
-            label={t("bookingDetails.amendDialog.requestedBy")}
-            value={amendment.requestedBy}
-            onChange={(event) =>
-              setAmendment((was) => ({ ...was, requestedBy: event.target.value }))
-            }
-            fullWidth
-          >
-            {Object.values(AMENDMENT_REQUESTER).map((who) => (
-              <MenuItem key={who} value={who}>
-                {t(`bookingDetails.amendDialog.requesters.${who}`)}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label={t("bookingDetails.amendDialog.reason")}
-            value={amendment.reason}
-            onChange={(event) =>
-              setAmendment((was) => ({ ...was, reason: event.target.value }))
-            }
-            fullWidth
-            multiline
-            minRows={3}
-            helperText={t("bookingDetails.amendDialog.reasonHelp")}
-          />
-          <TextField
-            label={t("bookingDetails.amendDialog.consentNote")}
-            value={amendment.consentNote}
-            onChange={(event) =>
-              setAmendment((was) => ({
-                ...was,
-                consentNote: event.target.value,
-                consentRecorded: event.target.value.trim().length > 0,
-              }))
-            }
-            fullWidth
-            helperText={t("bookingDetails.amendDialog.consentHelp")}
-          />
+          {isSuperAdmin ? (
+            <>
+              <TextField
+                select
+                label={t("bookingDetails.amendDialog.requestedBy")}
+                value={amendment.requestedBy}
+                onChange={(event) =>
+                  setAmendment((was) => ({
+                    ...was,
+                    requestedBy: event.target.value,
+                  }))
+                }
+                fullWidth
+              >
+                {Object.values(AMENDMENT_REQUESTER).map((who) => (
+                  <MenuItem key={who} value={who}>
+                    {t(`bookingDetails.amendDialog.requesters.${who}`)}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label={t("bookingDetails.amendDialog.reason")}
+                value={amendment.reason}
+                onChange={(event) =>
+                  setAmendment((was) => ({
+                    ...was,
+                    reason: event.target.value,
+                  }))
+                }
+                fullWidth
+                multiline
+                minRows={3}
+                helperText={t("bookingDetails.amendDialog.reasonHelp")}
+              />
+              <TextField
+                label={t("bookingDetails.amendDialog.consentNote")}
+                value={amendment.consentNote}
+                onChange={(event) =>
+                  setAmendment((was) => ({
+                    ...was,
+                    consentNote: event.target.value,
+                    consentRecorded: event.target.value.trim().length > 0,
+                  }))
+                }
+                fullWidth
+                helperText={t("bookingDetails.amendDialog.consentHelp")}
+              />
+            </>
+          ) : (
+            <Stack spacing={1}>
+              <TextField
+                label="Customer name"
+                value={operationalDraft.customerName || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    customerName: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Phone"
+                value={operationalDraft.phone || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    phone: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Email"
+                value={operationalDraft.email || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    email: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+              />
+              <TextField
+                select
+                label="Vehicle actually supplied"
+                value={operationalDraft.actualCarId || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    actualCarId: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+                disabled={operationalFleetLoading}
+              >
+                <MenuItem value="">Not recorded</MenuItem>
+                {operationalDraft.actualCarId &&
+                !operationalVehicles.some(
+                  (vehicle) => vehicle.carId === operationalDraft.actualCarId
+                ) ? (
+                  <MenuItem value={operationalDraft.actualCarId}>
+                    Previously recorded vehicle
+                  </MenuItem>
+                ) : null}
+                {operationalVehicles.map((vehicle) => (
+                  <MenuItem key={vehicle.carId} value={vehicle.carId}>
+                    {vehicle.label || vehicle.carId}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Pickup instructions"
+                value={operationalDraft.placeInDetail || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    placeInDetail: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Return instructions"
+                value={operationalDraft.placeOutDetail || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    placeOutDetail: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Flight / hotel information"
+                value={operationalDraft.flightNumber || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    flightNumber: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Hotel information"
+                value={operationalDraft.hotelInformation || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    hotelInformation: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Collection / pickup notes"
+                value={operationalDraft.pickupNotes || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    pickupNotes: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+                multiline
+                minRows={2}
+              />
+              <TextField
+                label="Return notes"
+                value={operationalDraft.returnNotes || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    returnNotes: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+                multiline
+                minRows={2}
+              />
+              <TextField
+                label="Internal operational notes"
+                value={operationalDraft.operationalNotes || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    operationalNotes: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+                multiline
+                minRows={2}
+              />
+              <TextField
+                label="Insurance correction (does not change saved price)"
+                value={operationalDraft.insurance || ""}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    insurance: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Child seats"
+                type="number"
+                inputProps={{ min: 0, max: 5 }}
+                value={operationalDraft.ChildSeats ?? 0}
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    ChildSeats: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+              />
+              <TextField
+                select
+                label="Driving document verification"
+                value={
+                  operationalDraft.drivingLicenceVerificationStatus || "PENDING"
+                }
+                onChange={(event) =>
+                  setOperationalDraft((draft) => ({
+                    ...draft,
+                    drivingLicenceVerificationStatus: event.target.value,
+                  }))
+                }
+                fullWidth
+                size="small"
+              >
+                {["PENDING", "VERIFIED", "REJECTED"].map((status) => (
+                  <MenuItem key={status} value={status}>
+                    {status}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={Boolean(operationalDraft.secondDriver)}
+                    onChange={(event) =>
+                      setOperationalDraft((draft) => ({
+                        ...draft,
+                        secondDriver: event.target.checked,
+                      }))
+                    }
+                  />
+                }
+                label="Second driver"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={customerAgreementChecked}
+                    onChange={(event) =>
+                      setCustomerAgreementChecked(event.target.checked)
+                    }
+                  />
+                }
+                label="I confirm that these changes have been agreed with the customer."
+                sx={{ alignItems: "flex-start", m: 0 }}
+              />
+              <TextField
+                label="Evidence / internal note (optional)"
+                value={operationalAmendmentNote}
+                onChange={(event) =>
+                  setOperationalAmendmentNote(event.target.value)
+                }
+                fullWidth
+                size="small"
+                multiline
+                minRows={2}
+              />
+            </Stack>
+          )}
         </ContentColumn>
         <StickyFooter>
           <Button onClick={() => setDialog(null)} disabled={busy}>
@@ -1268,19 +1726,30 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
           </Button>
           <Button
             variant="outlined"
-            disabled={busy || amendment.reason.trim().length < AMENDMENT_REASON_MIN}
+            disabled={
+              busy ||
+              (isSuperAdmin
+                ? amendment.reason.trim().length < AMENDMENT_REASON_MIN
+                : !customerAgreementChecked)
+            }
             onClick={() =>
               run(
                 () =>
-                  amendPlatformBooking(orderId, {
-                    changes: {},
-                    reason: amendment.reason.trim(),
-                    requestedBy: amendment.requestedBy,
-                    consent: {
-                      recorded: amendment.consentRecorded,
-                      note: amendment.consentNote.trim(),
-                    },
-                  }),
+                  isSuperAdmin
+                    ? amendPlatformBooking(orderId, {
+                        changes: {},
+                        reason: amendment.reason.trim(),
+                        requestedBy: amendment.requestedBy,
+                        consent: {
+                          recorded: amendment.consentRecorded,
+                          note: amendment.consentNote.trim(),
+                        },
+                      })
+                    : amendPaidPlatformBooking(orderId, {
+                        changes: operationalDraft,
+                        consentRecorded: customerAgreementChecked,
+                        consentNote: operationalAmendmentNote.trim(),
+                      }),
                 "bookingDetails.notices.amended"
               )
             }
@@ -1290,7 +1759,11 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
         </StickyFooter>
       </Dialog>
 
-      <Dialog open={dialog === "decline"} onClose={() => setDialog(null)} fullWidth>
+      <Dialog
+        open={dialog === "decline"}
+        onClose={() => setDialog(null)}
+        fullWidth
+      >
         <StickyHeader>
           <Typography variant="h6" component="h3">
             {t("bookingDetails.declineDialog.title")}
@@ -1353,19 +1826,40 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
             label={t("bookingDetails.contactDialog.reference")}
             value={view.reference}
           />
-          <TextField
-            select
-            label={t("bookingDetails.contactDialog.category")}
-            value={supportCategory}
-            onChange={(event) => setSupportCategory(event.target.value)}
-            fullWidth
-          >
-            {SUPPORT_CATEGORIES.map((category) => (
-              <MenuItem key={category} value={category}>
-                {t(`bookingDetails.contactDialog.categories.${category}`)}
-              </MenuItem>
-            ))}
-          </TextField>
+          {dialog === "reportProblem" ? (
+            <TextField
+              select
+              label={t("bookingDetails.contactDialog.issueType", {
+                defaultValue: "Issue type",
+              })}
+              value={reportedIssueType}
+              onChange={(event) => setReportedIssueType(event.target.value)}
+              fullWidth
+            >
+              {["DAMAGE", "PAYMENT", "LATE_RETURN", "OTHER"].map((type) => (
+                <MenuItem key={type} value={type}>
+                  {t(`bookingDetails.contactDialog.issueTypes.${type}`, {
+                    defaultValue: type.replaceAll("_", " "),
+                  })}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : null}
+          {dialog !== "reportProblem" ? (
+            <TextField
+              select
+              label={t("bookingDetails.contactDialog.category")}
+              value={supportCategory}
+              onChange={(event) => setSupportCategory(event.target.value)}
+              fullWidth
+            >
+              {SUPPORT_CATEGORIES.map((category) => (
+                <MenuItem key={category} value={category}>
+                  {t(`bookingDetails.contactDialog.categories.${category}`)}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : null}
           <TextField
             label={t("bookingDetails.contactDialog.message")}
             value={supportMessage}
@@ -1392,7 +1886,10 @@ export default function BookingDetailsModal({ order, open, onClose, onChanged })
               const sent = await run(
                 () =>
                   dialog === "reportProblem"
-                    ? reportBookingProblem(orderId, { message })
+                    ? reportBookingProblem(orderId, {
+                        type: reportedIssueType,
+                        message,
+                      })
                     : contactRovaroAboutBooking(orderId, {
                         category: supportCategory,
                         message,

@@ -88,6 +88,14 @@ export function evaluateDrivingLicenceAccess({
     };
   }
 
+  // A completed booking remains operationally editable, and the company may
+  // need the verification record when correcting return/problem information.
+  // The retention job still removes documents at the configured retention
+  // deadline; COMPLETED itself is not a reason to close access after 72 hours.
+  if (String(order.bookingStatus || "") === "COMPLETED") {
+    return { allowed: true };
+  }
+
   const dropoff = order.returnAtUtc || order.timeOut || order.rentalEndDate;
 
   if (dropoff) {
@@ -119,7 +127,11 @@ export function evaluateDrivingLicenceAccess({
  *   `user` is the session user (session.user), not a role number.
  * @returns {boolean}
  */
-export function canViewDrivingLicenceDocuments({ order, user, now = new Date() }) {
+export function canViewDrivingLicenceDocuments({
+  order,
+  user,
+  now = new Date(),
+}) {
   if (!order || !user?.isAdmin) return false;
   const decision = evaluateDrivingLicenceAccess({
     order,

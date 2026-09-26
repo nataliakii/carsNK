@@ -31,6 +31,7 @@ const COMPANY = "64a000000000000000000001";
  */
 const INTERNAL_ALLOWED = Object.freeze([
   BOOKING_CAPABILITY.VIEW_BOOKING,
+  BOOKING_CAPABILITY.VIEW_AUDIT_HISTORY,
   BOOKING_CAPABILITY.VIEW_CUSTOMER_CONTACTS,
   BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS,
   BOOKING_CAPABILITY.CONTACT_CUSTOMER,
@@ -66,9 +67,9 @@ describe("internal bookings never grant a platform-only capability", () => {
   test("the vocabulary is fully classified", () => {
     // Every capability is either allowed internally or platform-only. A new
     // capability lands in PLATFORM_ONLY until someone decides otherwise.
-    expect(
-      [...INTERNAL_ALLOWED, ...PLATFORM_ONLY].sort()
-    ).toEqual(Object.values(BOOKING_CAPABILITY).sort());
+    expect([...INTERNAL_ALLOWED, ...PLATFORM_ONLY].sort()).toEqual(
+      Object.values(BOOKING_CAPABILITY).sort()
+    );
     expect(PLATFORM_ONLY.length).toBeGreaterThan(0);
   });
 
@@ -116,9 +117,12 @@ describe("internal bookings never grant a platform-only capability", () => {
     expect(capabilities[BOOKING_CAPABILITY.ADD_SECOND_DRIVER]).toBe(true);
   });
 
-  test("the superadmin reads an internal record but does not edit it", () => {
+  test("the superadmin can edit an internal record without platform capabilities", () => {
     const capabilities = internalCaps(BOOKING_ROLE.SUPERADMIN);
     expect(capabilities[BOOKING_CAPABILITY.VIEW_BOOKING]).toBe(true);
-    expect(capabilities[BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]).toBe(false);
+    expect(capabilities[BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]).toBe(true);
+    for (const capability of PLATFORM_ONLY) {
+      expect(capabilities[capability]).toBe(false);
+    }
   });
 });

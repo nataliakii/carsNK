@@ -7,7 +7,11 @@ import { getOrderAccess } from "@/domain/orders/orderAccessPolicy";
 import { getTimeBucket } from "@/domain/time/athensTime";
 import { checkFieldAccess } from "@/middleware/withOrderAccess";
 import { ROLE } from "@/domain/orders/admin-rbac";
-import { assignOfflineFlag, isInternalBooking, isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  assignOfflineFlag,
+  isInternalBooking,
+  isPlatformBooking,
+} from "@/domain/admin/rovaroContractorAdmin";
 import { applyCompanyInternalMeta } from "@/domain/orders/companyInternalMeta";
 import { decideOrderUpdate } from "@/domain/booking/resolveBookingCapabilities";
 import { getActionFromChangedFields } from "@/domain/orders/orderNotificationPolicy";
@@ -22,16 +26,28 @@ import {
 } from "@/domain/validation/customerEmail";
 import { PriceBreakdown } from "@models/PriceBreakdown";
 import { detectPricingDrift } from "@/domain/orders/pricingDrift";
-import { toBooleanField, setSecondDriverField } from "@/domain/orders/fieldUtils";
+import {
+  toBooleanField,
+  setSecondDriverField,
+} from "@/domain/orders/fieldUtils";
 import { normalizeDrivingLicenceUrls } from "@/domain/orders/normalizeDrivingLicenceUrls";
 import { buildDeliveryBreakdownSlice } from "@/domain/delivery/buildDeliveryBreakdownSlice";
-import { toBusinessStartOfDay, toStoredBusinessDate } from "@/domain/time/businessDate";
-import { ORDER_STATUS, isOrderPaidAndClosed } from "@/domain/orders/orderStatus";
+import {
+  toBusinessStartOfDay,
+  toStoredBusinessDate,
+} from "@/domain/time/businessDate";
+import {
+  ORDER_STATUS,
+  isOrderPaidAndClosed,
+} from "@/domain/orders/orderStatus";
 import {
   AVAILABILITY_PURPOSE,
   checkOrderIntervalConflicts,
 } from "@/domain/booking/availabilityEngine";
-import { isMarketplaceRequestMode, resolveBookingMode } from "@/domain/booking/bookingMode";
+import {
+  isMarketplaceRequestMode,
+  resolveBookingMode,
+} from "@/domain/booking/bookingMode";
 import { applyMarketplacePriceCorrection } from "@/domain/orders/applyMarketplacePriceCorrection";
 import { extractAuditContext } from "@/domain/legal/auditTrail";
 import { toMinorUnits } from "@/domain/money/minorUnits";
@@ -147,7 +163,9 @@ function normalizeBreakdownForSnapshot(rawBreakdown) {
     deliveryIn: Number(rawBreakdown.deliveryIn) || 0,
     deliveryOut: Number(rawBreakdown.deliveryOut) || 0,
     deliveryTotal: Number(rawBreakdown.deliveryTotal) || 0,
-    dailyRates: Array.isArray(rawBreakdown.dailyRates) ? rawBreakdown.dailyRates : [],
+    dailyRates: Array.isArray(rawBreakdown.dailyRates)
+      ? rawBreakdown.dailyRates
+      : [],
   };
 }
 
@@ -241,8 +259,12 @@ async function attachOrderToActiveDiscount(orderDoc) {
     .lean();
   if (!activeDiscount?.startDate || !activeDiscount?.endDate) return;
 
-  const orderStart = toBusinessStartOfDay(orderDoc.rentalStartDate ?? orderDoc.timeIn);
-  const orderEnd = toBusinessStartOfDay(orderDoc.rentalEndDate ?? orderDoc.timeOut);
+  const orderStart = toBusinessStartOfDay(
+    orderDoc.rentalStartDate ?? orderDoc.timeIn
+  );
+  const orderEnd = toBusinessStartOfDay(
+    orderDoc.rentalEndDate ?? orderDoc.timeOut
+  );
   const discountStart = toBusinessStartOfDay(activeDiscount.startDate);
   const discountEnd = toBusinessStartOfDay(activeDiscount.endDate);
   if (!orderStart || !orderEnd || !discountStart || !discountEnd) return;
@@ -262,15 +284,13 @@ export const PATCH = async (request, { params }) => {
   try {
     await connectToDB();
 
-      console.log("HEADERS", Object.fromEntries(request.headers.entries()));
+    console.log("HEADERS", Object.fromEntries(request.headers.entries()));
 
-  console.log("COOKIES", request.headers.get("cookie"));
+    console.log("COOKIES", request.headers.get("cookie"));
 
     // Check admin authentication
     const { session, errorResponse } = await requireAdmin(request);
     if (errorResponse) return errorResponse;
-
-    
 
     const { orderId } = params;
     const payload = await request.json();
@@ -297,7 +317,10 @@ export const PATCH = async (request, { params }) => {
           code: mutation.code,
           message: mutation.message,
         }),
-        { status: mutation.status, headers: { "Content-Type": "application/json" } }
+        {
+          status: mutation.status,
+          headers: { "Content-Type": "application/json" },
+        }
       );
     }
     if (mutation.reportProblem) {
@@ -306,7 +329,10 @@ export const PATCH = async (request, { params }) => {
       order.problemReportedBy = "supplier";
       await order.save();
       return new Response(
-        JSON.stringify({ success: true, data: { hasProblem: true, bookingStatus: order.bookingStatus } }),
+        JSON.stringify({
+          success: true,
+          data: { hasProblem: true, bookingStatus: order.bookingStatus },
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -360,7 +386,7 @@ export const PATCH = async (request, { params }) => {
 
     const access = getOrderAccess({
       role: isSuperAdmin ? "SUPERADMIN" : "ADMIN",
-      isClientOrder: order.my_order === true,
+      isClientOrder: isPlatformBooking(order),
       confirmed: order.confirmed === true,
       isPast,
       isClosed: isOrderPaidAndClosed(order.status),
@@ -396,7 +422,7 @@ export const PATCH = async (request, { params }) => {
       return true;
     });
     const fieldCheck = checkFieldAccess(access, fieldsToUpdate);
-    
+
     if (!fieldCheck.allowed) {
       return new Response(
         JSON.stringify({
@@ -467,7 +493,9 @@ export const PATCH = async (request, { params }) => {
     }
 
     const becomingOffline =
-      payload.offline !== undefined ? Boolean(payload.offline) : Boolean(order.offline);
+      payload.offline !== undefined
+        ? Boolean(payload.offline)
+        : Boolean(order.offline);
     if (payload.phone !== undefined) {
       const phoneResult = parseCustomerPhone(payload.phone, {
         required: false,
@@ -496,7 +524,10 @@ export const PATCH = async (request, { params }) => {
           JSON.stringify({
             success: false,
             message: emailResult.message,
-            code: emailResult.code === "required" ? "EMAIL_REQUIRED" : "INVALID_EMAIL",
+            code:
+              emailResult.code === "required"
+                ? "EMAIL_REQUIRED"
+                : "INVALID_EMAIL",
             messageKey: emailResult.messageKey,
           }),
           { status: 400, headers: { "Content-Type": "application/json" } }
@@ -568,7 +599,10 @@ export const PATCH = async (request, { params }) => {
           source: "BACKEND",
         });
       } catch (notifyErr) {
-        console.error("[update order] notifyOrderAction failed:", notifyErr?.message);
+        console.error(
+          "[update order] notifyOrderAction failed:",
+          notifyErr?.message
+        );
       }
 
       return new Response(
@@ -587,7 +621,8 @@ export const PATCH = async (request, { params }) => {
     if (hasConfirmationChange) {
       if (!access.canConfirm) {
         const company = await Company.findById(COMPANY_ID);
-        const bufferHours = company?.bufferTime != null ? Number(company.bufferTime) : undefined;
+        const bufferHours =
+          company?.bufferTime != null ? Number(company.bufferTime) : undefined;
 
         return new Response(
           JSON.stringify({
@@ -631,7 +666,8 @@ export const PATCH = async (request, { params }) => {
         });
 
         const company = await Company.findById(COMPANY_ID);
-        const bufferHours = company?.bufferTime != null ? Number(company.bufferTime) : undefined;
+        const bufferHours =
+          company?.bufferTime != null ? Number(company.bufferTime) : undefined;
 
         // Analyze conflicts
         const conflictAnalysis = analyzeConfirmationConflicts({
@@ -665,7 +701,9 @@ export const PATCH = async (request, { params }) => {
 
         try {
           const action = getActionFromChangedFields(fieldsToUpdate, payload);
-          const orderPlain = updatedOrder.toObject ? updatedOrder.toObject() : { ...updatedOrder };
+          const orderPlain = updatedOrder.toObject
+            ? updatedOrder.toObject()
+            : { ...updatedOrder };
           await notifyOrderAction({
             order: orderPlain,
             previousOrder: previousOrderSnapshot,
@@ -676,7 +714,10 @@ export const PATCH = async (request, { params }) => {
             companyEmail: company?.email,
           });
         } catch (notifyErr) {
-          console.error("[update order] notifyOrderAction failed:", notifyErr?.message);
+          console.error(
+            "[update order] notifyOrderAction failed:",
+            notifyErr?.message
+          );
         }
 
         const responseStatus = conflictAnalysis.level === "warning" ? 202 : 200;
@@ -706,7 +747,8 @@ export const PATCH = async (request, { params }) => {
         await attachOrderToActiveDiscount(updatedOrder);
 
         const company = await Company.findById(COMPANY_ID);
-        const bufferHours = company?.bufferTime != null ? Number(company.bufferTime) : undefined;
+        const bufferHours =
+          company?.bufferTime != null ? Number(company.bufferTime) : undefined;
 
         return new Response(
           JSON.stringify({
@@ -730,16 +772,17 @@ export const PATCH = async (request, { params }) => {
     // Handle date/time/pricing/extras updates
     if (hasDateTimeChanges) {
       // Handle car change
-      if (payload.car && (!order.car || String(order.car._id || order.car) !== String(payload.car))) {
+      if (
+        payload.car &&
+        (!order.car ||
+          String(order.car._id || order.car) !== String(payload.car))
+      ) {
         const newCar = await Car.findById(payload.car);
         if (!newCar) {
-          return new Response(
-            JSON.stringify({ message: "Car not found" }),
-            {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
+          return new Response(JSON.stringify({ message: "Car not found" }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
         }
         order.car = newCar._id;
       }
@@ -839,7 +882,10 @@ export const PATCH = async (request, { params }) => {
 
       // Restored from pre-refactor conflict logic: Debug logging
       if (process.env.NODE_ENV !== "production") {
-        console.log("Conflict check result:", { status: conflictStatus, data: conflictData });
+        console.log("Conflict check result:", {
+          status: conflictStatus,
+          data: conflictData,
+        });
       }
 
       if (conflictStatus) {
@@ -872,18 +918,21 @@ export const PATCH = async (request, { params }) => {
             // Restored from pre-refactor conflict logic: Update with pending conflicts (warning, but proceed)
             let totalPrice202 = order.totalPrice; // 🔧 FIX: Preserve existing price by default
             let days202 = getBusinessDaySpan(start, end, orderTz);
-            
+
             // ============================================
             // PRICE ARCHITECTURE LOGIC (202 status with conflicts)
             // ============================================
             const isConfirmedOrder202 = order.confirmed === true;
 
-            if (payload.isOverridePrice === true && typeof payload.totalPrice === "number") {
+            if (
+              payload.isOverridePrice === true &&
+              typeof payload.totalPrice === "number"
+            ) {
               order.OverridePrice = payload.totalPrice;
             } else if (payload.isOverridePrice === false) {
               order.OverridePrice = null;
             }
-            
+
             const datesChanged202 =
               payload.rentalStartDate !== undefined ||
               payload.rentalEndDate !== undefined;
@@ -896,8 +945,15 @@ export const PATCH = async (request, { params }) => {
               payload.car !== undefined;
 
             // Detect drift for confirmed orders
-            if (isConfirmedOrder202 && (datesChanged202 || timesChanged202 || priceAffectingFieldsChanged202)) {
-              const frozenBreakdown202 = await PriceBreakdown.findOne({ order: orderId }).lean();
+            if (
+              isConfirmedOrder202 &&
+              (datesChanged202 ||
+                timesChanged202 ||
+                priceAffectingFieldsChanged202)
+            ) {
+              const frozenBreakdown202 = await PriceBreakdown.findOne({
+                order: orderId,
+              }).lean();
               const drift202 = detectPricingDrift({
                 order,
                 payload,
@@ -920,7 +976,7 @@ export const PATCH = async (request, { params }) => {
             order.rentalStartDate = toStoredBusinessDate(start, orderTz);
             order.rentalEndDate = toStoredBusinessDate(end, orderTz);
             order.numberOfDays = days202;
-            
+
             order.timeIn = start.toDate();
             order.timeOut = end.toDate();
             order.pickupAtUtc = start.toDate();
@@ -928,8 +984,12 @@ export const PATCH = async (request, { params }) => {
             order.localPickup = localSnapshotFromUtc(start.toDate(), orderTz);
             order.localReturn = localSnapshotFromUtc(end.toDate(), orderTz);
             // Restored from pre-refactor conflict logic: Use || operator for placeIn/placeOut to preserve existing values
-            order.placeIn = payload.placeIn !== undefined ? payload.placeIn : order.placeIn;
-            order.placeOut = payload.placeOut !== undefined ? payload.placeOut : order.placeOut;
+            order.placeIn =
+              payload.placeIn !== undefined ? payload.placeIn : order.placeIn;
+            order.placeOut =
+              payload.placeOut !== undefined
+                ? payload.placeOut
+                : order.placeOut;
             order.placeInDetail =
               payload.placeInDetail !== undefined
                 ? String(payload.placeInDetail ?? "").trim()
@@ -945,16 +1005,20 @@ export const PATCH = async (request, { params }) => {
             order.hasConflictDates = [
               ...new Set([
                 ...order.hasConflictDates,
-                ...conflictData.conflictOrdersIds || [],
+                ...(conflictData.conflictOrdersIds || []),
                 ...stillConflictingOrders,
               ]),
             ];
 
             // Restored from pre-refactor conflict logic: Update extras fields
             order.ChildSeats =
-              payload.ChildSeats !== undefined ? payload.ChildSeats : order.ChildSeats;
+              payload.ChildSeats !== undefined
+                ? payload.ChildSeats
+                : order.ChildSeats;
             order.insurance =
-              payload.insurance !== undefined ? payload.insurance : order.insurance;
+              payload.insurance !== undefined
+                ? payload.insurance
+                : order.insurance;
 
             // 🔧 FIX: Also update customer fields if they are in payload (even in conflict case 202)
             if (hasCustomerChanges) {
@@ -965,8 +1029,10 @@ export const PATCH = async (request, { params }) => {
               if (payload.secondDriver !== undefined)
                 setSecondDriverField(order, payload.secondDriver);
               if (payload.Viber !== undefined) order.Viber = payload.Viber;
-              if (payload.Whatsapp !== undefined) order.Whatsapp = payload.Whatsapp;
-              if (payload.Telegram !== undefined) order.Telegram = payload.Telegram;
+              if (payload.Whatsapp !== undefined)
+                order.Whatsapp = payload.Whatsapp;
+              if (payload.Telegram !== undefined)
+                order.Telegram = payload.Telegram;
               if (payload.offline !== undefined) {
                 assignOfflineFlag(order, payload.offline);
               }
@@ -986,8 +1052,13 @@ export const PATCH = async (request, { params }) => {
 
             try {
               const company = await Company.findById(COMPANY_ID);
-              const action = getActionFromChangedFields(fieldsToUpdate, payload);
-              const orderPlain = updatedOrder.toObject ? updatedOrder.toObject() : { ...updatedOrder };
+              const action = getActionFromChangedFields(
+                fieldsToUpdate,
+                payload
+              );
+              const orderPlain = updatedOrder.toObject
+                ? updatedOrder.toObject()
+                : { ...updatedOrder };
               await notifyOrderAction({
                 order: orderPlain,
                 previousOrder: previousOrderSnapshot,
@@ -998,7 +1069,10 @@ export const PATCH = async (request, { params }) => {
                 companyEmail: company?.email,
               });
             } catch (notifyErr) {
-              console.error("[update order] notifyOrderAction failed:", notifyErr?.message);
+              console.error(
+                "[update order] notifyOrderAction failed:",
+                notifyErr?.message
+              );
             }
 
             // Restored from pre-refactor conflict logic: Return response with conflict info (exact format match)
@@ -1033,15 +1107,23 @@ export const PATCH = async (request, { params }) => {
         payload.car !== undefined;
 
       // Handle manual price override (isOverridePrice flag)
-      if (payload.isOverridePrice === true && typeof payload.totalPrice === "number") {
+      if (
+        payload.isOverridePrice === true &&
+        typeof payload.totalPrice === "number"
+      ) {
         order.OverridePrice = payload.totalPrice;
       } else if (payload.isOverridePrice === false) {
         order.OverridePrice = null;
       }
 
       // Detect drift for confirmed orders
-      if (order.confirmed === true && (datesChanged || timesChanged || priceAffectingFieldsChanged)) {
-        const frozenBreakdown = await PriceBreakdown.findOne({ order: orderId }).lean();
+      if (
+        order.confirmed === true &&
+        (datesChanged || timesChanged || priceAffectingFieldsChanged)
+      ) {
+        const frozenBreakdown = await PriceBreakdown.findOne({
+          order: orderId,
+        }).lean();
         const drift = detectPricingDrift({
           order,
           payload,
@@ -1072,8 +1154,10 @@ export const PATCH = async (request, { params }) => {
       order.localPickup = localSnapshotFromUtc(start.toDate(), orderTz);
       order.localReturn = localSnapshotFromUtc(end.toDate(), orderTz);
       // Restored from pre-refactor conflict logic: Use || operator to preserve existing values
-      order.placeIn = payload.placeIn !== undefined ? payload.placeIn : order.placeIn;
-      order.placeOut = payload.placeOut !== undefined ? payload.placeOut : order.placeOut;
+      order.placeIn =
+        payload.placeIn !== undefined ? payload.placeIn : order.placeIn;
+      order.placeOut =
+        payload.placeOut !== undefined ? payload.placeOut : order.placeOut;
       order.placeInDetail =
         payload.placeInDetail !== undefined
           ? String(payload.placeInDetail ?? "").trim()
@@ -1087,7 +1171,9 @@ export const PATCH = async (request, { params }) => {
 
       // Restored from pre-refactor conflict logic: Update extras fields
       order.ChildSeats =
-        payload.ChildSeats !== undefined ? payload.ChildSeats : order.ChildSeats;
+        payload.ChildSeats !== undefined
+          ? payload.ChildSeats
+          : order.ChildSeats;
       order.insurance =
         payload.insurance !== undefined ? payload.insurance : order.insurance;
       order.franchiseOrder =
@@ -1154,7 +1240,9 @@ export const PATCH = async (request, { params }) => {
 
       try {
         const action = getActionFromChangedFields(fieldsToUpdate, payload);
-        const orderPlain = savedOrder.toObject ? savedOrder.toObject() : { ...savedOrder };
+        const orderPlain = savedOrder.toObject
+          ? savedOrder.toObject()
+          : { ...savedOrder };
         await notifyOrderAction({
           order: orderPlain,
           previousOrder: previousOrderSnapshot,
@@ -1164,7 +1252,10 @@ export const PATCH = async (request, { params }) => {
           source: "BACKEND",
         });
       } catch (notifyErr) {
-        console.error("[update order] notifyOrderAction failed:", notifyErr?.message);
+        console.error(
+          "[update order] notifyOrderAction failed:",
+          notifyErr?.message
+        );
       }
 
       // Restored from pre-refactor conflict logic: Success logging
@@ -1183,8 +1274,8 @@ export const PATCH = async (request, { params }) => {
           ? "Price updated (manual)"
           : "Price updated"
         : datesChanged || timesChanged
-          ? "Dates updated successfully"
-          : "Order updated successfully";
+        ? "Dates updated successfully"
+        : "Order updated successfully";
 
       return new Response(
         JSON.stringify({
@@ -1230,7 +1321,9 @@ export const PATCH = async (request, { params }) => {
       if (secondDriverChanged) {
         // Detect drift for confirmed orders
         if (order.confirmed === true) {
-          const frozenBreakdownSD = await PriceBreakdown.findOne({ order: orderId }).lean();
+          const frozenBreakdownSD = await PriceBreakdown.findOne({
+            order: orderId,
+          }).lean();
           const driftSD = detectPricingDrift({
             order,
             payload,
@@ -1250,7 +1343,9 @@ export const PATCH = async (request, { params }) => {
       try {
         const company = await Company.findById(COMPANY_ID);
         const action = getActionFromChangedFields(fieldsToUpdate, payload);
-        const orderPlain = updatedOrder.toObject ? updatedOrder.toObject() : { ...updatedOrder };
+        const orderPlain = updatedOrder.toObject
+          ? updatedOrder.toObject()
+          : { ...updatedOrder };
         await notifyOrderAction({
           order: orderPlain,
           previousOrder: previousOrderSnapshot,
@@ -1261,7 +1356,10 @@ export const PATCH = async (request, { params }) => {
           companyEmail: company?.email,
         });
       } catch (notifyErr) {
-        console.error("[update order] notifyOrderAction failed:", notifyErr?.message);
+        console.error(
+          "[update order] notifyOrderAction failed:",
+          notifyErr?.message
+        );
       }
 
       return new Response(

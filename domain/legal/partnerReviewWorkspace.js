@@ -137,7 +137,8 @@ export function resolvePartnerReviewUrl({ filter, companyId, rows }) {
   const list = Array.isArray(rows) ? rows : [];
   const id = String(companyId || "");
   const requested =
-    filter === PARTNER_REVIEW_FILTER.ALL || filter === PARTNER_REVIEW_FILTER.PENDING
+    filter === PARTNER_REVIEW_FILTER.ALL ||
+    filter === PARTNER_REVIEW_FILTER.PENDING
       ? filter
       : "";
   const selected = id ? list.find((row) => row.companyId === id) || null : null;
@@ -151,7 +152,10 @@ export function resolvePartnerReviewUrl({ filter, companyId, rows }) {
 
   const natural = filterForPartnerRow(selected);
   let nextFilter = requested || natural;
-  if (nextFilter === PARTNER_REVIEW_FILTER.PENDING && natural !== PARTNER_REVIEW_FILTER.PENDING) {
+  if (
+    nextFilter === PARTNER_REVIEW_FILTER.PENDING &&
+    natural !== PARTNER_REVIEW_FILTER.PENDING
+  ) {
     nextFilter = PARTNER_REVIEW_FILTER.ALL;
   }
 
@@ -165,7 +169,11 @@ export function visiblePartnerRows(rows, filter) {
 }
 
 /** Empty pending copy is only for an empty Needs review list with nobody selected. */
-export function shouldShowPendingEmpty({ filter, visibleCount, selectedVisible }) {
+export function shouldShowPendingEmpty({
+  filter,
+  visibleCount,
+  selectedVisible,
+}) {
   return (
     filter === PARTNER_REVIEW_FILTER.PENDING &&
     visibleCount === 0 &&
@@ -177,7 +185,12 @@ export function agreementDisplayStatus({
   active = null,
   history = [],
   currentPackageChecksum = "",
+  legalState = "",
 } = {}) {
+  if (legalState === "ACCEPTED_CURRENT") return "current";
+  if (legalState === "REACCEPTANCE_REQUIRED") return "outdated";
+  if (legalState === "ACCEPTANCE_REQUIRED") return "not_accepted";
+  if (legalState === "NOT_PUBLISHED") return "not_available";
   if (active && !active.terminatedAt && !active.supersededAt) {
     const current = String(currentPackageChecksum || "").trim();
     const signed = String(active.packageChecksum || "").trim();
@@ -200,12 +213,14 @@ export function buildPartnerReviewCompliance({
   activeAgreement = null,
   agreementHistory = [],
   currentPackageChecksum = "",
+  legalState = "",
   completeness = null,
 } = {}) {
   const agreementStatus = agreementDisplayStatus({
     active: activeAgreement,
     history: agreementHistory,
     currentPackageChecksum,
+    legalState,
   });
   const gate = evaluatePartnerOperatingGate({
     profile: verificationStatus ? { verificationStatus } : null,
@@ -215,6 +230,7 @@ export function buildPartnerReviewCompliance({
         ? activeAgreement
         : null,
     currentPackageChecksum,
+    legalState,
   });
   const listingOn = listedOnMarketplace !== false;
   return {

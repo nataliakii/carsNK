@@ -25,14 +25,7 @@ import {
   isSuperAdminUser,
 } from "@/domain/owners/ownerScope";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
-import {
-  buildAgreementPackage,
-  getActiveAgreement,
-} from "@/domain/legal/agreementService";
-import {
-  companyTermsPublication,
-  withCustomAgreement,
-} from "@/domain/legal/companyLegalPage";
+import { resolveCurrentPartnerPackage } from "@/domain/legal/agreementService";
 import { buildCompanySetupTasks } from "@/domain/legal/companySetupTasks";
 import { normalizeAdminCountryFilter } from "@/domain/platform/adminCountryScope";
 import { getSiteCountryConfig } from "@config/siteCountry";
@@ -47,24 +40,26 @@ function json(body, status = 200) {
 
 /** Company tasks for the signed-in company only. Query companyId is ignored. */
 async function loadCompanySetupTasks(companyId) {
-  const [profile, activeAgreement, pkg] = await Promise.all([
-    PartnerLegalProfile.findOne({ companyId })
-      .select("verificationStatus customAgreement documents")
-      .lean(),
-    getActiveAgreement(companyId),
-    buildAgreementPackage({ language: "en" }),
-  ]);
-  const terms = withCustomAgreement(pkg, profile?.customAgreement);
-  const publication = companyTermsPublication({
-    documents: terms.documents || [],
-    containsDrafts: Boolean(pkg?.anyDraft),
-    activeChecksum: activeAgreement?.packageChecksum || "",
-    currentChecksum: terms.packageChecksum || "",
-  });
+  const profile = await PartnerLegalProfile.findOne({ companyId })
+    .select("verificationStatus documents")
+    .lean();
+  let resolved = null;
+  try {
+    resolved = await resolveCurrentPartnerPackage({
+      companyId,
+      requestedLocale: "en",
+    });
+  } catch (error) {
+    console.error(
+      "[admin/inbox/pending] company legal state failed",
+      error?.message || error
+    );
+  }
   return buildCompanySetupTasks({
     verificationStatus: profile?.verificationStatus,
-    termsPublication: publication.publication,
-    hasCustomAgreement: Boolean(terms?.hasCustomAgreement),
+    legalState: resolved?.legalState?.state || "",
+    legalManifest: resolved?.manifest || [],
+    legalActionCount: resolved?.legalState?.legalActionCount || 0,
     documents: profile?.documents || [],
   });
 }
@@ -86,7 +81,9 @@ export async function GET(request) {
     if (!isSuperAdminUser(session.user)) {
       const ownerId = getSessionOwnerId(session.user);
       if (ownerId) {
-        const company = await Company.findById(ownerId).select("country").lean();
+        const company = await Company.findById(ownerId)
+          .select("country")
+          .lean();
         const companyCountry = String(company?.country || "").toUpperCase();
         if (companyCountry) country = companyCountry;
       }

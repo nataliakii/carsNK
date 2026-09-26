@@ -68,10 +68,15 @@ function docsByKind(profile) {
   return map;
 }
 
-function platformAgreementState({ activeAgreement, agreementHistory }) {
+function platformAgreementState({
+  activeAgreement,
+  agreementHistory,
+  legalState,
+}) {
   const status = agreementDisplayStatus({
     active: activeAgreement,
     history: agreementHistory || [],
+    legalState,
   });
   if (status === "current" || status === "outdated") return "accepted";
   if (status === "terminated") return "not_accepted";
@@ -95,6 +100,7 @@ function rentalTermsState(profile) {
  *   requirementOverrides?: Record<string, string>|null,
  *   activeAgreement?: object|null,
  *   agreementHistory?: object[],
+ *   legalState?: string,
  *   listedOnMarketplace?: boolean,
  * }} input
  */
@@ -106,6 +112,7 @@ export function buildPartnerReviewReadiness({
   requirementOverrides = null,
   activeAgreement = null,
   agreementHistory = [],
+  legalState = "",
   listedOnMarketplace = true,
 } = {}) {
   const requirements = resolveDocumentRequirements({
@@ -122,7 +129,9 @@ export function buildPartnerReviewReadiness({
   const optionalKinds = listOptionalDocumentKinds(requirements);
   const reviewKinds = listReviewDocumentKinds(requirements);
 
-  const missingRequiredDocuments = requiredKinds.filter((kind) => !byKind.has(kind));
+  const missingRequiredDocuments = requiredKinds.filter(
+    (kind) => !byKind.has(kind)
+  );
   const optionalUploaded = optionalKinds.filter((kind) => byKind.has(kind));
 
   const documentProblems = [];
@@ -178,7 +187,11 @@ export function buildPartnerReviewReadiness({
     );
   }
 
-  const agreement = platformAgreementState({ activeAgreement, agreementHistory });
+  const agreement = platformAgreementState({
+    activeAgreement,
+    agreementHistory,
+    legalState,
+  });
   const rentalTerms = rentalTermsState(profile);
 
   const documents = reviewKinds.map((kind) => {
@@ -247,10 +260,20 @@ export function buildPartnerReviewReadiness({
 export function requestChangesChecklistFromReadiness(readiness) {
   const items = [];
   for (const field of readiness?.companyDetails?.missingFields || []) {
-    items.push({ type: "field", key: field.key, label: field.label, selected: true });
+    items.push({
+      type: "field",
+      key: field.key,
+      label: field.label,
+      selected: true,
+    });
   }
   for (const doc of readiness?.requiredDocuments?.missing || []) {
-    items.push({ type: "document", key: doc.kind, label: doc.label, selected: true });
+    items.push({
+      type: "document",
+      key: doc.kind,
+      label: doc.label,
+      selected: true,
+    });
   }
   for (const problem of readiness?.documentProblems || []) {
     items.push({

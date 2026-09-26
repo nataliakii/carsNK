@@ -29,6 +29,7 @@ import { ROLE } from "@models/user";
 
 export const BOOKING_CAPABILITY = Object.freeze({
   VIEW_BOOKING: "VIEW_BOOKING",
+  VIEW_AUDIT_HISTORY: "VIEW_AUDIT_HISTORY",
   CONFIRM_REQUESTED_VEHICLE: "CONFIRM_REQUESTED_VEHICLE",
   OFFER_EQUIVALENT_REPLACEMENT: "OFFER_EQUIVALENT_REPLACEMENT",
   DECLINE_REQUEST: "DECLINE_REQUEST",
@@ -86,7 +87,9 @@ function normaliseId(value) {
 }
 
 function normaliseRole(role) {
-  return String(role || "").trim().toUpperCase() === BOOKING_ROLE.SUPERADMIN
+  return String(role || "")
+    .trim()
+    .toUpperCase() === BOOKING_ROLE.SUPERADMIN
     ? BOOKING_ROLE.SUPERADMIN
     : BOOKING_ROLE.ADMIN;
 }
@@ -99,7 +102,10 @@ function normaliseStage(status) {
   const raw = String(status || "").trim();
   if (!raw) return PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION;
   if (Object.values(PLATFORM_WORKFLOW_STAGE).includes(raw)) return raw;
-  return resolvePlatformWorkflowStage({ source: BOOKING_SOURCE.PLATFORM, bookingStatus: raw });
+  return resolvePlatformWorkflowStage({
+    source: BOOKING_SOURCE.PLATFORM,
+    bookingStatus: raw,
+  });
 }
 
 /**
@@ -120,12 +126,15 @@ export function resolveBookingCapabilities({
   role,
   companyId,
   orderCompanyId,
+  paymentVerified = false,
 } = {}) {
   const actorRole = normaliseRole(role);
   const isSuper = actorRole === BOOKING_ROLE.SUPERADMIN;
   const actorCompany = normaliseId(companyId);
   const bookingCompany = normaliseId(orderCompanyId);
-  const resolvedSource = String(source || "").trim().toUpperCase();
+  const resolvedSource = String(source || "")
+    .trim()
+    .toUpperCase();
   const isPlatform = resolvedSource === BOOKING_SOURCE.PLATFORM;
   const isInternal = resolvedSource === BOOKING_SOURCE.INTERNAL;
 
@@ -134,18 +143,21 @@ export function resolveBookingCapabilities({
   // one.
   if (!isPlatform && !isInternal) return noCapabilities();
   const ownsBooking =
-    Boolean(actorCompany) && Boolean(bookingCompany) && actorCompany === bookingCompany;
+    Boolean(actorCompany) &&
+    Boolean(bookingCompany) &&
+    actorCompany === bookingCompany;
   if (!isSuper && !ownsBooking) return noCapabilities();
 
   if (isInternal) {
-    // The company owns its own calendar records end to end; the platform
-    // superadmin may read them but never edits them or bills against them.
+    // The company owns its calendar records; Superadmin may also edit them
+    // operationally, but no platform billing capability is involved.
     return noCapabilities({
       [BOOKING_CAPABILITY.VIEW_BOOKING]: true,
+      [BOOKING_CAPABILITY.VIEW_AUDIT_HISTORY]: true,
       [BOOKING_CAPABILITY.VIEW_CUSTOMER_CONTACTS]: true,
       [BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS]: true,
       [BOOKING_CAPABILITY.CONTACT_CUSTOMER]: true,
-      [BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]: !isSuper,
+      [BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]: true,
       // Nobody reaches this branch without either owning the record or being
       // the superadmin, and the platform does not mediate it.
       [BOOKING_CAPABILITY.ADD_SECOND_DRIVER]: true,
@@ -155,6 +167,7 @@ export function resolveBookingCapabilities({
   const stage = normaliseStage(status);
   const awaitingSupplier = SUPPLIER_DECISION_STAGES.has(stage);
   const paid = PAID_STAGES.has(stage);
+  const paymentConfirmed = paid && paymentVerified;
   const closed = CLOSED_STAGES.has(stage);
 
   if (isSuper) {
@@ -162,25 +175,29 @@ export function resolveBookingCapabilities({
     // vehicle on the supplier's behalf and never asks itself a question.
     return noCapabilities({
       [BOOKING_CAPABILITY.VIEW_BOOKING]: true,
+      [BOOKING_CAPABILITY.VIEW_AUDIT_HISTORY]: true,
       [BOOKING_CAPABILITY.VIEW_CUSTOMER_CONTACTS]: true,
       [BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS]: true,
       [BOOKING_CAPABILITY.CONTACT_CUSTOMER]: true,
       [BOOKING_CAPABILITY.REPORT_PROBLEM]: paid,
-      [BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]: !closed,
+      [BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]: true,
       [BOOKING_CAPABILITY.ADD_SECOND_DRIVER]: true,
     });
   }
 
   return noCapabilities({
     [BOOKING_CAPABILITY.VIEW_BOOKING]: true,
+    [BOOKING_CAPABILITY.VIEW_AUDIT_HISTORY]:
+      paid || stage === PLATFORM_WORKFLOW_STAGE.CANCELLED,
     [BOOKING_CAPABILITY.CONFIRM_REQUESTED_VEHICLE]: awaitingSupplier,
     [BOOKING_CAPABILITY.OFFER_EQUIVALENT_REPLACEMENT]: awaitingSupplier,
     [BOOKING_CAPABILITY.DECLINE_REQUEST]: awaitingSupplier,
-    [BOOKING_CAPABILITY.VIEW_CUSTOMER_CONTACTS]: paid,
-    [BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS]: paid,
-    [BOOKING_CAPABILITY.CONTACT_CUSTOMER]: paid,
+    [BOOKING_CAPABILITY.VIEW_CUSTOMER_CONTACTS]: paymentConfirmed,
+    [BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS]: paymentConfirmed,
+    [BOOKING_CAPABILITY.CONTACT_CUSTOMER]: paymentConfirmed,
     [BOOKING_CAPABILITY.CONTACT_ROVARO]: true,
-    [BOOKING_CAPABILITY.REPORT_PROBLEM]: paid,
+    [BOOKING_CAPABILITY.REPORT_PROBLEM]: paymentConfirmed,
+    [BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]: paymentConfirmed && !closed,
   });
 }
 
@@ -192,7 +209,10 @@ export function resolveBookingCapabilities({
 function resolveEffectiveStage(order) {
   const stage = resolvePlatformWorkflowStage(order) || "";
   if (PAID_STAGES.has(stage) || CLOSED_STAGES.has(stage)) return stage;
-  const paid = String(order?.payment?.status || "").trim().toLowerCase() === "paid";
+  const paid =
+    String(order?.payment?.status || "")
+      .trim()
+      .toLowerCase() === "paid";
   return paid ? PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED : stage;
 }
 
@@ -216,9 +236,14 @@ export function resolveOrderCapabilities(order, user, opts = {}) {
     role,
     companyId: resolveActorCompanyId(user),
     orderCompanyId: order.ownerId,
+    paymentVerified:
+      String(order?.payment?.status || "")
+        .trim()
+        .toLowerCase() === "paid",
   });
 
-  if (!capabilities[BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS]) return capabilities;
+  if (!capabilities[BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS])
+    return capabilities;
 
   const licence = evaluateDrivingLicenceAccess({
     order,
@@ -324,12 +349,20 @@ const PLATFORM_LOCKED_SET = new Set(PLATFORM_LOCKED_FIELDS);
  */
 export function checkBookingFieldWrites({ capabilities, source, fields } = {}) {
   const requested = Array.isArray(fields) ? fields : [];
-  const isPlatform = String(source || "").trim().toUpperCase() === BOOKING_SOURCE.PLATFORM;
+  const isPlatform =
+    String(source || "")
+      .trim()
+      .toUpperCase() === BOOKING_SOURCE.PLATFORM;
   const denied = [];
 
   for (const field of requested) {
     if (field === "secondDriver") {
-      if (!hasBookingCapability(capabilities, BOOKING_CAPABILITY.ADD_SECOND_DRIVER)) {
+      if (
+        !hasBookingCapability(
+          capabilities,
+          BOOKING_CAPABILITY.ADD_SECOND_DRIVER
+        )
+      ) {
         denied.push(field);
       }
       continue;

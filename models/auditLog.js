@@ -48,6 +48,8 @@ const auditLogSchema = new mongoose.Schema(
         "BOOKING_SNAPSHOT_CREATED",
         "BOOKING_OWNER_MISSING",
         "BOOKING_HOLD_CONFLICT",
+        "BOOKING_AUTO_COMPLETED",
+        "BOOKING_OPERATIONAL_AMENDED",
         "RENTAL_PREPAYMENT_RECEIVED",
         "RENTAL_CHECKOUT_FAILED",
         "RENTAL_PAYMENT_MISMATCH",
@@ -351,8 +353,8 @@ if (AuditLog?.schema?.path("action")) {
   const current = Array.isArray(path.enumValues)
     ? path.enumValues
     : Array.isArray(path.options?.enum)
-      ? path.options.enum
-      : [];
+    ? path.options.enum
+    : [];
   for (const value of required) {
     if (!current.includes(value)) current.push(value);
   }
@@ -361,4 +363,3 @@ if (AuditLog?.schema?.path("action")) {
 }
 
 export default AuditLog;
-

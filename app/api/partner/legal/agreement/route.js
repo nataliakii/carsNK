@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@lib/adminAuth";
 import {
-  buildAgreementPackage,
+  resolveCurrentPartnerPackage,
   acceptMasterAgreement,
-  getActiveAgreement,
   listAgreements,
   CLICKWRAP_ACCEPTANCE_STATEMENT,
 } from "@/domain/legal/agreementService";
@@ -15,11 +14,12 @@ import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
 import {
   ownCompanyScope,
   superadminMayAcceptTerms,
-  withCustomAgreement,
 } from "@/domain/legal/companyLegalPage";
-import PartnerLegalProfile from "@models/PartnerLegalProfile";
 import { connectToDB } from "@lib/database";
-import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
+import {
+  recordAuditEvent,
+  extractAuditContext,
+} from "@/domain/legal/auditTrail";
 import {
   consumePublicPostOrError,
   agreementAcceptRateLimitOptions,
@@ -48,7 +48,10 @@ export async function GET(request) {
   );
   if (!companyId) {
     return NextResponse.json(
-      { success: false, message: "No partner company is associated with this account" },
+      {
+        success: false,
+        message: "No partner company is associated with this account",
+      },
       { status: 403 }
     );
   }
@@ -58,15 +61,11 @@ export async function GET(request) {
   );
 
   await connectToDB();
-  const [built, active, history, profile] = await Promise.all([
-    buildAgreementPackage({ language, companyId }),
-    getActiveAgreement(companyId),
+  const [pkg, history] = await Promise.all([
+    resolveCurrentPartnerPackage({ companyId, requestedLocale: language }),
     listAgreements(companyId),
-    PartnerLegalProfile.findOne({ companyId }).select("customAgreement").lean(),
   ]);
-  const pkg = withCustomAgreement(built, profile?.customAgreement, {
-    commercialTerms: built.commercialTerms,
-  });
+  const active = pkg.latestAcceptance;
 
   const { ipAddress, userAgent } = extractAuditContext(request);
   await recordAuditEvent({
@@ -85,6 +84,11 @@ export async function GET(request) {
     success: true,
     acceptanceStatement: CLICKWRAP_ACCEPTANCE_STATEMENT,
     packageChecksum: pkg.packageChecksum,
+    legalState: pkg.legalState.state,
+    legalActionCount: pkg.legalState.legalActionCount,
+    manifest: pkg.manifest,
+    changedDocumentTypes: pkg.legalState.changedDocumentTypes || [],
+    missingDocumentTypes: pkg.legalState.missingDocumentTypes || [],
     /** This partner's negotiated rate. Not part of packageChecksum. */
     commercialTerms: pkg.commercialTerms || null,
     esignMode,
@@ -92,10 +96,18 @@ export async function GET(request) {
     containsDrafts: pkg.anyDraft,
     documents: pkg.documents.map((d) => ({
       documentType: d.documentType,
+      documentId: d.documentId,
+      bindingDocumentId: d.bindingDocumentId,
+      bindingVersion: d.bindingVersion,
+      bindingChecksum: d.bindingChecksum,
       language: d.language,
+      requestedLanguage: d.requestedLanguage,
+      fellBackToSourceLanguage: d.fellBackToSourceLanguage,
       jurisdiction: d.jurisdiction,
       version: d.version,
       effectiveFrom: d.effectiveFrom,
+      publishedAt: d.publishedAt,
+      publicationChangeClass: d.publicationChangeClass,
       checksum: d.checksum,
       ref: d.ref,
       status: d.source,
@@ -115,9 +127,10 @@ export async function GET(request) {
           acceptanceMethod: active.acceptanceMethod,
           documents: (active.documents || []).map((d) => ({
             documentType: d.documentType,
+            documentId: d.bindingDocumentId || d.documentId || "",
             language: d.language,
-            version: d.version,
-            checksum: d.checksum,
+            version: d.bindingVersion || d.version,
+            checksum: d.bindingChecksum || d.checksum,
           })),
         }
       : null,
@@ -173,7 +186,10 @@ export async function POST(request) {
   const companyId = resolveCompanyId(session, body?.companyId);
   if (!companyId) {
     return NextResponse.json(
-      { success: false, message: "No partner company is associated with this account" },
+      {
+        success: false,
+        message: "No partner company is associated with this account",
+      },
       { status: 403 }
     );
   }
@@ -213,10 +229,18 @@ export async function POST(request) {
     );
   }
 
+  const resolvedAfterAcceptance = await resolveCurrentPartnerPackage({
+    companyId,
+    requestedLocale: body?.language,
+  });
+
   return NextResponse.json({
     success: true,
     agreementId: result.agreementId,
     acceptedAt: result.acceptance.acceptedAt,
     packageChecksum: result.acceptance.packageChecksum,
+    legalState: resolvedAfterAcceptance.legalState.state,
+    legalActionCount: resolvedAfterAcceptance.legalState.legalActionCount,
+    manifest: resolvedAfterAcceptance.manifest,
   });
 }

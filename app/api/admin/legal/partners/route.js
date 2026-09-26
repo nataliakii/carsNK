@@ -7,7 +7,8 @@ import Company from "@models/company";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
 import PartnerAgreementAcceptance from "@models/PartnerAgreementAcceptance";
 import { evaluateProfileCompleteness } from "@/domain/legal/partnerVerification";
-import { getCurrentPackageChecksum } from "@/domain/legal/agreementService";
+import { resolveCurrentPartnerPackage } from "@/domain/legal/agreementService";
+import { LEGAL_PLATFORM } from "@/domain/legal/documentTypes";
 import {
   buildPartnerReviewCompliance,
   isNeedsReviewRow,
@@ -65,23 +66,15 @@ export async function GET(request) {
     });
   }
 
-  let currentPackageChecksum = "";
-  try {
-    currentPackageChecksum = await getCurrentPackageChecksum("en");
-  } catch (err) {
-    console.error(
-      "[admin-legal-partners] current agreement checksum failed",
-      err?.message || err
-    );
-  }
-
   const [companies, profiles, agreements] = await Promise.all([
     Company.find(companyFilter)
       .select("name slug country email listedOnMarketplace bookingMode")
       .sort({ name: 1 })
       .lean(),
     PartnerLegalProfile.find({}).lean(),
-    PartnerAgreementAcceptance.find({}).sort({ acceptedAt: -1 }).lean(),
+    PartnerAgreementAcceptance.find({ platform: LEGAL_PLATFORM })
+      .sort({ acceptedAt: -1 })
+      .lean(),
   ]);
 
   const companyIdSet = new Set(companies.map((c) => String(c._id)));
@@ -98,13 +91,44 @@ export async function GET(request) {
     agreementsByCompany.get(key).push(agreement);
   }
 
+  const legalStateByCompany = new Map();
+  await Promise.all(
+    companies.map(async (company) => {
+      const key = String(company._id);
+      const accepted =
+        (agreementsByCompany.get(key) || []).find(
+          (row) => !row.supersededAt && !row.terminatedAt
+        ) || null;
+      try {
+        legalStateByCompany.set(
+          key,
+          await resolveCurrentPartnerPackage({
+            companyId: company._id,
+            requestedLocale: "en",
+            latestAcceptance: accepted,
+          })
+        );
+      } catch (err) {
+        console.error(
+          "[admin-legal-partners] partner package state failed",
+          key,
+          err?.message || err
+        );
+      }
+    })
+  );
+
   const rows = companies.map((company) => {
     const key = String(company._id);
     const profile = profileByCompany.get(key) || null;
     const list = agreementsByCompany.get(key) || [];
     const active = list.find((a) => !a.supersededAt && !a.terminatedAt) || null;
+    const partnerPackage = legalStateByCompany.get(key);
+    const legalState = partnerPackage?.legalState?.state || "NOT_PUBLISHED";
 
-    const uploaded = (profile?.documents || []).filter((doc) => doc?.storageRef);
+    const uploaded = (profile?.documents || []).filter(
+      (doc) => doc?.storageRef
+    );
     const completeness = profile ? evaluateProfileCompleteness(profile) : null;
     const missingDocs = completeness?.missingRecommendedDocuments || [];
     const listedOnMarketplace = company.listedOnMarketplace !== false;
@@ -114,6 +138,7 @@ export async function GET(request) {
       activeAgreement: active,
       agreementHistory: list,
       listedOnMarketplace,
+      legalState,
     });
     const displayProfile = profile
       ? {
@@ -134,9 +159,14 @@ export async function GET(request) {
         listedOnMarketplace,
         activeAgreement: active,
         agreementHistory: list,
-        currentPackageChecksum,
+        legalState,
         completeness,
       }),
+      legalState,
+      legalActionCount: partnerPackage?.legalState?.legalActionCount || 0,
+      currentLegalManifest: partnerPackage?.manifest || [],
+      changedLegalDocumentTypes:
+        partnerPackage?.legalState?.changedDocumentTypes || [],
       readiness,
       displayStatus: reviewDisplayStatus(displayProfile),
       displayStatusLabel: reviewDisplayStatusLabel(displayProfile),
@@ -220,7 +250,9 @@ export async function GET(request) {
     if (status === "VERIFIED") return 3;
     return 4;
   };
-  rows.sort((a, b) => rank(a) - rank(b) || a.companyName.localeCompare(b.companyName));
+  rows.sort(
+    (a, b) => rank(a) - rank(b) || a.companyName.localeCompare(b.companyName)
+  );
 
   const pendingReview = rows.filter((row) => isNeedsReviewRow(row)).length;
 

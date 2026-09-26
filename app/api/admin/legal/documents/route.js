@@ -21,11 +21,20 @@ import {
   LEGAL_DOCUMENT_TYPE,
 } from "@/domain/legal/documentTypes";
 import { findSuppressedSections } from "@/domain/legal/tokens";
-import { recordAuditEvent, extractAuditContext } from "@/domain/legal/auditTrail";
-import { reacceptanceRequired, PUBLICATION_CHANGE } from "@/domain/legal/publicationClass";
+import {
+  recordAuditEvent,
+  extractAuditContext,
+} from "@/domain/legal/auditTrail";
+import {
+  reacceptanceRequired,
+  PUBLICATION_CHANGE,
+} from "@/domain/legal/publicationClass";
 import { invalidateMarketplaceCheckoutsForOutdatedAgreements } from "@/domain/orders/invalidateMarketplaceCheckout";
 import { importLegalFile } from "@/domain/legal/documentImport";
-import { buildTranslationDraft, publicationBlockReason } from "@/domain/legal/translationAdapter";
+import {
+  buildTranslationDraft,
+  publicationBlockReason,
+} from "@/domain/legal/translationAdapter";
 import { auditLegalAction } from "@/domain/legal/contentSanitizer";
 import { assertTranslationPublishable } from "@/domain/legal/translationWorkflow";
 import {
@@ -86,7 +95,9 @@ export async function GET(request) {
       sectionCount: doc.content?.sections?.length || 0,
       title: doc.content?.title || "",
       testOnly: Boolean(doc.testOnly),
-      ...(includeContent ? { content: doc.content || { title: "", sections: [] } } : {}),
+      ...(includeContent
+        ? { content: doc.content || { title: "", sections: [] } }
+        : {}),
       /** Sections hidden from public output until config is complete. */
       suppressedSections: findSuppressedSections(doc),
       history: (doc.history || []).map((row) => ({
@@ -99,7 +110,11 @@ export async function GET(request) {
       translationStatus: doc.translationStatus || "",
       sourceChecksum: doc.sourceChecksum || "",
       pdf: doc.pdfFile?.filename
-        ? { filename: doc.pdfFile.filename, size: doc.pdfFile.size, extractionComplete: doc.pdfFile.extractionComplete }
+        ? {
+            filename: doc.pdfFile.filename,
+            size: doc.pdfFile.size,
+            extractionComplete: doc.pdfFile.extractionComplete,
+          }
         : null,
       pk: doc.pk,
       sk: doc.sk,
@@ -143,14 +158,19 @@ export async function POST(request) {
       severity: "medium",
       ipAddress,
       userAgent,
-      metadata: { created: result.created.length, skipped: result.skipped.length },
+      metadata: {
+        created: result.created.length,
+        skipped: result.skipped.length,
+      },
     });
     return NextResponse.json({ success: true, ...result });
   }
 
   if (action === "publishAll") {
     if (isProductionLegalRuntime()) {
-      const confirmToken = String(body.publishConfirm || "").trim().toUpperCase();
+      const confirmToken = String(body.publishConfirm || "")
+        .trim()
+        .toUpperCase();
       if (confirmToken !== "PUBLISH") {
         return NextResponse.json(
           {
@@ -245,7 +265,9 @@ export async function POST(request) {
 
   if (action === "publish") {
     if (isProductionLegalRuntime()) {
-      const confirmToken = String(body.publishConfirm || "").trim().toUpperCase();
+      const confirmToken = String(body.publishConfirm || "")
+        .trim()
+        .toUpperCase();
       if (confirmToken !== "PUBLISH") {
         return NextResponse.json(
           {
@@ -281,7 +303,11 @@ export async function POST(request) {
       });
       if (body.sections && block) {
         return NextResponse.json(
-          { success: false, message: `Translation cannot be published: ${block}`, code: block },
+          {
+            success: false,
+            message: `Translation cannot be published: ${block}`,
+            code: block,
+          },
           { status: 409 }
         );
       }
@@ -290,14 +316,15 @@ export async function POST(request) {
       ...params,
       effectiveFrom: body.effectiveFrom || null,
       expectedChecksum: body.expectedChecksum || null,
+      changeClass: body.changeClass === "editorial" ? "editorial" : "material",
     });
     if (!result.ok) {
       const status =
         result.code === "not_found"
           ? 404
           : result.code === "test_content_blocked"
-            ? 400
-            : 409;
+          ? 400
+          : 409;
       return NextResponse.json(
         {
           success: false,
@@ -317,13 +344,14 @@ export async function POST(request) {
       severity: "high",
       ipAddress,
       userAgent,
-        metadata: {
+      metadata: {
         documentType: params.documentType,
         language: params.language,
         version: params.version,
         checksum: result.doc?.checksum,
         verified: result.verified || null,
-        changeClass: body.changeClass === "editorial" ? "editorial" : "material",
+        changeClass:
+          body.changeClass === "editorial" ? "editorial" : "material",
       },
     });
     const changeClass =
@@ -389,7 +417,10 @@ export async function POST(request) {
   }
 
   if (action === "archive") {
-    const result = await archiveDocument({ ...params, reason: body.reason || "" });
+    const result = await archiveDocument({
+      ...params,
+      reason: body.reason || "",
+    });
     if (!result.ok) {
       return NextResponse.json(
         { success: false, message: result.message, code: result.code },
@@ -491,7 +522,9 @@ export async function POST(request) {
       jurisdiction: body.jurisdiction,
       content: body.content,
       byEmail,
-      note: body.note || (action === "importSave" ? "Imported draft" : "Draft saved"),
+      note:
+        body.note ||
+        (action === "importSave" ? "Imported draft" : "Draft saved"),
       format: body.format || "sections",
       translationStatus: body.translationStatus || "",
       sourceChecksum: body.sourceChecksum || "",
@@ -529,7 +562,8 @@ export async function POST(request) {
       }),
     });
     const document = { ...result.doc };
-    if (document.pdfFile) document.pdfFile = { ...document.pdfFile, data: undefined };
+    if (document.pdfFile)
+      document.pdfFile = { ...document.pdfFile, data: undefined };
     let publishedVersion = null;
     try {
       const live = await getPublishedDocument({
@@ -606,7 +640,11 @@ export async function POST(request) {
         userId: session?.user?.id || session?.user?._id || "",
       }),
     });
-    return NextResponse.json({ success: true, published: false, import: preview });
+    return NextResponse.json({
+      success: true,
+      published: false,
+      import: preview,
+    });
   }
 
   return NextResponse.json(

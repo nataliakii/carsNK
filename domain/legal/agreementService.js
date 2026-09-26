@@ -27,16 +27,16 @@ import { getPlatformMarketplaceFeeSettings } from "@/domain/platform/platformSet
 import {
   LEGAL_PLATFORM,
   MASTER_AGREEMENT_PACKAGE,
+  LEGAL_AUTHORITATIVE_LANGUAGE,
+  LEGAL_DEFAULT_JURISDICTION,
   normalizeLegalLanguage,
 } from "./documentTypes";
-import { resolveDocumentForDisplay } from "./documentService";
+import { getPublishedDocument } from "./documentService";
 import { renderLegalDocument } from "./tokens";
-import { computeSnapshotChecksum } from "./checksum";
 import { buildDocumentRef } from "./documentKeys";
 import { loadLegalSettingsWithTokens } from "./legalSettingsService";
 import { resolveEsignProvider } from "./esign";
 import { assertAgreementPackageAcceptable } from "./agreementSigning";
-import { withCustomAgreement } from "./companyLegalPage";
 import {
   PARTNER_VERIFICATION_STATUS,
   canPartnerOperate,
@@ -47,6 +47,14 @@ import {
   resolveCompanyCommercialTerms,
 } from "./companyCommercialTerms";
 import { notifyAgreementAccepted } from "@/domain/mail/notificationPolicy";
+import AuditLog from "@models/auditLog";
+import {
+  orderedPartnerManifest,
+  normalizePartnerPackageType,
+  partnerDocumentSlug,
+  partnerPackageChecksum,
+  resolvePartnerLegalState,
+} from "./partnerLegalState";
 
 /** Stable, non-guessable public identifier for one agreement instance. */
 export function generateAgreementId() {
@@ -96,64 +104,207 @@ export async function buildAgreementPackage({
   companyId = "",
 } = {}) {
   const lang = normalizeLegalLanguage(language);
-  const [{ settings, tokens }, commercialTerms] = await Promise.all([
+  const [settingsData, commercialTerms] = await Promise.all([
     loadLegalSettingsWithTokens({ language: lang }),
     loadCompanyCommercialTerms(companyId),
   ]);
-
+  const { settings, tokens } = settingsData;
+  const sourceDocuments = [];
   const documents = [];
-  let anyDraft = false;
+  const missingDocumentTypes = [];
 
   for (const documentType of MASTER_AGREEMENT_PACKAGE) {
-    const { doc, source } = await resolveDocumentForDisplay({
+    const source = await getPublishedDocument({
+      documentType,
+      language: LEGAL_AUTHORITATIVE_LANGUAGE,
+      jurisdiction: LEGAL_DEFAULT_JURISDICTION,
+    });
+    if (
+      !source.doc ||
+      String(source.doc.status).toLowerCase() !== "published"
+    ) {
+      missingDocumentTypes.push(documentType);
+      continue;
+    }
+    sourceDocuments.push({ type: documentType, doc: source.doc });
+
+    // Presentation locale is independent of the binding package identity. A
+    // published translation may be displayed; otherwise the published source
+    // language is displayed and clearly labelled. Drafts are never selected.
+    const presented = await getPublishedDocument({
       documentType,
       language: lang,
+      jurisdiction: LEGAL_DEFAULT_JURISDICTION,
     });
-    if (!doc) continue;
-    if (source !== "published") anyDraft = true;
-
-    const rendered = renderLegalDocument(doc, { settings: tokens });
+    const displayDoc =
+      presented.doc &&
+      String(presented.doc.status).toLowerCase() === "published"
+        ? presented.doc
+        : source.doc;
+    const rendered = renderLegalDocument(displayDoc, { settings: tokens });
     documents.push({
-      documentType: doc.documentType,
-      language: doc.language,
-      jurisdiction: doc.jurisdiction,
-      version: doc.version,
-      effectiveFrom: doc.effectiveFrom || null,
-      checksum: doc.checksum,
-      pk: doc.pk,
-      sk: doc.sk,
-      ref: buildDocumentRef(doc),
-      source,
+      documentType,
+      documentId: String(displayDoc._id),
+      presentedDocumentId: String(displayDoc._id),
+      bindingDocumentId: String(source.doc._id),
+      bindingVersion: source.doc.version,
+      bindingChecksum: source.doc.checksum,
+      bindingLanguage: source.doc.language,
+      language: displayDoc.language,
+      requestedLanguage: lang,
+      fellBackToSourceLanguage: displayDoc.language !== lang,
+      jurisdiction: displayDoc.jurisdiction,
+      version: displayDoc.version,
+      effectiveFrom: displayDoc.effectiveFrom || null,
+      publishedAt: displayDoc.publishedAt || null,
+      checksum: displayDoc.checksum,
+      pk: displayDoc.pk,
+      sk: displayDoc.sk,
+      ref: buildDocumentRef(displayDoc),
+      source: "published",
+      publicationChangeClass: source.doc.publicationChangeClass || "material",
       renderedTitle: rendered.title,
       renderedSections: rendered.sections,
     });
   }
 
+  const manifest = sourceDocuments.map(({ type, doc }) => ({
+    type,
+    documentId: String(doc._id),
+    version: Number(doc.version),
+    checksum: String(doc.checksum),
+  }));
+  const complete =
+    missingDocumentTypes.length === 0 &&
+    manifest.length === MASTER_AGREEMENT_PACKAGE.length;
+  const packageChecksum = complete ? partnerPackageChecksum(manifest) : "";
   return {
     documents,
-    packageChecksum: computeSnapshotChecksum(
-      documents.map((d) => ({
-        documentType: d.documentType,
-        language: d.language,
-        version: d.version,
-        checksum: d.checksum,
-        renderedTitle: d.renderedTitle,
-        renderedSections: d.renderedSections,
-      }))
-    ),
-    /** Template identity alone — proves which versions were on offer. */
-    templateChecksum: computeSnapshotChecksum(
-      documents.map((d) => ({
-        documentType: d.documentType,
-        language: d.language,
-        version: d.version,
-        checksum: d.checksum,
-      }))
-    ),
+    manifest: orderedPartnerManifest(manifest),
+    packageChecksum,
+    templateChecksum: packageChecksum,
     settings,
     commercialTerms,
-    anyDraft,
+    anyDraft: !complete,
+    complete,
+    missingDocumentTypes,
   };
+}
+
+/**
+ * Single server resolver for the binding package, latest acceptance and legal
+ * state. Navbar tasks and the Company Legal page must consume this result.
+ */
+export async function resolveCurrentPartnerPackage({
+  companyId,
+  requestedLocale = "en",
+  company = null,
+  latestAcceptance = undefined,
+} = {}) {
+  await connectToDB();
+  const pkg = await buildAgreementPackage({
+    language: requestedLocale,
+    companyId,
+  });
+  const acceptance =
+    latestAcceptance === undefined
+      ? await getActiveAgreement(companyId)
+      : latestAcceptance;
+
+  const mismatchedTypes = pkg.complete
+    ? pkg.manifest.filter((current) => {
+        const accepted = (acceptance?.documents || []).find(
+          (doc) =>
+            normalizePartnerPackageType(doc.type || doc.documentType) ===
+            current.type
+        );
+        if (!accepted) return true;
+        const acceptedBindingId = String(
+          accepted.bindingDocumentId || accepted.documentId || ""
+        );
+        return (
+          (acceptedBindingId && acceptedBindingId !== current.documentId) ||
+          Number(accepted.bindingVersion ?? accepted.version) !==
+            current.version ||
+          String(accepted.bindingChecksum || accepted.checksum || "") !==
+            current.checksum
+        );
+      })
+    : [];
+
+  let materialTypes = [];
+  if (acceptance && mismatchedTypes.length) {
+    const publishedAfterAcceptance = await AuditLog.find({
+      action: "LEGAL_DOCUMENT_PUBLISHED",
+      createdAt: { $gt: acceptance.acceptedAt },
+      "metadata.documentType": {
+        $in: mismatchedTypes.map((doc) => partnerDocumentSlug(doc.type)),
+      },
+      "metadata.language": LEGAL_AUTHORITATIVE_LANGUAGE,
+    })
+      .select("metadata createdAt")
+      .sort({ createdAt: 1 })
+      .lean();
+    materialTypes = mismatchedTypes
+      .filter((current) => {
+        const events = publishedAfterAcceptance.filter(
+          (event) =>
+            event.metadata?.documentType ===
+              partnerDocumentSlug(current.type) &&
+            Number(event.metadata?.version) <= current.version
+        );
+        // Missing legacy classification is conservatively material.
+        return (
+          !events.length ||
+          events.some((event) => event.metadata?.changeClass !== "editorial")
+        );
+      })
+      .map((doc) => doc.type);
+  }
+
+  const pendingLegalTask = materialTypes.length
+    ? { required: true, documentTypes: materialTypes }
+    : null;
+  const legalState = resolvePartnerLegalState({
+    currentPackage: pkg,
+    latestAcceptance: acceptance,
+    pendingLegalTask,
+  });
+
+  return {
+    ...pkg,
+    latestAcceptance: acceptance || null,
+    pendingLegalTask,
+    legalState,
+    publication:
+      legalState.state === "ACCEPTANCE_REQUIRED"
+        ? "READY_TO_ACCEPT"
+        : legalState.state === "REACCEPTANCE_REQUIRED"
+        ? "UPDATE_REQUIRED"
+        : legalState.state === "ACCEPTED_CURRENT"
+        ? "ACCEPTED"
+        : "NOT_PUBLISHED",
+    company: company || null,
+  };
+}
+
+export async function resolveCompanyPartnerLegalState({
+  companyId,
+  requestedLocale = "en",
+} = {}) {
+  await connectToDB();
+  const [profile, company] = await Promise.all([
+    PartnerLegalProfile.findOne({ companyId })
+      .select("verificationStatus customAgreement documents")
+      .lean(),
+    Company.findById(companyId).lean(),
+  ]);
+  const currentPackage = await resolveCurrentPartnerPackage({
+    companyId,
+    requestedLocale,
+    company,
+  });
+  return { profile, company, ...currentPackage };
 }
 
 /**
@@ -162,6 +313,13 @@ export async function buildAgreementPackage({
  */
 export function snapshotAcceptedDocuments(documents) {
   return (Array.isArray(documents) ? documents : []).map((d) => ({
+    documentId: d.documentId || d.ref,
+    bindingDocumentId: d.bindingDocumentId || d.documentId || d.ref,
+    bindingVersion: Number(d.bindingVersion ?? d.version),
+    bindingChecksum: d.bindingChecksum || d.checksum,
+    presentedDocumentId: d.presentedDocumentId || d.documentId || d.ref,
+    presentedVersion: Number(d.version),
+    presentedChecksum: d.checksum,
     documentType: d.documentType,
     language: d.language,
     jurisdiction: d.jurisdiction,
@@ -225,9 +383,7 @@ export async function acceptMasterAgreement(input) {
     language: input.language,
     companyId: input.companyId,
   });
-  const pkg = withCustomAgreement(built, profile.customAgreement, {
-    commercialTerms: built.commercialTerms,
-  });
+  const pkg = built;
   const packageOk = assertAgreementPackageAcceptable(pkg);
   if (!packageOk.ok) return packageOk;
 
@@ -289,6 +445,7 @@ export async function acceptMasterAgreement(input) {
     confirmationOfAuthority: Boolean(input.confirmationOfAuthority),
     authorityStatement: CLICKWRAP_ACCEPTANCE_STATEMENT,
     documents: snapshotAcceptedDocuments(pkg.documents),
+    manifest: orderedPartnerManifest(pkg.manifest),
     packageChecksum: pkg.packageChecksum,
     templateChecksum: pkg.templateChecksum || "",
     commercialTermsSnapshot,
@@ -315,6 +472,7 @@ export async function acceptMasterAgreement(input) {
   // Mark any earlier agreement as superseded (lifecycle field, not an edit).
   await PartnerAgreementAcceptance.updateMany(
     {
+      platform: LEGAL_PLATFORM,
       companyId: input.companyId,
       agreementId: { $ne: agreementId },
       supersededAt: null,
@@ -381,6 +539,7 @@ export async function getCurrentPackageChecksum(language = "en") {
 export async function getActiveAgreement(companyId) {
   await connectToDB();
   return PartnerAgreementAcceptance.findOne({
+    platform: LEGAL_PLATFORM,
     companyId,
     supersededAt: null,
     terminatedAt: null,
@@ -392,7 +551,9 @@ export async function getActiveAgreement(companyId) {
 /** Full history, newest first. Superadmin view. */
 export async function listAgreements(companyId) {
   await connectToDB();
-  const filter = companyId ? { companyId } : {};
+  const filter = companyId
+    ? { platform: LEGAL_PLATFORM, companyId }
+    : { platform: LEGAL_PLATFORM };
   return PartnerAgreementAcceptance.find(filter)
     .sort({ acceptedAt: -1 })
     .lean();
@@ -410,6 +571,7 @@ export async function terminateActiveAgreement({
 } = {}) {
   await connectToDB();
   const active = await PartnerAgreementAcceptance.findOne({
+    platform: LEGAL_PLATFORM,
     companyId,
     supersededAt: null,
     terminatedAt: null,

@@ -24,6 +24,7 @@ import {
   bookingDisplayReference,
   buildBookingFinancialView,
 } from "@/domain/orders/bookingDetailsView";
+import { paymentStatusChipForOrder } from "@/domain/orders/bookingPaymentStatus";
 
 export const PRIVACY_NOTICE =
   "Customer contact details and driving documents become available after the booking payment is received.";
@@ -320,6 +321,8 @@ function publicHeaderReference(order) {
 
 function paymentBadgeFor(order, platform) {
   if (!platform) return null;
+  const paymentChip = paymentStatusChipForOrder(order);
+  if (paymentChip) return paymentChip;
   const stage = resolvePlatformWorkflowStage(order);
   if (stage === PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_PAYMENT) {
     return {
@@ -349,11 +352,11 @@ function statusCopyFor(stage, ratePercentLabel) {
   }
   if (stage === PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_PAYMENT) {
     return {
-      title: "Vehicle confirmed",
+      title: "Awaiting customer payment",
       titleKey: "bookingDetails.status.awaitingPayment.title",
       detail: rate
-        ? `Waiting for the customer to pay the ${rate}% booking payment.`
-        : "Waiting for the customer to pay the booking payment.",
+        ? `Vehicle confirmed. Waiting for the customer to pay the ${rate}% booking payment.`
+        : "Vehicle confirmed. Waiting for the customer to pay the booking payment.",
       detailKey: rate
         ? "bookingDetails.status.awaitingPayment.detail"
         : "bookingDetails.status.awaitingPayment.detailNoRate",

@@ -25,8 +25,7 @@ jest.mock("@models/PartnerLegalProfile", () => ({
   default: { findOne: jest.fn() },
 }));
 jest.mock("@/domain/legal/agreementService", () => ({
-  buildAgreementPackage: jest.fn(),
-  getActiveAgreement: jest.fn(),
+  resolveCurrentPartnerPackage: jest.fn(),
 }));
 jest.mock("@/domain/orders/pendingInbox", () => {
   const actual = jest.requireActual("@/domain/orders/pendingInbox");
@@ -45,10 +44,7 @@ import Transfer from "@models/Transfer";
 import Company from "@models/company";
 import { Car } from "@models/car";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
-import {
-  buildAgreementPackage,
-  getActiveAgreement,
-} from "@/domain/legal/agreementService";
+import { resolveCurrentPartnerPackage } from "@/domain/legal/agreementService";
 import { withAdminViewAs } from "@/domain/owners/adminViewAs";
 import { GET } from "../route";
 
@@ -71,15 +67,39 @@ function emptyTransferFind() {
   });
 }
 
-function publishedPackage() {
+function publishedPackage(state = "ACCEPTANCE_REQUIRED") {
   return {
+    complete: true,
     anyDraft: false,
     packageChecksum: "pkg-current",
-    documents: [
-      { documentType: "partner-agreement", status: "published", title: "A" },
-      { documentType: "operating-rules", status: "published", title: "B" },
-      { documentType: "data-protection", status: "published", title: "C" },
+    manifest: [
+      {
+        type: "PARTNER_AGREEMENT",
+        documentId: "a",
+        version: 1,
+        checksum: "a1",
+      },
+      {
+        type: "PARTNER_OPERATING_RULES",
+        documentId: "b",
+        version: 1,
+        checksum: "b1",
+      },
+      {
+        type: "DATA_PROTECTION_SCHEDULE",
+        documentId: "c",
+        version: 1,
+        checksum: "c1",
+      },
     ],
+    legalState: {
+      state,
+      legalActionCount: state === "ACCEPTANCE_REQUIRED" ? 1 : 0,
+      changedDocumentTypes: [],
+      missingDocumentTypes: [],
+    },
+    latestAcceptance:
+      state === "ACCEPTED_CURRENT" ? { packageChecksum: "pkg-current" } : null,
   };
 }
 
@@ -98,7 +118,10 @@ beforeEach(() => {
       _id: OWN,
       country: "ES",
       email: "desk@own.test",
-      transferServices: { enabled: true, supplierAgreementAcceptedAt: new Date() },
+      transferServices: {
+        enabled: true,
+        supplierAgreementAcceptedAt: new Date(),
+      },
       deliveryPricing: { operatingCities: [] },
       offices: [],
     })
@@ -106,8 +129,10 @@ beforeEach(() => {
   PartnerLegalProfile.findOne.mockImplementation(({ companyId }) =>
     lean({ companyId, verificationStatus: "VERIFIED", documents: [] })
   );
-  buildAgreementPackage.mockResolvedValue(publishedPackage());
-  getActiveAgreement.mockResolvedValue(null);
+  resolveCurrentPartnerPackage.mockImplementation(async ({ companyId }) => ({
+    ...publishedPackage(),
+    company: { _id: companyId },
+  }));
 });
 
 describe("GET /api/admin/inbox/pending", () => {
@@ -121,7 +146,7 @@ describe("GET /api/admin/inbox/pending", () => {
     expect(body.companySetup.count).toBe(1);
     expect(body.companySetup.tasks[0]).toMatchObject({
       id: "TERMS_READY_TO_ACCEPT",
-      title: "Partner terms update",
+      title: "Partner terms ready to accept",
       href: "/admin/company/setup?step=details",
     });
     expect(body.total).toBe(body.bookings.count + body.companySetup.count);
@@ -136,11 +161,13 @@ describe("GET /api/admin/inbox/pending", () => {
       user: { isAdmin: true, role: ROLE.ADMIN, ownerId: OWN },
     });
     await GET(request(`?companyId=${OTHER}&ownerId=${OTHER}`));
-    const queried = PartnerLegalProfile.findOne.mock.calls.map(
-      ([filter]) => String(filter.companyId)
+    const queried = PartnerLegalProfile.findOne.mock.calls.map(([filter]) =>
+      String(filter.companyId)
     );
     expect(queried).toEqual([OWN]);
-    expect(getActiveAgreement).toHaveBeenCalledWith(OWN);
+    expect(resolveCurrentPartnerPackage).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: OWN, requestedLocale: "en" })
+    );
   });
 
   it("13. a company ADMIN cannot borrow the superadmin view-as scope", async () => {
@@ -160,7 +187,9 @@ describe("GET /api/admin/inbox/pending", () => {
       },
     });
     await GET(request());
-    expect(getActiveAgreement).toHaveBeenCalledWith(OWN);
+    expect(resolveCurrentPartnerPackage).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: OWN, requestedLocale: "en" })
+    );
   });
 
   it("14. SUPERADMIN in company context uses the selected company", async () => {
@@ -168,7 +197,9 @@ describe("GET /api/admin/inbox/pending", () => {
       user: { isAdmin: true, role: ROLE.SUPERADMIN, viewAsCompanyId: OTHER },
     });
     const body = await (await GET(request(`?companyId=${OWN}`))).json();
-    expect(getActiveAgreement).toHaveBeenCalledWith(OTHER);
+    expect(resolveCurrentPartnerPackage).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: OTHER, requestedLocale: "en" })
+    );
     expect(body.companySetup.count).toBe(1);
     expect(Transfer.find).toHaveBeenCalled();
   });
@@ -185,10 +216,12 @@ describe("GET /api/admin/inbox/pending", () => {
   });
 
   it("4. unpublished terms do not raise the bell or the legal badge", async () => {
-    buildAgreementPackage.mockResolvedValue({
-      ...publishedPackage(),
+    resolveCurrentPartnerPackage.mockImplementation(async ({ companyId }) => ({
+      ...publishedPackage("NOT_PUBLISHED"),
+      complete: false,
       anyDraft: true,
-    });
+      company: { _id: companyId },
+    }));
     getServerSessionWithViewAs.mockResolvedValue({
       user: { isAdmin: true, role: ROLE.ADMIN, ownerId: OWN },
     });
@@ -202,7 +235,10 @@ describe("GET /api/admin/inbox/pending", () => {
       user: { isAdmin: true, role: ROLE.ADMIN, ownerId: OWN },
     });
     const before = await (await GET(request())).json();
-    getActiveAgreement.mockResolvedValue({ packageChecksum: "pkg-current" });
+    resolveCurrentPartnerPackage.mockImplementation(async ({ companyId }) => ({
+      ...publishedPackage("ACCEPTED_CURRENT"),
+      company: { _id: companyId },
+    }));
     const after = await (await GET(request())).json();
     expect(before.total).toBe(4);
     expect(after.ordersBadge).toBe(3);

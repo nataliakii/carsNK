@@ -16,6 +16,7 @@
 
 import { useMemo } from "react";
 import { ORDER_FIELD_KEYS } from "@/domain/orders/orderPermissions";
+import { isInternalBooking } from "@/domain/admin/rovaroContractorAdmin";
 import {
   BOOKING_CAPABILITY,
   resolveOrderCapabilities,
@@ -56,7 +57,12 @@ const DEFAULT_ACCESS = {
  * @param {import("@/domain/orders/orderAccessPolicy").OrderAccess | null} access - From useOrderAccess
  * @returns {Object} fieldPermissions, canEdit, canDelete, canConfirm, viewOnly, isCurrentOrder
  */
-export function useEditOrderPermissions(order, currentUser, isViewOnly = false, access = null) {
+export function useEditOrderPermissions(
+  order,
+  currentUser,
+  isViewOnly = false,
+  access = null
+) {
   const a = access ?? DEFAULT_ACCESS;
   const canEditTotalPrice = a.canEditTotalPrice === true;
 
@@ -123,7 +129,7 @@ export function useEditOrderPermissions(order, currentUser, isViewOnly = false, 
       canCorrectMarketplacePrice: a.canCorrectMarketplacePrice === true,
       canResetToAutoPrice: a.canResetToAutoPrice === true,
       viewOnly: a.isViewOnly,
-      isCurrentOrder: a.timeBucket === "CURRENT",
+      isCurrentOrder: a.timeBucket === "CURRENT" && !isInternalBooking(order),
       isCompletedOrder: a.timeBucket === "PAST",
     }),
     [
@@ -136,6 +142,7 @@ export function useEditOrderPermissions(order, currentUser, isViewOnly = false, 
       a.canResetToAutoPrice,
       a.isViewOnly,
       a.timeBucket,
+      order,
     ]
   );
 }

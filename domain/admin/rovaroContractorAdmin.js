@@ -20,6 +20,7 @@ import { CANONICAL_STAGE } from "@/domain/booking/rovaroMarketplaceWorkflow";
 import { resolveBookingFinancialSnapshot } from "@/domain/orders/bookingFinancialSnapshot";
 import { buildSupplierResponsePublicFields } from "@/domain/orders/supplierResponseStatus";
 import { readVehicleSnapshot } from "@/domain/orders/vehicleSnapshot";
+import { isPaymentLinkExpired } from "@/domain/orders/bookingPaymentStatus";
 
 export const BOOKING_SOURCE = Object.freeze({
   PLATFORM: "PLATFORM",
@@ -271,6 +272,9 @@ export function resolveContractorCalendarTone(order) {
   ) {
     return CALENDAR_TONE.DECLINED;
   }
+  if (isPaymentLinkExpired(order)) {
+    return CALENDAR_TONE.AWAITING_PAYMENT;
+  }
   if (status === BOOKING_STATUS.PAYMENT_EXPIRED) {
     return CALENDAR_TONE.PAYMENT_EXPIRED;
   }
@@ -317,6 +321,9 @@ export function resolvePlatformWorkflowStage(order) {
   }
   if (status === BOOKING_STATUS.ALTERNATIVE_PROPOSED) {
     return PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_ALTERNATIVE_ACCEPTANCE;
+  }
+  if (isPaymentLinkExpired(order)) {
+    return PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_PAYMENT;
   }
   if (status === BOOKING_STATUS.PAYMENT_EXPIRED) {
     return PLATFORM_WORKFLOW_STAGE.PAYMENT_EXPIRED;

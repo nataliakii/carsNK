@@ -1,13 +1,13 @@
 /**
  * Unit tests for orderNotificationPolicy
- * 
+ *
  * ════════════════════════════════════════════════════════════════
  * 🔑 КЛЮЧЕВОЙ ПРИНЦИП:
  * NotificationPolicy НЕ ДУМАЕТ — реагирует на OrderAccess.
  * ════════════════════════════════════════════════════════════════
  */
 
-import { 
+import {
   getOrderNotifications,
   isCriticalAction,
   getActionIntent,
@@ -49,7 +49,6 @@ const createOrder = (overrides = {}) => ({
 // ════════════════════════════════════════════════════════════════
 
 describe("orderNotificationPolicy", () => {
-  
   describe("ACTION_INTENT mapping", () => {
     it("maps all actions correctly", () => {
       expect(ACTION_INTENT.CREATE).toBe("ORDER_CREATED");
@@ -63,7 +62,9 @@ describe("orderNotificationPolicy", () => {
 
   describe("getActionFromChangedFields", () => {
     it("maps secondDriver change to UPDATE_SECOND_DRIVER", () => {
-      expect(getActionFromChangedFields(["secondDriver"])).toBe("UPDATE_SECOND_DRIVER");
+      expect(getActionFromChangedFields(["secondDriver"])).toBe(
+        "UPDATE_SECOND_DRIVER"
+      );
     });
 
     it("maps return-only date/time changes to UPDATE_RETURN", () => {
@@ -73,13 +74,19 @@ describe("orderNotificationPolicy", () => {
     });
 
     it("maps pickup/start changes to UPDATE_DATES", () => {
-      expect(getActionFromChangedFields(["rentalStartDate"])).toBe("UPDATE_DATES");
+      expect(getActionFromChangedFields(["rentalStartDate"])).toBe(
+        "UPDATE_DATES"
+      );
       expect(getActionFromChangedFields(["timeIn"])).toBe("UPDATE_DATES");
     });
 
     it("keeps mixed pickup+return changes as UPDATE_DATES", () => {
       expect(
-        getActionFromChangedFields(["rentalStartDate", "rentalEndDate", "timeOut"])
+        getActionFromChangedFields([
+          "rentalStartDate",
+          "rentalEndDate",
+          "timeOut",
+        ])
       ).toBe("UPDATE_DATES");
     });
   });
@@ -102,79 +109,101 @@ describe("orderNotificationPolicy", () => {
   // ════════════════════════════════════════════════════════════════
   // access.notifySuperadminOnEdit = false (SUPERADMIN or internal)
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("notifySuperadminOnEdit = false", () => {
     it("no SUPERADMIN notification for any action", () => {
       const access = createAccess({ notifySuperadminOnEdit: false });
       const order = createOrder({ my_order: false });
 
       const actions = ["UPDATE_DATES", "UPDATE_RETURN", "DELETE"];
-      
+
       for (const action of actions) {
         const notifications = getOrderNotifications({ action, access, order });
-        const superadminNotifs = notifications.filter(n => n.target === "SUPERADMIN");
+        const superadminNotifs = notifications.filter(
+          (n) => n.target === "SUPERADMIN"
+        );
         expect(superadminNotifs).toHaveLength(0);
       }
     });
   });
 
+  it("never emails about an internal booking amendment", () => {
+    const notifications = getOrderNotifications({
+      action: "UPDATE_DATES",
+      access: createAccess({ notifySuperadminOnEdit: true }),
+      order: createOrder({ my_order: false }),
+    });
+
+    expect(
+      notifications.filter(({ target }) => target === "SUPERADMIN")
+    ).toEqual([expect.objectContaining({ channels: ["TELEGRAM"] })]);
+  });
+
   // ════════════════════════════════════════════════════════════════
   // access.notifySuperadminOnEdit = true (ADMIN + confirmed client)
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("notifySuperadminOnEdit = true", () => {
-    const access = createAccess({ 
+    const access = createAccess({
       notifySuperadminOnEdit: true,
       canSeeClientPII: true,
     });
     const order = createOrder({ my_order: true, confirmed: true });
 
     it("critical actions → SUPERADMIN telegram + email", () => {
-      const notifications = getOrderNotifications({ 
-        action: "UPDATE_DATES", 
-        access, 
+      const notifications = getOrderNotifications({
+        action: "UPDATE_DATES",
+        access,
         order,
       });
 
-      expect(notifications.some(n => n.target === "SUPERADMIN")).toBe(true);
-      const superadminNotif = notifications.find(n => n.target === "SUPERADMIN");
+      expect(notifications.some((n) => n.target === "SUPERADMIN")).toBe(true);
+      const superadminNotif = notifications.find(
+        (n) => n.target === "SUPERADMIN"
+      );
       expect(superadminNotif.channels).toContain("TELEGRAM");
       expect(superadminNotif.channels).toContain("EMAIL");
       expect(superadminNotif.priority).toBe("CRITICAL");
     });
 
     it("safe actions → SUPERADMIN telegram only", () => {
-      const notifications = getOrderNotifications({ 
-        action: "UPDATE_RETURN", 
-        access, 
+      const notifications = getOrderNotifications({
+        action: "UPDATE_RETURN",
+        access,
         order,
       });
 
-      expect(notifications.some(n => n.target === "SUPERADMIN")).toBe(true);
-      const superadminNotif = notifications.find(n => n.target === "SUPERADMIN");
+      expect(notifications.some((n) => n.target === "SUPERADMIN")).toBe(true);
+      const superadminNotif = notifications.find(
+        (n) => n.target === "SUPERADMIN"
+      );
       expect(superadminNotif.channels).toEqual(["TELEGRAM"]);
       expect(superadminNotif.priority).toBe("INFO");
     });
 
     it("includePII matches access.canSeeClientPII for critical", () => {
-      const notifications = getOrderNotifications({ 
-        action: "UPDATE_PRICING", 
-        access, 
+      const notifications = getOrderNotifications({
+        action: "UPDATE_PRICING",
+        access,
         order,
       });
 
-      const superadminNotif = notifications.find(n => n.target === "SUPERADMIN");
+      const superadminNotif = notifications.find(
+        (n) => n.target === "SUPERADMIN"
+      );
       expect(superadminNotif.includePII).toBe(true);
     });
 
     it("includePII is false for safe actions", () => {
-      const notifications = getOrderNotifications({ 
-        action: "UPDATE_INSURANCE", 
-        access, 
+      const notifications = getOrderNotifications({
+        action: "UPDATE_INSURANCE",
+        access,
         order,
       });
 
-      const superadminNotif = notifications.find(n => n.target === "SUPERADMIN");
+      const superadminNotif = notifications.find(
+        (n) => n.target === "SUPERADMIN"
+      );
       expect(superadminNotif.includePII).toBe(false);
     });
   });
@@ -182,7 +211,7 @@ describe("orderNotificationPolicy", () => {
   // ════════════════════════════════════════════════════════════════
   // CUSTOMER NOTIFICATION
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("Customer notification", () => {
     it("CONFIRM client order → no CUSTOMER email (admin confirms in UI only)", () => {
       const access = createAccess();
@@ -263,7 +292,7 @@ describe("orderNotificationPolicy", () => {
   // ════════════════════════════════════════════════════════════════
   // COMPANY NOTIFICATION
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("Company notification", () => {
     const previousEmailTesting = process.env.EMAIL_TESTING;
     beforeAll(() => {
@@ -277,14 +306,18 @@ describe("orderNotificationPolicy", () => {
       const access = createAccess();
       const order = createOrder({ my_order: true, confirmed: false });
 
-      const notifications = getOrderNotifications({ 
-        action: "CREATE", 
-        access, 
+      const notifications = getOrderNotifications({
+        action: "CREATE",
+        access,
         order,
       });
 
-      expect(notifications.some(n => n.target === "COMPANY_EMAIL")).toBe(true);
-      const companyNotif = notifications.find(n => n.target === "COMPANY_EMAIL");
+      expect(notifications.some((n) => n.target === "COMPANY_EMAIL")).toBe(
+        true
+      );
+      const companyNotif = notifications.find(
+        (n) => n.target === "COMPANY_EMAIL"
+      );
       expect(companyNotif.includePII).toBe(false);
     });
 
@@ -298,28 +331,30 @@ describe("orderNotificationPolicy", () => {
         order,
       });
 
-      expect(notifications.some((n) => n.target === "COMPANY_EMAIL")).toBe(false);
+      expect(notifications.some((n) => n.target === "COMPANY_EMAIL")).toBe(
+        false
+      );
     });
   });
 
   // ════════════════════════════════════════════════════════════════
   // DEVELOPERS NOTIFICATION
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("Developers notification", () => {
     it("DELETE any order → DEVELOPERS telegram", () => {
       const access = createAccess();
-      
+
       for (const my_order of [true, false]) {
         const order = createOrder({ my_order });
-        const notifications = getOrderNotifications({ 
-          action: "DELETE", 
-          access, 
+        const notifications = getOrderNotifications({
+          action: "DELETE",
+          access,
           order,
         });
 
-        expect(notifications.some(n => n.target === "DEVELOPERS")).toBe(true);
-        const devNotif = notifications.find(n => n.target === "DEVELOPERS");
+        expect(notifications.some((n) => n.target === "DEVELOPERS")).toBe(true);
+        const devNotif = notifications.find((n) => n.target === "DEVELOPERS");
         expect(devNotif.channels).toEqual(["TELEGRAM"]);
         expect(devNotif.priority).toBe("DEBUG");
       }
@@ -329,12 +364,12 @@ describe("orderNotificationPolicy", () => {
   // ════════════════════════════════════════════════════════════════
   // EDGE CASES
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("Edge cases", () => {
     it("returns empty array if access is null", () => {
-      const notifications = getOrderNotifications({ 
-        action: "UPDATE_DATES", 
-        access: null, 
+      const notifications = getOrderNotifications({
+        action: "UPDATE_DATES",
+        access: null,
         order: createOrder(),
       });
 
@@ -342,9 +377,9 @@ describe("orderNotificationPolicy", () => {
     });
 
     it("returns empty array if order is null", () => {
-      const notifications = getOrderNotifications({ 
-        action: "UPDATE_DATES", 
-        access: createAccess(), 
+      const notifications = getOrderNotifications({
+        action: "UPDATE_DATES",
+        access: createAccess(),
         order: null,
       });
 
@@ -355,65 +390,144 @@ describe("orderNotificationPolicy", () => {
   // ════════════════════════════════════════════════════════════════
   // isActionAllowedByAccess (SAFETY CHECK)
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("isActionAllowedByAccess", () => {
     it("returns false if access is null", () => {
       expect(isActionAllowedByAccess("UPDATE_DATES", null)).toBe(false);
     });
 
     it("UPDATE_DATES requires canEditPickupDate or canEditReturnDate", () => {
-      expect(isActionAllowedByAccess("UPDATE_DATES", createAccess({ canEditPickupDate: true, canEditReturnDate: true }))).toBe(true);
-      expect(isActionAllowedByAccess("UPDATE_DATES", createAccess({ canEditPickupDate: true, canEditReturnDate: false }))).toBe(true);
-      expect(isActionAllowedByAccess("UPDATE_DATES", createAccess({ canEditPickupDate: false, canEditReturnDate: true }))).toBe(true);
-      expect(isActionAllowedByAccess("UPDATE_DATES", createAccess({ canEditPickupDate: false, canEditReturnDate: false }))).toBe(false);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_DATES",
+          createAccess({ canEditPickupDate: true, canEditReturnDate: true })
+        )
+      ).toBe(true);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_DATES",
+          createAccess({ canEditPickupDate: true, canEditReturnDate: false })
+        )
+      ).toBe(true);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_DATES",
+          createAccess({ canEditPickupDate: false, canEditReturnDate: true })
+        )
+      ).toBe(true);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_DATES",
+          createAccess({ canEditPickupDate: false, canEditReturnDate: false })
+        )
+      ).toBe(false);
     });
 
     it("UPDATE_SECOND_DRIVER requires canEdit", () => {
-      expect(isActionAllowedByAccess("UPDATE_SECOND_DRIVER", createAccess({ canEdit: true }))).toBe(true);
-      expect(isActionAllowedByAccess("UPDATE_SECOND_DRIVER", createAccess({ canEdit: false }))).toBe(false);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_SECOND_DRIVER",
+          createAccess({ canEdit: true })
+        )
+      ).toBe(true);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_SECOND_DRIVER",
+          createAccess({ canEdit: false })
+        )
+      ).toBe(false);
     });
 
     it("UPDATE_RETURN requires canEditReturn", () => {
-      expect(isActionAllowedByAccess("UPDATE_RETURN", createAccess({ canEditReturn: true }))).toBe(true);
-      expect(isActionAllowedByAccess("UPDATE_RETURN", createAccess({ canEditReturn: false }))).toBe(false);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_RETURN",
+          createAccess({ canEditReturn: true })
+        )
+      ).toBe(true);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_RETURN",
+          createAccess({ canEditReturn: false })
+        )
+      ).toBe(false);
     });
 
     it("UPDATE_INSURANCE requires canEditInsurance", () => {
-      expect(isActionAllowedByAccess("UPDATE_INSURANCE", createAccess({ canEditInsurance: true }))).toBe(true);
-      expect(isActionAllowedByAccess("UPDATE_INSURANCE", createAccess({ canEditInsurance: false }))).toBe(false);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_INSURANCE",
+          createAccess({ canEditInsurance: true })
+        )
+      ).toBe(true);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_INSURANCE",
+          createAccess({ canEditInsurance: false })
+        )
+      ).toBe(false);
     });
 
     it("UPDATE_PRICING requires canEditPricing", () => {
-      expect(isActionAllowedByAccess("UPDATE_PRICING", createAccess({ canEditPricing: true }))).toBe(true);
-      expect(isActionAllowedByAccess("UPDATE_PRICING", createAccess({ canEditPricing: false }))).toBe(false);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_PRICING",
+          createAccess({ canEditPricing: true })
+        )
+      ).toBe(true);
+      expect(
+        isActionAllowedByAccess(
+          "UPDATE_PRICING",
+          createAccess({ canEditPricing: false })
+        )
+      ).toBe(false);
     });
 
     it("CONFIRM/UNCONFIRM requires canConfirm", () => {
-      expect(isActionAllowedByAccess("CONFIRM", createAccess({ canConfirm: true }))).toBe(true);
-      expect(isActionAllowedByAccess("CONFIRM", createAccess({ canConfirm: false }))).toBe(false);
-      expect(isActionAllowedByAccess("UNCONFIRM", createAccess({ canConfirm: true }))).toBe(true);
-      expect(isActionAllowedByAccess("UNCONFIRM", createAccess({ canConfirm: false }))).toBe(false);
+      expect(
+        isActionAllowedByAccess("CONFIRM", createAccess({ canConfirm: true }))
+      ).toBe(true);
+      expect(
+        isActionAllowedByAccess("CONFIRM", createAccess({ canConfirm: false }))
+      ).toBe(false);
+      expect(
+        isActionAllowedByAccess("UNCONFIRM", createAccess({ canConfirm: true }))
+      ).toBe(true);
+      expect(
+        isActionAllowedByAccess(
+          "UNCONFIRM",
+          createAccess({ canConfirm: false })
+        )
+      ).toBe(false);
     });
 
     it("DELETE requires canDelete", () => {
-      expect(isActionAllowedByAccess("DELETE", createAccess({ canDelete: true }))).toBe(true);
-      expect(isActionAllowedByAccess("DELETE", createAccess({ canDelete: false }))).toBe(false);
+      expect(
+        isActionAllowedByAccess("DELETE", createAccess({ canDelete: true }))
+      ).toBe(true);
+      expect(
+        isActionAllowedByAccess("DELETE", createAccess({ canDelete: false }))
+      ).toBe(false);
     });
 
     it("CREATE is always allowed", () => {
       expect(isActionAllowedByAccess("CREATE", createAccess())).toBe(true);
-      expect(isActionAllowedByAccess("CREATE", createAccess({ canEdit: false }))).toBe(true);
+      expect(
+        isActionAllowedByAccess("CREATE", createAccess({ canEdit: false }))
+      ).toBe(true);
     });
 
     it("unknown action returns false", () => {
-      expect(isActionAllowedByAccess("UNKNOWN_ACTION", createAccess())).toBe(false);
+      expect(isActionAllowedByAccess("UNKNOWN_ACTION", createAccess())).toBe(
+        false
+      );
     });
   });
 
   // ════════════════════════════════════════════════════════════════
   // PRIORITY_BY_INTENT
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("getPriorityByIntent", () => {
     it("CRITICAL_EDIT → CRITICAL", () => {
       expect(getPriorityByIntent("CRITICAL_EDIT")).toBe("CRITICAL");

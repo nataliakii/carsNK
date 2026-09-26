@@ -1,7 +1,15 @@
 "use client";
 
 import { Suspense, useCallback, useMemo } from "react";
-import { Alert, AlertTitle, Box, CircularProgress, Divider, Stack } from "@mui/material";
+import {
+  Alert,
+  AlertTitle,
+  Box,
+  Button,
+  CircularProgress,
+  Divider,
+  Stack,
+} from "@mui/material";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 
@@ -27,23 +35,45 @@ function CompanyLegalNextStep({ publication }) {
   const { t } = useTranslation();
   if (publication === COMPANY_TERMS_PUBLICATION.READY_TO_ACCEPT) {
     return (
-      <Alert severity="warning" sx={{ mb: 2 }} data-testid="company-legal-next-step">
-        <AlertTitle>{t("partnerLegal.companyPage.nextStep.signTitle")}</AlertTitle>
+      <Alert
+        severity="warning"
+        sx={{ mb: 2 }}
+        data-testid="company-legal-next-step"
+      >
+        <AlertTitle>
+          {t("partnerLegal.companyPage.nextStep.signTitle")}
+        </AlertTitle>
         {t("partnerLegal.companyPage.nextStep.signBody")}
       </Alert>
     );
   }
   if (publication === COMPANY_TERMS_PUBLICATION.UPDATE_REQUIRED) {
     return (
-      <Alert severity="warning" sx={{ mb: 2 }} data-testid="company-legal-next-step">
-        <AlertTitle>{t("partnerLegal.companyPage.termsUpdated")}</AlertTitle>
-        {t("partnerLegal.companyPage.nextStep.signBody")}
+      <Alert
+        severity="warning"
+        sx={{ mb: 2 }}
+        data-testid="company-legal-next-step"
+      >
+        <AlertTitle>
+          {t("partnerLegal.companyPage.termsReacceptTitle", {
+            defaultValue:
+              "Updated Rovaro partner terms require your acceptance",
+          })}
+        </AlertTitle>
+        {t("partnerLegal.companyPage.termsReacceptBody", {
+          defaultValue:
+            "Rovaro has published an updated version of the partner terms. Please review the current Partner Agreement, Partner Operating Rules and Data Protection Schedule and accept the updated package on behalf of your company.",
+        })}
       </Alert>
     );
   }
   if (publication === COMPANY_TERMS_PUBLICATION.ACCEPTED) {
     return (
-      <Alert severity="success" sx={{ mb: 2 }} data-testid="company-legal-next-step">
+      <Alert
+        severity="success"
+        sx={{ mb: 2 }}
+        data-testid="company-legal-next-step"
+      >
         <AlertTitle>{t("partnerLegal.companyPage.termsAccepted")}</AlertTitle>
         {t("partnerLegal.companyPage.nextStep.doneBody")}
       </Alert>
@@ -51,7 +81,9 @@ function CompanyLegalNextStep({ publication }) {
   }
   return (
     <Alert severity="info" sx={{ mb: 2 }} data-testid="company-legal-next-step">
-      <AlertTitle>{t("partnerLegal.companyPage.nextStep.preparingTitle")}</AlertTitle>
+      <AlertTitle>
+        {t("partnerLegal.companyPage.nextStep.preparingTitle")}
+      </AlertTitle>
       {t("partnerLegal.companyPage.nextStep.preparingBody")}
     </Alert>
   );
@@ -71,8 +103,20 @@ function CompanyLegalInner({ viewMode }) {
 
   // One server-resolved publication state, shared by Documents and Terms.
   // Neither tab re-derives it from the agreement package.
-  const { termsPublication, terms, reload } = usePartnerLegalStatus();
-  const publication = termsPublication || "NOT_PUBLISHED";
+  const {
+    loading,
+    error,
+    payload,
+    termsPublication,
+    terms,
+    legalState,
+    legalActionCount,
+    agreementPackage,
+    changedDocumentTypes,
+    missingDocumentTypes,
+    reload,
+  } = usePartnerLegalStatus();
+  const publication = termsPublication || "";
 
   const setTab = useCallback(
     (next) => {
@@ -107,12 +151,29 @@ function CompanyLegalInner({ viewMode }) {
       tabValue={value}
       onTabChange={(_, next) => setTab(COMPANY_LEGAL_TABS[next] || "details")}
     >
+      {!loading && error ? (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={reload}>
+              {t("common.retry", { defaultValue: "Retry" })}
+            </Button>
+          }
+        >
+          {t("partnerLegal.companyPage.loadFailed", {
+            defaultValue:
+              "Could not load the current published partner package. Please retry.",
+          })}
+        </Alert>
+      ) : null}
       {tab === "documents" ? (
         <PartnerLegalProfileSection
           variant="company"
           panel="documents"
           viewMode={viewMode}
           termsPublication={publication}
+          legalState={legalState}
         />
       ) : tab === "terms" ? (
         <Box
@@ -140,7 +201,13 @@ function CompanyLegalInner({ viewMode }) {
             overflow: "visible",
           }}
         >
-          <CompanyLegalNextStep publication={publication} />
+          {loading ? (
+            <Box sx={{ py: 4, display: "flex", justifyContent: "center" }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : !error && payload ? (
+            <CompanyLegalNextStep publication={publication} />
+          ) : null}
           <Box
             data-testid="company-legal-terms-form"
             sx={{
@@ -149,17 +216,25 @@ function CompanyLegalInner({ viewMode }) {
               minWidth: 0,
             }}
           >
-            <CompanyTermsPanel
-              termsPublication={publication}
-              terms={terms}
-              onAccepted={reload}
-            />
+            {!loading && !error && payload ? (
+              <CompanyTermsPanel
+                termsPublication={publication}
+                terms={terms}
+                legalState={legalState}
+                packageData={agreementPackage}
+                legalActionCount={legalActionCount}
+                changedDocumentTypes={changedDocumentTypes}
+                missingDocumentTypes={missingDocumentTypes}
+                onAccepted={reload}
+              />
+            ) : null}
           </Box>
           <PartnerLegalProfileSection
             variant="company"
             panel="details"
             viewMode={viewMode}
             termsPublication={publication}
+            legalState={legalState}
           />
         </Stack>
       )}

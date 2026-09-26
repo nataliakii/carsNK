@@ -42,6 +42,7 @@ const versionHistorySchema = new mongoose.Schema(
     changedAt: { type: Date, default: Date.now },
     changedByEmail: { type: String, default: "" },
     note: { type: String, default: "" },
+    changeClass: { type: String, default: "material" },
   },
   { _id: false }
 );
@@ -87,6 +88,11 @@ const legalDocumentSchema = new mongoose.Schema(
     sk: { type: String, required: true },
     publishedAt: { type: Date, default: null },
     publishedByEmail: { type: String, default: "" },
+    publicationChangeClass: {
+      type: String,
+      enum: ["editorial", "material"],
+      default: "material",
+    },
     archivedAt: { type: Date, default: null },
     /** Original upload name when this draft was imported (empty for seeded/edited). */
     sourceFilename: { type: String, default: "" },

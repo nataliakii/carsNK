@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { requireSuperAdmin } from "@lib/adminAuth";
+import { requireAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
 import { Order } from "@models/order";
 import { getOrderAuditTrail } from "@/domain/legal/auditTrail";
+import { ROLE } from "@models/user";
+import {
+  BOOKING_CAPABILITY,
+  resolveOrderCapabilities,
+} from "@/domain/orders/bookingCapabilities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +17,7 @@ export const dynamic = "force-dynamic";
  * Superadmin-only chronological activity for one order (AuditLog trail).
  */
 export async function GET(request, { params }) {
-  const { errorResponse } = await requireSuperAdmin(request);
+  const { session, errorResponse } = await requireAdmin(request);
   if (errorResponse) return errorResponse;
 
   const { orderId } = await params;
@@ -25,10 +30,19 @@ export async function GET(request, { params }) {
   }
 
   await connectToDB();
-  const order = await Order.findById(id).select("_id orderNumber").lean();
+  const order = await Order.findById(id).lean();
   if (!order) {
     return NextResponse.json(
       { success: false, message: "Order not found" },
+      { status: 404 }
+    );
+  }
+
+  const isSuperadmin = Number(session.user?.role) === ROLE.SUPERADMIN;
+  const capabilities = resolveOrderCapabilities(order, session.user);
+  if (!capabilities[BOOKING_CAPABILITY.VIEW_AUDIT_HISTORY]) {
+    return NextResponse.json(
+      { success: false, message: "Booking not found" },
       { status: 404 }
     );
   }
@@ -38,13 +52,14 @@ export async function GET(request, { params }) {
     id: String(row._id),
     action: row.action || "",
     createdAt: row.createdAt || null,
-    userEmail: row.userEmail || "",
+    userEmail: isSuperadmin ? row.userEmail || "" : "",
     userRole: row.userRole || "",
     severity: row.severity || "",
     result: row.result || "",
     reason: row.reason || "",
-    metadata: row.metadata || null,
-    orderData: row.orderData || null,
+    ...(isSuperadmin
+      ? { metadata: row.metadata || null, orderData: row.orderData || null }
+      : {}),
   }));
 
   return NextResponse.json({

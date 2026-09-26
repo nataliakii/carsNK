@@ -74,7 +74,12 @@ function responseInfoTitle(t, actorName, when) {
   return when ? `${who} · ${when}` : who;
 }
 
-function CompactResponseStatus({ label, when, infoTitle, color = "success.main" }) {
+function CompactResponseStatus({
+  label,
+  when,
+  infoTitle,
+  color = "success.main",
+}) {
   return (
     <Stack
       direction="row"
@@ -108,7 +113,12 @@ function CompactResponseStatus({ label, when, infoTitle, color = "success.main" 
       </Stack>
       <Tooltip title={infoTitle}>
         <InfoOutlinedIcon
-          sx={{ fontSize: 14, color: "text.secondary", mt: 0.15, flexShrink: 0 }}
+          sx={{
+            fontSize: 14,
+            color: "text.secondary",
+            mt: 0.15,
+            flexShrink: 0,
+          }}
         />
       </Tooltip>
     </Stack>
@@ -231,13 +241,20 @@ export default function SupplierResponseCell({
       order?.transmission ||
       "—";
     const requestedPrice =
-      order?.totalPrice != null ? `€${Number(order.totalPrice).toFixed(2)}` : "—";
+      order?.totalPrice != null
+        ? `€${Number(order.totalPrice).toFixed(2)}`
+        : "—";
     const fleetSelected = Boolean(proposedCarId);
     const replacementReady = fleetSelected || guaranteeAck;
 
     const awaitingDialogs = (
       <>
-        <Dialog open={statementOpen} onClose={() => setStatementOpen(false)} fullWidth maxWidth="sm">
+        <Dialog
+          open={statementOpen}
+          onClose={() => setStatementOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
           <DialogTitle>
             {t("table.confirmRequestedVehicle", {
               defaultValue: "Confirm requested vehicle",
@@ -259,16 +276,30 @@ export default function SupplierResponseCell({
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setStatementOpen(false)}>{t("table.reset")}</Button>
-            <Button color="success" variant="contained" disabled={busy} onClick={accept}>
+            <Button onClick={() => setStatementOpen(false)}>
+              {t("table.reset")}
+            </Button>
+            <Button
+              color="success"
+              variant="contained"
+              disabled={busy}
+              onClick={accept}
+            >
               {t("table.supplierConfirmationConfirm", {
                 defaultValue: "Yes, I commit to provide this vehicle",
               })}
             </Button>
           </DialogActions>
         </Dialog>
-        <Dialog open={askOpen} onClose={() => setAskOpen(false)} fullWidth maxWidth="xs">
-          <DialogTitle>{t("table.askRovaro", { defaultValue: "Ask Rovaro a question" })}</DialogTitle>
+        <Dialog
+          open={askOpen}
+          onClose={() => setAskOpen(false)}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>
+            {t("table.askRovaro", { defaultValue: "Ask Rovaro a question" })}
+          </DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
@@ -281,12 +312,17 @@ export default function SupplierResponseCell({
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setAskOpen(false)}>{t("table.reset")}</Button>
+            <Button onClick={() => setAskOpen(false)}>
+              {t("table.reset")}
+            </Button>
             <Button
               variant="contained"
               disabled={!question.trim()}
               onClick={async () => {
-                const sent = await askRovaroAboutBooking(order._id, question.trim());
+                const sent = await askRovaroAboutBooking(
+                  order._id,
+                  question.trim()
+                );
                 if (!sent.ok) {
                   setLocalError(sent.message);
                   return;
@@ -299,7 +335,12 @@ export default function SupplierResponseCell({
             </Button>
           </DialogActions>
         </Dialog>
-        <Dialog open={alternativeOpen} onClose={() => setAlternativeOpen(false)} fullWidth maxWidth="sm">
+        <Dialog
+          open={alternativeOpen}
+          onClose={() => setAlternativeOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
           <DialogTitle>
             {t("table.offerEquivalentReplacement", {
               defaultValue: "Offer equivalent replacement",
@@ -310,7 +351,7 @@ export default function SupplierResponseCell({
               <Typography variant="body2" color="text.secondary">
                 {t("bookingDetails.replacementDialog.introFleet", {
                   defaultValue:
-                    "Pick a car from your available fleet to move this booking onto it (same as calendar), or guarantee class only if the exact car is not listed yet.",
+                    "All cars in your fleet are shown. Cars that do not meet the requested terms cannot be offered; availability is checked again when the customer accepts.",
                 })}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 700 }}>
@@ -348,15 +389,21 @@ export default function SupplierResponseCell({
               ) : (
                 <FormControl fullWidth size="small" margin="dense">
                   <InputLabel id="supplier-replacement-fleet-label">
-                    {t("bookingDetails.replacementDialog.kinds.COMPANY_VEHICLE", {
-                      defaultValue: "A vehicle from your fleet",
-                    })}
+                    {t(
+                      "bookingDetails.replacementDialog.kinds.COMPANY_VEHICLE",
+                      {
+                        defaultValue: "A vehicle from your fleet",
+                      }
+                    )}
                   </InputLabel>
                   <Select
                     labelId="supplier-replacement-fleet-label"
-                    label={t("bookingDetails.replacementDialog.kinds.COMPANY_VEHICLE", {
-                      defaultValue: "A vehicle from your fleet",
-                    })}
+                    label={t(
+                      "bookingDetails.replacementDialog.kinds.COMPANY_VEHICLE",
+                      {
+                        defaultValue: "A vehicle from your fleet",
+                      }
+                    )}
                     value={proposedCarId}
                     onChange={(e) => {
                       const next = String(e.target.value || "");
@@ -366,16 +413,33 @@ export default function SupplierResponseCell({
                   >
                     <MenuItem value="">
                       <em>
-                        {t("bookingDetails.replacementDialog.fleetPlaceholder", {
-                          defaultValue: "Choose a vehicle",
-                        })}
+                        {t(
+                          "bookingDetails.replacementDialog.fleetPlaceholder",
+                          {
+                            defaultValue: "Choose a vehicle",
+                          }
+                        )}
                       </em>
                     </MenuItem>
                     {fleetCars.map((row) => (
-                      <MenuItem key={row.carId} value={row.carId}>
-                        {[row.name, row.carNumber, row.category, row.transmission]
+                      <MenuItem
+                        key={row.carId}
+                        value={row.carId}
+                        disabled={!row.offerable}
+                      >
+                        {[
+                          [
+                            row.name,
+                            row.carNumber,
+                            row.category,
+                            row.transmission,
+                          ]
+                            .filter(Boolean)
+                            .join(" · "),
+                          row.exclusionMessage,
+                        ]
                           .filter(Boolean)
-                          .join(" · ")}
+                          .join(" — ")}
                       </MenuItem>
                     ))}
                   </Select>
@@ -424,7 +488,9 @@ export default function SupplierResponseCell({
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setAlternativeOpen(false)}>{t("table.reset")}</Button>
+            <Button onClick={() => setAlternativeOpen(false)}>
+              {t("table.reset")}
+            </Button>
             <Button
               variant="contained"
               disabled={busy || !replacementReady}
@@ -501,7 +567,9 @@ export default function SupplierResponseCell({
             </Button>
             <IconButton
               size="small"
-              aria-label={t("table.moreActions", { defaultValue: "More actions" })}
+              aria-label={t("table.moreActions", {
+                defaultValue: "More actions",
+              })}
               onClick={(e) => {
                 stopRowOpen(e);
                 setMoreAnchor(e.currentTarget);
@@ -531,7 +599,9 @@ export default function SupplierResponseCell({
                   onViewDetails?.();
                 }}
               >
-                {t("table.viewDetails", { defaultValue: "View request details" })}
+                {t("table.viewDetails", {
+                  defaultValue: "View request details",
+                })}
               </MenuItem>
               <MenuItem
                 onClick={() => {
@@ -539,12 +609,18 @@ export default function SupplierResponseCell({
                   setAskOpen(true);
                 }}
               >
-                {t("table.askRovaro", { defaultValue: "Ask Rovaro a question" })}
+                {t("table.askRovaro", {
+                  defaultValue: "Ask Rovaro a question",
+                })}
               </MenuItem>
             </Menu>
           </Stack>
           {localError ? (
-            <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.25 }}>
+            <Typography
+              variant="caption"
+              color="error"
+              sx={{ display: "block", mt: 0.25 }}
+            >
               {localError}
             </Typography>
           ) : null}
@@ -558,7 +634,9 @@ export default function SupplierResponseCell({
         <Stack spacing={0.5} alignItems="center">
           {hideAwaitingLabel ? null : (
             <Typography variant="caption" sx={{ fontWeight: 700 }}>
-              {t("table.supplierAwaitingYours", { defaultValue: "Awaiting your response" })}
+              {t("table.supplierAwaitingYours", {
+                defaultValue: "Awaiting your response",
+              })}
             </Typography>
           )}
           <Button
@@ -572,7 +650,12 @@ export default function SupplierResponseCell({
               defaultValue: "Confirm requested vehicle",
             })}
           </Button>
-          <Button size="small" variant="outlined" disabled={busy} onClick={() => void openReplacement()}>
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={busy}
+            onClick={() => void openReplacement()}
+          >
             {t("table.offerEquivalentReplacement", {
               defaultValue: "Offer equivalent replacement",
             })}
@@ -632,7 +715,9 @@ export default function SupplierResponseCell({
       when={when}
       infoTitle={
         order.declineReason || order.supplierDeclineReason
-          ? `${infoTitle} · ${order.declineReason || order.supplierDeclineReason}`
+          ? `${infoTitle} · ${
+              order.declineReason || order.supplierDeclineReason
+            }`
           : infoTitle
       }
       color="error.main"
@@ -640,7 +725,15 @@ export default function SupplierResponseCell({
   );
 }
 
-function DeclineDialog({ open, reason, setReason, onClose, onConfirm, busy, t }) {
+function DeclineDialog({
+  open,
+  reason,
+  setReason,
+  onClose,
+  onConfirm,
+  busy,
+  t,
+}) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle>{t("table.cannotProvide")}</DialogTitle>

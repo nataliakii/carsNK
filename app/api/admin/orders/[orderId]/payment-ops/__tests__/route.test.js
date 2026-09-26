@@ -56,7 +56,7 @@ jest.mock("@/domain/orders/applyMarketplacePriceCorrection", () => ({
   applyMarketplacePriceCorrection: jest.fn(),
 }));
 
-import { requireAdmin, requireSuperAdmin } from "@lib/adminAuth";
+import { requireAdmin } from "@lib/adminAuth";
 import { ROLE } from "@models/user";
 import { Order } from "@models/order";
 import { reissueMarketplacePaymentLink } from "@/domain/orders/reissueMarketplacePaymentLink";
@@ -78,6 +78,8 @@ describe("payment-ops permissions", () => {
     jest.clearAllMocks();
     Order.findById.mockResolvedValue({
       _id: "o1",
+      ownerId: "co1",
+      source: "PLATFORM",
       my_order: true,
       bookingMode: "MARKETPLACE_REQUEST",
       payment: { checkoutUrl: "https://pay", providerPaymentId: "cs_1" },
@@ -85,23 +87,48 @@ describe("payment-ops permissions", () => {
     });
   });
 
-  test("rental company ADMIN cannot issue payment links", async () => {
-    requireSuperAdmin.mockResolvedValue({
-      session: null,
-      errorResponse: new Response(
-        JSON.stringify({ message: "Forbidden — superadmin only" }),
-        { status: 403 }
-      ),
+  test("owning rental company ADMIN can issue a replacement expired payment link", async () => {
+    requireAdmin.mockResolvedValue({
+      session: { user: { email: "admin@cars.test", role: ROLE.ADMIN, ownerId: "co1" } },
+      errorResponse: null,
+    });
+    reissueMarketplacePaymentLink.mockResolvedValue({
+      ok: true,
+      url: "https://pay/new",
+      sessionId: "cs_2",
+      order: { _id: "o1", ownerId: "co1" },
     });
     const res = await POST(request("POST", { action: "reissue", reason: "payment_link_expired" }), {
       params: Promise.resolve({ orderId: "o1" }),
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.url).toBe("");
+    expect(body.sessionId).toBe("");
+    expect(reissueMarketplacePaymentLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorRole: "admin",
+        actorCompanyId: "co1",
+        reason: "payment_link_expired",
+      })
+    );
+  });
+
+  test("other company ADMIN cannot issue a replacement payment link", async () => {
+    requireAdmin.mockResolvedValue({
+      session: { user: { email: "admin@other.test", role: ROLE.ADMIN, ownerId: "co2" } },
+      errorResponse: null,
+    });
+    const res = await POST(
+      request("POST", { action: "reissue", reason: "payment_link_expired" }),
+      { params: Promise.resolve({ orderId: "o1" }) }
+    );
+    expect(res.status).toBe(404);
     expect(reissueMarketplacePaymentLink).not.toHaveBeenCalled();
   });
 
-  test("superadmin permission is required to reissue", async () => {
-    requireSuperAdmin.mockResolvedValue({
+  test("superadmin can reissue", async () => {
+    requireAdmin.mockResolvedValue({
       session: { user: { email: "root@rovaro.autos", role: ROLE.SUPERADMIN } },
       errorResponse: null,
     });
@@ -119,7 +146,7 @@ describe("payment-ops permissions", () => {
   });
 
   test("13. superadmin reissue forwards an explicit compliance override", async () => {
-    requireSuperAdmin.mockResolvedValue({
+    requireAdmin.mockResolvedValue({
       session: { user: { email: "root@rovaro.autos", role: ROLE.SUPERADMIN } },
       errorResponse: null,
     });
@@ -169,12 +196,9 @@ describe("payment-ops permissions", () => {
   });
 
   test("16. superadmin manual retry requires SUPERADMIN and is audited", async () => {
-    requireSuperAdmin.mockResolvedValue({
-      session: null,
-      errorResponse: new Response(
-        JSON.stringify({ message: "Forbidden — superadmin only" }),
-        { status: 403 }
-      ),
+    requireAdmin.mockResolvedValue({
+      session: { user: { email: "admin@cars.test", role: ROLE.ADMIN, ownerId: "co1" } },
+      errorResponse: null,
     });
     const denied = await POST(request("POST", { action: "retry_invalidation" }), {
       params: Promise.resolve({ orderId: "o1" }),
@@ -183,7 +207,7 @@ describe("payment-ops permissions", () => {
     expect(retryCheckoutInvalidationForOrder).not.toHaveBeenCalled();
     expect(recordAuditEvent).not.toHaveBeenCalled();
 
-    requireSuperAdmin.mockResolvedValue({
+    requireAdmin.mockResolvedValue({
       session: { user: { email: "root@rovaro.autos", role: ROLE.SUPERADMIN } },
       errorResponse: null,
     });
@@ -220,12 +244,9 @@ describe("payment-ops permissions", () => {
   });
 
   test("rental company ADMIN cannot issue a Booking Fee refund", async () => {
-    requireSuperAdmin.mockResolvedValue({
-      session: null,
-      errorResponse: new Response(
-        JSON.stringify({ message: "Forbidden — superadmin only" }),
-        { status: 403 }
-      ),
+    requireAdmin.mockResolvedValue({
+      session: { user: { email: "admin@cars.test", role: ROLE.ADMIN, ownerId: "co1" } },
+      errorResponse: null,
     });
     const res = await POST(
       request("POST", { action: "refund", reason: "goodwill" }),
@@ -236,7 +257,7 @@ describe("payment-ops permissions", () => {
   });
 
   test("SUPERADMIN refund forwards an explicit reason", async () => {
-    requireSuperAdmin.mockResolvedValue({
+    requireAdmin.mockResolvedValue({
       session: { user: { email: "root@rovaro.autos", role: ROLE.SUPERADMIN } },
       errorResponse: null,
     });
@@ -274,10 +295,12 @@ describe("payment-ops permissions", () => {
   test("superadmin cannot run payment-ops on internal company bookings", async () => {
     Order.findById.mockResolvedValue({
       _id: "o1",
+      ownerId: "co1",
+      source: "INTERNAL",
       my_order: false,
       bookingMode: "OPS_CALENDAR",
     });
-    requireSuperAdmin.mockResolvedValue({
+    requireAdmin.mockResolvedValue({
       session: { user: { email: "root@rovaro.autos", role: ROLE.SUPERADMIN } },
       errorResponse: null,
     });

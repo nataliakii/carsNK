@@ -47,17 +47,17 @@ success page must not confirm the booking.
 
 ## Canonical stages ↔ stored `bookingStatus`
 
-| Canonical stage (product) | Stored `order.bookingStatus` | Notes |
-|---|---|---|
-| `AWAITING_SUPPLIER_CONFIRMATION` | `PENDING_SUPPLIER_CONFIRMATION` | Request sent. No charge. Legacy alias: `AWAITING_SUPPLIER_RESPONSE`. |
-| `AWAITING_CUSTOMER_PAYMENT` | `PAYMENT_PROCESSING` (after Checkout); brief hold may be `CONFIRMED_AWAITING_PAYMENT` | Stripe link exists. Still not `order.confirmed`. |
-| `BOOKING_CONFIRMED` | `BOOKING_CONFIRMED` | Webhook paid only. Also `payment.status = paid`, `order.confirmed = true`. |
-| `RENTAL_IN_PROGRESS` | `RENTAL_IN_PROGRESS` | Legacy stored row. New bookings stay `BOOKING_CONFIRMED` until return. Displayed as confirmed. |
-| `COMPLETION_PENDING` | `COMPLETION_PENDING` | After planned return. Waits 24 hours. |
-| `COMPLETED` | `COMPLETED` | After the grace period, unless “Report a problem”. Does not set `order.status` to `PAID_AND_CLOSED`. |
-| `SUPPLIER_DECLINED` | `SUPPLIER_DECLINED` | No Stripe link. Customer is **not** told the technical reason until Rovaro reviews. |
-| `ALTERNATIVE_PROPOSED` | `ALTERNATIVE_PROPOSED` | Customer must Accept alternative. Admin must not accept for them. |
-| `REPLACED_BY_ALTERNATIVE` | *not stored yet* | Original request after a new linked order is created. |
+| Canonical stage (product)        | Stored `order.bookingStatus`                                                          | Notes                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `AWAITING_SUPPLIER_CONFIRMATION` | `PENDING_SUPPLIER_CONFIRMATION`                                                       | Request sent. No charge. Legacy alias: `AWAITING_SUPPLIER_RESPONSE`.                           |
+| `AWAITING_CUSTOMER_PAYMENT`      | `PAYMENT_PROCESSING` (after Checkout); brief hold may be `CONFIRMED_AWAITING_PAYMENT` | Stripe link exists. Still not `order.confirmed`.                                               |
+| `BOOKING_CONFIRMED`              | `BOOKING_CONFIRMED`                                                                   | Webhook paid only. Also `payment.status = paid`, `order.confirmed = true`.                     |
+| `RENTAL_IN_PROGRESS`             | `RENTAL_IN_PROGRESS`                                                                  | Legacy stored row. New bookings stay `BOOKING_CONFIRMED` until return. Displayed as confirmed. |
+| `COMPLETION_PENDING`             | `COMPLETION_PENDING`                                                                  | Legacy transitional status; the scheduled job advances it at/after return time.                |
+| `COMPLETED`                      | `COMPLETED`                                                                           | Scheduled period ended. Does not set `order.status` to `PAID_AND_CLOSED`.                      |
+| `SUPPLIER_DECLINED`              | `SUPPLIER_DECLINED`                                                                   | No Stripe link. Customer is **not** told the technical reason until Rovaro reviews.            |
+| `ALTERNATIVE_PROPOSED`           | `ALTERNATIVE_PROPOSED`                                                                | Customer must Accept alternative. Admin must not accept for them.                              |
+| `REPLACED_BY_ALTERNATIVE`        | _not stored yet_                                                                      | Original request after a new linked order is created.                                          |
 
 Do not persist the strings `AWAITING_SUPPLIER_RESPONSE` or `PAYMENT_PENDING`
 on `bookingStatus`.
@@ -141,11 +141,37 @@ Order, customer, company, car, amount, Stripe IDs, paidAt, admin link.
 
 After payment, practical details are between company and customer (documents, meeting time, deposit, remaining balance, company rental contract, pickup, return).
 
-Stages: `BOOKING_CONFIRMED` → `COMPLETION_PENDING` → `COMPLETED`.
+At `now >= confirmedReturnDateTime` in the booking snapshot timezone, the
+server-side completion job moves `BOOKING_CONFIRMED` (or legacy
+`RENTAL_IN_PROGRESS` / `COMPLETION_PENDING`) directly to `COMPLETED`. Repeated
+runs are idempotent and append one transition audit record. A reported problem
+does not stop this lifecycle transition; the issue remains separately tracked.
 
-If return time has passed and nobody reported a problem, auto-close after a grace period (e.g. 24 hours) → `COMPLETED`.
+`COMPLETED` means only that the scheduled rental period ended. It does not
+assert that the car was returned successfully, supplier balance was collected,
+there was no damage, or final settlement occurred. Never set
+`PAID_AND_CLOSED` automatically.
 
-Company and superadmin need **Report a problem**, which **stops auto-close**.
+### Company Admin rights after payment
+
+For verified paid `BOOKING_CONFIRMED` and `COMPLETED` bookings, the owning
+company admin may view contacts and documents, contact the customer/Rovaro,
+report a problem, and amend operational data (customer/contact corrections,
+actual vehicle, pickup/return instructions, flight/hotel information, document
+verification metadata, and non-price-changing extras). Every amendment must
+include the explicit attestation “I confirm that these changes have been agreed
+with the customer” and an immutable before/after revision with actor, time,
+consent and checksum.
+
+Company Admins cannot amend dates/times/duration, price, Booking Fee, supplier
+balance, payment state, source or legal snapshots. Route these changes through
+Contact Rovaro. `CANCELLED` is different: the company may only view and Contact
+Rovaro; it cannot edit or reactivate the booking. Superadmin may manage a
+cancelled booking through an explicit platform operation.
+
+Reporting a problem records a separate issue marker and does not rewrite
+`bookingStatus = COMPLETED`, change price, charge the customer, or issue a
+refund.
 
 ---
 
@@ -186,17 +212,17 @@ If a new linked order is created:
 
 ## Notification matrix
 
-| Event | Customer | Contractor | Rovaro |
-|---|---|---|---|
-| Request submitted | Receipt | New request | New request |
-| Vehicle available | Payment link | Action confirmation | Car confirmed + link (admin-safe) |
-| Declined | After Rovaro decision | Decline confirmation | Decline + reason + task |
-| Alternative proposed | After review/publish | Proposal confirmation | Alternative + task |
-| Booking Fee paid | Booking confirmed | Paid; open contacts & licence | Payment received |
-| Payment not completed | Reminder | Awaiting payment | Status / expiry |
-| Rental started | Info | Info | Status change |
-| Completed | Ask for review | Order closed | Order closed |
-| Problem reported | As needed | As needed | Urgent task |
+| Event                 | Customer              | Contractor                    | Rovaro                            |
+| --------------------- | --------------------- | ----------------------------- | --------------------------------- |
+| Request submitted     | Receipt               | New request                   | New request                       |
+| Vehicle available     | Payment link          | Action confirmation           | Car confirmed + link (admin-safe) |
+| Declined              | After Rovaro decision | Decline confirmation          | Decline + reason + task           |
+| Alternative proposed  | After review/publish  | Proposal confirmation         | Alternative + task                |
+| Booking Fee paid      | Booking confirmed     | Paid; open contacts & licence | Payment received                  |
+| Payment not completed | Reminder              | Awaiting payment              | Status / expiry                   |
+| Rental started        | Info                  | Info                          | Status change                     |
+| Completed             | Ask for review        | Order closed                  | Order closed                      |
+| Problem reported      | As needed             | As needed                     | Urgent task                       |
 
 ---
 

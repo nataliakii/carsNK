@@ -12,6 +12,7 @@ import {
   acquireMarketplaceHold,
   attachStripeSessionToHold,
   markHoldForRetry,
+  releaseMarketplaceHold,
 } from "@/domain/booking/bookingHold";
 import { cleanupExpiredHolds } from "@/domain/booking/expiredHoldCleanup";
 import {
@@ -27,6 +28,11 @@ import { sendCustomerNewPaymentLinkEmail } from "@/domain/orders/marketplaceBook
 import { recordAuditEvent } from "@/domain/legal/auditTrail";
 import { loadLegalSettings } from "@/domain/legal/legalSettingsService";
 import { currentStripeSessionId } from "@/domain/orders/stripePaymentRefs";
+import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  BOOKING_PAYMENT_STATE,
+  resolveBookingPaymentState,
+} from "@/domain/orders/bookingPaymentStatus";
 import {
   PAYMENT_LINK_REISSUE_REASONS,
   normalizeReissueReason,
@@ -45,6 +51,9 @@ const TERMINAL_STATUSES = new Set([
   BOOKING_STATUS.ADMIN_CANCELLED,
   BOOKING_STATUS.SUPPLIER_DECLINED,
   BOOKING_STATUS.BOOKING_CONFIRMED,
+  BOOKING_STATUS.RENTAL_IN_PROGRESS,
+  BOOKING_STATUS.COMPLETION_PENDING,
+  BOOKING_STATUS.COMPLETED,
 ]);
 
 function sessionStillActive(order, now = new Date()) {
@@ -70,6 +79,13 @@ function partnerAlreadyConfirmed(order) {
 export function evaluatePaymentLinkReissue(order, { now = new Date() } = {}) {
   if (!order) {
     return { ok: false, code: "not_found", message: "Order not found" };
+  }
+  if (!isPlatformBooking(order)) {
+    return {
+      ok: false,
+      code: "not_platform_booking",
+      message: "Internal company bookings do not use Rovaro payment links.",
+    };
   }
   if (!isMarketplaceRequestMode(order.bookingMode)) {
     return {
@@ -102,7 +118,10 @@ export function evaluatePaymentLinkReissue(order, { now = new Date() } = {}) {
   if (
     TERMINAL_STATUSES.has(status) ||
     rental === RENTAL_STATE.CANCELLED ||
-    rental === RENTAL_STATE.DECLINED
+    rental === RENTAL_STATE.DECLINED ||
+    rental === RENTAL_STATE.RENTAL_IN_PROGRESS ||
+    rental === RENTAL_STATE.COMPLETION_PENDING ||
+    rental === RENTAL_STATE.COMPLETED
   ) {
     return {
       ok: false,
@@ -124,7 +143,11 @@ export function evaluatePaymentLinkReissue(order, { now = new Date() } = {}) {
     };
   }
 
-  if (sessionStillActive(order, now)) {
+  const paymentState = resolveBookingPaymentState(order, { now });
+  if (
+    paymentState.state === BOOKING_PAYMENT_STATE.PAYMENT_LINK_ACTIVE ||
+    sessionStillActive(order, now)
+  ) {
     return {
       ok: false,
       code: "session_active",
@@ -133,20 +156,12 @@ export function evaluatePaymentLinkReissue(order, { now = new Date() } = {}) {
     };
   }
 
-  const pay = order.payment || {};
-  const expiredOrFailed =
-    pay.status === "expired" ||
-    rental === RENTAL_STATE.PAYMENT_EXPIRED ||
-    status === BOOKING_STATUS.PAYMENT_EXPIRED ||
-    Boolean(pay.lastCheckoutError) ||
-    pay.status === "failed" ||
-    !pay.providerPaymentId;
-  if (!expiredOrFailed) {
+  if (paymentState.state !== BOOKING_PAYMENT_STATE.PAYMENT_LINK_EXPIRED) {
     return {
       ok: false,
-      code: "session_active",
-      message: "The current payment session is still usable.",
-      canResend: Boolean(pay.checkoutUrl),
+      code: "payment_link_not_expired",
+      message: "A replacement link can only be created after the current payment link expires.",
+      canResend: Boolean(order.payment?.checkoutUrl),
     };
   }
 
@@ -176,7 +191,7 @@ async function carStillAvailable(order) {
 }
 
 /**
- * Superadmin-only reissue of a marketplace payment link.
+ * Reissue a marketplace payment link after the current Stripe link expires.
  * Reuses the immutable authoritative price snapshot — never recalculates.
  */
 export async function reissueMarketplacePaymentLink({
@@ -185,6 +200,8 @@ export async function reissueMarketplacePaymentLink({
   reasonNote = "",
   actorEmail = "",
   actorRole = "superadmin",
+  actorUserId = "",
+  actorCompanyId = "",
   ipAddress = "",
   userAgent = "",
   idempotencyKey = "",
@@ -211,6 +228,13 @@ export async function reissueMarketplacePaymentLink({
   }
 
   if (
+    actorRole !== "superadmin" &&
+    String(actorCompanyId || "").trim() !== String(doc.ownerId || "").trim()
+  ) {
+    return { ok: false, status: 404, code: "not_found", message: "Order not found" };
+  }
+
+  if (
     idempotencyKey &&
     doc.payment?.reissueIdempotencyKey === idempotencyKey &&
     sessionStillActive(doc, now)
@@ -228,6 +252,17 @@ export async function reissueMarketplacePaymentLink({
 
   const guard = evaluatePaymentLinkReissue(doc, { now });
   if (!guard.ok) {
+    if (guard.code === "session_active" && guard.canResend) {
+      return {
+        ok: true,
+        idempotent: true,
+        reused: true,
+        url: doc.payment?.checkoutUrl || "",
+        sessionId: doc.payment?.providerPaymentId || "",
+        expiresAt: doc.payment?.expiresAt || null,
+        order: doc.toObject(),
+      };
+    }
     return { ...guard, status: guard.code === "not_found" ? 404 : 409 };
   }
 
@@ -309,6 +344,22 @@ export async function reissueMarketplacePaymentLink({
     };
   }
 
+  const latestBeforeCheckout = await Order.findById(doc._id);
+  if (
+    latestBeforeCheckout?.payment?.status === "paid" ||
+    resolveRentalState(latestBeforeCheckout) === RENTAL_STATE.CONFIRMED ||
+    String(latestBeforeCheckout?.bookingStatus || "") ===
+      BOOKING_STATUS.BOOKING_CONFIRMED
+  ) {
+    await releaseMarketplaceHold(doc._id, { reason: "paid_before_reissue_checkout" });
+    return {
+      ok: false,
+      status: 409,
+      code: "already_paid",
+      message: "This booking is already paid.",
+    };
+  }
+
   const checkout = await createRentalCheckoutSession(String(doc._id), {
     forceNew: true,
     emailCustomer: false,
@@ -344,6 +395,19 @@ export async function reissueMarketplacePaymentLink({
   }
 
   const reloaded = await Order.findById(doc._id);
+  if (
+    reloaded?.payment?.status === "paid" ||
+    resolveRentalState(reloaded) === RENTAL_STATE.CONFIRMED ||
+    String(reloaded?.bookingStatus || "") === BOOKING_STATUS.BOOKING_CONFIRMED
+  ) {
+    await releaseMarketplaceHold(doc._id, { reason: "paid_during_reissue" });
+    return {
+      ok: false,
+      status: 409,
+      code: "already_paid",
+      message: "This booking is already paid.",
+    };
+  }
   const rental = resolveRentalState(reloaded);
   if (rental === RENTAL_STATE.PAYMENT_EXPIRED) {
     applyRentalStateTransition(reloaded, RENTAL_STATE.PAYMENT_PENDING);
@@ -394,7 +458,13 @@ export async function reissueMarketplacePaymentLink({
       reason: normalizedReason,
       reasonNote: String(reasonNote || "").slice(0, 300),
       previousSessionId: currentStripeSessionId(doc),
+      newSessionId: checkout.sessionId,
       sessionId: checkout.sessionId,
+      companyId: doc.ownerId ? String(doc.ownerId) : "",
+      publicReference: doc.publicReference || "",
+      actorUserId: String(actorUserId || ""),
+      actorRole,
+      timestamp: now.toISOString(),
       priceChecksum: guard.priceChecksum,
       emailed: Boolean(mailed.ok && !mailed.deduped),
     },

@@ -21,18 +21,44 @@ export async function loadAlternativeCars(orderId) {
   );
   const payload = await res.json().catch(() => ({}));
   if (!res.ok || payload.success === false) {
-    return { ok: false, message: payload.message || "Could not load vehicles", cars: [] };
+    return {
+      ok: false,
+      message: payload.message || "Could not load vehicles",
+      cars: [],
+    };
   }
+  const eligibleCars = Array.isArray(payload.eligibleCars)
+    ? payload.eligibleCars
+    : [];
+  const excludedCars = Array.isArray(payload.excludedCars)
+    ? payload.excludedCars
+    : [];
+  const offerableDespiteAvailability = new Set([
+    "availability_conflict",
+    "hold_conflict",
+  ]);
   return {
     ok: true,
-    cars: payload.eligibleCars || [],
-    excludedCars: payload.excludedCars || [],
+    cars: [
+      ...eligibleCars.map((car) => ({ ...car, offerable: true })),
+      ...excludedCars.map((car) => ({
+        ...car,
+        offerable: offerableDespiteAvailability.has(car.code),
+        exclusionMessage: car.message || "This car cannot be offered",
+      })),
+    ],
+    eligibleCars,
+    excludedCars,
     eligibilityError: payload.eligibilityError || null,
     paidOrderBlocked: payload.paidOrderBlocked === true,
   };
 }
 
-export function suggestAlternativeVehicle(orderId, proposedCarId, reasonForReplacement) {
+export function suggestAlternativeVehicle(
+  orderId,
+  proposedCarId,
+  reasonForReplacement
+) {
   return postJson("/api/admin/legal/alternative-offers", {
     orderId,
     replacementSource: "COMPANY_VEHICLE",

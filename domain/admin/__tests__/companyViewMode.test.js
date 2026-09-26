@@ -71,7 +71,10 @@ describe("company view mode", () => {
   });
 
   it("6. Unpublished terms never show Open agreement", () => {
-    const view = companyTermsPublication({ documents: [], containsDrafts: true });
+    const view = companyTermsPublication({
+      documents: [],
+      containsDrafts: true,
+    });
     expect(view.publication).toBe("NOT_PUBLISHED");
     expect(view.canAccept).toBe(false);
     expect(view.links).toEqual([]);
@@ -89,7 +92,9 @@ describe("company view mode", () => {
     const section = read("app/admin/company/legal/CompanyLegalSection.js");
     expect(section).toContain('panel="documents"');
     expect(section).not.toContain("PartnerReviewActions");
-    const profile = read("app/admin/legal-profile/PartnerLegalProfileSection.js");
+    const profile = read(
+      "app/admin/legal-profile/PartnerLegalProfileSection.js"
+    );
     expect(profile).toContain("companyView ? null");
   });
 
@@ -104,8 +109,9 @@ describe("company view mode", () => {
     const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
     expect(panel).not.toContain("companyTermsPublication({");
     const status = read("app/api/partner/legal/status/route.js");
-    expect(status).toContain("companyTermsPublication");
-    expect(status).toContain("termsPublication: publication.publication");
+    expect(status).toContain("resolveCurrentPartnerPackage");
+    expect(status).toContain("legalState: pkg.legalState.state");
+    expect(status).toContain("termsPublication: publicationValue");
     const unpublished = companyTermsPublication({ containsDrafts: true });
     const ready = companyTermsPublication({
       documents: [{ documentType: "partner-agreement", source: "published" }],
@@ -117,7 +123,9 @@ describe("company view mode", () => {
   });
 
   it("10. Opening edit mode does not stop trading", () => {
-    const profile = read("app/admin/legal-profile/PartnerLegalProfileSection.js");
+    const profile = read(
+      "app/admin/legal-profile/PartnerLegalProfileSection.js"
+    );
     expect(profile).toContain("setUnlocked(true)");
     expect(profile).not.toContain("trading will stop");
     const plan = planVerifiedProfileSave(
@@ -177,7 +185,12 @@ describe("company view mode", () => {
 
     // A reviewer sees only what changed, next to the value they verified.
     expect(pendingProfileChangeSummary(profile)).toEqual([
-      { field: "legalName", verified: "Test", proposed: "Test SL", material: true },
+      {
+        field: "legalName",
+        verified: "Test",
+        proposed: "Test SL",
+        material: true,
+      },
     ]);
 
     const applied = applyPendingProfileChanges(profile);
@@ -193,7 +206,9 @@ describe("company view mode", () => {
       legalName: "Test",
       pendingChanges: { fields: { legalName: "Test SL" } },
     };
-    expect(discardPendingProfileChanges(profile).discarded).toEqual(["legalName"]);
+    expect(discardPendingProfileChanges(profile).discarded).toEqual([
+      "legalName",
+    ]);
     expect(profile.legalName).toBe("Test");
     expect(profile.verificationStatus).toBe(S.VERIFIED);
     expect(pendingProfileChangeSummary(profile)).toEqual([]);

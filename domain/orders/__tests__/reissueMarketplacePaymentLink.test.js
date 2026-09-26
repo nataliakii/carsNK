@@ -25,6 +25,7 @@ jest.mock("@/domain/booking/bookingHold", () => ({
   acquireMarketplaceHold: jest.fn(),
   attachStripeSessionToHold: jest.fn(),
   markHoldForRetry: jest.fn(),
+  releaseMarketplaceHold: jest.fn(),
 }));
 jest.mock("@/domain/orders/rentalStripeCheckout", () => ({
   clampStripeExpiresMinutes: (n) => n || 60,
@@ -56,7 +57,10 @@ jest.mock("@/domain/legal/partnerOperatingPolicy", () => ({
 }));
 
 import { Order } from "@models/order";
-import { acquireMarketplaceHold } from "@/domain/booking/bookingHold";
+import {
+  acquireMarketplaceHold,
+  releaseMarketplaceHold,
+} from "@/domain/booking/bookingHold";
 import { createRentalCheckoutSession } from "@/domain/orders/rentalStripeCheckout";
 import { sendCustomerNewPaymentLinkEmail } from "@/domain/orders/marketplaceBookingEmails";
 import { assertPartnerCanOperate } from "@/domain/legal/partnerOperatingPolicy";
@@ -71,6 +75,8 @@ const authoritativePrice = {
 function baseOrder(overrides = {}) {
   const order = {
     _id: "64b7f2c3a1b2c3d4e5f60789",
+    source: "PLATFORM",
+    my_order: true,
     orderNumber: "20260921",
     bookingMode: BOOKING_MODES.MARKETPLACE_REQUEST,
     bookingStatus: BOOKING_STATUS.PAYMENT_EXPIRED,
@@ -129,6 +135,23 @@ describe("evaluatePaymentLinkReissue", () => {
   test("allows an expired link to be reissued", () => {
     const result = evaluatePaymentLinkReissue(baseOrder());
     expect(result.ok).toBe(true);
+  });
+
+  test("does not classify missing Stripe sessions as expired payment links", () => {
+    const result = evaluatePaymentLinkReissue(
+      baseOrder({
+        payment: {
+          status: "failed",
+          provider: "stripe",
+          providerPaymentId: "",
+          checkoutUrl: "",
+          expiresAt: new Date("2026-09-21T19:00:00.000Z"),
+          priceChecksum: "",
+        },
+      })
+    );
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("payment_link_not_expired");
   });
 
   test("rental company ADMIN path is not evaluated here — eligibility is marketplace-only", () => {
@@ -196,6 +219,74 @@ describe("reissueMarketplacePaymentLink", () => {
     expect(result.ok).toBe(true);
     expect(result.idempotent).toBe(true);
     expect(createRentalCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  test("returns the active replacement link state instead of creating a duplicate session", async () => {
+    const active = baseOrder({
+      bookingStatus: BOOKING_STATUS.PAYMENT_PROCESSING,
+      payment: {
+        status: "pending",
+        provider: "stripe",
+        providerPaymentId: "cs_new",
+        checkoutUrl: "https://checkout.stripe.com/c/pay/cs_new",
+        expiresAt: new Date(Date.now() + 40 * 60 * 1000),
+      },
+    });
+    active.payment.priceChecksum = computePriceSnapshotChecksum(active);
+    Order.findById.mockResolvedValue(active);
+    const result = await reissueMarketplacePaymentLink({
+      orderId: active._id,
+      reason: PAYMENT_LINK_REISSUE_REASONS.PAYMENT_LINK_EXPIRED,
+      idempotencyKey: "different-click",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.reused).toBe(true);
+    expect(result.sessionId).toBe("cs_new");
+    expect(createRentalCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  test("company admin cannot reissue another company's booking", async () => {
+    const order = baseOrder({ ownerId: "co-1" });
+    Order.findById.mockResolvedValue(order);
+    const result = await reissueMarketplacePaymentLink({
+      orderId: order._id,
+      reason: PAYMENT_LINK_REISSUE_REASONS.PAYMENT_LINK_EXPIRED,
+      actorRole: "admin",
+      actorCompanyId: "co-2",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(404);
+    expect(createRentalCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  test("does not create or email a replacement if payment lands before checkout creation", async () => {
+    const expired = baseOrder();
+    const paid = baseOrder({
+      bookingStatus: BOOKING_STATUS.BOOKING_CONFIRMED,
+      payment: {
+        status: "paid",
+        provider: "stripe",
+        providerPaymentId: "cs_paid",
+        checkoutUrl: "",
+        amountMinor: 10000,
+        currency: "EUR",
+      },
+    });
+    paid.payment.priceChecksum = computePriceSnapshotChecksum(paid);
+    Order.findById
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(paid);
+    const result = await reissueMarketplacePaymentLink({
+      orderId: expired._id,
+      reason: PAYMENT_LINK_REISSUE_REASONS.PAYMENT_LINK_EXPIRED,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("already_paid");
+    expect(releaseMarketplaceHold).toHaveBeenCalledWith(expired._id, {
+      reason: "paid_before_reissue_checkout",
+    });
+    expect(createRentalCheckoutSession).not.toHaveBeenCalled();
+    expect(sendCustomerNewPaymentLinkEmail).not.toHaveBeenCalled();
   });
 
   test("11. payment-link reissue is blocked after suspension", async () => {

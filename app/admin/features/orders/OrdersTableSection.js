@@ -103,6 +103,7 @@ import { isPast } from "@utils/businessTime";
 import { useAdminCountryFilter } from "@app/hooks/useAdminCountryFilter";
 import { isPlatformAdminUser, policyRoleFromUser } from "@/domain/admin/adminViewMode";
 import SupplierResponseCell from "@/app/admin/features/orders/components/SupplierResponseCell";
+import BookingPaymentStatusChip from "@/app/admin/features/orders/components/BookingPaymentStatusChip";
 import { orderRequiresCompanyAction } from "@/domain/orders/companyRentalActions";
 import OrdersFinancialSummary from "@/app/admin/features/orders/components/OrdersFinancialSummary";
 
@@ -882,7 +883,7 @@ export default function OrdersTableSection() {
       },
       { value: "table.toneCompleted", label: t("table.toneCompleted", { defaultValue: "Completed" }) },
       { value: "table.toneDeclined", label: t("table.toneDeclined", { defaultValue: "Declined" }) },
-      { value: "table.toneExpired", label: t("table.toneExpired", { defaultValue: "Payment expired" }) },
+      { value: "table.toneExpired", label: t("table.toneExpired", { defaultValue: "Payment link expired" }) },
       { value: "table.toneCancelled", label: t("table.toneCancelled", { defaultValue: "Cancelled" }) },
       {
         value: "table.internalTentative",
@@ -2130,7 +2131,7 @@ export default function OrdersTableSection() {
                         "table.toneCompletionPending": "Completion pending",
                         "table.toneCompleted": "Completed",
                         "table.toneDeclined": "Declined",
-                        "table.toneExpired": "Payment expired",
+                        "table.toneExpired": "Payment link expired",
                         "table.toneCancelled": "Cancelled",
                         "table.internalTentative": "Tentative",
                         "table.internalConfirmed": "Confirmed",
@@ -2387,6 +2388,10 @@ export default function OrdersTableSection() {
                                 }}
                               />
                             ) : null}
+                            <BookingPaymentStatusChip
+                              order={order}
+                              sx={{ height: 22, fontSize: "0.7rem" }}
+                            />
                             {!orderCanEdit && isClient ? (
                               <Tooltip title="Admin cannot edit client orders">
                                 <LockIcon

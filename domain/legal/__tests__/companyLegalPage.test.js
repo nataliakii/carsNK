@@ -72,7 +72,14 @@ const standardPkg = {
 };
 
 function adminSession() {
-  return { user: { role: ROLE.ADMIN, isAdmin: true, ownerId: OWN, email: "ada@fleet.test" } };
+  return {
+    user: {
+      role: ROLE.ADMIN,
+      isAdmin: true,
+      ownerId: OWN,
+      email: "ada@fleet.test",
+    },
+  };
 }
 
 describe("company legal access", () => {
@@ -81,9 +88,9 @@ describe("company legal access", () => {
   const impersonating = { role: ROLE.SUPERADMIN, viewAsCompanyId: OWN };
 
   it("1. ADMIN Legal nav href is the company terms step", () => {
-    expect(legalNavHref({ role: ROLE.ADMIN, companyContextActive: false })).toBe(
-      "/admin/company/setup?step=details"
-    );
+    expect(
+      legalNavHref({ role: ROLE.ADMIN, companyContextActive: false })
+    ).toBe("/admin/company/setup?step=details");
   });
 
   it("2. SUPERADMIN without company context Legal nav href is Settings → Legal documents", () => {
@@ -93,9 +100,9 @@ describe("company legal access", () => {
   });
 
   it("3. SUPERADMIN with active company context Legal nav href is /admin/company/legal", () => {
-    expect(legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: true })).toBe(
-      COMPANY_AGREEMENT_PATH
-    );
+    expect(
+      legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: true })
+    ).toBe(COMPANY_AGREEMENT_PATH);
     const navbar = fs.readFileSync(
       path.join(process.cwd(), "app/components/Navbar.js"),
       "utf8"
@@ -125,12 +132,12 @@ describe("company legal access", () => {
   });
 
   it("7. Exiting company restores the superadmin Legal destination", () => {
-    expect(legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: true })).toBe(
-      COMPANY_AGREEMENT_PATH
-    );
-    expect(legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: false })).toBe(
-      "/admin/settings?tab=legal"
-    );
+    expect(
+      legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: true })
+    ).toBe(COMPANY_AGREEMENT_PATH);
+    expect(
+      legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: false })
+    ).toBe("/admin/settings?tab=legal");
   });
 
   it("8. A direct URL to /admin/legal cannot expose Partner reviews while company context is active", () => {
@@ -146,7 +153,9 @@ describe("company legal access", () => {
   it("9. Company legal page loads the selected company for an impersonating SUPERADMIN", () => {
     expect(selectedCompanyForLegalPage(impersonating)).toBe(OWN);
     expect(selectedCompanyForLegalPage(impersonating, OTHER)).toBe("");
-    expect(ownCompanyScope({ user: impersonating }, OTHER).forbidden).toBe(true);
+    expect(ownCompanyScope({ user: impersonating }, OTHER).forbidden).toBe(
+      true
+    );
     const page = fs.readFileSync(
       path.join(process.cwd(), "app/admin/company/setup/page.js"),
       "utf8"
@@ -157,9 +166,13 @@ describe("company legal access", () => {
   });
 
   it("10. No redirect loop occurs", () => {
-    expect(legalAreaDecision(impersonating).redirectTo).toBe(COMPANY_AGREEMENT_PATH);
+    expect(legalAreaDecision(impersonating).redirectTo).toBe(
+      COMPANY_AGREEMENT_PATH
+    );
     expect(companyLegalPageAccess(impersonating).redirectTo).toBeNull();
-    expect(companyLegalPageAccess(superadmin).redirectTo).toBe(SUPERADMIN_LEGAL_PATH);
+    expect(companyLegalPageAccess(superadmin).redirectTo).toBe(
+      SUPERADMIN_LEGAL_PATH
+    );
     expect(legalAreaDecision(superadmin).redirectTo).toBeNull();
     expect(legalAreaDecision(admin).redirectTo).toBe(COMPANY_AGREEMENT_PATH);
     expect(companyLegalPageAccess(admin).redirectTo).toBeNull();
@@ -222,7 +235,7 @@ describe("partner terms package", () => {
     expect(view.links).toEqual([]);
     expect(JSON.stringify(view)).not.toContain("/admin/legal");
     expect(partnerLegalEn.companyPage.preparing).toBe(
-      "Partner terms are being prepared. You can continue setting up your company and submitting documents."
+      "Partner terms are not available yet."
     );
 
     const panel = fs.readFileSync(
@@ -299,7 +312,11 @@ describe("partner terms package", () => {
       title: "Harbour addendum",
       checksum: "custom-hash",
       overrides: [
-        { documentType: "partner-agreement", heading: "Fees", text: "Custom fees" },
+        {
+          documentType: "partner-agreement",
+          heading: "Fees",
+          text: "Custom fees",
+        },
       ],
     });
     expect(next.hasCustomAgreement).toBe(true);
@@ -322,9 +339,9 @@ describe("partner terms package", () => {
       version: 4,
       checksum: "next",
     });
-    expect(acceptanceOutdated(standardPkg.packageChecksum, next.packageChecksum)).toBe(
-      true
-    );
+    expect(
+      acceptanceOutdated(standardPkg.packageChecksum, next.packageChecksum)
+    ).toBe(true);
     expect(
       presentPartnerTerms({
         documents: published,
@@ -361,29 +378,39 @@ describe("company legal copy", () => {
     expect(partnerLegalEn.companyPage.standardApply).toBe(
       "Standard partner terms apply"
     );
-    expect(partnerLegalEn.companyPage.termsReady).toBe("Review and accept terms");
+    expect(partnerLegalEn.companyPage.termsReady).toBe(
+      "Review and accept terms"
+    );
     expect(partnerLegalEn.companyPage.acceptTerms).toBe("Accept and continue");
-    expect(partnerLegalEn.companyPage.termsAccepted).toBe("Partner terms accepted");
-    expect(partnerLegalEn.companyPage.termsUpdated).toBe("Partner terms update");
+    expect(partnerLegalEn.companyPage.termsAccepted).toBe(
+      "Partner terms accepted"
+    );
+    expect(partnerLegalEn.companyPage.termsUpdated).toBe(
+      "Partner terms update"
+    );
     expect(partnerLegalEn.companyPage.documentTypes["partner-agreement"]).toBe(
       "Partner Agreement"
     );
-    expect(partnerLegalEn.companyPage.documentTypes["partner-operating-rules"]).toBe(
-      "Partner Operating Rules"
-    );
-    expect(partnerLegalEn.companyPage.documentTypes["data-protection-schedule"]).toBe(
-      "Data Protection Schedule"
-    );
+    expect(
+      partnerLegalEn.companyPage.documentTypes["partner-operating-rules"]
+    ).toBe("Partner Operating Rules");
+    expect(
+      partnerLegalEn.companyPage.documentTypes["data-protection-schedule"]
+    ).toBe("Data Protection Schedule");
     expect(partnerLegalEs.companyPage.acceptTerms).toBe("Aceptar condiciones");
     expect(partnerLegalEs.companyPage.preparing).not.toBe(
       partnerLegalEn.companyPage.preparing
     );
     expect(partnerLegalEs.companyPage.standardApply).toMatch(/Rovaro/);
-    expect(companyLegalStatusKey({ verificationStatus: "DRAFT" })).toBe("draft");
+    expect(companyLegalStatusKey({ verificationStatus: "DRAFT" })).toBe(
+      "draft"
+    );
     expect(
       companyLegalStatusKey({ verificationStatus: "PENDING_VERIFICATION" })
     ).toBe("underReview");
-    expect(companyLegalStatusKey({ submittedAt: "2026-09-23" })).toBe("submitted");
+    expect(companyLegalStatusKey({ submittedAt: "2026-09-23" })).toBe(
+      "submitted"
+    );
     expect(legacyLegalProfileRedirect("/admin/legal-profile/agreement")).toBe(
       "/admin/company/setup?step=details"
     );
@@ -417,21 +444,46 @@ describe("company terms screen", () => {
     }
   });
 
+  it("navbar Legal task and Company Legal page share the canonical package state", () => {
+    const inbox = read("app/api/admin/inbox/pending/route.js");
+    const status = read("app/api/partner/legal/status/route.js");
+    const section = read("app/admin/company/legal/CompanyLegalSection.js");
+    const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
+    expect(inbox).toContain("resolveCurrentPartnerPackage");
+    expect(status).toContain("resolveCurrentPartnerPackage");
+    expect(status).toContain("legalState: pkg.legalState.state");
+    expect(section).toContain("packageData={agreementPackage}");
+    expect(panel).toContain("setData(packageData)");
+    expect(panel).not.toContain("/api/partner/legal/agreement?lang=");
+    const statusHook = read(
+      "app/admin/legal-profile/_components/usePartnerLegalStatus.js"
+    );
+    expect(statusHook).toContain(
+      'window.addEventListener("rovaro-inbox-refresh"'
+    );
+    expect(statusHook).toContain("setInterval(reload, 25_000)");
+  });
+
   it("3. No company-facing render tells the partner to publish drafts", () => {
     const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
-    const legacy = read("app/admin/legal-profile/agreement/PartnerAgreementSection.js");
-    expect(panel).not.toContain("publish");
+    const legacy = read(
+      "app/admin/legal-profile/agreement/PartnerAgreementSection.js"
+    );
+    expect(panel).not.toMatch(/publish drafts/i);
     expect(legacy).not.toContain("publish");
-    expect(partnerLegalEn.companyPage.preparing).not.toMatch(/publish/i);
+    expect(partnerLegalEn.companyPage.preparing).not.toMatch(/draft/i);
   });
 
   it("4. Draft package hides signer fields and acceptance controls", () => {
-    const view = presentPartnerTerms({ containsDrafts: true, documents: published });
+    const view = presentPartnerTerms({
+      containsDrafts: true,
+      documents: published,
+    });
     expect(view.state).toBe("preparing");
     expect(view.canAccept).toBe(false);
     const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
     expect(panel).toContain("COMPANY_TERMS_PUBLICATION.NOT_PUBLISHED");
-    expect(panel).toContain("if (!termsAvailable || !data)");
+    expect(panel).toContain("if (!termsAvailable)");
     expect(panel.indexOf("partnerLegal.companyPage.preparing")).toBeLessThan(
       panel.indexOf("partnerLegal.companyPage.signerName")
     );
@@ -439,7 +491,7 @@ describe("company terms screen", () => {
 
   it("5. Draft package shows only the neutral waiting message", () => {
     expect(partnerLegalEn.companyPage.preparing).toBe(
-      "Partner terms are being prepared. You can continue setting up your company and submitting documents."
+      "Partner terms are not available yet."
     );
     const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
     expect(panel).toContain("partnerLegal.companyPage.rovaroTerms");
@@ -477,14 +529,16 @@ describe("company terms screen", () => {
     ).toBe("");
     expect(explicitSignerRole({ signatoryRole: "Director" })).toBe("Director");
     expect(explicitSignerRole({ legalRole: "Owner" })).toBe("Owner");
-    expect(explicitSignerRole({ signerRole: "Authorised representative" })).toBe(
-      "Authorised representative"
-    );
+    expect(
+      explicitSignerRole({ signerRole: "Authorised representative" })
+    ).toBe("Authorised representative");
   });
 
   it("8. Technical audit details are not displayed", () => {
     const panel = read("app/admin/company/legal/CompanyTermsPanel.js");
-    const legacy = read("app/admin/legal-profile/agreement/PartnerAgreementSection.js");
+    const legacy = read(
+      "app/admin/legal-profile/agreement/PartnerAgreementSection.js"
+    );
     for (const src of [panel, legacy]) {
       expect(src).not.toContain("What is recorded");
       expect(src).not.toContain("checksum");
@@ -494,36 +548,38 @@ describe("company terms screen", () => {
   });
 
   it("9. Legacy URLs redirect to the matching setup step", () => {
-    expect(legacyLegalProfileRedirect("/admin/company/legal", { tab: "terms" })).toBe(
-      COMPANY_TERMS_PATH
-    );
-    expect(legacyLegalProfileRedirect("/admin/company/legal", { tab: "documents" })).toBe(
-      "/admin/company/setup?step=documents"
-    );
+    expect(
+      legacyLegalProfileRedirect("/admin/company/legal", { tab: "terms" })
+    ).toBe(COMPANY_TERMS_PATH);
+    expect(
+      legacyLegalProfileRedirect("/admin/company/legal", { tab: "documents" })
+    ).toBe("/admin/company/setup?step=documents");
     expect(read("app/admin/legal-profile/page.js")).toContain(
       "legacyLegalProfileRedirect("
     );
     expect(read("app/admin/legal-profile/agreement/page.js")).toContain(
       'companySetupHref("details")'
     );
-    expect(read("app/admin/legal-profile/agreement/PartnerAgreementSection.js")).toContain(
-      "COMPANY_AGREEMENT_PATH"
-    );
+    expect(
+      read("app/admin/legal-profile/agreement/PartnerAgreementSection.js")
+    ).toContain("COMPANY_AGREEMENT_PATH");
   });
 
   it("10. SUPERADMIN in company context receives the same company Terms page", () => {
     const impersonating = { role: ROLE.SUPERADMIN, viewAsCompanyId: OWN };
-    expect(legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: true })).toBe(
+    expect(
+      legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: true })
+    ).toBe(COMPANY_AGREEMENT_PATH);
+    expect(legalAreaDecision(impersonating).redirectTo).toBe(
       COMPANY_AGREEMENT_PATH
     );
-    expect(legalAreaDecision(impersonating).redirectTo).toBe(COMPANY_AGREEMENT_PATH);
     expect(companyLegalPageAccess(impersonating).allow).toBe(true);
   });
 
   it("11. SUPERADMIN outside company context retains the platform legal hub", () => {
-    expect(legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: false })).toBe(
-      SUPERADMIN_LEGAL_PATH
-    );
+    expect(
+      legalNavHref({ role: ROLE.SUPERADMIN, companyContextActive: false })
+    ).toBe(SUPERADMIN_LEGAL_PATH);
     expect(legalAreaDecision({ role: ROLE.SUPERADMIN }).allow).toBe(true);
   });
 });

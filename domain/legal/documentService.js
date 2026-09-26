@@ -92,10 +92,25 @@ export async function syncSeedDocuments({ byEmail = "" } = {}) {
  *
  * @param {{ documentType: string, language?: string, jurisdiction?: string }} params
  */
-async function resolveCurrentPublishedRow({ documentType, language, jurisdiction }) {
+async function resolveCurrentPublishedRow({
+  documentType,
+  language,
+  jurisdiction,
+}) {
   const pointer = await LegalDocumentCurrent.findOne(
     scope({ documentType, language, jurisdiction })
   ).lean();
+  const latestPublished = await LegalDocument.findOne(
+    scope({
+      documentType,
+      language,
+      jurisdiction,
+      status: { $in: [LEGAL_DOCUMENT_STATUS.PUBLISHED, "PUBLISHED"] },
+    })
+  )
+    .sort({ version: -1, publishedAt: -1 })
+    .lean();
+
   if (pointer?.documentId) {
     const byPointer = await LegalDocument.findOne(
       scope({
@@ -103,23 +118,22 @@ async function resolveCurrentPublishedRow({ documentType, language, jurisdiction
         documentType,
         language,
         jurisdiction,
-        status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
+        status: { $in: [LEGAL_DOCUMENT_STATUS.PUBLISHED, "PUBLISHED"] },
       })
     ).lean();
-    if (byPointer) return byPointer;
+    if (
+      byPointer &&
+      (!latestPublished ||
+        Number(byPointer.version) >= Number(latestPublished.version))
+    ) {
+      return byPointer;
+    }
   }
 
-  // Fallback for rows published before the pointer collection existed.
-  return LegalDocument.findOne(
-    scope({
-      documentType,
-      language,
-      jurisdiction,
-      status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
-    })
-  )
-    .sort({ version: -1 })
-    .lean();
+  // Fallback for older rows without pointers and repair for a pointer that
+  // lags behind a higher currently-published version. Drafts/archives never
+  // participate in this query.
+  return latestPublished || null;
 }
 
 export async function getPublishedDocument({
@@ -225,6 +239,7 @@ export async function publishDocument({
   effectiveFrom = null,
   byEmail = "",
   expectedChecksum = null,
+  changeClass = "material",
 }) {
   await connectToDB();
   const jur = normalizeJurisdiction(jurisdiction);
@@ -234,7 +249,11 @@ export async function publishDocument({
     scope({ documentType, language: lang, jurisdiction: jur, version })
   );
   if (!doc) {
-    return { ok: false, code: "not_found", message: "Document version not found" };
+    return {
+      ok: false,
+      code: "not_found",
+      message: "Document version not found",
+    };
   }
   if (doc.status === LEGAL_DOCUMENT_STATUS.PUBLISHED) {
     await upsertCurrentPointer({
@@ -270,7 +289,8 @@ export async function publishDocument({
 
   if (
     expectedChecksum &&
-    String(expectedChecksum).toLowerCase() !== String(doc.checksum).toLowerCase()
+    String(expectedChecksum).toLowerCase() !==
+      String(doc.checksum).toLowerCase()
   ) {
     return {
       ok: false,
@@ -281,6 +301,8 @@ export async function publishDocument({
   }
 
   const now = new Date();
+  const normalizedChangeClass =
+    changeClass === "editorial" ? "editorial" : "material";
   const effective = effectiveFrom ? new Date(effectiveFrom) : now;
 
   const run = async (session) => {
@@ -292,7 +314,8 @@ export async function publishDocument({
         status: LEGAL_DOCUMENT_STATUS.PUBLISHED,
       })
     );
-    if (session) currentlyPublishedQuery = currentlyPublishedQuery.session(session);
+    if (session)
+      currentlyPublishedQuery = currentlyPublishedQuery.session(session);
     const currentlyPublished = await currentlyPublishedQuery;
 
     for (const previous of currentlyPublished) {
@@ -309,6 +332,7 @@ export async function publishDocument({
           changedAt: now,
           changedByEmail: byEmail,
           note: `Superseded by version ${version}`,
+          changeClass: previous.publicationChangeClass || "material",
         },
       ];
       await previous.save(session ? { session } : undefined);
@@ -318,6 +342,7 @@ export async function publishDocument({
     doc.effectiveFrom = effective;
     doc.publishedAt = now;
     doc.publishedByEmail = byEmail;
+    doc.publicationChangeClass = normalizedChangeClass;
     doc.history = [
       ...(doc.history || []),
       {
@@ -328,6 +353,7 @@ export async function publishDocument({
         changedAt: now,
         changedByEmail: byEmail,
         note: "Published",
+        changeClass: normalizedChangeClass,
       },
     ];
     await doc.save(session ? { session } : undefined);
@@ -537,7 +563,11 @@ export async function archiveDocument({
     })
   );
   if (!doc) {
-    return { ok: false, code: "not_found", message: "Document version not found" };
+    return {
+      ok: false,
+      code: "not_found",
+      message: "Document version not found",
+    };
   }
   if (doc.status === LEGAL_DOCUMENT_STATUS.ARCHIVED) {
     return { ok: true, unchanged: true, doc: doc.toObject() };
@@ -824,6 +854,7 @@ export async function publishRequiredDocuments({
       language: target.language,
       version: target.version,
       byEmail,
+      changeClass,
     });
     if (result.ok) {
       published.push({
@@ -906,8 +937,7 @@ export async function saveDocumentDraft({
 
   const latest = await LegalDocument.findOne(
     scope({ documentType, language: lang, jurisdiction: jur })
-  )
-    .sort({ version: -1 });
+  ).sort({ version: -1 });
 
   // Never edit a published (or archived) row in place.
   if (
@@ -917,9 +947,11 @@ export async function saveDocumentDraft({
   ) {
     latest.content = normalized;
     latest.format = format || "sections";
-    latest.translationStatus = translationStatus || latest.translationStatus || "";
+    latest.translationStatus =
+      translationStatus || latest.translationStatus || "";
     latest.sourceChecksum = sourceChecksum || latest.sourceChecksum || "";
-    latest.sourceVersion = Number(sourceVersion || latest.sourceVersion || 0) || 0;
+    latest.sourceVersion =
+      Number(sourceVersion || latest.sourceVersion || 0) || 0;
     if (pdfFile) latest.pdfFile = pdfFile;
     if (filename) latest.sourceFilename = filename;
     latest.savedByEmail = byEmail || latest.savedByEmail || "";

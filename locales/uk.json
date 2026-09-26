@@ -1,4 +1,5 @@
 {
+  "paymentLinkExpired": "Термін дії посилання на оплату минув",
   "header": {
     "main": "Оренда",
     "locations": "Локації",
@@ -566,7 +567,8 @@
     "internalCompleted": "Completed",
     "internalCancelled": "Cancelled",
     "toneCompletionPending": "Completion pending",
-    "toneAlternative": "Alternative offered"
+    "toneAlternative": "Alternative offered",
+    "toneExpired": "Термін дії посилання на оплату минув"
   },
   "print": {
     "allOrders": "Всі замовлення",
@@ -1200,9 +1202,9 @@
         "detail": "Очікується ваше підтвердження."
       },
       "awaitingPayment": {
-        "title": "Автомобіль підтверджено",
-        "detail": "Очікуємо оплату клієнтом броні у розмірі {{rate}}%.",
-        "detailNoRate": "Очікуємо оплату броні клієнтом."
+        "title": "Очікується оплата клієнтом",
+        "detail": "Автомобіль підтверджено. Очікуємо оплату клієнтом броні у розмірі {{rate}}%.",
+        "detailNoRate": "Автомобіль підтверджено. Очікуємо оплату броні клієнтом."
       },
       "replacementOffered": {
         "title": "Запропоновано заміну",
@@ -1395,6 +1397,7 @@
       "sourcePlatform": "Бронювання Rovaro",
       "sourceInternal": "Внутрішнє",
       "awaitingPayment": "Очікується оплата клієнтом",
+      "paymentLinkExpired": "Термін дії посилання на оплату минув",
       "paymentReceived": "Оплату бронювання отримано",
       "days_one": "{{count}} день",
       "days_few": "{{count}} дні",

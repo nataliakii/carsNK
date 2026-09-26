@@ -80,8 +80,8 @@ export const CONTRACTOR_TONE_COLORS = {
   [CALENDAR_TONE.PAYMENT_EXPIRED]: swatch(
     CALENDAR_TONE.PAYMENT_EXPIRED,
     palette.neutral.gray300,
-    "Оплата просрочена",
-    "Payment expired",
+    "Ссылка на оплату истекла",
+    "Payment link expired",
     { text: palette.neutral.gray800 }
   ),
   [CALENDAR_TONE.CANCELLED]: swatch(

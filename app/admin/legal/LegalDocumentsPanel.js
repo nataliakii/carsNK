@@ -13,6 +13,11 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
+  Radio,
+  RadioGroup,
   Stack,
   Tab,
   Tabs,
@@ -22,7 +27,11 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 import LegalRichTextEditor from "./LegalRichTextEditor";
 import BookingFeeOutcomesTable from "@app/components/Legal/BookingFeeOutcomesTable";
-import { htmlToSections, markdownToHtml, sectionsToPlain } from "@/domain/legal/documentMarkup";
+import {
+  htmlToSections,
+  markdownToHtml,
+  sectionsToPlain,
+} from "@/domain/legal/documentMarkup";
 import { getSeedDocument } from "@/domain/legal/documentRegistry";
 import { LEGAL_DOCUMENT_TYPE } from "@/domain/legal/documentTypes";
 import {
@@ -65,25 +74,28 @@ export default function LegalDocumentsPanel() {
   const [preview, setPreview] = useState(false);
   const [loadedKey, setLoadedKey] = useState("");
   const [publishOpen, setPublishOpen] = useState(false);
+  const [publicationChangeClass, setPublicationChangeClass] =
+    useState("material");
   const [savedMessage, setSavedMessage] = useState("");
   const editorRef = useRef(null);
 
-  const summary = useMemo(
-    () => summarizeAdminLanguages(overview),
-    [overview]
-  );
+  const summary = useMemo(() => summarizeAdminLanguages(overview), [overview]);
   const attention = attentionMessage(summary);
   const catalog = orderedAdminDocuments();
   const openMeta = catalog.find((row) => row.documentType === openType) || null;
   const openEntry = overview.find((row) => row.documentType === openType);
   const langInfo = openEntry?.languages?.[language];
   const langState = languagePublicationState(langInfo);
-  const editorState = dirty ? { key: "unpublished_changes", label: "Unpublished changes" } : langState;
+  const editorState = dirty
+    ? { key: "unpublished_changes", label: "Unpublished changes" }
+    : langState;
   const canPublish =
     dirty ||
     editorState.key === "unpublished_changes" ||
     editorState.key === "not_published";
-  const liveUrl = openMeta ? canonicalPublicPath(openMeta.documentType, language) : "";
+  const liveUrl = openMeta
+    ? canonicalPublicPath(openMeta.documentType, language)
+    : "";
 
   const loadOverview = useCallback(async () => {
     const res = await fetch("/api/admin/legal/config", { cache: "no-store" });
@@ -118,7 +130,8 @@ export default function LegalDocumentsPanel() {
       cache: "no-store",
     });
     const json = await res.json();
-    if (!json.success) throw new Error(json.message || "Failed to load document");
+    if (!json.success)
+      throw new Error(json.message || "Failed to load document");
     const next = selectWorkingLegalContent(json.documents || [], seed);
     setContent(next);
     setHtml("");
@@ -244,7 +257,7 @@ export default function LegalDocumentsPanel() {
       documentType: openType,
       language,
       version,
-      changeClass: "material",
+      changeClass: publicationChangeClass,
       publishConfirm: "PUBLISH",
     });
     setPublishOpen(false);
@@ -268,9 +281,14 @@ export default function LegalDocumentsPanel() {
         >
           {title}
         </Typography>
-        <Stack spacing={0} sx={{ mt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+        <Stack
+          spacing={0}
+          sx={{ mt: 1, borderTop: "1px solid", borderColor: "divider" }}
+        >
           {rows.map((row) => {
-            const entry = overview.find((item) => item.documentType === row.documentType);
+            const entry = overview.find(
+              (item) => item.documentType === row.documentType
+            );
             const expanded = openType === row.documentType;
             return (
               <Accordion
@@ -333,7 +351,10 @@ export default function LegalDocumentsPanel() {
                         variant="scrollable"
                         scrollButtons="auto"
                         allowScrollButtonsMobile
-                        sx={{ borderBottom: "1px solid", borderColor: "divider" }}
+                        sx={{
+                          borderBottom: "1px solid",
+                          borderColor: "divider",
+                        }}
                       >
                         {ADMIN_LEGAL_LANGUAGES.map((lang) => {
                           const tabState = languagePublicationState(
@@ -344,8 +365,8 @@ export default function LegalDocumentsPanel() {
                             tabState.key === "published"
                               ? ""
                               : tabState.key === "unpublished_changes"
-                                ? " · edits"
-                                : " · draft";
+                              ? " · edits"
+                              : " · draft";
                           return (
                             <Tab
                               key={lang}
@@ -397,7 +418,11 @@ export default function LegalDocumentsPanel() {
                             size="small"
                             variant="outlined"
                             disabled={saving || !dirty}
-                            onClick={() => saveChanges().catch((err) => setError(err.message))}
+                            onClick={() =>
+                              saveChanges().catch((err) =>
+                                setError(err.message)
+                              )
+                            }
                           >
                             Save changes
                           </Button>
@@ -405,7 +430,11 @@ export default function LegalDocumentsPanel() {
                             size="small"
                             variant="contained"
                             disabled={saving || !canPublish}
-                            title={!canPublish ? "No unpublished changes." : undefined}
+                            title={
+                              !canPublish
+                                ? "No unpublished changes."
+                                : undefined
+                            }
                             onClick={() => {
                               setError("");
                               setPublishOpen(true);
@@ -436,7 +465,9 @@ export default function LegalDocumentsPanel() {
                             "& p": { lineHeight: 1.7 },
                           }}
                           dangerouslySetInnerHTML={{
-                            __html: markdownToHtml(sectionsToPlain(content.sections)),
+                            __html: markdownToHtml(
+                              sectionsToPlain(content.sections)
+                            ),
                           }}
                         />
                       ) : (
@@ -447,7 +478,8 @@ export default function LegalDocumentsPanel() {
                         />
                       )}
                       {row.documentType ===
-                        LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS && preview ? (
+                        LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS &&
+                      preview ? (
                         <BookingFeeOutcomesTable language={language} compact />
                       ) : null}
                     </Stack>
@@ -466,14 +498,23 @@ export default function LegalDocumentsPanel() {
   if (!overview.length && !error) return <CircularProgress size={22} />;
 
   return (
-    <Stack spacing={2} data-testid="legal-documents-panel" sx={{ overflowX: "hidden" }}>
+    <Stack
+      spacing={2}
+      data-testid="legal-documents-panel"
+      sx={{ overflowX: "hidden" }}
+    >
       {error ? <Alert severity="error">{error}</Alert> : null}
       {notice ? (
         <Alert
           severity="success"
           action={
             liveUrl ? (
-              <Button color="inherit" size="small" href={liveUrl} target="_blank">
+              <Button
+                color="inherit"
+                size="small"
+                href={liveUrl}
+                target="_blank"
+              >
                 View on website
               </Button>
             ) : null
@@ -536,6 +577,33 @@ export default function LegalDocumentsPanel() {
             New publication date: {formatLegalPublishedDate(new Date())}
           </Typography>
           <Typography variant="body2">Live URL: {liveUrl}</Typography>
+          {openMeta?.audience === "partner" ||
+          [
+            "partner-agreement",
+            "partner-operating-rules",
+            "data-protection-schedule",
+          ].includes(openType) ? (
+            <FormControl sx={{ mt: 2 }}>
+              <FormLabel>Effect on company acceptance</FormLabel>
+              <RadioGroup
+                value={publicationChangeClass}
+                onChange={(event) =>
+                  setPublicationChangeClass(event.target.value)
+                }
+              >
+                <FormControlLabel
+                  value="material"
+                  control={<Radio />}
+                  label="Material — companies must review and accept this package again"
+                />
+                <FormControlLabel
+                  value="editorial"
+                  control={<Radio />}
+                  label="Editorial — no reacceptance required"
+                />
+              </RadioGroup>
+            </FormControl>
+          ) : null}
           {error ? (
             <Alert severity="error" sx={{ mt: 2 }}>
               {error}

@@ -85,6 +85,31 @@ export const AMENDABLE_FIELDS = Object.freeze([
 
 const AMENDABLE_SET = new Set(AMENDABLE_FIELDS);
 
+/** Paid supplier-side operational fields; dates, prices and settlement are excluded. */
+export const COMPANY_OPERATIONAL_AMENDMENT_FIELDS = Object.freeze([
+  "customerName",
+  "phone",
+  "email",
+  "actualVehicle",
+  "placeInDetail",
+  "placeOutDetail",
+  "flightNumber",
+  "hotelInformation",
+  "pickupNotes",
+  "returnNotes",
+  "operationalNotes",
+  "insurance",
+  "ChildSeats",
+  "secondDriver",
+  "Viber",
+  "Whatsapp",
+  "Telegram",
+  "drivingLicenceUrls",
+  "drivingLicenceVerificationStatus",
+]);
+
+const COMPANY_OPERATIONAL_SET = new Set(COMPANY_OPERATIONAL_AMENDMENT_FIELDS);
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -92,6 +117,12 @@ function text(value) {
 function sameValue(left, right) {
   if (left instanceof Date || right instanceof Date) {
     return new Date(left).getTime() === new Date(right).getTime();
+  }
+  if (
+    (left && typeof left === "object") ||
+    (right && typeof right === "object")
+  ) {
+    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
   }
   return text(left) === text(right);
 }
@@ -124,6 +155,86 @@ export function diffAmendment(order, changes) {
     after[field] = next ?? null;
   }
   return { changed, before, after };
+}
+
+/** Build an auditable company amendment without permitting dates or money. */
+export function validateCompanyOperationalAmendment({
+  order,
+  changes,
+  customerConsentRecorded,
+  customerConsentNote = "",
+  actor,
+  now = new Date(),
+} = {}) {
+  if (!isPlatformBooking(order) || !bookingIsPaid(order)) {
+    return {
+      ok: false,
+      status: 409,
+      code: "OPERATIONAL_AMENDMENT_NOT_PAID_PLATFORM",
+      message: "Operational amendments require a paid platform booking",
+    };
+  }
+  if (customerConsentRecorded !== true) {
+    return {
+      ok: false,
+      status: 409,
+      code: AMENDMENT_ERROR.CONSENT_REQUIRED,
+      message: "Confirm that these changes were agreed with the customer",
+    };
+  }
+  const unknown = Object.keys(changes || {}).filter(
+    (field) => !COMPANY_OPERATIONAL_SET.has(field)
+  );
+  if (unknown.length) {
+    return {
+      ok: false,
+      status: 400,
+      code: AMENDMENT_ERROR.UNKNOWN_FIELD,
+      message: `These fields cannot be amended here: ${unknown.join(", ")}`,
+      fields: unknown,
+    };
+  }
+  const { changed, before, after } = diffAmendment(order, changes);
+  if (!changed.length) {
+    return {
+      ok: false,
+      status: 400,
+      code: AMENDMENT_ERROR.NO_CHANGES,
+      message: "Nothing would change",
+    };
+  }
+  const actorEmail = text(actor?.email);
+  if (!actorEmail) {
+    return {
+      ok: false,
+      status: 400,
+      code: AMENDMENT_ERROR.ACTOR_REQUIRED,
+      message: "An amendment must record the acting user",
+    };
+  }
+  const record = {
+    version: 1,
+    kind: "COMPANY_OPERATIONAL_AMENDMENT",
+    fieldsChanged: changed,
+    before,
+    after,
+    customerConsent: {
+      recorded: true,
+      recordedAt: new Date(now).toISOString(),
+      note: text(customerConsentNote),
+    },
+    actor: {
+      id: text(actor?.id),
+      email: actorEmail,
+      role: text(actor?.role) || "ADMIN",
+    },
+    at: new Date(now).toISOString(),
+  };
+  record.checksum = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(record))
+    .digest("hex");
+  return { ok: true, record };
 }
 
 /**
@@ -259,7 +370,8 @@ export function validateBookingAmendment({
     customerConsent: consentRecorded
       ? {
           recorded: true,
-          recordedAt: text(customerConsent?.recordedAt) || new Date(now).toISOString(),
+          recordedAt:
+            text(customerConsent?.recordedAt) || new Date(now).toISOString(),
           note: text(customerConsent?.note),
         }
       : null,

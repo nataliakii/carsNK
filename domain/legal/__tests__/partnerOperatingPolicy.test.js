@@ -19,6 +19,7 @@ jest.mock("@models/PartnerAgreementAcceptance", () => ({
 jest.mock("@/domain/legal/agreementService", () => ({
   getActiveAgreement: jest.fn(),
   getCurrentPackageChecksum: jest.fn(),
+  resolveCurrentPartnerPackage: jest.fn(),
 }));
 jest.mock("@/domain/legal/auditTrail", () => ({
   recordAuditEvent: jest.fn().mockResolvedValue(true),
@@ -29,6 +30,7 @@ import { recordAuditEvent } from "@/domain/legal/auditTrail";
 import {
   getActiveAgreement,
   getCurrentPackageChecksum,
+  resolveCurrentPartnerPackage,
 } from "@/domain/legal/agreementService";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
 import PartnerAgreementAcceptance from "@models/PartnerAgreementAcceptance";
@@ -227,7 +229,10 @@ describe("evaluateMarketplaceOperatingState", () => {
 
   test("15. transfer-style / non-marketplace companies are not gated", () => {
     expect(
-      isMarketplaceOperatingCompany({ country: "GR", bookingMode: "OPS_CALENDAR" })
+      isMarketplaceOperatingCompany({
+        country: "GR",
+        bookingMode: "OPS_CALENDAR",
+      })
     ).toBe(false);
     expect(isMarketplaceOperatingCompany(null)).toBe(false);
   });
@@ -266,6 +271,22 @@ describe("assertPartnerCanOperate override", () => {
     jest.clearAllMocks();
     getCurrentPackageChecksum.mockResolvedValue(CURRENT);
     getActiveAgreement.mockResolvedValue(currentAgreement());
+    resolveCurrentPartnerPackage.mockImplementation(
+      async ({ latestAcceptance } = {}) => {
+        const acceptance =
+          latestAcceptance === undefined
+            ? await getActiveAgreement(ES_ID)
+            : latestAcceptance;
+        return {
+          packageChecksum: CURRENT,
+          latestAcceptance: acceptance,
+          legalState: {
+            state: acceptance ? "ACCEPTED_CURRENT" : "ACCEPTANCE_REQUIRED",
+            legalActionCount: acceptance ? 0 : 1,
+          },
+        };
+      }
+    );
     PartnerLegalProfile.findOne.mockReturnValue({
       select: () => ({
         lean: () =>
@@ -311,7 +332,9 @@ describe("assertPartnerCanOperate override", () => {
       })
     );
     const meta = recordAuditEvent.mock.calls[0][0];
-    expect(JSON.stringify(meta)).not.toMatch(/nifCif|storageRef|registeredAddress|legalName/i);
+    expect(JSON.stringify(meta)).not.toMatch(
+      /nifCif|storageRef|registeredAddress|legalName/i
+    );
   });
 
   test("role alone cannot silently bypass public listing", async () => {
@@ -347,12 +370,20 @@ describe("ownerIdsHiddenFromPublicMarketplace", () => {
       sort: () => ({
         select: () => ({
           lean: () =>
-            Promise.resolve([
-              { companyId: ES_B_ID, packageChecksum: CURRENT },
-            ]),
+            Promise.resolve([{ companyId: ES_B_ID, packageChecksum: CURRENT }]),
         }),
       }),
     });
+    resolveCurrentPartnerPackage.mockImplementation(
+      async ({ latestAcceptance } = {}) => ({
+        packageChecksum: CURRENT,
+        latestAcceptance,
+        legalState: {
+          state: latestAcceptance ? "ACCEPTED_CURRENT" : "ACCEPTANCE_REQUIRED",
+          legalActionCount: latestAcceptance ? 0 : 1,
+        },
+      })
+    );
   });
 
   test("hides non-compliant Spain fleets without dropping Greece or a verified neighbour", async () => {
@@ -375,8 +406,8 @@ describe("ownerIdsHiddenFromPublicMarketplace", () => {
     expect(hide.map(String)).toEqual([ES_ID]);
   });
 
-  test("fails closed for marketplace fleets when the checksum cannot be loaded", async () => {
-    getCurrentPackageChecksum.mockRejectedValue(new Error("checksum down"));
+  test("fails closed for marketplace fleets when the canonical package cannot be loaded", async () => {
+    resolveCurrentPartnerPackage.mockRejectedValue(new Error("package down"));
     const hide = await ownerIdsHiddenFromPublicMarketplace([
       spainCompany(),
       greeceCompany(),

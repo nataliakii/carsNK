@@ -4,23 +4,24 @@ import { requireAdmin } from "@lib/adminAuth";
 import { connectToDB } from "@lib/database";
 import PartnerLegalProfile from "@models/PartnerLegalProfile";
 import Company from "@models/company";
-import {
-  buildAgreementPackage,
-  getActiveAgreement,
-} from "@/domain/legal/agreementService";
+import { resolveCurrentPartnerPackage } from "@/domain/legal/agreementService";
 import { normalizeLegalLanguage } from "@/domain/legal/documentTypes";
 import { evaluatePartnerOperatingGate } from "@/domain/legal/partnerGate";
-import {
-  companyTermsPublication,
-  ownCompanyScope,
-  withCustomAgreement,
-} from "@/domain/legal/companyLegalPage";
+import { ownCompanyScope } from "@/domain/legal/companyLegalPage";
 import { companySetupReadiness } from "@/domain/legal/companySetupReadiness";
 import { resolvePartnerCompanyId } from "@/domain/legal/partnerCompanyScope";
 import { evaluateProfileCompleteness } from "@/domain/legal/partnerVerification";
+import { partnerLegalStateToPublication } from "@/domain/legal/partnerLegalState";
+import { CLICKWRAP_ACCEPTANCE_STATEMENT } from "@/domain/legal/agreementService";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const PARTNER_DOCUMENT_HREFS = Object.freeze({
+  "partner-agreement": "/partner-agreement",
+  "partner-operating-rules": "/partner-operating-rules",
+  "data-protection-schedule": "/data-protection-schedule",
+});
 
 function resolveCompanyId(session, requested) {
   const scope = ownCompanyScope(session, requested);
@@ -37,90 +38,142 @@ function resolveCompanyId(session, requested) {
  * writes no audit entry: it is not a view of the agreement text.
  */
 export async function GET(request) {
-  const { session, errorResponse } = await requireAdmin(request);
-  if (errorResponse) return errorResponse;
+  try {
+    const { session, errorResponse } = await requireAdmin(request);
+    if (errorResponse) return errorResponse;
 
-  const companyId = resolveCompanyId(
-    session,
-    request.nextUrl.searchParams.get("companyId")
-  );
-  if (!companyId) {
+    const companyId = resolveCompanyId(
+      session,
+      request.nextUrl.searchParams.get("companyId")
+    );
+    if (!companyId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "No partner company is associated with this account",
+        },
+        { status: 403 }
+      );
+    }
+
+    const language = normalizeLegalLanguage(
+      request.nextUrl.searchParams.get("lang")
+    );
+
+    await connectToDB();
+    const [profile, pkg, company] = await Promise.all([
+      PartnerLegalProfile.findOne({ companyId }).lean(),
+      resolveCurrentPartnerPackage({ companyId, requestedLocale: language }),
+      Company.findById(companyId)
+        .select("listedOnMarketplace country bookingMode")
+        .lean(),
+    ]);
+
+    const activeAgreement = pkg.latestAcceptance;
+    const publicationValue = partnerLegalStateToPublication(pkg.legalState.state);
+    const completeness = profile ? evaluateProfileCompleteness(profile) : null;
+    const gate = evaluatePartnerOperatingGate({
+      profile,
+      completeness,
+      activeAgreement,
+      currentPackageChecksum: pkg.packageChecksum,
+      legalState: pkg.legalState.state,
+    });
+
+    const listedOnMarketplace = company?.listedOnMarketplace !== false;
+    const readiness = companySetupReadiness({
+      profile,
+      completeness,
+      termsPublication: publicationValue,
+      listedOnMarketplace,
+      agreementAccepted: publicationValue === "ACCEPTED",
+    });
+
+    return NextResponse.json({
+      success: true,
+      companyId,
+      gate,
+      completeness,
+      listedOnMarketplace,
+      canListPublicly: readiness.canReceiveBookings,
+      readiness,
+      /**
+       * The one publication state. The Terms tab, the Documents tab and the
+       * readiness gate above all read this value; no client re-derives it.
+       */
+      legalState: pkg.legalState.state,
+      legalActionCount: pkg.legalState.legalActionCount,
+      legalManifest: pkg.manifest,
+      missingDocumentTypes: pkg.legalState.missingDocumentTypes,
+      changedDocumentTypes: pkg.legalState.changedDocumentTypes || [],
+      termsPublication: publicationValue,
+      terms: {
+        publication: publicationValue,
+        canAccept:
+          pkg.legalState.state === "ACCEPTANCE_REQUIRED" ||
+          pkg.legalState.state === "REACCEPTANCE_REQUIRED",
+        links: pkg.documents.map((doc) => ({
+          documentType: doc.documentType,
+          href: PARTNER_DOCUMENT_HREFS[doc.documentType] || "",
+        })),
+        label: "standard",
+        message:
+          pkg.legalState.state === "ACCEPTANCE_REQUIRED"
+            ? "ready"
+            : pkg.legalState.state === "REACCEPTANCE_REQUIRED"
+              ? "updated"
+              : pkg.legalState.state === "ACCEPTED_CURRENT"
+                ? "accepted"
+                : "preparing",
+      },
+      currentPackageChecksum: pkg.packageChecksum,
+      manifest: pkg.manifest,
+      documents: pkg.documents.map((doc) => ({
+        documentType: doc.documentType,
+        documentId: doc.documentId,
+        version: doc.version,
+        presentedVersion: doc.version,
+        checksum: doc.checksum,
+        bindingDocumentId: doc.bindingDocumentId,
+        bindingVersion: doc.bindingVersion,
+        bindingChecksum: doc.bindingChecksum,
+        language: doc.language,
+        requestedLanguage: doc.requestedLanguage,
+        fellBackToSourceLanguage: doc.fellBackToSourceLanguage,
+        publicationChangeClass: doc.publicationChangeClass,
+        publishedAt: doc.publishedAt,
+        ref: doc.ref,
+        title: doc.renderedTitle,
+        sections: doc.renderedSections,
+      })),
+      acceptanceStatement: CLICKWRAP_ACCEPTANCE_STATEMENT,
+      containsDrafts: pkg.anyDraft,
+      signedAgreement: activeAgreement
+        ? {
+            agreementId: activeAgreement.agreementId,
+            acceptedAt: activeAgreement.acceptedAt,
+            packageChecksum: activeAgreement.packageChecksum,
+            manifest: activeAgreement.manifest || [],
+            documents: (activeAgreement.documents || []).map((doc) => ({
+              documentType: doc.documentType,
+              documentId: doc.bindingDocumentId || doc.documentId || "",
+              version: doc.bindingVersion || doc.version,
+              checksum: doc.bindingChecksum || doc.checksum,
+              language: doc.language,
+              presentedVersion: doc.presentedVersion || doc.version,
+              presentedChecksum: doc.presentedChecksum || doc.checksum,
+            })),
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error("[partner/legal/status]", error);
     return NextResponse.json(
       {
         success: false,
-        message: "No partner company is associated with this account",
+        message: error?.message || "Could not load legal package status",
       },
-      { status: 403 }
+      { status: 500 }
     );
   }
-
-  const language = normalizeLegalLanguage(
-    request.nextUrl.searchParams.get("lang")
-  );
-
-  await connectToDB();
-  const [profile, activeAgreement, pkg, company] = await Promise.all([
-    PartnerLegalProfile.findOne({ companyId }).lean(),
-    getActiveAgreement(companyId),
-    buildAgreementPackage({ language }),
-    Company.findById(companyId)
-      .select("listedOnMarketplace country bookingMode")
-      .lean(),
-  ]);
-
-  const terms = withCustomAgreement(pkg, profile?.customAgreement);
-  const completeness = profile ? evaluateProfileCompleteness(profile) : null;
-  const gate = evaluatePartnerOperatingGate({
-    profile,
-    completeness,
-    activeAgreement,
-    currentPackageChecksum: terms.packageChecksum,
-  });
-
-  const listedOnMarketplace = company?.listedOnMarketplace !== false;
-  const publication = companyTermsPublication({
-    documents: terms.documents || [],
-    containsDrafts: Boolean(pkg.anyDraft),
-    customAgreement: profile?.customAgreement,
-    activeChecksum: activeAgreement?.packageChecksum || "",
-    currentChecksum: terms.packageChecksum || "",
-  });
-  const readiness = companySetupReadiness({
-    profile,
-    completeness,
-    termsPublication: publication.publication,
-    listedOnMarketplace,
-    agreementAccepted: publication.publication === "ACCEPTED",
-  });
-
-  return NextResponse.json({
-    success: true,
-    companyId,
-    gate,
-    completeness,
-    listedOnMarketplace,
-    canListPublicly: readiness.canReceiveBookings,
-    readiness,
-    /**
-     * The one publication state. The Terms tab, the Documents tab and the
-     * readiness gate above all read this value; no client re-derives it.
-     */
-    termsPublication: publication.publication,
-    terms: {
-      publication: publication.publication,
-      canAccept: publication.canAccept,
-      links: publication.links,
-      label: publication.label,
-      message: publication.message,
-    },
-    currentPackageChecksum: terms.packageChecksum,
-    containsDrafts: pkg.anyDraft,
-    signedAgreement: activeAgreement
-      ? {
-          agreementId: activeAgreement.agreementId,
-          acceptedAt: activeAgreement.acceptedAt,
-          packageChecksum: activeAgreement.packageChecksum,
-        }
-      : null,
-  });
 }

@@ -125,7 +125,10 @@ const OrderSchema = new mongoose.Schema({
   bookingFeePaymentStatus: { type: String, default: "" },
   /** SUPPLIER or ROVARO. A problem counts as a company action only when SUPPLIER. */
   problemAssignedTo: { type: String, default: "" },
-  pendingReplacementProposal: { type: mongoose.Schema.Types.Mixed, default: null },
+  pendingReplacementProposal: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
   replacementDisclosure: { type: String, default: "" },
   replacementProposalAcceptedChecksum: { type: String, default: "" },
   replacementProposalAcceptedVersion: { type: Number, default: null },
@@ -348,7 +351,7 @@ const OrderSchema = new mongoose.Schema({
    * Manual price entered by admin/superadmin.
    * If set, it overrides totalPrice in UI and payments.
    * Set to null to return to automatic pricing.
-   * 
+   *
    * Rules:
    * - OverridePrice NEVER changes automatically
    * - When rental params change, totalPrice recalculates but OverridePrice stays
@@ -429,7 +432,7 @@ const OrderSchema = new mongoose.Schema({
    * Role of admin who created this order:
    * 0 = regular admin (default)
    * 1 = superadmin
-   * 
+   *
    * Used for permission control:
    * - If my_order=true OR createdByRole=1, only superadmin can edit/delete
    */
@@ -583,6 +586,11 @@ const OrderSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  drivingLicenceVerificationStatus: {
+    type: String,
+    enum: ["PENDING", "VERIFIED", "REJECTED"],
+    default: "PENDING",
+  },
   /**
    * Immutable driving licence capture for a public PLATFORM request.
    *
@@ -606,7 +614,12 @@ const OrderSchema = new mongoose.Schema({
         uploadedAt: { type: Date, default: null },
         holderName: { type: String, default: "" },
         licenceNumber: { type: String, default: "" },
-        issuingCountry: { type: String, default: "", uppercase: true, trim: true },
+        issuingCountry: {
+          type: String,
+          default: "",
+          uppercase: true,
+          trim: true,
+        },
         expiryDate: { type: Date, default: null },
         issueDate: { type: Date, default: null },
         verificationStatus: { type: String, default: "PENDING" },
@@ -657,8 +670,32 @@ const OrderSchema = new mongoose.Schema({
   },
   /** Future FSM snapshot — optional; see domain/booking/bookingStatus.js */
   bookingStatus: { type: String, default: undefined },
-  /** Set when the booking enters COMPLETION_PENDING. The 24h grace starts here. */
+  /** Legacy completion grace timestamp; retained for old records only. */
   completionPendingAt: { type: Date, default: null },
+  /** Append-only server transition records for automatic completion. */
+  completionHistory: {
+    type: mongoose.Schema.Types.Mixed,
+    default: [],
+  },
+  /** Separate post-rental issue state; it never changes bookingStatus. */
+  bookingIssues: {
+    type: mongoose.Schema.Types.Mixed,
+    default: [],
+  },
+  /** Append-only before/after audit revisions for paid operational amendments. */
+  operationalAmendments: {
+    type: mongoose.Schema.Types.Mixed,
+    default: [],
+  },
+  /** Actual handover vehicle recorded operationally; vehicleSnapshot stays immutable. */
+  actualVehicle: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  hotelInformation: { type: String, default: "", maxlength: 1000 },
+  pickupNotes: { type: String, default: "", maxlength: 2000 },
+  returnNotes: { type: String, default: "", maxlength: 2000 },
+  operationalNotes: { type: String, default: "", maxlength: 2000 },
   /** Company or authorised customer reported a problem. Stops auto-completion. */
   hasProblem: { type: Boolean, default: false },
   problemReportedAt: { type: Date, default: null },
@@ -730,7 +767,7 @@ OrderSchema.pre("save", async function (next) {
   }
   // Always use ChildSeats for calculations
   const childSeatsValue = this.ChildSeats ?? this.childSeats ?? 0;
-  
+
   const calculationStart = this.timeIn ?? this.rentalStartDate;
   const calculationEnd = this.timeOut ?? this.rentalEndDate;
   this.numberOfDays = getBusinessRentalDaysByMinutes(
@@ -742,7 +779,9 @@ OrderSchema.pre("save", async function (next) {
   // ─── CONFIRMING (transitioning TO confirmed) ───
   if (this.confirmed === true && this.isModified("confirmed")) {
     try {
-      const existingBD = await PriceBreakdown.findOne({ order: this._id }).lean();
+      const existingBD = await PriceBreakdown.findOne({
+        order: this._id,
+      }).lean();
       if (existingBD) {
         const historyEntry = buildHistoryEntry(existingBD);
         await PriceBreakdown.findOneAndUpdate(
@@ -807,7 +846,9 @@ OrderSchema.pre("save", async function (next) {
         }
 
         const source = this.confirmed ? "admin_edit_confirmed" : "admin_edit";
-        const existingBreakdown = await PriceBreakdown.findOne({ order: this._id }).lean();
+        const existingBreakdown = await PriceBreakdown.findOne({
+          order: this._id,
+        }).lean();
         const newBreakdownData = {
           order: this._id,
           totalPrice: this.totalPrice,
@@ -838,16 +879,21 @@ OrderSchema.pre("save", async function (next) {
       }
     } else if (deliveryRelatedChanged && car && this._id) {
       try {
-        const existingBreakdown = await PriceBreakdown.findOne({ order: this._id }).lean();
+        const existingBreakdown = await PriceBreakdown.findOne({
+          order: this._id,
+        }).lean();
         if (existingBreakdown) {
           const deliveryData = await buildDeliveryBreakdownSlice(this);
           const oldDel =
-            (existingBreakdown.deliveryIn || 0) + (existingBreakdown.deliveryOut || 0);
+            (existingBreakdown.deliveryIn || 0) +
+            (existingBreakdown.deliveryOut || 0);
           const newDel = deliveryData.deliveryTotal || 0;
           const same =
             oldDel === newDel &&
-            (existingBreakdown.placeIn || "") === (deliveryData.placeIn || "") &&
-            (existingBreakdown.placeOut || "") === (deliveryData.placeOut || "");
+            (existingBreakdown.placeIn || "") ===
+              (deliveryData.placeIn || "") &&
+            (existingBreakdown.placeOut || "") ===
+              (deliveryData.placeOut || "");
 
           if (!same) {
             await PriceBreakdown.findOneAndUpdate(
@@ -913,13 +959,13 @@ OrderSchema.pre("save", async function (next) {
     const normalizedDeliveryTotal = Number.isFinite(deliveryTotal)
       ? deliveryTotal
       : 0;
-    const grandTotal = Math.round((total + normalizedDeliveryTotal) * 100) / 100;
+    const grandTotal =
+      Math.round((total + normalizedDeliveryTotal) * 100) / 100;
     if (
       this.authoritativePrice &&
       Number.isFinite(Number(this.authoritativePrice.grossMinor))
     ) {
-      this.totalPrice =
-        Number(this.authoritativePrice.grossMinor) / 100;
+      this.totalPrice = Number(this.authoritativePrice.grossMinor) / 100;
     } else {
       this.totalPrice = grandTotal;
     }
@@ -953,7 +999,10 @@ OrderSchema.pre("save", async function (next) {
 
 // 🔧 MIGRATION SUPPORT: After loading, sync childSeats to ChildSeats if needed
 OrderSchema.post("init", function () {
-  if (this.childSeats !== undefined && (this.ChildSeats === undefined || this.ChildSeats === 0)) {
+  if (
+    this.childSeats !== undefined &&
+    (this.ChildSeats === undefined || this.ChildSeats === 0)
+  ) {
     this.ChildSeats = this.childSeats;
   }
 });
@@ -1104,7 +1153,10 @@ if (Order?.schema && !Order.schema.path("supplierResponse")) {
     customerConfirmation: { type: String, default: "" },
     bookingFeePaymentStatus: { type: String, default: "" },
     problemAssignedTo: { type: String, default: "" },
-    pendingReplacementProposal: { type: mongoose.Schema.Types.Mixed, default: null },
+    pendingReplacementProposal: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     replacementDisclosure: { type: String, default: "" },
     replacementProposalAcceptedChecksum: { type: String, default: "" },
     replacementProposalAcceptedVersion: { type: Number, default: null },
@@ -1130,13 +1182,18 @@ if (Order?.schema && !Order.schema.path("publicReference")) {
   Order.schema.add({
     publicReference: { type: String },
     customerBookingAccess: { type: mongoose.Schema.Types.Mixed, default: null },
-    bookingFinancialSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+    bookingFinancialSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   });
   Order.schema.index(
     { publicReference: 1 },
     {
       unique: true,
-      partialFilterExpression: { publicReference: { $type: "string", $gt: "" } },
+      partialFilterExpression: {
+        publicReference: { $type: "string", $gt: "" },
+      },
     }
   );
 }
@@ -1186,7 +1243,10 @@ if (Order?.schema && !Order.schema.path("authoritativePrice")) {
 if (Order?.schema && !Order.schema.path("priceRevisions")) {
   Order.schema.add({
     priceRevisions: { type: mongoose.Schema.Types.Mixed, default: [] },
-    paidMarketplaceFeeSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+    paidMarketplaceFeeSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   });
 }
 

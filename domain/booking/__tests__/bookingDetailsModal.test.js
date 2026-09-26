@@ -64,9 +64,13 @@ describe("one booking details modal", () => {
     expect(calendar).toContain("BookingDetailsModal");
     expect(list).toContain("BookingDetailsModal");
     expect(bookingModalName(platform())).toBe(BOOKING_DETAILS_MODAL);
-    expect(bookingModalName({ source: "INTERNAL", my_order: false, ownerId: COMPANY })).toBe(
-      INTERNAL_ORDER_MODAL
-    );
+    expect(
+      bookingModalName({
+        source: "INTERNAL",
+        my_order: false,
+        ownerId: COMPANY,
+      })
+    ).toBe(INTERNAL_ORDER_MODAL);
 
     const target = resolveOrdersModalTarget({
       orderId: ORDER_ID,
@@ -86,7 +90,9 @@ describe("one booking details modal", () => {
     for (const label of PLATFORM_FORBIDDEN_CONTROLS) {
       expect(view.actions.map((action) => action.label)).not.toContain(label);
     }
-    expect(view.actions.map((action) => action.label)).toEqual(NEW_REQUEST_ACTIONS);
+    expect(view.actions.map((action) => action.label)).toEqual(
+      NEW_REQUEST_ACTIONS
+    );
   });
 
   test("company admin cannot change dates, price, insurance, extras, or locations", () => {
@@ -163,6 +169,31 @@ describe("one booking details modal", () => {
     expect(view.privacyNotice).toMatch(/after the booking payment/i);
   });
 
+  test("expired payment link shows awaiting payment workflow plus payment chip", () => {
+    const expired = platform({
+      bookingStatus: BOOKING_STATUS.PAYMENT_EXPIRED,
+      partnerConfirmedAt: new Date("2026-09-21T18:00:00.000Z"),
+      payment: {
+        status: "expired",
+        provider: "stripe",
+        providerPaymentId: "cs_old",
+        checkoutUrl: "",
+        expiresAt: new Date("2026-09-21T19:00:00.000Z"),
+      },
+    });
+    const view = buildBookingDetailsView(expired, companyUser);
+    expect(view.stage).toBe("AWAITING_CUSTOMER_PAYMENT");
+    expect(view.statusTitle).toBe("Awaiting customer payment");
+    expect(view.header.badges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "payment-link-expired",
+          labelKey: "paymentLinkExpired",
+        }),
+      ])
+    );
+  });
+
   test("a paid booking reveals contacts and the licence only to the owning company", () => {
     const paid = platform({
       bookingStatus: BOOKING_STATUS.BOOKING_CONFIRMED,
@@ -187,6 +218,35 @@ describe("one booking details modal", () => {
     expect(stranger.has(BOOKING_CAPABILITY.VIEW_BOOKING)).toBe(false);
     expect(stranger.has(BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS)).toBe(false);
     expect(supplierCanReadOrder(otherUser, paid).ok).toBe(false);
+  });
+
+  test("COMPLETED keeps operational amendment and problem reporting; CANCELLED is read-only", () => {
+    const completed = buildBookingDetailsView(
+      platform({
+        bookingStatus: BOOKING_STATUS.COMPLETED,
+        payment: { status: "paid" },
+      }),
+      companyUser
+    );
+    expect(completed.actions.map((action) => action.id)).toContain("amend");
+    expect(completed.actions.map((action) => action.id)).toContain(
+      "reportProblem"
+    );
+    expect(completed.showContacts).toBe(true);
+    expect(completed.showLicence).toBe(true);
+
+    const cancelled = buildBookingDetailsView(
+      platform({
+        bookingStatus: BOOKING_STATUS.CUSTOMER_CANCELLED,
+        payment: { status: "paid" },
+      }),
+      companyUser
+    );
+    expect(cancelled.actions.map((action) => action.id)).toEqual([
+      "contactRovaro",
+    ]);
+    expect(cancelled.showContacts).toBe(false);
+    expect(cancelled.showLicence).toBe(false);
   });
 
   test("€265 is not shown when the persisted line items total €165", () => {
@@ -219,7 +279,9 @@ describe("one booking details modal", () => {
     );
     expect(aligned.consistent).toBe(true);
     expect(aligned.totalText).toBe("€165.00");
-    expect(aligned.lines.reduce((sum, line) => sum + line.minor, 0)).toBe(aligned.totalMinor);
+    expect(aligned.lines.reduce((sum, line) => sum + line.minor, 0)).toBe(
+      aligned.totalMinor
+    );
   });
 
   test("INTERNAL editing is a different modal and is not granted on PLATFORM orders", () => {
@@ -230,11 +292,17 @@ describe("one booking details modal", () => {
       companyId: COMPANY,
       orderCompanyId: COMPANY,
     });
-    expect(internalCaps.has(BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING)).toBe(true);
-    expect(internalCaps.has(BOOKING_CAPABILITY.CONFIRM_REQUESTED_VEHICLE)).toBe(false);
+    expect(internalCaps.has(BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING)).toBe(
+      true
+    );
+    expect(internalCaps.has(BOOKING_CAPABILITY.CONFIRM_REQUESTED_VEHICLE)).toBe(
+      false
+    );
 
     const platformCaps = capabilitiesForOrder(platform(), companyUser);
-    expect(platformCaps.has(BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING)).toBe(false);
+    expect(platformCaps.has(BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING)).toBe(
+      false
+    );
   });
 
   test("superadmin amendment requires a reason and cannot rewrite paid terms", () => {
@@ -264,7 +332,10 @@ describe("one booking details modal", () => {
   });
 
   test("a public request without a licence upload is rejected and a failed upload does not pass", () => {
-    const missing = validateDrivingLicenceCapture({ payload: null, upload: null });
+    const missing = validateDrivingLicenceCapture({
+      payload: null,
+      upload: null,
+    });
     expect(missing.ok).toBe(false);
     expect(missing.code).toBe(LICENCE_CAPTURE_CODE.REQUIRED);
 

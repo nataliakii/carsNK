@@ -9,6 +9,7 @@ import {
   AMENDMENT_REQUESTED_BY,
   PAYMENT_RESOLUTION,
   applicableAmendmentWrites,
+  validateCompanyOperationalAmendment,
   validateBookingAmendment,
 } from "@/domain/orders/bookingAmendment";
 
@@ -124,13 +125,20 @@ describe("an amendment must explain itself", () => {
   test("only a platform booking is amended this way", () => {
     expect(
       validateBookingAmendment({
-        order: paidBooking({ source: BOOKING_SOURCE.INTERNAL, my_order: false }),
+        order: paidBooking({
+          source: BOOKING_SOURCE.INTERNAL,
+          my_order: false,
+        }),
         changes: { placeOutDetail: "Terminal 2" },
         reason: REASON,
         requestedBy: AMENDMENT_REQUESTED_BY.ROVARO,
         actor: ACTOR,
       })
-    ).toMatchObject({ ok: false, status: 409, code: AMENDMENT_ERROR.NOT_PLATFORM });
+    ).toMatchObject({
+      ok: false,
+      status: 409,
+      code: AMENDMENT_ERROR.NOT_PLATFORM,
+    });
   });
 });
 
@@ -225,6 +233,97 @@ describe("a price change is settled, never rewritten", () => {
     expect(result.record.paymentResolution).toBe(PAYMENT_RESOLUTION.NONE);
     expect(applicableAmendmentWrites(result.record, unpaid)).toEqual({
       totalPrice: 150,
+    });
+  });
+});
+
+describe("paid company operational amendments", () => {
+  test("requires explicit customer agreement and records before/after revision data", () => {
+    const order = paidBooking();
+    expect(
+      validateCompanyOperationalAmendment({
+        order,
+        changes: { placeOutDetail: "Meet at the main entrance" },
+        actor: { email: "fleet@example.com", role: "ADMIN" },
+      })
+    ).toMatchObject({ ok: false, code: AMENDMENT_ERROR.CONSENT_REQUIRED });
+
+    const result = validateCompanyOperationalAmendment({
+      order,
+      changes: {
+        customerName: "Alex Customer",
+        placeOutDetail: "Meet at the main entrance",
+        secondDriver: true,
+      },
+      customerConsentRecorded: true,
+      customerConsentNote: "Confirmed by phone",
+      actor: { id: "company-admin", email: "fleet@example.com", role: "ADMIN" },
+      now: new Date("2026-09-26T10:00:00.000Z"),
+    });
+    expect(result.ok).toBe(true);
+    expect(result.record).toMatchObject({
+      kind: "COMPANY_OPERATIONAL_AMENDMENT",
+      fieldsChanged: ["customerName", "placeOutDetail", "secondDriver"],
+      before: { placeOutDetail: "Terminal 1" },
+      after: { placeOutDetail: "Meet at the main entrance" },
+      customerConsent: {
+        recorded: true,
+        recordedAt: "2026-09-26T10:00:00.000Z",
+        note: "Confirmed by phone",
+      },
+      actor: { id: "company-admin", email: "fleet@example.com", role: "ADMIN" },
+    });
+    expect(result.record.checksum).toHaveLength(64);
+  });
+
+  test("allows completed supplier operational corrections without changing dates or price", () => {
+    const result = validateCompanyOperationalAmendment({
+      order: paidBooking({ bookingStatus: BOOKING_STATUS.COMPLETED }),
+      changes: {
+        insurance: "FULL",
+        ChildSeats: 2,
+        drivingLicenceVerificationStatus: "VERIFIED",
+        returnNotes: "Customer returned the car at the office desk.",
+      },
+      customerConsentRecorded: true,
+      customerConsentNote: "Confirmed with the customer on handover.",
+      actor: { id: "company-admin", email: "fleet@example.com", role: "ADMIN" },
+      now: new Date("2026-09-26T10:30:00.000Z"),
+    });
+    expect(result.ok).toBe(true);
+    expect(result.record.fieldsChanged.sort()).toEqual(
+      [
+        "ChildSeats",
+        "drivingLicenceVerificationStatus",
+        "insurance",
+        "returnNotes",
+      ].sort()
+    );
+    expect(result.record.before).not.toHaveProperty("rentalEndDate");
+    expect(result.record.before).not.toHaveProperty("totalPrice");
+  });
+
+  test.each([
+    "rentalStartDate",
+    "rentalEndDate",
+    "timeIn",
+    "timeOut",
+    "numberOfDays",
+    "totalPrice",
+    "OverridePrice",
+    "deliveryInOverride",
+    "bookingFinancialSnapshot",
+  ])("refuses date or financial field %s", (field) => {
+    const result = validateCompanyOperationalAmendment({
+      order: paidBooking(),
+      changes: { [field]: "unauthorized" },
+      customerConsentRecorded: true,
+      actor: ACTOR,
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      code: AMENDMENT_ERROR.UNKNOWN_FIELD,
+      fields: [field],
     });
   });
 });

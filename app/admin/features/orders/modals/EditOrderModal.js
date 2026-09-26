@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import {
   Paper,
   Typography,
@@ -64,15 +70,10 @@ import OfferAlternativePanel from "@/app/admin/features/orders/OfferAlternativeP
 import { ORDER_COLORS } from "@/config/orderColors";
 import { getSecondDriverPriceLabelValue } from "@utils/secondDriverPricing";
 
-import {
-  getConfirmedOrders,
-  updateOrder,
-} from "@utils/action";
+import { getConfirmedOrders, updateOrder } from "@utils/action";
 import { RenderSelectField } from "@/app/components/ui/inputs/Fields";
 import { useTranslation } from "react-i18next";
-import {
-  LOCATION_DIVIDER_BEFORE,
-} from "@/domain/orders/locationOptions";
+import { LOCATION_DIVIDER_BEFORE } from "@/domain/orders/locationOptions";
 import { ORDER_STATUS } from "@/domain/orders/orderStatus";
 import { DriftBadge } from "@/app/components/ui/badges";
 import { isOrderEditDirty } from "@/app/admin/features/orders/utils/orderEditDirty";
@@ -85,7 +86,10 @@ import {
 } from "@/domain/orders/orderPriceHelpers";
 import SignedDrivingLicenceGallery from "@/app/admin/features/orders/components/SignedDrivingLicenceGallery";
 import DrivingLicenceUploadField from "@/app/components/ui/inputs/DrivingLicenceUploadField";
-import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
+import {
+  isInternalBooking,
+  isPlatformBooking,
+} from "@/domain/admin/rovaroContractorAdmin";
 import {
   BOOKING_CAPABILITY,
   resolveOrderCapabilities,
@@ -132,26 +136,29 @@ const EditOrderModal = ({
   supplierBusy = false,
 }) => {
   const { allOrders, fetchAndUpdateOrders, company } = useMainContext();
-  const {
-    names: companyLocations,
-    requiresDetail,
-  } = useCompanyBookingLocations(
-    order?.ownerId || order?.car?.ownerId || company?._id
-  );
+  const { names: companyLocations, requiresDetail } =
+    useCompanyBookingLocations(
+      order?.ownerId || order?.car?.ownerId || company?._id
+    );
   const { data: session } = useSession();
   const { t, i18n } = useTranslation();
   const theme = useTheme();
   const isMobileView = useMediaQuery(theme.breakpoints.down("sm"));
+  const isInternalOrder = isInternalBooking(order);
   const secondDriverPriceLabelValue = getSecondDriverPriceLabelValue();
   const isMultiOrderView = Number(ordersInBatch) > 1;
   const isCompactBatchLayout = isMultiOrderView;
-  const isCompactLayout = isCompactBatchLayout || isMobileView;
+  const isCompactLayout =
+    isCompactBatchLayout || isMobileView || isInternalOrder;
   const useInlineFooterActions = isMultiOrderView && !isMobileView;
   const formMetrics = useMemo(() => {
     const compact = isCompactLayout;
     return {
       fieldSize: compact ? "small" : "medium",
-      fieldMinHeight: { xs: compact ? 44 : 48, md: isCompactBatchLayout ? 38 : 44 },
+      fieldMinHeight: {
+        xs: compact ? 44 : 48,
+        md: isCompactBatchLayout ? 38 : 44,
+      },
       gridTemplateColumns: {
         xs: "1fr",
         sm: "repeat(2, minmax(0, 1fr))",
@@ -235,7 +242,7 @@ const EditOrderModal = ({
     setOrderForAccess((prev) => (prev?._id === order?._id ? order : prev));
   }, [order]);
   const access = useOrderAccess(orderForAccess || order, {
-    forceViewOnly: isViewOnly,
+    forceViewOnly: isViewOnly && !isInternalBooking(orderForAccess || order),
   });
 
   // 🎯 LAYER 1: Permissions (Domain/Logic Layer) — client PII from access.canEditClientPII only
@@ -367,12 +374,8 @@ const EditOrderModal = ({
     const rawLang = String(
       editedOrder?.clientLang || editedOrder?.locale || ""
     ).trim();
-    const primary =
-      rawLang.split(/[-_]/)[0]?.replace(/[^a-zA-Z]/g, "") || "";
-    const lang2 =
-      primary.length >= 2
-        ? primary.slice(0, 2).toUpperCase()
-        : "—";
+    const primary = rawLang.split(/[-_]/)[0]?.replace(/[^a-zA-Z]/g, "") || "";
+    const lang2 = primary.length >= 2 ? primary.slice(0, 2).toUpperCase() : "—";
     const langBold = primary.length >= 2;
     const ip = String(editedOrder?.clientIP || "").trim();
     const c = String(editedOrder?.clientCountry || "").trim();
@@ -578,13 +581,13 @@ const EditOrderModal = ({
   // Local state for confirmation toggle (separate from save operation)
   const [closeOrderUpdating, setCloseOrderUpdating] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
-  const [isPriceBreakdownExpanded, setIsPriceBreakdownExpanded] = useState(false);
+  const [isPriceBreakdownExpanded, setIsPriceBreakdownExpanded] =
+    useState(false);
   const [isPriceHistoryExpanded, setIsPriceHistoryExpanded] = useState(false);
 
   const pricingDrift = editedOrder?.pricingDrift || null;
   const getDrift = (field) => pricingDrift?.[field] || null;
-  const isPaidAndClosed =
-    editedOrder?.status === ORDER_STATUS.PAID_AND_CLOSED;
+  const isPaidAndClosed = editedOrder?.status === ORDER_STATUS.PAID_AND_CLOSED;
   const canCloseByRole = Boolean(currentUser?.isAdmin);
   const canCloseByDate = useMemo(() => {
     if (!editedOrder?.rentalStartDate) return false;
@@ -724,7 +727,14 @@ const EditOrderModal = ({
         }
       },
     });
-  }, [open, order?._id, registerEditOrderCloseGuard, setAttemptedSave, setIsUpdating, t]);
+  }, [
+    open,
+    order?._id,
+    registerEditOrderCloseGuard,
+    setAttemptedSave,
+    setIsUpdating,
+    t,
+  ]);
 
   // Dev-only: Permission audit log
   useEffect(() => {
@@ -930,7 +940,9 @@ const EditOrderModal = ({
           // Центрирование модального окна
           mx: "auto",
           // Ограничение высоты с учётом мобильных устройств
-          maxHeight: isMobileView ? "none" : { xs: "95vh", sm: "calc(100vh - 24px)" },
+          maxHeight: isMobileView
+            ? "none"
+            : { xs: "95vh", sm: "calc(100vh - 24px)" },
           overflow: isMobileView ? "visible" : { xs: "auto", sm: "hidden" },
           display: isMobileView ? "block" : "flex",
           flexDirection: "column",
@@ -1017,7 +1029,8 @@ const EditOrderModal = ({
                 {permissions.viewOnly
                   ? "Просмотреть заказ"
                   : t("order.editOrder")}{" "}
-                №{order?.orderNumber != null && order.orderNumber !== ""
+                №
+                {order?.orderNumber != null && order.orderNumber !== ""
                   ? String(order.orderNumber)
                   : ""}
                 {(() => {
@@ -1055,7 +1068,9 @@ const EditOrderModal = ({
                 onChanged={
                   onSupplierChanged
                     ? () =>
-                        onSupplierChanged(String((editedOrder || order)?._id || ""))
+                        onSupplierChanged(
+                          String((editedOrder || order)?._id || "")
+                        )
                     : null
                 }
               />
@@ -1110,8 +1125,7 @@ const EditOrderModal = ({
                     <>
                       <TextField
                         value={
-                          displayPrice !== undefined &&
-                          displayPrice !== null
+                          displayPrice !== undefined && displayPrice !== null
                             ? displayPrice
                             : ""
                         }
@@ -1189,7 +1203,8 @@ const EditOrderModal = ({
                               mb: 0.5,
                             }}
                           >
-                            Ручная цена (авто: €{manualLabelAutoPrice.toFixed(2)})
+                            Ручная цена (авто: €
+                            {manualLabelAutoPrice.toFixed(2)})
                           </Typography>
                           <Button
                             size="small"
@@ -1199,13 +1214,9 @@ const EditOrderModal = ({
                             onClick={() => {
                               if (!canResetToAutoPrice) return;
                               // Reset manual override to immutable saved booking price.
-                              updateField(
-                                "totalPrice",
-                                autoTotalForPricingUi,
-                                {
-                                  source: "confirmed_recalculation",
-                                }
-                              );
+                              updateField("totalPrice", autoTotalForPricingUi, {
+                                source: "confirmed_recalculation",
+                              });
                             }}
                             sx={{
                               fontSize: "0.65rem",
@@ -1224,7 +1235,11 @@ const EditOrderModal = ({
               </Box>
 
               {calcLoading && (
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: "block", mt: 0.5 }}
+                >
                   Пересчёт...
                 </Typography>
               )}
@@ -1242,7 +1257,9 @@ const EditOrderModal = ({
                 <Box sx={{ mt: 0, mb: 1, px: 0.5 }}>
                   {(() => {
                     const { dailyRates } = displayedPriceBreakdown;
-                    const hasDiscount = dailyRates?.some((d) => d.discountActive);
+                    const hasDiscount = dailyRates?.some(
+                      (d) => d.discountActive
+                    );
                     const activeDiscountValue =
                       activeDiscount?.type === "fixed"
                         ? `€${Number(activeDiscount?.value || 0)}`
@@ -1264,16 +1281,22 @@ const EditOrderModal = ({
                               color: "success.contrastText",
                             }}
                           >
-                            <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>
+                            <Typography
+                              variant="caption"
+                              sx={{ fontWeight: 700, fontSize: "0.75rem" }}
+                            >
                               {activeDiscount
                                 ? t("order.priceSummary.discountAppliedValue", {
                                     value: activeDiscountValue,
                                   })
-                                : t("order.priceSummary.discountAppliedPercent", {
-                                    percent:
-                                      dailyRates.find((d) => d.discountActive)
-                                        ?.discount || 0,
-                                  })}
+                                : t(
+                                    "order.priceSummary.discountAppliedPercent",
+                                    {
+                                      percent:
+                                        dailyRates.find((d) => d.discountActive)
+                                          ?.discount || 0,
+                                    }
+                                  )}
                             </Typography>
                           </Box>
                         )}
@@ -1340,14 +1363,22 @@ const EditOrderModal = ({
                                     <tr>
                                       <th>#</th>
                                       <th>{t("order.priceSummary.colDate")}</th>
-                                      <th>{t("order.priceSummary.colSeason")}</th>
+                                      <th>
+                                        {t("order.priceSummary.colSeason")}
+                                      </th>
                                       <th>{t("order.priceSummary.colRate")}</th>
-                                      <th>{t("order.priceSummary.colPrice")}</th>
+                                      <th>
+                                        {t("order.priceSummary.colPrice")}
+                                      </th>
                                       {hasDiscount && (
-                                        <th>{t("order.priceSummary.colDiscount")}</th>
+                                        <th>
+                                          {t("order.priceSummary.colDiscount")}
+                                        </th>
                                       )}
                                       {hasDiscount && (
-                                        <th>{t("order.priceSummary.colTotal")}</th>
+                                        <th>
+                                          {t("order.priceSummary.colTotal")}
+                                        </th>
                                       )}
                                     </tr>
                                   </thead>
@@ -1410,7 +1441,12 @@ const EditOrderModal = ({
                     size="small"
                     variant="text"
                     onClick={() => setIsPriceHistoryExpanded((prev) => !prev)}
-                    sx={{ p: 0, minWidth: "auto", fontSize: "0.7rem", textTransform: "none" }}
+                    sx={{
+                      p: 0,
+                      minWidth: "auto",
+                      fontSize: "0.7rem",
+                      textTransform: "none",
+                    }}
                   >
                     {isPriceHistoryExpanded
                       ? t("order.priceSummary.hideHistory")
@@ -1421,52 +1457,84 @@ const EditOrderModal = ({
 
                   {isPriceHistoryExpanded && (
                     <Box sx={{ mt: 0.5, maxHeight: 200, overflowY: "auto" }}>
-                      {[...storedBreakdown.history].reverse().map((entry, i) => {
-                        const sourceKey = {
-                          client_booking: "order.priceSummary.sourceClientBooking",
-                          admin_creation: "order.priceSummary.sourceAdminCreation",
-                          admin_edit: "order.priceSummary.sourceAdminEdit",
-                          admin_edit_confirmed:
-                            "order.priceSummary.sourceAdminEditConfirmed",
-                          confirmation: "order.priceSummary.sourceConfirmation",
-                          unconfirm: "order.priceSummary.sourceUnconfirm",
-                          system: "order.priceSummary.sourceSystem",
-                        }[entry.source];
-                        return (
-                          <Box
-                            key={i}
-                            sx={{
-                              mb: 0.5,
-                              p: 0.75,
-                              border: "1px solid",
-                              borderColor: entry.frozenAt ? "warning.light" : "divider",
-                              borderRadius: 1,
-                              fontSize: "0.68rem",
-                            }}
-                          >
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.7rem" }}>
-                                €{entry.totalPrice}
-                                {(entry.deliveryTotal || 0) > 0 && (
-                                  <span style={{ opacity: 0.7, fontWeight: 400 }}>
-                                    {" "}
-                                    {t("order.priceSummary.plusDelivery", {
-                                      amount: entry.deliveryTotal,
-                                    })}
-                                  </span>
-                                )}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.62rem" }}>
-                                {dayjs(entry.savedAt).format("DD.MM.YY HH:mm")}
+                      {[...storedBreakdown.history]
+                        .reverse()
+                        .map((entry, i) => {
+                          const sourceKey = {
+                            client_booking:
+                              "order.priceSummary.sourceClientBooking",
+                            admin_creation:
+                              "order.priceSummary.sourceAdminCreation",
+                            admin_edit: "order.priceSummary.sourceAdminEdit",
+                            admin_edit_confirmed:
+                              "order.priceSummary.sourceAdminEditConfirmed",
+                            confirmation:
+                              "order.priceSummary.sourceConfirmation",
+                            unconfirm: "order.priceSummary.sourceUnconfirm",
+                            system: "order.priceSummary.sourceSystem",
+                          }[entry.source];
+                          return (
+                            <Box
+                              key={i}
+                              sx={{
+                                mb: 0.5,
+                                p: 0.75,
+                                border: "1px solid",
+                                borderColor: entry.frozenAt
+                                  ? "warning.light"
+                                  : "divider",
+                                borderRadius: 1,
+                                fontSize: "0.68rem",
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  sx={{ fontWeight: 700, fontSize: "0.7rem" }}
+                                >
+                                  €{entry.totalPrice}
+                                  {(entry.deliveryTotal || 0) > 0 && (
+                                    <span
+                                      style={{ opacity: 0.7, fontWeight: 400 }}
+                                    >
+                                      {" "}
+                                      {t("order.priceSummary.plusDelivery", {
+                                        amount: entry.deliveryTotal,
+                                      })}
+                                    </span>
+                                  )}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: "text.secondary",
+                                    fontSize: "0.62rem",
+                                  }}
+                                >
+                                  {dayjs(entry.savedAt).format(
+                                    "DD.MM.YY HH:mm"
+                                  )}
+                                </Typography>
+                              </Box>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: "text.secondary",
+                                  fontSize: "0.62rem",
+                                }}
+                              >
+                                {sourceKey ? t(sourceKey) : entry.source || "—"}
+                                {entry.frozenAt && " 🔒"}
                               </Typography>
                             </Box>
-                            <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.62rem" }}>
-                              {sourceKey ? t(sourceKey) : entry.source || "—"}
-                              {entry.frozenAt && " 🔒"}
-                            </Typography>
-                          </Box>
-                        );
-                      })}
+                          );
+                        })}
                     </Box>
                   )}
                 </Box>
@@ -1487,7 +1555,9 @@ const EditOrderModal = ({
               sx={{
                 flex: isMobileView ? "none" : 1,
                 minHeight: isMobileView ? "auto" : 0,
-                overflowY: isMobileView ? "visible" : { xs: "visible", sm: "auto" },
+                overflowY: isMobileView
+                  ? "visible"
+                  : { xs: "visible", sm: "auto" },
                 pr: { xs: 0, sm: 0.5 },
                 "& .MuiTextField-root .MuiOutlinedInput-root, & .MuiFormControl-root .MuiOutlinedInput-root":
                   {
@@ -1559,7 +1629,7 @@ const EditOrderModal = ({
                   control={
                     <Checkbox
                       checked={Boolean(editedOrder?.offline)}
-                      disabled={isPaidAndClosed || Boolean(access?.isViewOnly)}
+                      disabled={Boolean(access?.isViewOnly)}
                       onChange={(e) => {
                         const offline = e.target.checked;
                         setEditedOrder((prev) => {
@@ -1580,24 +1650,6 @@ const EditOrderModal = ({
                   }
                   label={t("order.offline")}
                   sx={{ mt: 1, mb: 0.5 }}
-                />
-                <InternalBookingCompanyMeta
-                  order={editedOrder}
-                  disabled={
-                    isPaidAndClosed ||
-                    Boolean(access?.isViewOnly) ||
-                    Boolean(permissions?.viewOnly)
-                  }
-                  onNotesChange={(value) =>
-                    setEditedOrder((prev) =>
-                      prev ? { ...prev, companyNotes: value } : prev
-                    )
-                  }
-                  onTagsChange={(tags) =>
-                    setEditedOrder((prev) =>
-                      prev ? { ...prev, companyTags: tags } : prev
-                    )
-                  }
                 />
                 {/* 🔴 BLOCK: показываем сообщение о блокировке подтверждения (только если canConfirm === false) */}
                 {!editedOrder?.confirmed &&
@@ -1897,6 +1949,7 @@ const EditOrderModal = ({
                     <MarketplacePaymentOpsPanel
                       order={editedOrder}
                       isSuperAdmin={isCurrentUserSuperAdmin}
+                      currentUser={currentUser}
                     />
                     <OfferAlternativePanel
                       order={editedOrder}
@@ -1907,7 +1960,13 @@ const EditOrderModal = ({
                       <>
                         <Typography
                           variant="caption"
-                          sx={{ color: "text.secondary", fontWeight: 600, display: "block", mb: 0.75, mt: 1.5 }}
+                          sx={{
+                            color: "text.secondary",
+                            fontWeight: 600,
+                            display: "block",
+                            mb: 0.75,
+                            mt: 1.5,
+                          }}
                         >
                           {t("admin.emails.orderThread")}
                         </Typography>
@@ -1946,7 +2005,7 @@ const EditOrderModal = ({
                     onChange={(e) => {
                       if (
                         permissions.viewOnly ||
-                        permissions.isCurrentOrder ||
+                        (permissions.isCurrentOrder && !isInternalOrder) ||
                         !permissions.fieldPermissions.rentalStartDate
                       )
                         return;
@@ -1956,10 +2015,10 @@ const EditOrderModal = ({
                     size={formMetrics.fieldSize}
                     disabled={
                       permissions.viewOnly ||
-                      permissions.isCurrentOrder ||
+                      (permissions.isCurrentOrder && !isInternalOrder) ||
                       !permissions.fieldPermissions.rentalStartDate
                     }
-                    inputProps={{ min: todayStr }}
+                    inputProps={{ min: isInternalOrder ? undefined : todayStr }}
                   />
                   <TextField
                     label={t("order.pickupTime")}
@@ -2025,11 +2084,12 @@ const EditOrderModal = ({
                     sx={unifiedFieldSx}
                     size={formMetrics.fieldSize}
                     inputProps={{
-                      min: permissions.isCurrentOrder
-                        ? athensNow().format("YYYY-MM-DD")
-                        : editedOrder?.rentalStartDate
-                        ? formatDateYYYYMMDD(editedOrder.rentalStartDate)
-                        : undefined,
+                      min:
+                        permissions.isCurrentOrder && !isInternalOrder
+                          ? athensNow().format("YYYY-MM-DD")
+                          : editedOrder?.rentalStartDate
+                          ? formatDateYYYYMMDD(editedOrder.rentalStartDate)
+                          : undefined,
                     }}
                   />
                   <TextField
@@ -2192,7 +2252,10 @@ const EditOrderModal = ({
                           label={
                             <Box
                               component="span"
-                              sx={{ display: "inline-flex", alignItems: "center" }}
+                              sx={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                              }}
                             >
                               {t("order.pickupLocation")}
                               {getDrift("placeIn") && (
@@ -2249,7 +2312,10 @@ const EditOrderModal = ({
                           label={
                             <Box
                               component="span"
-                              sx={{ display: "inline-flex", alignItems: "center" }}
+                              sx={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                              }}
                             >
                               {t("order.returnLocation")}
                               {getDrift("placeOut") && (
@@ -2375,7 +2441,10 @@ const EditOrderModal = ({
                     }}
                   >
                     <InputLabel>
-                      <Box component="span" sx={{ display: "inline-flex", alignItems: "center" }}>
+                      <Box
+                        component="span"
+                        sx={{ display: "inline-flex", alignItems: "center" }}
+                      >
                         {t("order.insurance")}
                         {getDrift("insurance") && (
                           <DriftBadge
@@ -2464,7 +2533,10 @@ const EditOrderModal = ({
                     }}
                   >
                     <InputLabel>
-                      <Box component="span" sx={{ display: "inline-flex", alignItems: "center" }}>
+                      <Box
+                        component="span"
+                        sx={{ display: "inline-flex", alignItems: "center" }}
+                      >
                         {t("order.childSeats")}{" "}
                         {selectedCar?.PriceChildSeats ?? 0}
                         €/{t("order.perDay")}
@@ -2523,7 +2595,10 @@ const EditOrderModal = ({
                         <>
                           <span>{t("order.clientName")}</span>
                           {!editedOrder?.offline && (
-                            <Box component="span" sx={{ color: "primary.dark" }}>
+                            <Box
+                              component="span"
+                              sx={{ color: "primary.dark" }}
+                            >
                               *
                             </Box>
                           )}
@@ -2560,7 +2635,10 @@ const EditOrderModal = ({
                         <>
                           <span>{t("order.phone")}</span>
                           {!editedOrder?.offline && (
-                            <Box component="span" sx={{ color: "primary.dark" }}>
+                            <Box
+                              component="span"
+                              sx={{ color: "primary.dark" }}
+                            >
                               *
                             </Box>
                           )}
@@ -2825,7 +2903,13 @@ const EditOrderModal = ({
                           },
                         }}
                         label={
-                          <Box component="span" sx={{ display: "inline-flex", alignItems: "center" }}>
+                          <Box
+                            component="span"
+                            sx={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                            }}
+                          >
                             {t("order.secondDriver", {
                               price: secondDriverPriceLabelValue,
                             })}
@@ -2892,6 +2976,23 @@ const EditOrderModal = ({
                 </Box>
               )}
             </Box>
+
+            <InternalBookingCompanyMeta
+              order={editedOrder}
+              disabled={
+                Boolean(access?.isViewOnly) || Boolean(permissions?.viewOnly)
+              }
+              onNotesChange={(value) =>
+                setEditedOrder((prev) =>
+                  prev ? { ...prev, companyNotes: value } : prev
+                )
+              }
+              onTagsChange={(tags) =>
+                setEditedOrder((prev) =>
+                  prev ? { ...prev, companyTags: tags } : prev
+                )
+              }
+            />
 
             {/* Кнопки действий — адаптивное расположение */}
             <Box

@@ -12,12 +12,12 @@
  *   PAYMENT_PROCESSING             — AWAITING_CUSTOMER_PAYMENT (Checkout created)
  *   BOOKING_CONFIRMED              — Stripe webhook paid only
  *   RENTAL_IN_PROGRESS             — pickup time reached
- *   COMPLETION_PENDING             — return time reached; 24h before COMPLETED
+ *   COMPLETION_PENDING             — legacy return-time transition status
  *   SUPPLIER_DECLINED              — Cannot provide; no Stripe link
  *   PAYMENT_EXPIRED                — unpaid link expired
  *   ALTERNATIVE_PROPOSED           — customer must accept; admin must not
- *   COMPLETED                      — grace elapsed and no reported problem
- *                                    (does not set order.status PAID_AND_CLOSED)
+ *   COMPLETED                      — scheduled return time reached; does not
+ *                                    assert settlement or set PAID_AND_CLOSED
  *
  * Do not mass-migrate historical rows. New marketplace writes use these
  * constants; Greece ops still mostly uses legacy `confirmed` / `offline`.

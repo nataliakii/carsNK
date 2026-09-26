@@ -1,4 +1,5 @@
 {
+  "paymentLinkExpired": "Enlace de pago caducado",
   "header": {
     "main": "Rental",
     "locations": "Locations",
@@ -995,7 +996,8 @@
     "internalCompleted": "Completed",
     "internalCancelled": "Cancelled",
     "toneCompletionPending": "Completion pending",
-    "toneAlternative": "Alternative offered"
+    "toneAlternative": "Alternative offered",
+    "toneExpired": "Enlace de pago caducado"
   },
   "print": {
     "allOrders": "All Orders",
@@ -1874,9 +1876,9 @@
         "detail": "A la espera de tu confirmación."
       },
       "awaitingPayment": {
-        "title": "Vehículo confirmado",
-        "detail": "Esperando a que el cliente pague el {{rate}}% de la reserva.",
-        "detailNoRate": "Esperando a que el cliente pague la reserva."
+        "title": "Pendiente de pago del cliente",
+        "detail": "Vehículo confirmado. Esperando a que el cliente pague el {{rate}}% de la reserva.",
+        "detailNoRate": "Vehículo confirmado. Esperando a que el cliente pague la reserva."
       },
       "replacementOffered": {
         "title": "Sustitución ofrecida",
@@ -2072,6 +2074,7 @@
       "sourcePlatform": "Reserva de Rovaro",
       "sourceInternal": "Interna",
       "awaitingPayment": "Pendiente de pago del cliente",
+      "paymentLinkExpired": "Enlace de pago caducado",
       "paymentReceived": "Pago de la reserva recibido",
       "days_one": "{{count}} día",
       "days_other": "{{count}} días"

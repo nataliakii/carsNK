@@ -44,31 +44,36 @@ function platform(overrides = {}) {
   };
 }
 
-function caps(status, role = BOOKING_ROLE.ADMIN) {
+function caps(status, role = BOOKING_ROLE.ADMIN, paymentVerified = false) {
   return resolveBookingCapabilities({
     source: BOOKING_SOURCE.PLATFORM,
     status,
     role,
     companyId: COMPANY,
     orderCompanyId: COMPANY,
+    paymentVerified,
   });
 }
 
 describe("new request — the supplier decides, and sees nothing private", () => {
-  const newRequest = caps(PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION);
+  const newRequest = caps(
+    PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION
+  );
 
   test("exposes exactly confirm, replacement, decline and contact Rovaro", () => {
     const granted = Object.entries(newRequest)
       .filter(([, allowed]) => allowed)
       .map(([capability]) => capability)
       .sort();
-    expect(granted).toEqual([
-      BOOKING_CAPABILITY.CONFIRM_REQUESTED_VEHICLE,
-      BOOKING_CAPABILITY.CONTACT_ROVARO,
-      BOOKING_CAPABILITY.DECLINE_REQUEST,
-      BOOKING_CAPABILITY.OFFER_EQUIVALENT_REPLACEMENT,
-      BOOKING_CAPABILITY.VIEW_BOOKING,
-    ].sort());
+    expect(granted).toEqual(
+      [
+        BOOKING_CAPABILITY.CONFIRM_REQUESTED_VEHICLE,
+        BOOKING_CAPABILITY.CONTACT_ROVARO,
+        BOOKING_CAPABILITY.DECLINE_REQUEST,
+        BOOKING_CAPABILITY.OFFER_EQUIVALENT_REPLACEMENT,
+        BOOKING_CAPABILITY.VIEW_BOOKING,
+      ].sort()
+    );
   });
 
   test("contacts and driving documents stay hidden", () => {
@@ -84,7 +89,9 @@ describe("awaiting customer payment — the confirmation is irreversible", () =>
   test("the supplier cannot unconfirm, decline or offer another vehicle", () => {
     expect(waiting[BOOKING_CAPABILITY.CONFIRM_REQUESTED_VEHICLE]).toBe(false);
     expect(waiting[BOOKING_CAPABILITY.DECLINE_REQUEST]).toBe(false);
-    expect(waiting[BOOKING_CAPABILITY.OFFER_EQUIVALENT_REPLACEMENT]).toBe(false);
+    expect(waiting[BOOKING_CAPABILITY.OFFER_EQUIVALENT_REPLACEMENT]).toBe(
+      false
+    );
   });
 
   test("Contact Rovaro is the only remaining action", () => {
@@ -92,23 +99,27 @@ describe("awaiting customer payment — the confirmation is irreversible", () =>
       .filter(([, allowed]) => allowed)
       .map(([capability]) => capability)
       .sort();
-    expect(granted).toEqual([
-      BOOKING_CAPABILITY.CONTACT_ROVARO,
-      BOOKING_CAPABILITY.VIEW_BOOKING,
-    ].sort());
+    expect(granted).toEqual(
+      [
+        BOOKING_CAPABILITY.CONTACT_ROVARO,
+        BOOKING_CAPABILITY.VIEW_BOOKING,
+      ].sort()
+    );
   });
 
   test("a submitted replacement proposal cannot be withdrawn either", () => {
     const proposed = caps(
       PLATFORM_WORKFLOW_STAGE.AWAITING_CUSTOMER_ALTERNATIVE_ACCEPTANCE
     );
-    expect(proposed[BOOKING_CAPABILITY.OFFER_EQUIVALENT_REPLACEMENT]).toBe(false);
+    expect(proposed[BOOKING_CAPABILITY.OFFER_EQUIVALENT_REPLACEMENT]).toBe(
+      false
+    );
     expect(proposed[BOOKING_CAPABILITY.DECLINE_REQUEST]).toBe(false);
     expect(proposed[BOOKING_CAPABILITY.CONTACT_ROVARO]).toBe(true);
   });
 });
 
-describe("paid booking — read-only, but the supplier can finally reach the customer", () => {
+describe("paid booking — customer access opens and operational amendment is explicit", () => {
   const paidOrder = platform({
     bookingStatus: BOOKING_STATUS.BOOKING_CONFIRMED,
     confirmed: true,
@@ -126,11 +137,15 @@ describe("paid booking — read-only, but the supplier can finally reach the cus
   });
 
   test("another company gets nothing at all, not even the booking", () => {
-    const stranger = resolveOrderCapabilities(paidOrder, otherCompanyAdmin, { now });
+    const stranger = resolveOrderCapabilities(paidOrder, otherCompanyAdmin, {
+      now,
+    });
     expect(stranger[BOOKING_CAPABILITY.VIEW_BOOKING]).toBe(false);
     expect(stranger[BOOKING_CAPABILITY.VIEW_CUSTOMER_CONTACTS]).toBe(false);
     expect(stranger[BOOKING_CAPABILITY.VIEW_DRIVING_DOCUMENTS]).toBe(false);
-    expect(assertBookingCapability(stranger, BOOKING_CAPABILITY.VIEW_BOOKING)).toEqual({
+    expect(
+      assertBookingCapability(stranger, BOOKING_CAPABILITY.VIEW_BOOKING)
+    ).toEqual({
       ok: false,
       status: 404,
       code: "BOOKING_NOT_FOUND",
@@ -138,18 +153,30 @@ describe("paid booking — read-only, but the supplier can finally reach the cus
     });
   });
 
-  test("the booking stays read-only for the supplier", () => {
+  test("the supplier amendment capability is explicit while bare field writes remain blocked", () => {
     const owning = resolveOrderCapabilities(paidOrder, companyAdmin, { now });
-    expect(owning[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]).toBe(false);
+    expect(owning[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]).toBe(true);
     expect(owning[BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]).toBe(false);
     const writes = checkBookingFieldWrites({
       capabilities: owning,
       source: BOOKING_SOURCE.PLATFORM,
-      fields: ["rentalEndDate", "totalPrice", "insurance", "ChildSeats", "placeOut"],
+      fields: [
+        "rentalEndDate",
+        "totalPrice",
+        "insurance",
+        "ChildSeats",
+        "placeOut",
+      ],
     });
     expect(writes.allowed).toBe(false);
     expect(writes.deniedFields.sort()).toEqual(
-      ["ChildSeats", "insurance", "placeOut", "rentalEndDate", "totalPrice"].sort()
+      [
+        "ChildSeats",
+        "insurance",
+        "placeOut",
+        "rentalEndDate",
+        "totalPrice",
+      ].sort()
     );
   });
 
@@ -171,7 +198,11 @@ describe("paid booking — read-only, but the supplier can finally reach the cus
       { order: paidOrder, user: companyAdmin, now },
       { order: paidOrder, user: otherCompanyAdmin, now },
       { order: paidOrder, user: superadmin, now },
-      { order: paidOrder, user: companyAdmin, now: new Date("2026-10-10T10:00:00.000Z") },
+      {
+        order: paidOrder,
+        user: companyAdmin,
+        now: new Date("2026-10-10T10:00:00.000Z"),
+      },
       { order: platform(), user: companyAdmin, now },
     ];
 
@@ -215,18 +246,73 @@ describe("superadmin", () => {
     expect(able[BOOKING_CAPABILITY.CONTACT_ROVARO]).toBe(false);
   });
 
-  test("a company admin never receives amendment powers", () => {
-    const supplier = resolveOrderCapabilities(order, companyAdmin);
-    expect(supplier[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]).toBe(false);
+  test("company admins can amend verified paid and completed bookings, not cancelled ones", () => {
+    const confirmed = resolveOrderCapabilities(order, companyAdmin);
+    expect(confirmed[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]).toBe(true);
+
+    const completed = resolveOrderCapabilities(
+      platform({
+        bookingStatus: PLATFORM_WORKFLOW_STAGE.COMPLETED,
+        payment: { status: "paid" },
+      }),
+      companyAdmin
+    );
+    expect(completed[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]).toBe(true);
+
+    const unverified = resolveBookingCapabilities({
+      source: BOOKING_SOURCE.PLATFORM,
+      status: PLATFORM_WORKFLOW_STAGE.COMPLETED,
+      role: BOOKING_ROLE.ADMIN,
+      companyId: COMPANY,
+      orderCompanyId: COMPANY,
+      paymentVerified: false,
+    });
+    expect(unverified[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]).toBe(false);
+
+    const cancelled = resolveOrderCapabilities(
+      platform({
+        bookingStatus: BOOKING_STATUS.CUSTOMER_CANCELLED,
+        payment: { status: "paid" },
+      }),
+      companyAdmin
+    );
+    expect(cancelled[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]).toBe(false);
+    expect(cancelled[BOOKING_CAPABILITY.CONTACT_ROVARO]).toBe(true);
+    expect(cancelled[BOOKING_CAPABILITY.VIEW_AUDIT_HISTORY]).toBe(true);
+
+    const completedAfterCancellation = resolveOrderCapabilities(
+      platform({
+        bookingStatus: BOOKING_STATUS.COMPLETED,
+        payment: { status: "paid" },
+      }),
+      companyAdmin
+    );
+    expect(
+      completedAfterCancellation[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]
+    ).toBe(true);
+    expect(
+      completedAfterCancellation[BOOKING_CAPABILITY.VIEW_AUDIT_HISTORY]
+    ).toBe(true);
+    expect(completedAfterCancellation[BOOKING_CAPABILITY.CONTACT_ROVARO]).toBe(
+      true
+    );
+
+    const superadminCancelled = resolveOrderCapabilities(
+      platform({ bookingStatus: BOOKING_STATUS.CUSTOMER_CANCELLED }),
+      superadmin
+    );
+    expect(superadminCancelled[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]).toBe(
+      true
+    );
   });
 
-  test("viewing the console as a company drops platform powers", () => {
+  test("viewing as the owning company has company-admin amendment access", () => {
     const viewingAs = resolveOrderCapabilities(order, {
       isAdmin: true,
       role: 2,
       viewAsCompanyId: COMPANY,
     });
-    expect(viewingAs[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]).toBe(false);
+    expect(viewingAs[BOOKING_CAPABILITY.AMEND_PLATFORM_BOOKING]).toBe(true);
     expect(viewingAs[BOOKING_CAPABILITY.VIEW_BOOKING]).toBe(true);
   });
 });
@@ -238,7 +324,11 @@ describe("the second driver is a platform extra", () => {
     PLATFORM_WORKFLOW_STAGE.BOOKING_CONFIRMED,
   ];
 
-  function internalCaps(actorCompany, bookingCompany, role = BOOKING_ROLE.ADMIN) {
+  function internalCaps(
+    actorCompany,
+    bookingCompany,
+    role = BOOKING_ROLE.ADMIN
+  ) {
     return resolveBookingCapabilities({
       source: BOOKING_SOURCE.INTERNAL,
       status: "",
@@ -304,9 +394,9 @@ describe("the second driver is a platform extra", () => {
 
     const internal = internalCaps(null, COMPANY, BOOKING_ROLE.SUPERADMIN);
     expect(internal[BOOKING_CAPABILITY.ADD_SECOND_DRIVER]).toBe(true);
-    // Rovaro adds the extra but still does not take over the company's own
-    // editing flow.
-    expect(internal[BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]).toBe(false);
+    // Internal records remain outside platform workflows, while superadmin
+    // may edit them operationally when needed.
+    expect(internal[BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]).toBe(true);
   });
 });
 
@@ -376,7 +466,11 @@ describe("the update route enforces the second-driver rule by source", () => {
     // acting user has to be identifiable.
     const onPlatform = decideOrderUpdate({
       order: platform(),
-      user: { ...superadmin, id: "64a00000000000000000000f", email: "ops@rovaro.com" },
+      user: {
+        ...superadmin,
+        id: "64a00000000000000000000f",
+        email: "ops@rovaro.com",
+      },
       payload: {
         secondDriver: true,
         amendmentReason: "Customer asked to add a second driver",
@@ -389,7 +483,7 @@ describe("the update route enforces the second-driver rule by source", () => {
 });
 
 describe("INTERNAL controls never leak onto a PLATFORM booking", () => {
-  test("a company admin gets no edit capability on any platform stage", () => {
+  test("a company admin gets no internal edit capability and no amendment without verified payment", () => {
     for (const stage of Object.values(PLATFORM_WORKFLOW_STAGE)) {
       const granted = caps(stage);
       expect(granted[BOOKING_CAPABILITY.EDIT_INTERNAL_BOOKING]).toBe(false);
@@ -398,14 +492,18 @@ describe("INTERNAL controls never leak onto a PLATFORM booking", () => {
   });
 
   test("every platform-locked field is refused even when the UI is bypassed", () => {
-    const granted = caps(PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION);
+    const granted = caps(
+      PLATFORM_WORKFLOW_STAGE.AWAITING_SUPPLIER_CONFIRMATION
+    );
     const writes = checkBookingFieldWrites({
       capabilities: granted,
       source: BOOKING_SOURCE.PLATFORM,
       fields: [...PLATFORM_LOCKED_FIELDS],
     });
     expect(writes.allowed).toBe(false);
-    expect(writes.deniedFields.sort()).toEqual([...PLATFORM_LOCKED_FIELDS].sort());
+    expect(writes.deniedFields.sort()).toEqual(
+      [...PLATFORM_LOCKED_FIELDS].sort()
+    );
     expect(writes.code).toBe("PLATFORM_BOOKING_READ_ONLY");
   });
 

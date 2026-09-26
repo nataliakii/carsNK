@@ -14,6 +14,8 @@ import {
 } from "@/domain/orders/stripePaymentRefs";
 import { isMarketplaceRequestMode } from "@/domain/booking/bookingMode";
 import { buildCheckoutInvalidationView } from "@/domain/orders/invalidateMarketplaceCheckout";
+import { resolvePlatformWorkflowStage } from "@/domain/admin/rovaroContractorAdmin";
+import { paymentStatusChipForOrder } from "@/domain/orders/bookingPaymentStatus";
 
 function safePayment(order) {
   const pay = order?.payment && typeof order.payment === "object" ? order.payment : {};
@@ -85,8 +87,10 @@ export async function buildMarketplacePaymentOpsView(order) {
 
   return {
     marketplace: isMarketplaceRequestMode(order.bookingMode),
-    bookingStatus: order.bookingStatus || "",
+    bookingStatus: resolvePlatformWorkflowStage(order) || order.bookingStatus || "",
+    storedBookingStatus: order.bookingStatus || "",
     rentalState: resolveRentalState(order),
+    paymentStatusChip: paymentStatusChipForOrder(order),
     payment: safePayment(order),
     invalidation: buildCheckoutInvalidationView(order, retryOffer),
     hold: hold

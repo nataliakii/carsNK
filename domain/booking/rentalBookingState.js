@@ -27,10 +27,7 @@
  * on `order.bookingStatus`.
  */
 
-import {
-  BOOKING_STATUS,
-  isHardBlockingBookingStatus,
-} from "./bookingStatus";
+import { BOOKING_STATUS, isHardBlockingBookingStatus } from "./bookingStatus";
 
 export const RENTAL_STATE = Object.freeze({
   REQUESTED: "REQUESTED",
@@ -61,7 +58,8 @@ export const RENTAL_STATE_TO_BOOKING_STATUS = Object.freeze({
   [R.CONFIRMED]: BOOKING_STATUS.BOOKING_CONFIRMED,
   [R.DECLINED]: BOOKING_STATUS.SUPPLIER_DECLINED,
   [R.ALTERNATIVE_OFFERED]: BOOKING_STATUS.ALTERNATIVE_PROPOSED,
-  [R.ALTERNATIVE_ACCEPTED]: BOOKING_STATUS.ALTERNATIVE_ACCEPTED_AWAITING_PAYMENT,
+  [R.ALTERNATIVE_ACCEPTED]:
+    BOOKING_STATUS.ALTERNATIVE_ACCEPTED_AWAITING_PAYMENT,
   [R.ALTERNATIVE_DECLINED]: BOOKING_STATUS.NO_AVAILABILITY,
   [R.CANCELLED]: BOOKING_STATUS.CUSTOMER_CANCELLED,
   [R.RENTAL_IN_PROGRESS]: BOOKING_STATUS.RENTAL_IN_PROGRESS,
@@ -94,11 +92,20 @@ export const RENTAL_STATE_TRANSITIONS = Object.freeze({
   [R.PAYMENT_EXPIRED]: [R.PAYMENT_PENDING, R.CANCELLED, R.ALTERNATIVE_OFFERED],
   // Paid/confirmed bookings are not part of the automatic Spain alternative
   // flow. SUPERADMIN/manual replacement is a separate audited operation.
-  [R.CONFIRMED]: [R.RENTAL_IN_PROGRESS, R.COMPLETION_PENDING, R.CANCELLED],
-  [R.RENTAL_IN_PROGRESS]: [R.COMPLETION_PENDING, R.CANCELLED],
+  [R.CONFIRMED]: [
+    R.RENTAL_IN_PROGRESS,
+    R.COMPLETION_PENDING,
+    R.COMPLETED,
+    R.CANCELLED,
+  ],
+  [R.RENTAL_IN_PROGRESS]: [R.COMPLETION_PENDING, R.COMPLETED, R.CANCELLED],
   [R.COMPLETION_PENDING]: [R.COMPLETED, R.CANCELLED],
   [R.DECLINED]: [],
-  [R.ALTERNATIVE_OFFERED]: [R.ALTERNATIVE_ACCEPTED, R.ALTERNATIVE_DECLINED, R.CANCELLED],
+  [R.ALTERNATIVE_OFFERED]: [
+    R.ALTERNATIVE_ACCEPTED,
+    R.ALTERNATIVE_DECLINED,
+    R.CANCELLED,
+  ],
   [R.ALTERNATIVE_ACCEPTED]: [
     R.PAYMENT_PENDING,
     R.PAYMENT_EXPIRED,
@@ -177,7 +184,12 @@ export function applyCompliancePaymentExpiration(order) {
     bookingStatus === BOOKING_STATUS.BOOKING_CONFIRMED ||
     from === R.CONFIRMED
   ) {
-    return { ok: false, from, to: R.PAYMENT_EXPIRED, code: "paid_or_confirmed" };
+    return {
+      ok: false,
+      from,
+      to: R.PAYMENT_EXPIRED,
+      code: "paid_or_confirmed",
+    };
   }
   if (
     TERMINAL_NON_EXPIRABLE.has(from) ||
@@ -188,7 +200,12 @@ export function applyCompliancePaymentExpiration(order) {
     return { ok: false, from, to: R.PAYMENT_EXPIRED, code: "terminal" };
   }
   if (!COMPLIANCE_PAYMENT_EXPIRABLE_STATES.includes(from)) {
-    return { ok: false, from, to: R.PAYMENT_EXPIRED, code: "illegal_transition" };
+    return {
+      ok: false,
+      from,
+      to: R.PAYMENT_EXPIRED,
+      code: "illegal_transition",
+    };
   }
   return applyRentalStateTransition(order, R.PAYMENT_EXPIRED);
 }

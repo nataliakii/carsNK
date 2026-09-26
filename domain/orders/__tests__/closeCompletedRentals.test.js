@@ -4,7 +4,6 @@
 import {
   applyPlatformCompletionStep,
   bookingFeeIsPaid,
-  COMPLETION_GRACE_MS,
   isRentalPeriodOver,
   planPlatformCompletion,
   recordSupplierRemainingPaid,
@@ -37,6 +36,22 @@ describe("closeCompletedRentals helpers", () => {
     expect(
       isRentalPeriodOver({ returnAtUtc: "2026-10-02T10:00:00.000Z" }, now)
     ).toBe(false);
+    expect(isRentalPeriodOver({ returnAtUtc: now.toISOString() }, now)).toBe(
+      true
+    );
+  });
+
+  test("date-only legacy returns use the booking timezone", () => {
+    const order = {
+      rentalEndDate: "2026-09-30T00:00:00.000Z",
+      timezone: "Europe/Athens",
+    };
+    expect(
+      isRentalPeriodOver(order, new Date("2026-09-30T20:59:59.000Z"))
+    ).toBe(false);
+    expect(
+      isRentalPeriodOver(order, new Date("2026-09-30T21:00:00.000Z"))
+    ).toBe(true);
   });
 
   test("internal bookings and unpaid platform bookings are not moved", () => {
@@ -65,28 +80,41 @@ describe("closeCompletedRentals helpers", () => {
     ).toBeNull();
   });
 
-  test("return time moves a paid platform booking to COMPLETION_PENDING", () => {
+  test("cancelled paid platform bookings are never auto-completed", () => {
+    expect(
+      planPlatformCompletion(
+        platform({
+          bookingStatus: BOOKING_STATUS.CUSTOMER_CANCELLED,
+          returnAtUtc: "2026-09-01T00:00:00.000Z",
+        }),
+        now
+      )
+    ).toBeNull();
+  });
+
+  test("return time moves a paid platform booking directly to COMPLETED", () => {
     const order = platform({
       pickupAtUtc: "2026-09-20T10:00:00.000Z",
       returnAtUtc: "2026-10-01T11:00:00.000Z",
     });
-    expect(planPlatformCompletion(order, now).rentalState).toBe(
-      "COMPLETION_PENDING"
-    );
+    expect(planPlatformCompletion(order, now).rentalState).toBe("COMPLETED");
     const applied = applyPlatformCompletionStep(order, now);
     expect(applied.ok).toBe(true);
-    expect(order.bookingStatus).toBe(BOOKING_STATUS.COMPLETION_PENDING);
+    expect(order.bookingStatus).toBe(BOOKING_STATUS.COMPLETED);
     expect(order.status).not.toBe(ORDER_STATUS.PAID_AND_CLOSED);
     expect(supplierRecordedRemainingPaid(order)).toBe(false);
     expect(shouldCloseCompletedRental(order, now)).toBe(false);
+    expect(applyPlatformCompletionStep(order, now)).toMatchObject({
+      ok: false,
+      code: "no_step",
+    });
   });
 
-  test("the 24-hour grace period then moves it to COMPLETED", () => {
-    const pendingAt = new Date(now.getTime() - COMPLETION_GRACE_MS - 1000);
+  test("legacy completion-pending rows complete as soon as return is reached", () => {
     const order = platform({
       bookingStatus: BOOKING_STATUS.COMPLETION_PENDING,
-      completionPendingAt: pendingAt,
-      returnAtUtc: "2026-09-30T10:00:00.000Z",
+      completionPendingAt: new Date(now.getTime() - 60_000),
+      returnAtUtc: now.toISOString(),
     });
     expect(shouldCloseCompletedRental(order, now)).toBe(true);
     applyPlatformCompletionStep(order, now);
@@ -94,15 +122,29 @@ describe("closeCompletedRentals helpers", () => {
     expect(order.status).not.toBe(ORDER_STATUS.PAID_AND_CLOSED);
   });
 
-  test("a reported problem prevents completion", () => {
+  test("a reported problem is preserved without blocking normal completion", () => {
     const order = platform({
-      bookingStatus: BOOKING_STATUS.COMPLETION_PENDING,
-      completionPendingAt: new Date(now.getTime() - COMPLETION_GRACE_MS - 1000),
-      returnAtUtc: "2026-09-30T10:00:00.000Z",
+      bookingStatus: BOOKING_STATUS.BOOKING_CONFIRMED,
+      returnAtUtc: now.toISOString(),
     });
-    expect(reportBookingProblem(order, { by: "company" }).ok).toBe(true);
-    expect(planPlatformCompletion(order, now)).toBeNull();
-    expect(order.bookingStatus).toBe(BOOKING_STATUS.COMPLETION_PENDING);
+    const reported = reportBookingProblem(order, {
+      by: "company",
+      type: "DAMAGE",
+      note: "Scratch on passenger door",
+    });
+    expect(reported.ok).toBe(true);
+    expect(reported.issue).toMatchObject({
+      status: "OPEN",
+      type: "DAMAGE",
+      note: "Scratch on passenger door",
+      reportedBy: "company",
+    });
+    expect(planPlatformCompletion(order, now).rentalState).toBe("COMPLETED");
+    applyPlatformCompletionStep(order, now);
+    expect(order.bookingStatus).toBe(BOOKING_STATUS.COMPLETED);
+    expect(order.hasProblem).toBe(true);
+    expect(order.bookingIssues).toHaveLength(1);
+    expect(order.bookingIssues[0].issueId).toBeTruthy();
   });
 
   test("Booking Fee paid does not record the remaining amount", () => {

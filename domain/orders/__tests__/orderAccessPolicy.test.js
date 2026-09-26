@@ -1,10 +1,10 @@
 /**
  * Unit tests for orderAccessPolicy
- * 
+ *
  * ════════════════════════════════════════════════════════════════
  * TEST MATRIX (защита от регрессий)
  * ════════════════════════════════════════════════════════════════
- * 
+ *
  * | Role       | Order    | Confirmed | Past | canView | canEdit | canDelete | PII |
  * |------------|----------|-----------|------|---------|---------|-----------|-----|
  * | ADMIN      | Client   | ❌        | ❌   | ✅      | ❌      | ✅        | ❌  |
@@ -15,7 +15,7 @@
  * | ADMIN      | Internal | any       | ✅   | ✅      | ❌      | ❌        | ✅  |
  * | SUPERADMIN | Client   | any       | any  | ✅      | ✅      | ✅        | ✅  |
  * | SUPERADMIN | Internal | any       | any  | ✅      | ❌      | ❌        | ✅  |
- * 
+ *
  * * edit = только return / insurance
  */
 
@@ -25,7 +25,7 @@ describe("orderAccessPolicy", () => {
   // ════════════════════════════════════════════════════════════════
   // SUPERADMIN TESTS
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("SUPERADMIN", () => {
     it("has full access to any order", () => {
       const access = getOrderAccess({
@@ -51,7 +51,7 @@ describe("orderAccessPolicy", () => {
       expect(access.isViewOnly).toBe(false);
     });
 
-    it("cannot mutate internal company bookings", () => {
+    it("can edit internal company bookings without gaining delete access", () => {
       const access = getOrderAccess({
         role: "SUPERADMIN",
         isClientOrder: false,
@@ -61,21 +61,24 @@ describe("orderAccessPolicy", () => {
       });
 
       expect(access.canView).toBe(true);
-      expect(access.canEdit).toBe(false);
+      expect(access.canEdit).toBe(true);
       expect(access.canDelete).toBe(false);
-      expect(access.canConfirm).toBe(false);
-      expect(access.canEditPricing).toBe(false);
+      expect(access.canConfirm).toBe(true);
+      expect(access.canEditPickupDate).toBe(true);
+      expect(access.canEditReturnDate).toBe(true);
+      expect(access.canEditPickupPlace).toBe(true);
+      expect(access.canEditInsurance).toBe(true);
+      expect(access.canEditPricing).toBe(true);
       expect(access.canCorrectMarketplacePrice).toBe(false);
       expect(access.canSeeClientPII).toBe(true);
-      expect(access.isViewOnly).toBe(true);
-      expect(access.reasons.internal).toMatch(/outside Rovaro/);
+      expect(access.isViewOnly).toBe(false);
     });
   });
 
   // ════════════════════════════════════════════════════════════════
   // ADMIN + CLIENT ORDER TESTS
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("ADMIN + Client Order", () => {
     it("UNCONFIRMED + FUTURE: view only, no PII, cannot delete; return fields allowed by field flags", () => {
       const access = getOrderAccess({
@@ -180,7 +183,7 @@ describe("orderAccessPolicy", () => {
   // ════════════════════════════════════════════════════════════════
   // ADMIN + INTERNAL ORDER TESTS
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("ADMIN + Internal Order", () => {
     it("FUTURE: full edit access", () => {
       const access = getOrderAccess({
@@ -204,7 +207,7 @@ describe("orderAccessPolicy", () => {
       expect(access.isViewOnly).toBe(false);
     });
 
-    it("PAST: view only, sees data", () => {
+    it("PAST: editable, sees data", () => {
       const access = getOrderAccess({
         role: "ADMIN",
         isClientOrder: false,
@@ -214,13 +217,15 @@ describe("orderAccessPolicy", () => {
       });
 
       expect(access.canView).toBe(true);
-      expect(access.canEdit).toBe(false);
+      expect(access.canEdit).toBe(true);
       expect(access.canDelete).toBe(false);
+      expect(access.canEditPickupDate).toBe(true);
+      expect(access.canEditReturnDate).toBe(true);
       expect(access.canSeeClientPII).toBe(true); // internal = always visible
-      expect(access.isViewOnly).toBe(true);
+      expect(access.isViewOnly).toBe(false);
     });
 
-    it("CURRENT: only start blocked (rentalStartDate, timeIn, placeIn); end + return editable; can confirm", () => {
+    it("CURRENT: all booking fields remain editable", () => {
       const access = getOrderAccess({
         role: "ADMIN",
         isClientOrder: false,
@@ -230,13 +235,14 @@ describe("orderAccessPolicy", () => {
       });
 
       expect(access.canView).toBe(true);
-      expect(access.canEditPickupDate).toBe(false); // ❌ start
-      expect(access.canEditReturnDate).toBe(true);  // ✅ end
-      expect(access.canEditPickupPlace).toBe(false);
+      expect(access.canEdit).toBe(true);
+      expect(access.canEditPickupDate).toBe(true);
+      expect(access.canEditReturnDate).toBe(true);
+      expect(access.canEditPickupPlace).toBe(true);
       expect(access.canEditReturn).toBe(true);
-      expect(access.canEditInsurance).toBe(false);
-      expect(access.canEditFranchise).toBe(false);
-      expect(access.canEditPricing).toBe(false);
+      expect(access.canEditInsurance).toBe(true);
+      expect(access.canEditFranchise).toBe(true);
+      expect(access.canEditPricing).toBe(true);
       expect(access.canEditClientPII).toBe(true);
       expect(access.canConfirm).toBe(true);
     });
@@ -245,14 +251,38 @@ describe("orderAccessPolicy", () => {
   // ════════════════════════════════════════════════════════════════
   // EDGE CASES
   // ════════════════════════════════════════════════════════════════
-  
+
   describe("Edge Cases", () => {
     it("always allows viewing (canView is always true)", () => {
       const scenarios = [
-        { role: "ADMIN", isClientOrder: true, confirmed: false, isPast: true, timeBucket: "PAST" },
-        { role: "ADMIN", isClientOrder: true, confirmed: true, isPast: true, timeBucket: "PAST" },
-        { role: "ADMIN", isClientOrder: false, confirmed: false, isPast: true, timeBucket: "PAST" },
-        { role: "SUPERADMIN", isClientOrder: true, confirmed: false, isPast: true, timeBucket: "PAST" },
+        {
+          role: "ADMIN",
+          isClientOrder: true,
+          confirmed: false,
+          isPast: true,
+          timeBucket: "PAST",
+        },
+        {
+          role: "ADMIN",
+          isClientOrder: true,
+          confirmed: true,
+          isPast: true,
+          timeBucket: "PAST",
+        },
+        {
+          role: "ADMIN",
+          isClientOrder: false,
+          confirmed: false,
+          isPast: true,
+          timeBucket: "PAST",
+        },
+        {
+          role: "SUPERADMIN",
+          isClientOrder: true,
+          confirmed: false,
+          isPast: true,
+          timeBucket: "PAST",
+        },
       ];
 
       scenarios.forEach((ctx) => {
@@ -311,7 +341,7 @@ describe("orderAccessPolicy", () => {
       expect(access.canEditTotalPrice).toBe(false);
     });
 
-    it("allows manual total price for current internal unconfirmed orders", () => {
+    it("allows all internal price editing for current unconfirmed orders", () => {
       const access = getOrderAccess({
         role: "ADMIN",
         isClientOrder: false,
@@ -320,11 +350,11 @@ describe("orderAccessPolicy", () => {
         timeBucket: "CURRENT",
       });
 
-      expect(access.canEditPricing).toBe(false);
+      expect(access.canEditPricing).toBe(true);
       expect(access.canEditTotalPrice).toBe(true);
     });
 
-    it("blocks manual total price for current internal confirmed orders", () => {
+    it("allows price edits for current internal confirmed orders", () => {
       const access = getOrderAccess({
         role: "ADMIN",
         isClientOrder: false,
@@ -333,11 +363,11 @@ describe("orderAccessPolicy", () => {
         timeBucket: "CURRENT",
       });
 
-      expect(access.canEditPricing).toBe(false);
-      expect(access.canEditTotalPrice).toBe(false);
+      expect(access.canEditPricing).toBe(true);
+      expect(access.canEditTotalPrice).toBe(true);
     });
 
-    it("blocks manual total price for future confirmed orders without changing generic pricing access", () => {
+    it("allows manual price updates for future confirmed internal orders", () => {
       const access = getOrderAccess({
         role: "ADMIN",
         isClientOrder: false,
@@ -347,7 +377,7 @@ describe("orderAccessPolicy", () => {
       });
 
       expect(access.canEditPricing).toBe(true);
-      expect(access.canEditTotalPrice).toBe(false);
+      expect(access.canEditTotalPrice).toBe(true);
     });
   });
 

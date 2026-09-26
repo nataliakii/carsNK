@@ -100,13 +100,22 @@ export function companySetupHref(step = "details") {
 export function legacySetupRedirect(pathname = "", search = {}) {
   const path = String(pathname || "").split("?")[0];
   const tab = String(search.tab || search.step || "");
-  if (path === "/admin/legal-profile/agreement" || path.endsWith("/agreement")) {
+  if (
+    path === "/admin/legal-profile/agreement" ||
+    path.endsWith("/agreement")
+  ) {
     return companySetupHref("details");
   }
-  if (path === "/admin/legal-profile" || path.startsWith("/admin/legal-profile/")) {
+  if (
+    path === "/admin/legal-profile" ||
+    path.startsWith("/admin/legal-profile/")
+  ) {
     return companySetupHref("details");
   }
-  if (path === "/admin/company/legal" || path.startsWith("/admin/company/legal/")) {
+  if (
+    path === "/admin/company/legal" ||
+    path.startsWith("/admin/company/legal/")
+  ) {
     if (tab === "documents") return companySetupHref("documents");
     if (tab === "terms") return companySetupHref("terms");
     if (tab === "review") return companySetupHref("review");
@@ -128,7 +137,16 @@ export function resolveTermsPublication({
   containsDrafts = false,
   signedChecksum = "",
   currentChecksum = "",
+  legalState = "",
 } = {}) {
+  if (legalState) {
+    if (legalState === "ACCEPTANCE_REQUIRED")
+      return TERMS_PUBLICATION.READY_TO_ACCEPT;
+    if (legalState === "REACCEPTANCE_REQUIRED")
+      return TERMS_PUBLICATION.UPDATE_REQUIRED;
+    if (legalState === "ACCEPTED_CURRENT") return TERMS_PUBLICATION.ACCEPTED;
+    return TERMS_PUBLICATION.NOT_PUBLISHED;
+  }
   const current = String(currentChecksum || "");
   const signed = String(signedChecksum || "");
   const hasDocuments =
@@ -186,7 +204,8 @@ function resolveState({
     return COMPANY_SETUP_STATE.TERMS_UPDATE;
   }
   if (!accepted) return COMPANY_SETUP_STATE.TERMS_READY;
-  if (listedOnMarketplace === false) return COMPANY_SETUP_STATE.LISTING_DISABLED;
+  if (listedOnMarketplace === false)
+    return COMPANY_SETUP_STATE.LISTING_DISABLED;
   return COMPANY_SETUP_STATE.READY;
 }
 

@@ -1,11 +1,11 @@
 /**
  * Platform rental completion after the Booking Fee is paid.
  *
- * BOOKING_CONFIRMED → COMPLETION_PENDING → COMPLETED
- * A stored RENTAL_IN_PROGRESS row is still completed at return. New runs do not write it.
+ * BOOKING_CONFIRMED → COMPLETED at the confirmed return instant.
+ * Legacy COMPLETION_PENDING and RENTAL_IN_PROGRESS rows are also advanced.
  *
- * Return time moves an eligible platform booking to COMPLETION_PENDING.
- * Twenty-four hours later, with no reported problem, it becomes COMPLETED.
+ * The scheduled return instant moves an eligible platform booking directly
+ * to COMPLETED. Reported issues are tracked separately from booking status.
  * This job never sets order.status to PAID_AND_CLOSED and never records
  * that the supplier received the remaining rental amount.
  *
@@ -21,17 +21,17 @@ import { BOOKING_STATUS } from "@/domain/booking/bookingStatus";
 import {
   applyRentalStateTransition,
   RENTAL_STATE,
+  RENTAL_STATE_TO_BOOKING_STATUS,
   resolveRentalState,
 } from "@/domain/booking/rentalBookingState";
 import { ORDER_STATUS } from "@/domain/orders/orderStatus";
 import { isPlatformBooking } from "@/domain/admin/rovaroContractorAdmin";
 import { ATHENS_TZ } from "@/domain/time/athensTime";
 import { recordAuditEvent } from "@/domain/legal/auditTrail";
+import crypto from "node:crypto";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
-export const COMPLETION_GRACE_MS = 24 * 60 * 60 * 1000;
 
 const SKIP_BOOKING = new Set([
   BOOKING_STATUS.COMPLETED,
@@ -66,10 +66,10 @@ function instantBefore(value, now, { endOfDay = false, tz = ATHENS_TZ } = {}) {
 export function isRentalPeriodOver(order, now = new Date()) {
   if (!order) return false;
   const tz = order.timezone || ATHENS_TZ;
-  if (order.returnAtUtc) return instantBefore(order.returnAtUtc, now);
-  if (order.timeOut) return instantBefore(order.timeOut, now);
+  if (order.returnAtUtc) return !dayjs.utc(order.returnAtUtc).isAfter(now);
+  if (order.timeOut) return !dayjs.utc(order.timeOut).isAfter(now);
   if (!order.rentalEndDate) return false;
-  return instantBefore(order.rentalEndDate, now, { endOfDay: true, tz });
+  return !dayjs.utc(order.rentalEndDate).tz(tz).endOf("day").isAfter(now);
 }
 
 export function isPickupTimeReached(order, now = new Date()) {
@@ -83,7 +83,6 @@ export function isPickupTimeReached(order, now = new Date()) {
 
 /**
  * Next stored lifecycle move, or null when the booking must stay put.
- * `armGrace` means the caller should stamp completionPendingAt.
  */
 export function planPlatformCompletion(order, now = new Date()) {
   if (!isPlatformBooking(order)) return null;
@@ -93,40 +92,27 @@ export function planPlatformCompletion(order, now = new Date()) {
   if (!bookingFeeIsPaid(order)) return null;
 
   const state = resolveRentalState(order);
-  const pending =
-    status === BOOKING_STATUS.COMPLETION_PENDING ||
-    state === RENTAL_STATE.COMPLETION_PENDING;
-
-  if (pending) {
-    if (hasReportedProblem(order)) return null;
-    const since = order.completionPendingAt
-      ? new Date(order.completionPendingAt)
-      : null;
-    if (!since || Number.isNaN(since.getTime())) {
-      return { rentalState: RENTAL_STATE.COMPLETION_PENDING, armGrace: true };
-    }
-    if (now.getTime() - since.getTime() >= COMPLETION_GRACE_MS) {
-      return { rentalState: RENTAL_STATE.COMPLETED };
-    }
-    return null;
-  }
-
   const confirmed =
     status === BOOKING_STATUS.BOOKING_CONFIRMED ||
     state === RENTAL_STATE.CONFIRMED;
   const inProgress =
     status === BOOKING_STATUS.RENTAL_IN_PROGRESS ||
     state === RENTAL_STATE.RENTAL_IN_PROGRESS;
+  const pending =
+    status === BOOKING_STATUS.COMPLETION_PENDING ||
+    state === RENTAL_STATE.COMPLETION_PENDING;
 
-  if (isRentalPeriodOver(order, now) && (confirmed || inProgress)) {
-    return { rentalState: RENTAL_STATE.COMPLETION_PENDING, armGrace: true };
+  if (isRentalPeriodOver(order, now) && (confirmed || inProgress || pending)) {
+    return { rentalState: RENTAL_STATE.COMPLETED };
   }
   return null;
 }
 
-/** True only when the grace has elapsed and completion itself is the next step. */
+/** True when COMPLETED is the next lifecycle state. */
 export function shouldCloseCompletedRental(order, now = new Date()) {
-  return planPlatformCompletion(order, now)?.rentalState === RENTAL_STATE.COMPLETED;
+  return (
+    planPlatformCompletion(order, now)?.rentalState === RENTAL_STATE.COMPLETED
+  );
 }
 
 function completionAnchor(order, now) {
@@ -145,21 +131,9 @@ function completionAnchor(order, now) {
 export function applyPlatformCompletionStep(order, now = new Date()) {
   const step = planPlatformCompletion(order, now);
   if (!step) return { ok: false, code: "no_step" };
-
-  if (
-    step.armGrace &&
-    (order.bookingStatus === BOOKING_STATUS.COMPLETION_PENDING ||
-      resolveRentalState(order) === RENTAL_STATE.COMPLETION_PENDING)
-  ) {
-    if (!order.completionPendingAt) {
-      order.completionPendingAt = completionAnchor(order, now);
-    }
-    return { ok: true, armed: true, bookingStatus: order.bookingStatus };
-  }
-
   const result = applyRentalStateTransition(order, step.rentalState);
   if (!result.ok) return result;
-  if (step.armGrace) order.completionPendingAt = completionAnchor(order, now);
+  order.completionPendingAt = null;
   return result;
 }
 
@@ -178,14 +152,36 @@ export function recordSupplierRemainingPaid(order, at = new Date()) {
   return { ok: true };
 }
 
-export function reportBookingProblem(order, { at = new Date(), by = "" } = {}) {
+export function reportBookingProblem(
+  order,
+  { at = new Date(), by = "", type = "OTHER", note = "" } = {}
+) {
   if (!isPlatformBooking(order)) {
     return { ok: false, code: "not_platform_booking" };
   }
+  const issueType = String(type || "OTHER").toUpperCase();
+  const allowedTypes = new Set(["DAMAGE", "PAYMENT", "LATE_RETURN", "OTHER"]);
+  if (!allowedTypes.has(issueType)) {
+    return { ok: false, code: "invalid_issue_type" };
+  }
+  const issue = {
+    issueId: crypto.randomUUID(),
+    status: "OPEN",
+    type: issueType,
+    note: String(note || "")
+      .trim()
+      .slice(0, 2000),
+    reportedAt: at,
+    reportedBy: String(by || ""),
+  };
+  const existingIssues = Array.isArray(order.bookingIssues)
+    ? order.bookingIssues
+    : [];
+  order.bookingIssues = [...existingIssues, issue];
   order.hasProblem = true;
   order.problemReportedAt = at;
   if (by) order.problemReportedBy = by;
-  return { ok: true };
+  return { ok: true, issue };
 }
 
 export async function closeCompletedRentals({
@@ -212,24 +208,70 @@ export async function closeCompletedRentals({
   let failed = 0;
   for (const order of candidates) {
     if (advanced + skipped + failed >= cap) break;
-    if (!planPlatformCompletion(order, now)) {
+    const step = planPlatformCompletion(order, now);
+    if (!step) {
       skipped += 1;
       continue;
     }
     try {
       const from = resolveRentalState(order);
-      const applied = applyPlatformCompletionStep(order, now);
-      if (!applied.ok) {
+      const previousStatus = order.bookingStatus;
+      const completedAt = new Date(now);
+      const nextStatus = RENTAL_STATE_TO_BOOKING_STATUS[step.rentalState];
+      if (!nextStatus) {
         skipped += 1;
         continue;
       }
-      await order.save();
-      advanced += 1;
-      if (applied.bookingStatus === BOOKING_STATUS.COMPLETED || applied.to === RENTAL_STATE.COMPLETED) {
-        closed += 1;
+      const completionEntry = {
+        fromState: from,
+        toState: RENTAL_STATE.COMPLETED,
+        returnAtUtc: completionAnchor(order, now),
+        completedAt,
+        actor: { role: "system", email: "" },
+        meaning: "The scheduled rental period has ended.",
+      };
+      const compareAndSet = {
+        _id: order._id,
+        "payment.status": "paid",
+        status: { $ne: ORDER_STATUS.PAID_AND_CLOSED },
+      };
+      if (previousStatus === undefined) {
+        compareAndSet.$and = [
+          {
+            $or: [
+              { bookingStatus: { $exists: false } },
+              { bookingStatus: null },
+              { bookingStatus: "" },
+            ],
+          },
+        ];
+      } else {
+        compareAndSet.bookingStatus = previousStatus;
       }
+      if (order.returnAtUtc) compareAndSet.returnAtUtc = order.returnAtUtc;
+      else if (order.timeOut) compareAndSet.timeOut = order.timeOut;
+      else if (order.rentalEndDate) {
+        compareAndSet.rentalEndDate = order.rentalEndDate;
+        compareAndSet.timezone = order.timezone || "";
+      }
+      if (order.source === "PLATFORM") compareAndSet.source = "PLATFORM";
+      else compareAndSet.my_order = true;
+
+      const persisted = await Order.updateOne(compareAndSet, {
+        $set: {
+          bookingStatus: nextStatus,
+          completionPendingAt: null,
+        },
+        $push: { completionHistory: completionEntry },
+      });
+      if (!(persisted?.matchedCount > 0 || persisted?.n > 0)) {
+        skipped += 1;
+        continue;
+      }
+      advanced += 1;
+      closed += 1;
       await recordAuditEvent({
-        action: "BOOKING_COMPLETION_STEP",
+        action: "BOOKING_AUTO_COMPLETED",
         severity: "low",
         result: "success",
         orderData: {
@@ -239,7 +281,7 @@ export async function closeCompletedRentals({
         metadata: {
           trigger,
           fromState: from,
-          bookingStatus: order.bookingStatus,
+          bookingStatus: nextStatus,
         },
       }).catch(() => {});
     } catch (err) {

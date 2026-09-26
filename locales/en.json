@@ -1,4 +1,5 @@
 {
+  "paymentLinkExpired": "Payment link expired",
   "header": {
     "main": "Rental",
     "locations": "Locations",
@@ -956,7 +957,7 @@
     "toneInternal": "Internal booking",
     "toneCompleted": "Completed",
     "toneDeclined": "Declined",
-    "toneExpired": "Payment expired",
+    "toneExpired": "Payment link expired",
     "toneCancelled": "Cancelled",
     "toneUnresolved": "Needs review",
     "rovaroFeePaidOnline": "Rovaro Booking Fee paid online (client bookings) = €{{amount}}",
@@ -1941,9 +1942,9 @@
         "detail": "Waiting for your confirmation."
       },
       "awaitingPayment": {
-        "title": "Vehicle confirmed",
-        "detail": "Waiting for the customer to pay the {{rate}}% booking payment.",
-        "detailNoRate": "Waiting for the customer to pay the booking payment."
+        "title": "Awaiting customer payment",
+        "detail": "Vehicle confirmed. Waiting for the customer to pay the {{rate}}% booking payment.",
+        "detailNoRate": "Vehicle confirmed. Waiting for the customer to pay the booking payment."
       },
       "replacementOffered": {
         "title": "Replacement offered",
@@ -2084,9 +2085,9 @@
     },
     "replacementDialog": {
       "intro": "The requested vehicle stays as it is. Your proposal is sent to the customer, who accepts it by paying.",
-      "introFleet": "Pick a car from your available fleet to move this booking onto it (same as calendar), or guarantee class only if the exact car is not listed yet.",
+      "introFleet": "All cars in your fleet are shown. Cars that do not meet the requested terms cannot be offered; availability is checked again when the customer accepts.",
       "loadingFleet": "Loading available cars…",
-      "noFleetCars": "No eligible fleet cars for these dates. You can still guarantee class below.",
+      "noFleetCars": "No cars were found in your fleet. You can still guarantee class below.",
       "reminderTitle": "Requested vehicle terms",
       "reminderClass": "Class: {{class}}",
       "reminderTransmission": "Transmission: {{transmission}}",
@@ -2139,6 +2140,7 @@
       "sourcePlatform": "Rovaro booking",
       "sourceInternal": "Internal",
       "awaitingPayment": "Awaiting customer payment",
+      "paymentLinkExpired": "Payment link expired",
       "paymentReceived": "Booking payment received",
       "days_one": "{{count}} day",
       "days_other": "{{count}} days"

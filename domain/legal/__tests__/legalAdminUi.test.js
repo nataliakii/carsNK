@@ -51,18 +51,18 @@ describe("simplified Legal documents admin", () => {
   });
 
   it("canonical public links use language routes", () => {
-    expect(canonicalPublicPath(LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS, "en")).toBe(
-      "/en/terms"
-    );
+    expect(
+      canonicalPublicPath(LEGAL_DOCUMENT_TYPE.CUSTOMER_BOOKING_TERMS, "en")
+    ).toBe("/en/terms");
     expect(canonicalPublicPath(LEGAL_DOCUMENT_TYPE.PRIVACY_POLICY, "es")).toBe(
       "/es/privacy-policy"
     );
     expect(canonicalPublicPath(LEGAL_DOCUMENT_TYPE.COOKIE_POLICY, "ru")).toBe(
       "/ru/cookie-policy"
     );
-    expect(canonicalPublicPath(LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT, "fr")).toBe(
-      "/fr/partner-agreement"
-    );
+    expect(
+      canonicalPublicPath(LEGAL_DOCUMENT_TYPE.PARTNER_AGREEMENT, "fr")
+    ).toBe("/fr/partner-agreement");
     expect(
       canonicalPublicPath(LEGAL_DOCUMENT_TYPE.PARTNER_OPERATING_RULES, "pt")
     ).toBe("/pt/partner-operating-rules");
@@ -123,12 +123,22 @@ describe("simplified Legal documents admin", () => {
     expect(panel).toContain("Customer documents");
     expect(panel).toContain("Partner documents");
     expect(panel).toContain("Save changes");
-    expect(panel).toContain("Changes saved. They are not visible on the website yet.");
+    expect(panel).toContain(
+      "Changes saved. They are not visible on the website yet."
+    );
     expect(panel).toContain("No unpublished changes.");
-    expect(panel).toContain("This will replace the version currently shown on the website.");
+    expect(panel).toContain(
+      "This will replace the version currently shown on the website."
+    );
+    expect(panel).toContain(
+      "publicationChangeClass, setPublicationChangeClass"
+    );
+    expect(panel).toContain('value="material"');
+    expect(panel).toContain('value="editorial"');
+    expect(panel).toContain("changeClass: publicationChangeClass");
     expect(panel).toContain("expanded={expanded}");
     expect(panel).toContain("ADMIN_LANGUAGE_LABELS");
-    expect(panel).toContain("variant=\"scrollable\"");
+    expect(panel).toContain('variant="scrollable"');
     expect(panel).not.toContain("Translations");
     expect(panel).not.toContain("Advanced");
     expect(panel).not.toContain("Archive");

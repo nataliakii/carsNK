@@ -14,7 +14,9 @@ const MODAL_PATH = "app/admin/features/orders/modals/BookingDetailsModal.js";
 const MODAL = read(MODAL_PATH);
 const ORDERS_TABLE = read("app/admin/features/orders/OrdersTableSection.js");
 const CALENDAR = read("app/components/calendar-ui/CalendarOverlays.js");
-const ACTIONS = read("app/admin/features/orders/actions/bookingDetailsActions.js");
+const ACTIONS = read(
+  "app/admin/features/orders/actions/bookingDetailsActions.js"
+);
 
 describe("booking details modal wiring", () => {
   it("the calendar and the orders list open the same component", () => {
@@ -55,9 +57,9 @@ describe("booking details modal wiring", () => {
     expect(MODAL).toContain("loadReplacementFleetCars");
     expect(MODAL).toContain("REPLACEMENT_KIND.COMPANY_VEHICLE");
     // The support task reuses the endpoint that already exists.
-    expect(read("app/admin/features/orders/actions/supplierBookingActions.js")).toContain(
-      "ask-rovaro"
-    );
+    expect(
+      read("app/admin/features/orders/actions/supplierBookingActions.js")
+    ).toContain("ask-rovaro");
   });
 
   it("the width comes from a named constant, not an inline number", () => {
@@ -112,6 +114,21 @@ describe("booking details modal wiring", () => {
     expect(MODAL).toContain("bookingDetails.contactDialog.reference");
     expect(ACTIONS).toContain("askRovaroAboutBooking");
     expect(ACTIONS).not.toContain("updateOrderConfirmation");
+  });
+
+  it("paid operational amendments require explicit customer agreement and use the dedicated route", () => {
+    expect(MODAL).toContain(
+      "I confirm that these changes have been agreed with the customer."
+    );
+    expect(MODAL).toContain("customerAgreementChecked");
+    expect(MODAL).toContain("amendPaidPlatformBooking");
+    expect(MODAL).toContain("Vehicle actually supplied");
+    expect(
+      read("app/admin/features/orders/actions/bookingDetailsActions.js")
+    ).toContain("/operational-amendment");
+    expect(
+      read("app/api/admin/orders/[orderId]/operational-amendment/route.js")
+    ).toContain("validateCompanyOperationalAmendment");
   });
 
   it("supplier confirm/decline use the API response enum, not legacy availability strings", () => {

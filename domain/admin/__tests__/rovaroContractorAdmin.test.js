@@ -17,6 +17,7 @@ import {
   matchesBookingSourceFilter,
   resolveBookingSource,
   resolveContractorCalendarTone,
+  resolvePlatformWorkflowStage,
   sourceForNewOrder,
   summarizeContractorAdminTotals,
 } from "../rovaroContractorAdmin";
@@ -109,6 +110,29 @@ describe("rovaroContractorAdmin", () => {
     expect(getOrderColor(request).main).not.toBe(getOrderColor(waiting).main);
     expect(getOrderColor(waiting).main).not.toBe(getOrderColor(paid).main);
     expect(getOrderColor(paid).main).not.toBe(getOrderColor(internal).main);
+  });
+
+  test("expired Stripe payment link stays in awaiting customer payment workflow", () => {
+    const expiredLink = {
+      source: BOOKING_SOURCE.PLATFORM,
+      my_order: true,
+      bookingStatus: BOOKING_STATUS.PAYMENT_EXPIRED,
+      partnerConfirmedAt: new Date("2026-09-21T18:00:00.000Z"),
+      payment: {
+        status: "expired",
+        provider: "stripe",
+        providerPaymentId: "cs_old",
+        checkoutUrl: "",
+        expiresAt: new Date("2026-09-21T19:00:00.000Z"),
+      },
+    };
+    expect(resolvePlatformWorkflowStage(expiredLink)).toBe(
+      "AWAITING_CUSTOMER_PAYMENT"
+    );
+    expect(resolveContractorCalendarTone(expiredLink)).toBe(
+      CALENDAR_TONE.AWAITING_PAYMENT
+    );
+    expect(getOrderColor(expiredLink).key).toBe(CALENDAR_TONE.AWAITING_PAYMENT);
   });
 
   test("problem is a red accent on the existing tone, not a new source", () => {

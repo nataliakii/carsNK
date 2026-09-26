@@ -17,12 +17,7 @@ import {
   resolveBookingMode,
 } from "@/domain/booking/bookingMode";
 import { isPublicCar } from "@/domain/owners/ownerScope";
-import {
-  buildAgreementPackage,
-  getActiveAgreement,
-  getCurrentPackageChecksum,
-} from "./agreementService";
-import { withCustomAgreement } from "./companyLegalPage";
+import { resolveCurrentPartnerPackage } from "./agreementService";
 import {
   evaluatePartnerOperatingGate,
   PARTNER_GATE_BLOCKER,
@@ -37,6 +32,7 @@ import {
   resolveTermsPublication,
 } from "./companySetupReadiness";
 import { recordAuditEvent } from "./auditTrail";
+import { LEGAL_PLATFORM } from "./documentTypes";
 
 export const PARTNER_OPERATION_ERROR = Object.freeze({
   COMPLIANCE_REQUIRED: "PARTNER_COMPLIANCE_REQUIRED",
@@ -120,7 +116,11 @@ export function isMarketplaceOperatingCompany(company) {
 
 /** New Spain companies stay off the public hub until listing is enabled. */
 export function defaultListedOnMarketplaceForCountry(countryCode) {
-  return String(countryCode || "").trim().toUpperCase() !== "ES";
+  return (
+    String(countryCode || "")
+      .trim()
+      .toUpperCase() !== "ES"
+  );
 }
 
 /**
@@ -183,13 +183,7 @@ function partnerMessageFor(readiness) {
   return READINESS_MESSAGE[readiness?.state] || SETUP_INCOMPLETE_MESSAGE;
 }
 
-function allowedResult({
-  companyId,
-  company,
-  gate,
-  listed,
-  readiness = null,
-}) {
+function allowedResult({ companyId, company, gate, listed, readiness = null }) {
   const signedChecksum = gate?.activeAgreementChecksum || "";
   return {
     allowed: true,
@@ -269,6 +263,7 @@ export function evaluateMarketplaceOperatingState({
   completeness = null,
   activeAgreement = null,
   currentPackageChecksum = "",
+  legalState = "",
   capability = COMPANY_SETUP_CAPABILITY.BOOKINGS,
 } = {}) {
   if (!isMarketplaceOperatingCompany(company)) {
@@ -282,12 +277,14 @@ export function evaluateMarketplaceOperatingState({
       completeness || (profile ? evaluateProfileCompleteness(profile) : null),
     activeAgreement,
     currentPackageChecksum,
+    legalState,
   });
   gate.activeAgreementChecksum = activeAgreement?.packageChecksum || "";
 
   const termsPublication = resolveTermsPublication({
     signedChecksum: activeAgreement?.packageChecksum || "",
     currentChecksum: currentPackageChecksum,
+    legalState,
   });
   const readiness = companySetupReadiness({
     profile,
@@ -340,7 +337,10 @@ function companyHintHasOperatingFields(hint) {
   );
 }
 
-export async function loadPartnerOperatingInputs(companyId, { companyHint = null } = {}) {
+export async function loadPartnerOperatingInputs(
+  companyId,
+  { companyHint = null } = {}
+) {
   await connectToDB();
   const id = validObjectId(companyId) || validObjectId(companyHint?._id);
   const company =
@@ -348,12 +348,10 @@ export async function loadPartnerOperatingInputs(companyId, { companyHint = null
     asCompanyId(companyHint._id) === id
       ? companyHint
       : id
-        ? await Company.findById(id)
-            .select(
-              "_id country bookingMode listedOnMarketplace name"
-            )
-            .lean()
-        : null;
+      ? await Company.findById(id)
+          .select("_id country bookingMode listedOnMarketplace name")
+          .lean()
+      : null;
 
   if (!company || !isMarketplaceOperatingCompany(company)) {
     return {
@@ -365,28 +363,23 @@ export async function loadPartnerOperatingInputs(companyId, { companyHint = null
     };
   }
 
-  const [profile, activeAgreement, standardChecksum] = await Promise.all([
+  const [profile, currentPackage] = await Promise.all([
     PartnerLegalProfile.findOne({ companyId: company._id })
-      .select("companyId verificationStatus legalName customAgreement")
+      .select("companyId verificationStatus legalName")
       .lean(),
-    getActiveAgreement(company._id),
-    getCurrentPackageChecksum(),
+    resolveCurrentPartnerPackage({
+      companyId: company._id,
+      requestedLocale: "en",
+    }),
   ]);
-  let currentPackageChecksum = standardChecksum;
-  if (profile?.customAgreement?.documentId) {
-    const pkg = await buildAgreementPackage();
-    currentPackageChecksum = withCustomAgreement(
-      pkg,
-      profile.customAgreement
-    ).packageChecksum;
-  }
 
   return {
     company,
     profile,
     completeness: profile ? evaluateProfileCompleteness(profile) : null,
-    activeAgreement,
-    currentPackageChecksum,
+    activeAgreement: currentPackage.latestAcceptance,
+    currentPackageChecksum: currentPackage.packageChecksum,
+    legalState: currentPackage.legalState.state,
   };
 }
 
@@ -402,7 +395,8 @@ function overrideAllowed({ purpose, overrideReason, overrideByRole }) {
  */
 const PURPOSE_CAPABILITY = {
   [PARTNER_OPERATION_PURPOSE.LISTING]: COMPANY_SETUP_CAPABILITY.PUBLISH_CARS,
-  [PARTNER_OPERATION_PURPOSE.CAR_PUBLISH]: COMPANY_SETUP_CAPABILITY.PUBLISH_CARS,
+  [PARTNER_OPERATION_PURPOSE.CAR_PUBLISH]:
+    COMPANY_SETUP_CAPABILITY.PUBLISH_CARS,
 };
 
 function capabilityForPurpose(purpose) {
@@ -432,14 +426,17 @@ export async function assertMarketplaceCarPublish(companyId, options = {}) {
   });
 }
 
-export async function assertPartnerCanOperate(companyId, {
-  company: companyHint = null,
-  purpose = PARTNER_OPERATION_PURPOSE.BOOKING,
-  overrideReason = "",
-  overrideByRole = "",
-  overrideByEmail = "",
-  audit = null,
-} = {}) {
+export async function assertPartnerCanOperate(
+  companyId,
+  {
+    company: companyHint = null,
+    purpose = PARTNER_OPERATION_PURPOSE.BOOKING,
+    overrideReason = "",
+    overrideByRole = "",
+    overrideByEmail = "",
+    audit = null,
+  } = {}
+) {
   const inputs = await loadPartnerOperatingInputs(companyId, { companyHint });
   if (!inputs.company) {
     if (!companyId && !companyHint) {
@@ -577,17 +574,6 @@ export async function ownerIdsHiddenFromPublicMarketplace(companies = []) {
 
   if (!needLegal.length) return hide;
 
-  let standardChecksum = "";
-  try {
-    standardChecksum = await getCurrentPackageChecksum();
-  } catch (err) {
-    console.error(
-      "[partnerOperatingPolicy] checksum load failed; hiding marketplace fleets",
-      err?.message || err
-    );
-    return hide.concat(needLegal.map((c) => c._id));
-  }
-
   const ids = needLegal.map((c) => c._id);
   let profiles = [];
   let agreements = [];
@@ -597,12 +583,13 @@ export async function ownerIdsHiddenFromPublicMarketplace(companies = []) {
         .select("companyId verificationStatus customAgreement")
         .lean(),
       PartnerAgreementAcceptance.find({
+        platform: LEGAL_PLATFORM,
         companyId: { $in: ids },
         supersededAt: null,
         terminatedAt: null,
       })
         .sort({ acceptedAt: -1 })
-        .select("companyId packageChecksum acceptedAt")
+        .select("companyId packageChecksum acceptedAt documents manifest")
         .lean(),
     ]);
   } catch (err) {
@@ -625,19 +612,27 @@ export async function ownerIdsHiddenFromPublicMarketplace(companies = []) {
   for (const company of needLegal) {
     const key = String(company._id);
     const profile = profileByCompany.get(key) || null;
-    let currentPackageChecksum = standardChecksum;
-    if (profile?.customAgreement?.documentId) {
-      const pkg = await buildAgreementPackage();
-      currentPackageChecksum = withCustomAgreement(
-        pkg,
-        profile.customAgreement
-      ).packageChecksum;
+    let currentPackage;
+    try {
+      currentPackage = await resolveCurrentPartnerPackage({
+        companyId: company._id,
+        requestedLocale: "en",
+        latestAcceptance: agreementByCompany.get(key) || null,
+      });
+    } catch (err) {
+      console.error(
+        "[partnerOperatingPolicy] package resolution failed; hiding company",
+        err?.message || err
+      );
+      hide.push(company._id);
+      continue;
     }
     const state = evaluateMarketplaceOperatingState({
       company,
       profile,
       activeAgreement: agreementByCompany.get(key) || null,
-      currentPackageChecksum,
+      currentPackageChecksum: currentPackage.packageChecksum,
+      legalState: currentPackage.legalState.state,
       capability: COMPANY_SETUP_CAPABILITY.PUBLISH_CARS,
     });
     if (!state.allowed) hide.push(company._id);

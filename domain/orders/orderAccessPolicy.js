@@ -10,8 +10,7 @@
  * ❗ UI и backend — тупые потребители.
  *
  * ROLES:
- * - SUPERADMIN: полный доступ к клиентским / Rovaro заказам;
- *   внутренние брони компании — только просмотр (не комиссия, не выплаты, не правки)
+ * - SUPERADMIN: full access to client / Rovaro orders and internal records
  * - ADMIN: ограниченный доступ согласно правилам ниже
  *
  * ORDER TYPES:
@@ -162,38 +161,36 @@ export function getOrderAccess(ctx) {
   const bucket = timeBucket;
 
   // ════════════════════════════════════════════════════════════════
-  // 🟣 SUPERADMIN — полный доступ к Rovaro / client заказам
+  // 🟣 SUPERADMIN — full access to Rovaro / client orders
   // ════════════════════════════════════════════════════════════════
   const REASON_CLIENT_PII =
     "Client contact data can only be edited by Superadmin";
-  const REASON_INTERNAL =
-    "Internal company booking is outside Rovaro operations";
-
-  // Platform superadmin must not mutate company-calendar bookings.
-  // Company ADMIN (including view-as-company) still manages them.
-  if (role === "SUPERADMIN" && !isClientOrder) {
-    return withDerivedOrderActionAccess(
-      {
-        canView: true,
-        canEdit: false,
-        canDelete: false,
-        canEditPickupDate: false,
-        canEditReturnDate: false,
-        canEditPickupPlace: false,
-        canEditReturn: false,
-        canEditInsurance: false,
-        canEditFranchise: false,
-        canEditPricing: false,
-        canConfirm: false,
-        canSeeClientPII: true,
-        canEditClientPII: false,
-        notifySuperadminOnEdit: false,
-        isViewOnly: true,
-        isPast,
-        reasons: { clientPII: REASON_CLIENT_PII, internal: REASON_INTERNAL },
-      },
-      { ...ctx, bookingMode: "" }
-    );
+  // Company-calendar records are operational data, not Rovaro bookings.
+  // Both admins may edit all fields regardless of rental date or closed state.
+  // Deletion remains narrower than editing.
+  if (!isClientOrder) {
+    return {
+      canView: true,
+      canEdit: true,
+      canDelete: role === "ADMIN" && bucket === "FUTURE" && !isClosed,
+      canEditPickupDate: true,
+      canEditReturnDate: true,
+      canEditPickupPlace: true,
+      canEditReturn: true,
+      canEditInsurance: true,
+      canEditFranchise: true,
+      canEditPricing: true,
+      canEditTotalPrice: true,
+      canResetToAutoPrice: true,
+      canCorrectMarketplacePrice: false,
+      canConfirm: true,
+      canSeeClientPII: true,
+      canEditClientPII: true,
+      notifySuperadminOnEdit: false,
+      isViewOnly: false,
+      isPast,
+      timeBucket: bucket,
+    };
   }
 
   // Terminal status: PAID_AND_CLOSED locks order edits for all roles.
@@ -338,8 +335,7 @@ export function getOrderAccess(ctx) {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // 🟢 INTERNAL ORDERS (my_order === false) — past / current / future
-  // Insurance: ❌ NEVER for client; ❌ for internal if CURRENT; ✅ only internal + FUTURE
+  // 🟢 INTERNAL ORDERS — complete field editing for both admin roles at any date.
   // ────────────────────────────────────────────────────────────────
   if (bucket === "CURRENT") {
     // 🟡 INTERNAL CURRENT: block ONLY start (rentalStartDate, timeIn, placeIn); allow end + return.

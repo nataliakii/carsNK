@@ -13,6 +13,7 @@ import {
   isInternalBooking,
 } from "@/domain/admin/rovaroContractorAdmin";
 import { normalizeCompanyTags } from "@/domain/orders/companyInternalMeta";
+import BookingPaymentStatusChip from "@/app/admin/features/orders/components/BookingPaymentStatusChip";
 
 const cardEnter = keyframes`
   from {
@@ -179,6 +180,11 @@ export default function OrderHoverPreview({ order, conflictHint = false }) {
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
         {detailLabel}
       </Typography>
+
+      <BookingPaymentStatusChip
+        order={order}
+        sx={{ height: 20, fontSize: "0.65rem", mb: 0.5 }}
+      />
 
       {isInternalBooking(order) &&
       normalizeCompanyTags(order.companyTags).length > 0 ? (

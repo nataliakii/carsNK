@@ -41,6 +41,7 @@ const S = PARTNER_VERIFICATION_STATUS;
  *   completeness: { ready: boolean }|null,
  *   activeAgreement: { packageChecksum?: string }|null,
  *   currentPackageChecksum?: string,
+ *   legalState?: string,
  * }} input
  * @returns {{
  *   canOperate: boolean,
@@ -55,6 +56,7 @@ export function evaluatePartnerOperatingGate({
   completeness,
   activeAgreement,
   currentPackageChecksum = "",
+  legalState = "",
 }) {
   const status = profile?.verificationStatus || null;
   const blockers = [];
@@ -90,13 +92,19 @@ export function evaluatePartnerOperatingGate({
 
   const signedChecksum = activeAgreement?.packageChecksum || "";
   const agreementSigned = Boolean(signedChecksum);
-  const agreementOutdated =
-    agreementSigned &&
-    Boolean(currentPackageChecksum) &&
-    signedChecksum !== currentPackageChecksum;
+  const agreementOutdated = legalState
+    ? legalState === "REACCEPTANCE_REQUIRED"
+    : agreementSigned &&
+      Boolean(currentPackageChecksum) &&
+      signedChecksum !== currentPackageChecksum;
 
-  const packagePublished = Boolean(String(currentPackageChecksum || "").trim());
-  if (packagePublished && !agreementSigned) {
+  const packagePublished = legalState
+    ? legalState !== "NOT_PUBLISHED"
+    : Boolean(String(currentPackageChecksum || "").trim());
+  if (
+    packagePublished &&
+    (!agreementSigned || legalState === "ACCEPTANCE_REQUIRED")
+  ) {
     blockers.push({
       code: PARTNER_GATE_BLOCKER.AGREEMENT_NOT_SIGNED,
       step: PARTNER_GATE_STEP.AGREEMENT,

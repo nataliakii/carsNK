@@ -12,6 +12,13 @@ import { LEGAL_PLATFORM } from "@/domain/legal/documentTypes";
  */
 const documentRefSchema = new mongoose.Schema(
   {
+    documentId: { type: String, default: "" },
+    bindingDocumentId: { type: String, default: "" },
+    bindingVersion: { type: Number, default: 0 },
+    bindingChecksum: { type: String, default: "" },
+    presentedDocumentId: { type: String, default: "" },
+    presentedVersion: { type: Number, default: 0 },
+    presentedChecksum: { type: String, default: "" },
     documentType: { type: String, required: true },
     language: { type: String, required: true },
     jurisdiction: { type: String, required: true },
@@ -41,7 +48,12 @@ const documentRefSchema = new mongoose.Schema(
 
 const partnerAgreementAcceptanceSchema = new mongoose.Schema(
   {
-    platform: { type: String, required: true, default: LEGAL_PLATFORM, index: true },
+    platform: {
+      type: String,
+      required: true,
+      default: LEGAL_PLATFORM,
+      index: true,
+    },
 
     /** Stable public identifier of this agreement instance. */
     agreementId: { type: String, required: true, unique: true, index: true },
@@ -67,6 +79,8 @@ const partnerAgreementAcceptanceSchema = new mongoose.Schema(
 
     /** Each document in the accepted package, with its own checksum. */
     documents: { type: [documentRefSchema], required: true },
+    /** Exact fixed-order binding package accepted; immutable with the record. */
+    manifest: { type: [mongoose.Schema.Types.Mixed], default: [] },
     /** sha256 over the whole immutable snapshot. */
     packageChecksum: { type: String, required: true, index: true },
     /**
@@ -153,7 +167,9 @@ export function assertOnlyLifecycleFields(update) {
   const illegal = [...paths].filter((key) => !MUTABLE_AFTER_SIGNING.has(key));
   if (illegal.length) {
     throw new Error(
-      `Signed partner agreement is immutable; refused to modify: ${illegal.join(", ")}`
+      `Signed partner agreement is immutable; refused to modify: ${illegal.join(
+        ", "
+      )}`
     );
   }
 }
@@ -184,7 +200,9 @@ partnerAgreementAcceptanceSchema.pre("save", function guard(next) {
   if (illegal.length) {
     return next(
       new Error(
-        `Signed partner agreement is immutable; refused to modify: ${illegal.join(", ")}`
+        `Signed partner agreement is immutable; refused to modify: ${illegal.join(
+          ", "
+        )}`
       )
     );
   }

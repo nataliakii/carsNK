@@ -1,16 +1,16 @@
 /**
  * orderNotificationPolicy.js
- * 
+ *
  * ════════════════════════════════════════════════════════════════
  * ДЕКЛАРАТИВНАЯ ПОЛИТИКА УВЕДОМЛЕНИЙ
  * ════════════════════════════════════════════════════════════════
- * 
+ *
  * 🔑 КЛЮЧЕВОЙ ПРИНЦИП:
  * NotificationPolicy НЕ ДУМАЕТ. Она РЕАГИРУЕТ на OrderAccess.
- * 
+ *
  * ❌ НЕ пересчитывает бизнес-правила
  * ✅ Реагирует на флаги из orderAccessPolicy
- * 
+ *
  * Точки входа:
  * - Кто что может → orderAccessPolicy.js
  * - Кого уведомляем → orderNotificationPolicy.js (этот файл)
@@ -62,7 +62,7 @@ import { ORDER_FIELD_KEYS } from "./orderPermissions";
 
 /**
  * Смысл действий — для логирования, фильтрации, группировки.
- * 
+ *
  * @type {Record<OrderAction, string>}
  */
 export const ACTION_INTENT = {
@@ -98,23 +98,23 @@ const SAFE_ACTIONS = ["UPDATE_RETURN", "UPDATE_INSURANCE"];
 
 /**
  * Определяет список уведомлений для действия над заказом.
- * 
+ *
  * 🔑 НЕ ДУМАЕТ — реагирует на OrderAccess.
- * 
+ *
  * @param {NotificationParams} params
  * @returns {Notification[]}
  */
 export function getOrderNotifications(params) {
   const { action, access, order, actorIsSuperadmin = false } = params;
-  
+
   // Валидация
   if (!access || !order) {
     return [];
   }
-  
+
   /** @type {Notification[]} */
   const notifications = [];
-  
+
   const isClientOrder = isPlatformBooking(order);
   const isConfirmed = order.confirmed === true;
   const intent = ACTION_INTENT[action] || "UNKNOWN";
@@ -122,14 +122,16 @@ export function getOrderNotifications(params) {
   // ════════════════════════════════════════════════════════════════
   // 🔔 SUPERADMIN NOTIFICATION (на основе access.notifySuperadminOnEdit)
   // ════════════════════════════════════════════════════════════════
-  
+
   if (access.notifySuperadminOnEdit) {
     // Критические действия — telegram + email
     if (CRITICAL_ACTIONS.includes(action)) {
       notifications.push({
         target: "SUPERADMIN",
-        channels: ["TELEGRAM", "EMAIL"],
-        reason: `CRITICAL: ${intent} on confirmed client order`,
+        channels: isClientOrder ? ["TELEGRAM", "EMAIL"] : ["TELEGRAM"],
+        reason: `CRITICAL: ${intent} on ${
+          isClientOrder ? "confirmed client" : "internal"
+        } order`,
         includePII: access.canSeeClientPII,
         priority: "CRITICAL",
       });
@@ -151,10 +153,7 @@ export function getOrderNotifications(params) {
   // ════════════════════════════════════════════════════════════════
   // Calendar confirm is SUPERADMIN-only for client orders. Company admin
   // can still confirm internal bookings; superadmin must hear about it.
-  if (
-    (action === "CONFIRM" || action === "UNCONFIRM") &&
-    !actorIsSuperadmin
-  ) {
+  if ((action === "CONFIRM" || action === "UNCONFIRM") && !actorIsSuperadmin) {
     notifications.push({
       target: "SUPERADMIN",
       channels: ["TELEGRAM", "EMAIL"],
@@ -195,7 +194,7 @@ export function getOrderNotifications(params) {
   // EMAIL_TESTING=true → только SUPERADMIN (без письма компании)
   // иначе → COMPANY_EMAIL без данных клиента + SUPERADMIN
   // ════════════════════════════════════════════════════════════════
-  
+
   if (action === "CREATE" && isClientOrder && !isConfirmed) {
     const emailTesting = process.env.EMAIL_TESTING === "true";
 
@@ -239,7 +238,7 @@ export function getOrderNotifications(params) {
   // ════════════════════════════════════════════════════════════════
   // 👩‍💻 DEVELOPERS NOTIFICATION (для аудита)
   // ════════════════════════════════════════════════════════════════
-  
+
   if (action === "DELETE") {
     // Удаление любого заказа — логируем
     notifications.push({
@@ -260,7 +259,7 @@ export function getOrderNotifications(params) {
 
 /**
  * Определяет OrderAction из изменённых полей.
- * 
+ *
  * @param {string[]} changedFields - Список изменённых полей
  * @param {Object} [changes] - Объект с новыми значениями (для CONFIRM/UNCONFIRM)
  * @returns {OrderAction}
@@ -279,12 +278,12 @@ export function getActionFromChangedFields(changedFields, changes = {}) {
     fields.has("numberOfDays") ||
     fields.has("placeOut") ||
     fields.has("placeOutDetail");
-  
+
   // Подтверждение
   if (fields.has("confirmed")) {
     return changes.confirmed === true ? "CONFIRM" : "UNCONFIRM";
   }
-  
+
   // Pickup/start changes are critical. Mixed start+return changes also stay critical.
   if (hasPickupFields) {
     return "UPDATE_DATES";
@@ -294,29 +293,29 @@ export function getActionFromChangedFields(changedFields, changes = {}) {
   if (fields.has(ORDER_FIELD_KEYS.SECOND_DRIVER)) {
     return "UPDATE_SECOND_DRIVER";
   }
-  
+
   // Цена
   if (fields.has("totalPrice") || fields.has("OverridePrice")) {
     return "UPDATE_PRICING";
   }
-  
+
   // Страховка
   if (fields.has("insurance")) {
     return "UPDATE_INSURANCE";
   }
-  
+
   // Return-only changes are safe edits for confirmed client orders.
   if (hasReturnFields) {
     return "UPDATE_RETURN";
   }
-  
+
   // Fallback
   return "UPDATE_RETURN";
 }
 
 /**
  * Проверяет, является ли действие критическим.
- * 
+ *
  * @param {OrderAction} action
  * @returns {boolean}
  */
@@ -326,7 +325,7 @@ export function isCriticalAction(action) {
 
 /**
  * Получает intent для действия (для логирования).
- * 
+ *
  * @param {OrderAction} action
  * @returns {string}
  */
@@ -340,10 +339,10 @@ export function getActionIntent(action) {
 
 /**
  * 🛑 SAFETY CHECK: Проверяет, разрешено ли действие по access policy.
- * 
+ *
  * Notification = side-effect.
  * Side-effect НИКОГДА не должен происходить, если действие запрещено.
- * 
+ *
  * @param {OrderAction} action
  * @param {import("./orderAccessPolicy").OrderAccess} access
  * @returns {boolean}
@@ -353,7 +352,9 @@ export function isActionAllowedByAccess(action, access) {
 
   switch (action) {
     case "UPDATE_DATES":
-      return access.canEditPickupDate === true || access.canEditReturnDate === true;
+      return (
+        access.canEditPickupDate === true || access.canEditReturnDate === true
+      );
     case "UPDATE_SECOND_DRIVER":
       return access.canEdit === true;
     case "UPDATE_RETURN":
@@ -393,7 +394,7 @@ export const PRIORITY_BY_INTENT = {
 
 /**
  * Получает приоритет уведомления по intent.
- * 
+ *
  * @param {string} intent
  * @returns {"CRITICAL" | "INFO" | "DEBUG"}
  */

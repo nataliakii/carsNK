@@ -45,7 +45,9 @@ export const SUPPORT_CATEGORY = Object.freeze({
   OTHER: "OTHER",
 });
 
-export const SUPPORT_CATEGORIES = Object.freeze(Object.values(SUPPORT_CATEGORY));
+export const SUPPORT_CATEGORIES = Object.freeze(
+  Object.values(SUPPORT_CATEGORY)
+);
 
 /**
  * The supplier commits to the requested vehicle. Idempotent server-side: a
@@ -85,7 +87,8 @@ export async function loadReplacementFleetCars(orderId) {
 }
 
 export async function proposeEquivalentReplacement(orderId, proposal) {
-  const source = proposal.replacementSource || REPLACEMENT_KIND.GUARANTEED_CLASS;
+  const source =
+    proposal.replacementSource || REPLACEMENT_KIND.GUARANTEED_CLASS;
 
   if (source === REPLACEMENT_KIND.COMPANY_VEHICLE) {
     const carId = String(proposal.proposedCarId || "").trim();
@@ -99,7 +102,10 @@ export async function proposeEquivalentReplacement(orderId, proposal) {
     return { ok: result?.ok === true, message: result?.message || "" };
   }
 
-  if (source === REPLACEMENT_KIND.GUARANTEED_CLASS && proposal.guaranteeAck !== true) {
+  if (
+    source === REPLACEMENT_KIND.GUARANTEED_CLASS &&
+    proposal.guaranteeAck !== true
+  ) {
     return {
       ok: false,
       message:
@@ -110,14 +116,18 @@ export async function proposeEquivalentReplacement(orderId, proposal) {
   const defaultMessage =
     "Equivalent replacement: same or higher class, same transmission, same or lower total price.";
   const result = await offerEquivalentReplacement(orderId, {
-    replacementSource: source === REPLACEMENT_KIND.EXTERNAL_VEHICLE
-      ? REPLACEMENT_KIND.EXTERNAL_VEHICLE
-      : REPLACEMENT_KIND.GUARANTEED_CLASS,
+    replacementSource:
+      source === REPLACEMENT_KIND.EXTERNAL_VEHICLE
+        ? REPLACEMENT_KIND.EXTERNAL_VEHICLE
+        : REPLACEMENT_KIND.GUARANTEED_CLASS,
     guaranteeAck: true,
     model: proposal.model,
     category: proposal.category,
     transmission: proposal.transmission,
-    seats: proposal.seats === "" || proposal.seats == null ? undefined : Number(proposal.seats),
+    seats:
+      proposal.seats === "" || proposal.seats == null
+        ? undefined
+        : Number(proposal.seats),
     luggage:
       proposal.luggage === "" || proposal.luggage == null
         ? undefined
@@ -126,7 +136,8 @@ export async function proposeEquivalentReplacement(orderId, proposal) {
       proposal.totalPrice === "" || proposal.totalPrice == null
         ? undefined
         : Number(proposal.totalPrice),
-    supplierMessage: String(proposal.supplierMessage || "").trim() || defaultMessage,
+    supplierMessage:
+      String(proposal.supplierMessage || "").trim() || defaultMessage,
   });
   return { ok: result?.ok === true, message: result?.message || "" };
 }
@@ -135,7 +146,10 @@ export async function proposeEquivalentReplacement(orderId, proposal) {
  * Superadmin exception handling. The route re-validates the reason, the
  * requester and the paid-terms rule; this only carries them.
  */
-export async function amendPlatformBooking(orderId, { changes, reason, requestedBy, consent }) {
+export async function amendPlatformBooking(
+  orderId,
+  { changes, reason, requestedBy, consent }
+) {
   const result = await updateOrder(orderId, {
     ...changes,
     amendmentReason: reason,
@@ -150,11 +164,61 @@ export async function amendPlatformBooking(orderId, { changes, reason, requested
   };
 }
 
+/** Company Admin amendment for paid platform bookings; no price/date fields are accepted by the route. */
+export async function loadOperationalAmendmentVehicles(orderId) {
+  const response = await fetch(
+    `/api/admin/orders/${encodeURIComponent(orderId)}/operational-amendment`,
+    { cache: "no-store" }
+  );
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.success === false) {
+    return {
+      ok: false,
+      message: payload.message || "Could not load fleet vehicles",
+      vehicles: [],
+    };
+  }
+  return {
+    ok: true,
+    vehicles: Array.isArray(payload.vehicles) ? payload.vehicles : [],
+  };
+}
+
+export async function amendPaidPlatformBooking(
+  orderId,
+  { changes, consentRecorded, consentNote }
+) {
+  const response = await fetch(
+    `/api/admin/orders/${encodeURIComponent(orderId)}/operational-amendment`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        changes,
+        customerConsentRecorded: consentRecorded,
+        customerConsentNote: consentNote,
+      }),
+    }
+  );
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.success === false) {
+    return { ok: false, message: payload.message || "Could not amend booking" };
+  }
+  return {
+    ok: true,
+    message: "Booking updated",
+    data: payload.updatedOrder || null,
+  };
+}
+
 /**
  * Opens a platform support task against the booking. It never mutates the
  * booking itself.
  */
-export async function contactRovaroAboutBooking(orderId, { category, message }) {
+export async function contactRovaroAboutBooking(
+  orderId,
+  { category, message }
+) {
   const label = String(category || SUPPORT_CATEGORY.OTHER).trim();
   const body = String(message || "").trim();
   const result = await askRovaroAboutBooking(orderId, `[${label}] ${body}`);
@@ -165,15 +229,14 @@ export async function contactRovaroAboutBooking(orderId, { category, message }) 
  * Urgent post-payment problem. Preserves the confirmed booking snapshot and
  * alerts the superadmin; it does not cancel or refund anything.
  */
-export async function reportBookingProblem(orderId, { message } = {}) {
-  const flagged = await reportPlatformBookingProblem(orderId);
+export async function reportBookingProblem(
+  orderId,
+  { type = "OTHER", message } = {}
+) {
+  const flagged = await reportPlatformBookingProblem(orderId, {
+    type,
+    message: String(message || "").trim(),
+  });
   if (!flagged.ok) return { ok: false, message: flagged.message || "" };
-  const note = String(message || "").trim();
-  if (note) {
-    await contactRovaroAboutBooking(orderId, {
-      category: SUPPORT_CATEGORY.OTHER,
-      message: note,
-    });
-  }
-  return { ok: true, message: "" };
+  return { ok: true, message: "", data: flagged.body?.issue || null };
 }
