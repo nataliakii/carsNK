@@ -98,6 +98,7 @@ import {
   isValidOfferCapabilityId,
   normalizeOfferCapabilityId,
   publicExclusionReason,
+  resolveAlternativeLocationSnapshot,
   sanitizeReason,
   verifyOfferChecksum,
 } from "./alternativeOfferCore";
@@ -239,8 +240,15 @@ function quotedFeesFromSnapshot(snapshot) {
   };
 }
 
-async function quoteProposedDelivery({ order, car, company, eligible }) {
-  const snap = order.locationSnapshot;
+async function quoteProposedDelivery({
+  order,
+  car,
+  company,
+  eligible,
+  originalSnapshot,
+}) {
+  const snap =
+    originalSnapshot || resolveAlternativeLocationSnapshot(order, { company });
   const pickup = snap?.pickup || {};
   const ret = snap?.return || snap?.dropoff || {};
   const pickupOffice = pickup.kind === LOCATION_KIND.OFFICE;
@@ -328,17 +336,20 @@ async function evaluateProposedAvailability({ car, order, purpose }) {
 async function buildProposedQuote({ order, car, company }) {
   const office = evaluateOfficeCompatibility({ order, car, company });
   if (!office.ok) return office;
+  const originalLocationSnapshot =
+    office.locationSnapshot || resolveAlternativeLocationSnapshot(order, { company });
 
   const deliveryQuote = await quoteProposedDelivery({
     order,
     car,
     company,
     eligible: office.eligible,
+    originalSnapshot: originalLocationSnapshot,
   });
   if (!deliveryQuote.ok) return deliveryQuote;
 
   const proposedLocation = buildProposedLocationSnapshot({
-    originalSnapshot: order.locationSnapshot,
+    originalSnapshot: originalLocationSnapshot,
     delivery: deliveryQuote.delivery,
     eligible: office.eligible,
     company,

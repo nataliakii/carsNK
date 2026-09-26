@@ -138,6 +138,131 @@ function iso(value) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function hasLocationLegs(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return false;
+  const pickup = snapshot.pickup;
+  const ret = snapshot.return || snapshot.dropoff;
+  return Boolean(
+    pickup &&
+      typeof pickup === "object" &&
+      ret &&
+      typeof ret === "object"
+  );
+}
+
+function firstMajor(...values) {
+  for (const value of values) {
+    if (value == null || value === "") continue;
+    const n = Number(value);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return 0;
+}
+
+function minorToMajor(value) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n / 100 : null;
+}
+
+function compactKey(value) {
+  return text(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}
+
+function legacyPlaceId(order, leg, name, address) {
+  const stored =
+    leg === "pickup"
+      ? text(order?.pickupPlaceId || order?.placeInId)
+      : text(order?.returnPlaceId || order?.placeOutId);
+  if (stored) return stored;
+  const seed =
+    compactKey(order?._id || order?.orderNumber) ||
+    compactKey(`${name}-${address}`) ||
+    "order";
+  return `manual:legacy-${leg}-${seed}`;
+}
+
+function deliveryFeeMajor(order, leg) {
+  const auth = order?.authoritativePrice || {};
+  const breakdown = order?.priceBreakdown || order?.breakdown || {};
+  if (leg === "pickup") {
+    return firstMajor(
+      minorToMajor(auth.pickupFeeMinor),
+      order?.deliveryInOverride,
+      breakdown.deliveryIn,
+      order?.deliveryIn
+    );
+  }
+  return firstMajor(
+    minorToMajor(auth.returnFeeMinor),
+    order?.deliveryOutOverride,
+    breakdown.deliveryOut,
+    order?.deliveryOut
+  );
+}
+
+function legacyLocationLeg(order, leg, { company } = {}) {
+  const isPickup = leg === "pickup";
+  const name = text(isPickup ? order?.placeIn : order?.placeOut);
+  const address = text(isPickup ? order?.placeInDetail : order?.placeOutDetail);
+  if (!name && !address) return null;
+  const method = text(isPickup ? order?.pickupMethod : order?.returnMethod).toLowerCase();
+  const explicitOfficeId = text(
+    isPickup
+      ? order?.pickupOfficeId || order?.placeInOfficeId
+      : order?.returnOfficeId || order?.placeOutOfficeId
+  );
+  const kind =
+    method === LOCATION_KIND.OFFICE && explicitOfficeId
+      ? LOCATION_KIND.OFFICE
+      : LOCATION_KIND.DELIVERY;
+  return {
+    kind,
+    officeId: kind === LOCATION_KIND.OFFICE ? explicitOfficeId : "",
+    name: name || address,
+    address: address || name,
+    city: name || address,
+    country: text(order?.countryCode || company?.countryCode || company?.country).toUpperCase(),
+    locationType: method || kind,
+    placeId: kind === LOCATION_KIND.OFFICE ? "" : legacyPlaceId(order, leg, name, address),
+    lat:
+      order?.[isPickup ? "placeInLat" : "placeOutLat"] != null &&
+      order?.[isPickup ? "placeInLat" : "placeOutLat"] !== ""
+        ? Number(order?.[isPickup ? "placeInLat" : "placeOutLat"])
+        : null,
+    lon:
+      order?.[isPickup ? "placeInLon" : "placeOutLon"] != null &&
+      order?.[isPickup ? "placeInLon" : "placeOutLon"] !== ""
+        ? Number(order?.[isPickup ? "placeInLon" : "placeOutLon"])
+        : null,
+    instructions: "",
+    feeMajor: deliveryFeeMajor(order, leg),
+    distanceKm: null,
+    ruleId: "legacy-order-fields",
+    ruleVersion: "",
+    blocked: false,
+  };
+}
+
+export function resolveAlternativeLocationSnapshot(order, { company } = {}) {
+  if (hasLocationLegs(order?.locationSnapshot)) return order.locationSnapshot;
+  const pickup = legacyLocationLeg(order, "pickup", { company });
+  const ret = legacyLocationLeg(order, "return", { company });
+  if (!pickup || !ret) return null;
+  return {
+    pickup,
+    return: ret,
+    currency: "EUR",
+    calculatedAt: iso(order?.updatedAt || order?.createdAt || order?.date) || new Date().toISOString(),
+    pricingVersion: "legacy-order-fields",
+    legacySource: "order-fields",
+  };
+}
+
 export function classRank(value) {
   const idx = VEHICLE_CLASS_RANK.indexOf(String(value || "").trim().toLowerCase());
   return idx === -1 ? null : idx;
@@ -399,10 +524,11 @@ export function buildOriginalRequestSnapshot({ order, car, company } = {}) {
     company,
     vehicle,
   });
+  const locationSnapshot = resolveAlternativeLocationSnapshot(order, { company });
   return {
     carId: order?.car != null ? String(order.car) : vehicle.carId,
     vehicle,
-    locationSnapshot: order?.locationSnapshot || null,
+    locationSnapshot,
     authoritativePrice: order?.authoritativePrice || null,
     insurance: text(order?.insurance),
     terms,
@@ -498,8 +624,8 @@ export function compareMaterialRentalTerms(originalTerms, proposedTerms) {
 }
 
 export function evaluateOfficeCompatibility({ order, car, company }) {
-  const snap = order?.locationSnapshot;
-  if (!snap || typeof snap !== "object") {
+  const snap = resolveAlternativeLocationSnapshot(order, { company });
+  if (!snap) {
     return {
       ok: false,
       code: ALTERNATIVE_OFFER_CODE.LOCATION_SNAPSHOT_MISSING,
@@ -532,7 +658,7 @@ export function evaluateOfficeCompatibility({ order, car, company }) {
       };
     }
   }
-  return { ok: true, eligible };
+  return { ok: true, eligible, locationSnapshot: snap };
 }
 
 function cloneLeg(leg) {

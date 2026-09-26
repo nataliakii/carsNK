@@ -10,6 +10,9 @@ import {
   buildCappedAuthoritativePrice,
   compareMaterialRentalTerms,
   evaluateAutomaticAlternativeEligibility,
+  evaluateOfficeCompatibility,
+  LOCATION_KIND,
+  resolveAlternativeLocationSnapshot,
 } from "../alternativeOfferCore";
 import { validateAlternativeNotWorse } from "../alternativeVehicle";
 
@@ -159,6 +162,59 @@ describe("proposed stored car", () => {
         proposedCarId: "car-b",
       }).code
     ).toBe(ALTERNATIVE_OFFER_CODE.CAR_DELETED);
+  });
+});
+
+describe("alternative offer location snapshot", () => {
+  test("legacy booking fields unblock replacement pricing when snapshot is missing", () => {
+    const order = {
+      _id: "order-legacy-1",
+      orderNumber: "R-100",
+      ownerId: "company-a",
+      placeIn: "Malaga Airport",
+      placeInDetail: "Terminal 3 arrivals",
+      placeOut: "Marbella",
+      placeOutDetail: "Hotel front desk",
+      countryCode: "ES",
+      timeIn: "2026-10-06T10:00:00.000Z",
+      timeOut: "2026-10-08T10:00:00.000Z",
+      authoritativePrice: {
+        pickupFeeMinor: 1200,
+        returnFeeMinor: 0,
+      },
+    };
+
+    const snapshot = resolveAlternativeLocationSnapshot(order);
+    expect(snapshot.pickup.kind).toBe(LOCATION_KIND.DELIVERY);
+    expect(snapshot.pickup.name).toBe("Malaga Airport");
+    expect(snapshot.pickup.address).toBe("Terminal 3 arrivals");
+    expect(snapshot.pickup.feeMajor).toBe(12);
+    expect(snapshot.pickup.placeId).toBe("manual:legacy-pickup-order-legacy-1");
+    expect(snapshot.return.name).toBe("Marbella");
+
+    const compatibility = evaluateOfficeCompatibility({
+      order,
+      car: { _id: "car-b", ownerId: "company-a" },
+      company: { _id: "company-a", offices: [] },
+    });
+
+    expect(compatibility.ok).toBe(true);
+    expect(compatibility.locationSnapshot).toEqual(snapshot);
+  });
+
+  test("missing legacy pickup or return still blocks alternative pricing", () => {
+    const compatibility = evaluateOfficeCompatibility({
+      order: {
+        _id: "order-missing-location",
+        ownerId: "company-a",
+        placeIn: "Malaga Airport",
+      },
+      car: { _id: "car-b", ownerId: "company-a" },
+      company: { _id: "company-a", offices: [] },
+    });
+
+    expect(compatibility.ok).toBe(false);
+    expect(compatibility.code).toBe(ALTERNATIVE_OFFER_CODE.LOCATION_SNAPSHOT_MISSING);
   });
 });
 
