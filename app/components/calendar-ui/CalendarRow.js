@@ -1828,11 +1828,12 @@ export default function CarTableRow({
               height: "100%",
               display: "flex",
               flexDirection: "row",
+              // Do not set alignItems: "center" here — empty half-pills with
+              // height: "100%" collapse to 0 under flex centering (return day
+              // looked blank while start-day CASE 4 stayed visible).
               cursor: moveMode && !isActiveInMoveMode
                 ? "not-allowed"
                 : "pointer",
-              alignItems: "center",
-              justifyContent: "center",
               opacity: dragSourceOpacity,
             }}
           >
@@ -1843,6 +1844,7 @@ export default function CarTableRow({
               sx={{
                 width: "50%",
                 height: "100%",
+                alignSelf: "stretch",
                 borderRadius: "0 50% 50% 0",
                 backgroundColor: shouldShowLastMoveDay
                   ? MOVE_MODE_COLORS.YELLOW_SOLID // Желтый цвет для режима перемещения
@@ -1877,6 +1879,7 @@ export default function CarTableRow({
               sx={{
                 width: "50%",
                 height: "100%",
+                alignSelf: "stretch",
                 borderRadius: shouldHighlightRight ? "50% 0 0 50%" : undefined,
                 backgroundColor: shouldHighlightRight ? MOVE_MODE_COLORS.BLUE_SELECTED : undefined,
                 display: "flex",
